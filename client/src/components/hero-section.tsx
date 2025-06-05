@@ -72,10 +72,7 @@ export default function HeroSection() {
                 alt="Diverse team of professional contractors working together" 
                 className="rounded-xl shadow-lg w-full h-96 object-cover" 
               />
-              <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-xl border">
-                <div className="text-3xl font-bold text-brand-red">500+</div>
-                <div className="text-gray-600 font-medium">Projects Completed</div>
-              </div>
+
             </div>
           </div>
         </div>
