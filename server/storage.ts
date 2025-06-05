@@ -353,6 +353,78 @@ export class MemStorage implements IStorage {
   async getAllEmailCampaigns(): Promise<EmailCampaign[]> {
     return Array.from(this.emailCampaigns.values());
   }
+
+  // Appointments
+  async getAppointment(id: number): Promise<Appointment | undefined> {
+    return this.appointments.get(id);
+  }
+
+  async getAllAppointments(): Promise<Appointment[]> {
+    return Array.from(this.appointments.values());
+  }
+
+  async getAppointmentsByCustomer(customerId: number): Promise<Appointment[]> {
+    return Array.from(this.appointments.values()).filter(appointment => appointment.customerId === customerId);
+  }
+
+  async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
+    const appointment: Appointment = {
+      ...insertAppointment,
+      id: this.currentAppointmentId++,
+      customerId: insertAppointment.customerId || null,
+      phone: insertAppointment.phone || null,
+      notes: insertAppointment.notes || null,
+      status: "scheduled",
+      createdAt: new Date(),
+    };
+    this.appointments.set(appointment.id, appointment);
+    return appointment;
+  }
+
+  async updateAppointmentStatus(id: number, status: string): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      appointment.status = status;
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async getUpcomingAppointments(): Promise<Appointment[]> {
+    const now = new Date();
+    return Array.from(this.appointments.values()).filter(appointment => 
+      appointment.appointmentDate > now && appointment.status === "scheduled"
+    );
+  }
+
+  // Project Gallery
+  async getProjectGalleryItem(id: number): Promise<ProjectGallery | undefined> {
+    return this.projectGallery.get(id);
+  }
+
+  async getAllProjectGalleryItems(): Promise<ProjectGallery[]> {
+    return Array.from(this.projectGallery.values());
+  }
+
+  async getProjectGalleryByCategory(category: string): Promise<ProjectGallery[]> {
+    return Array.from(this.projectGallery.values()).filter(item => item.category === category);
+  }
+
+  async getFeaturedProjects(): Promise<ProjectGallery[]> {
+    return Array.from(this.projectGallery.values()).filter(item => item.featured);
+  }
+
+  async createProjectGalleryItem(insertItem: InsertProjectGallery): Promise<ProjectGallery> {
+    const item: ProjectGallery = {
+      ...insertItem,
+      id: this.currentProjectGalleryId++,
+      beforeImageUrl: insertItem.beforeImageUrl || null,
+      location: insertItem.location || null,
+      featured: insertItem.featured || false,
+      createdAt: new Date(),
+    };
+    this.projectGallery.set(item.id, item);
+    return item;
+  }
 }
 
 export const storage = new MemStorage();

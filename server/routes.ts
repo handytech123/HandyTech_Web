@@ -6,7 +6,9 @@ import {
   insertMaintenancePlanSchema, 
   insertReviewSchema, 
   insertQuoteSchema,
-  insertEmailCampaignSchema 
+  insertEmailCampaignSchema,
+  insertAppointmentSchema,
+  insertProjectGallerySchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -243,25 +245,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       switch (serviceType) {
         case "IT Support & Maintenance":
-          basePrice = 500;
+        case "Tech Setup":
+          basePrice = 150;
           break;
-        case "Cybersecurity Solutions":
-          basePrice = 800;
+        case "Electrical Work":
+          basePrice = 200;
           break;
-        case "Cloud Services":
-          basePrice = 600;
+        case "Plumbing":
+          basePrice = 180;
           break;
-        case "Network Infrastructure":
-          basePrice = 1000;
+        case "Carpentry":
+          basePrice = 160;
           break;
-        case "Data Management":
-          basePrice = 700;
+        case "General Handyman":
+          basePrice = 120;
           break;
-        case "Hardware Solutions":
-          basePrice = 400;
+        case "Home Repair":
+          basePrice = 140;
           break;
         default:
-          basePrice = 500;
+          basePrice = 130;
       }
       
       const sizeMultiplier = multipliers[companySize as keyof typeof multipliers] || 1;
@@ -282,6 +285,93 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to calculate quote" });
+    }
+  });
+
+  // Appointment routes
+  app.get("/api/appointments", async (req, res) => {
+    try {
+      const appointments = await storage.getAllAppointments();
+      res.json(appointments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const appointmentData = insertAppointmentSchema.parse(req.body);
+      const appointment = await storage.createAppointment(appointmentData);
+
+      // Auto-create customer if they don't exist
+      const existingCustomer = await storage.getCustomerByEmail(appointment.email);
+      if (!existingCustomer) {
+        await storage.createCustomer({
+          firstName: appointment.firstName,
+          lastName: appointment.lastName,
+          email: appointment.email,
+          phone: appointment.phone,
+          company: null,
+        });
+      }
+
+      res.status(201).json(appointment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create appointment" });
+      }
+    }
+  });
+
+  app.get("/api/appointments/upcoming", async (req, res) => {
+    try {
+      const appointments = await storage.getUpcomingAppointments();
+      res.json(appointments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch upcoming appointments" });
+    }
+  });
+
+  // Project gallery routes
+  app.get("/api/gallery", async (req, res) => {
+    try {
+      const { category } = req.query;
+      let projects;
+      
+      if (category && typeof category === 'string') {
+        projects = await storage.getProjectGalleryByCategory(category);
+      } else {
+        projects = await storage.getAllProjectGalleryItems();
+      }
+      
+      res.json(projects);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch gallery items" });
+    }
+  });
+
+  app.get("/api/gallery/featured", async (req, res) => {
+    try {
+      const projects = await storage.getFeaturedProjects();
+      res.json(projects);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch featured projects" });
+    }
+  });
+
+  app.post("/api/gallery", async (req, res) => {
+    try {
+      const projectData = insertProjectGallerySchema.parse(req.body);
+      const project = await storage.createProjectGalleryItem(projectData);
+      res.status(201).json(project);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid project data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create project" });
+      }
     }
   });
 
