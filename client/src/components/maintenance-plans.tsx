@@ -7,43 +7,50 @@ import { Check } from "lucide-react";
 
 const plans = [
   {
-    name: "Basic",
-    price: 99,
-    description: "Perfect for small businesses",
+    name: "Annual Home Maintenance Checkup",
+    price: 299,
+    period: "year",
+    icon: "🛠️",
+    description: "A once-a-year professional review of your home's essential systems.",
     features: [
-      "Monthly system checkup",
-      "Basic security updates", 
-      "Email support",
-      "Performance monitoring",
-      "Backup verification"
-    ]
+      "Electrical system inspection (outlets, lights, smoke detectors)",
+      "Plumbing checkup (faucets, drains, toilets)",
+      "HVAC filter check (filter replacement extra if needed)",
+      "Safety review (handrails, trip hazards, etc.)",
+      "Personalized maintenance recommendations"
+    ],
+    benefit: "Perfect for proactive homeowners who want to catch small issues before they become big problems."
   },
   {
-    name: "Professional",
-    price: 199,
-    description: "Ideal for growing companies",
+    name: "Seasonal Home Maintenance",
+    price: 149,
+    period: "visit",
+    icon: "🏡",
+    description: "A hands-on maintenance visit scheduled each spring, summer, fall, or winter.",
     features: [
-      "Bi-weekly system checkup",
-      "Advanced security monitoring",
-      "Priority phone support",
-      "Real-time monitoring",
-      "Automated backups",
-      "Monthly reports"
+      "Gutters cleared (as needed)",
+      "Minor repairs (small drywall fixes, faucet checks)",
+      "Pressure washing (one small area)",
+      "Quick home safety inspection (smoke detectors, railings)",
+      "Basic seasonal prep (e.g. winterize hose bibs)"
     ],
+    benefit: "Choose the season(s) that fit your needs. Great for busy homeowners who want a hassle-free home.",
     popular: true
   },
   {
-    name: "Enterprise", 
-    price: 399,
-    description: "For large organizations",
+    name: "On-Demand Maintenance Services",
+    price: "Custom",
+    period: "service",
+    icon: "🔧",
+    description: "No commitment — just quality, professional service when you need it.",
     features: [
-      "Weekly system checkup",
-      "Enterprise security suite",
-      "24/7 dedicated support",
-      "Proactive monitoring",
-      "Redundant backups",
-      "Custom integrations"
-    ]
+      "Light fixture installation",
+      "Appliance hookup and minor repairs",
+      "Drywall patching and painting",
+      "Smart home device setup",
+      "Security system installations"
+    ],
+    benefit: "Pay-as-you-go with transparent pricing. Contact us for a personalized quote!"
   }
 ];
 
@@ -64,9 +71,12 @@ export default function MaintenancePlans() {
     <section id="maintenance" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-charcoal mb-4">Monthly Maintenance Plans</h2>
+          <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            HOMEOWNER MAINTENANCE PLANS
+          </div>
+          <h2 className="text-4xl font-bold text-charcoal mb-4">HandyTech Solutions – Homeowner Maintenance Plans</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Choose the perfect maintenance plan to keep your technology running smoothly with proactive support and regular check-ups.
+            Choose the perfect maintenance plan to keep your home running smoothly with proactive support and regular check-ups.
           </p>
         </div>
 
@@ -85,26 +95,31 @@ export default function MaintenancePlans() {
               )}
               <CardContent className="p-8">
                 <div className="text-center mb-8">
-                  <h3 className="text-2xl font-bold text-charcoal mb-2">{plan.name}</h3>
-                  <div className="text-4xl font-bold text-brand-red mb-2">
-                    ${plan.price}<span className="text-lg text-gray-600">/month</span>
+                  <div className="text-3xl mb-4">{plan.icon}</div>
+                  <h3 className="text-xl font-bold text-charcoal mb-2">{plan.name}</h3>
+                  <div className="text-3xl font-bold text-brand-red mb-2">
+                    {typeof plan.price === 'number' ? `$${plan.price}` : plan.price}
+                    <span className="text-lg text-gray-600">/{plan.period}</span>
                   </div>
                   <p className="text-gray-600">{plan.description}</p>
                 </div>
-                <ul className="space-y-4 mb-8">
+                <ul className="space-y-3 mb-6">
                   {plan.features.map((feature, featureIndex) => (
-                    <li key={featureIndex} className="flex items-center">
-                      <Check className="text-brand-red mr-3" size={20} />
-                      {feature}
+                    <li key={featureIndex} className="flex items-start">
+                      <Check className="text-brand-red mr-3 mt-0.5 flex-shrink-0" size={16} />
+                      <span className="text-sm text-gray-700">{feature}</span>
                     </li>
                   ))}
                 </ul>
+                <div className="bg-light-gray p-4 rounded-lg mb-6">
+                  <p className="text-sm text-gray-700 italic">👉 {plan.benefit}</p>
+                </div>
                 <Button 
                   onClick={() => subscribeToPlan.mutate(plan.name.toLowerCase())}
                   className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
                   disabled={subscribeToPlan.isPending}
                 >
-                  Choose {plan.name}
+                  {typeof plan.price === 'number' ? `Get Started - $${plan.price}` : 'Get Quote'}
                 </Button>
               </CardContent>
             </Card>
