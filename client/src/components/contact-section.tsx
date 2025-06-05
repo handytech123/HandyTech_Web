@@ -81,10 +81,10 @@ export default function ContactSection() {
           {/* Contact Information */}
           <div>
             <h2 className="text-4xl font-bold mb-6">
-              Get Your Free <span className="text-brand-red">Technology Consultation</span>
+              Contact Us for Expert <span className="text-brand-red">Handyman & Smart Tech Services</span>
             </h2>
             <p className="text-xl text-gray-300 mb-8">
-              Ready to streamline your technology operations? Contact us today for a comprehensive assessment and custom solution proposal.
+              HandyTech Solutions: Your premier choice for home improvement. With 10+ years of experience, we ensure high-quality service from minor repairs to major renovations.
             </p>
             
             <div className="space-y-6">
@@ -225,12 +225,12 @@ export default function ContactSection() {
                     <SelectValue placeholder="Select a service" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="IT Support & Maintenance">IT Support & Maintenance</SelectItem>
-                    <SelectItem value="Cybersecurity Solutions">Cybersecurity Solutions</SelectItem>
-                    <SelectItem value="Cloud Services">Cloud Services</SelectItem>
-                    <SelectItem value="Network Infrastructure">Network Infrastructure</SelectItem>
-                    <SelectItem value="Data Management">Data Management</SelectItem>
-                    <SelectItem value="Hardware Solutions">Hardware Solutions</SelectItem>
+                    <SelectItem value="Smart Home Technologies">Smart Home Technologies</SelectItem>
+                    <SelectItem value="Electrical Work">Electrical Work</SelectItem>
+                    <SelectItem value="Plumbing">Plumbing</SelectItem>
+                    <SelectItem value="Low Voltage Systems">Low Voltage Systems</SelectItem>
+                    <SelectItem value="Painting">Painting</SelectItem>
+                    <SelectItem value="General Maintenance">General Maintenance</SelectItem>
                     <SelectItem value="Monthly Maintenance Plan">Monthly Maintenance Plan</SelectItem>
                   </SelectContent>
                 </Select>

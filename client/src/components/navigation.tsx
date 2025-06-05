@@ -34,16 +34,16 @@ export default function Navigation() {
                 Services
               </button>
               <button 
-                onClick={() => scrollToSection('maintenance')}
+                onClick={() => scrollToSection('gallery')}
                 className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
               >
-                Maintenance Plans
+                Gallery
               </button>
               <button 
-                onClick={() => scrollToSection('team')}
+                onClick={() => scrollToSection('scheduler')}
                 className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
               >
-                Our Team
+                Schedule
               </button>
               <button 
                 onClick={() => scrollToSection('testimonials')}
@@ -81,16 +81,16 @@ export default function Navigation() {
                     Services
                   </button>
                   <button 
-                    onClick={() => scrollToSection('maintenance')}
+                    onClick={() => scrollToSection('gallery')}
                     className="text-left text-charcoal hover:text-brand-red py-2"
                   >
-                    Maintenance Plans
+                    Gallery
                   </button>
                   <button 
-                    onClick={() => scrollToSection('team')}
+                    onClick={() => scrollToSection('scheduler')}
                     className="text-left text-charcoal hover:text-brand-red py-2"
                   >
-                    Our Team
+                    Schedule
                   </button>
                   <button 
                     onClick={() => scrollToSection('testimonials')}

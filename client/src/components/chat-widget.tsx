@@ -9,7 +9,7 @@ export default function ChatWidget() {
   const [messages, setMessages] = useState([
     {
       id: 1,
-      text: "Hi! I'm here to help you with any questions about our technology services. How can I assist you today?",
+      text: "Hi! I'm here to help you with any questions about our handyman and smart home services. How can I assist you today?",
       isBot: true,
       timestamp: new Date()
     }
@@ -33,7 +33,7 @@ export default function ChatWidget() {
     setTimeout(() => {
       const botResponse = {
         id: messages.length + 2,
-        text: "Thank you for your message! Our team will get back to you shortly. In the meantime, feel free to explore our services or contact us directly at (555) 123-4567.",
+        text: "Thank you for your message! Our HandyTech team will get back to you shortly. You can also schedule an appointment directly on this page or call us at (555) 123-4567 for immediate assistance.",
         isBot: true,
         timestamp: new Date()
       };
