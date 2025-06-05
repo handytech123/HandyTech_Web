@@ -1,0 +1,116 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: 0 0% 100%;
+  --foreground: 220 14% 25%; /* #374151 charcoal */
+  --muted: 210 10% 96%; /* #F3F4F6 light-gray */
+  --muted-foreground: 220 9% 46%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 220 14% 25%;
+  --card: 0 0% 100%;
+  --card-foreground: 220 14% 25%;
+  --border: 210 10% 90%;
+  --input: 210 10% 90%;
+  --primary: 0 74% 42%; /* #DC2626 brand-red */
+  --primary-foreground: 0 0% 100%;
+  --secondary: 210 10% 96%;
+  --secondary-foreground: 220 14% 25%;
+  --accent: 210 10% 96%;
+  --accent-foreground: 220 14% 25%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 0 74% 42%;
+  --radius: 0.5rem;
+  --chart-1: 0 74% 42%;
+  --chart-2: 220 14% 25%;
+  --chart-3: 210 10% 70%;
+  --chart-4: 0 84% 60%;
+  --chart-5: 210 10% 50%;
+  
+  /* Custom brand colors */
+  --brand-red: 0 74% 42%; /* #DC2626 */
+  --brand-red-dark: 0 74% 36%; /* #B91C1C */
+  --charcoal: 220 14% 25%; /* #374151 */
+  --light-gray: 210 10% 96%; /* #F3F4F6 */
+}
+
+.dark {
+  --background: 220 14% 10%;
+  --foreground: 0 0% 98%;
+  --muted: 220 14% 15%;
+  --muted-foreground: 210 10% 65%;
+  --popover: 220 14% 10%;
+  --popover-foreground: 0 0% 98%;
+  --card: 220 14% 10%;
+  --card-foreground: 0 0% 98%;
+  --border: 220 14% 20%;
+  --input: 220 14% 20%;
+  --primary: 0 74% 42%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 220 14% 15%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 220 14% 15%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 62% 30%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 0 74% 42%;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+}
+
+@layer utilities {
+  .brand-red {
+    color: hsl(var(--brand-red));
+  }
+  
+  .bg-brand-red {
+    background-color: hsl(var(--brand-red));
+  }
+  
+  .bg-brand-red-dark {
+    background-color: hsl(var(--brand-red-dark));
+  }
+  
+  .text-charcoal {
+    color: hsl(var(--charcoal));
+  }
+  
+  .bg-charcoal {
+    background-color: hsl(var(--charcoal));
+  }
+  
+  .bg-light-gray {
+    background-color: hsl(var(--light-gray));
+  }
+  
+  .hover\:bg-brand-red-dark:hover {
+    background-color: hsl(var(--brand-red-dark));
+  }
+  
+  .hover\:text-brand-red:hover {
+    color: hsl(var(--brand-red));
+  }
+  
+  .border-brand-red {
+    border-color: hsl(var(--brand-red));
+  }
+  
+  .focus\:ring-brand-red:focus {
+    --tw-ring-color: hsl(var(--brand-red));
+  }
+  
+  .focus\:border-brand-red:focus {
+    border-color: hsl(var(--brand-red));
+  }
+}

@@ -1,0 +1,67 @@
+import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
+
+export default function Footer() {
+  return (
+    <footer className="bg-black text-white py-12">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="grid md:grid-cols-4 gap-8">
+          {/* Company Info */}
+          <div>
+            <h3 className="text-xl font-bold mb-4">
+              HandyTech<span className="text-brand-red">Solutions</span>
+            </h3>
+            <p className="text-gray-400 mb-4">
+              Professional technology services and maintenance solutions for businesses of all sizes.
+            </p>
+            <div className="flex space-x-4">
+              <Facebook className="h-5 w-5 text-gray-400 hover:text-brand-red cursor-pointer transition-colors" />
+              <Twitter className="h-5 w-5 text-gray-400 hover:text-brand-red cursor-pointer transition-colors" />
+              <Linkedin className="h-5 w-5 text-gray-400 hover:text-brand-red cursor-pointer transition-colors" />
+              <Instagram className="h-5 w-5 text-gray-400 hover:text-brand-red cursor-pointer transition-colors" />
+            </div>
+          </div>
+
+          {/* Services */}
+          <div>
+            <h4 className="font-semibold mb-4">Services</h4>
+            <ul className="space-y-2 text-gray-400">
+              <li><a href="#" className="hover:text-white transition-colors">IT Support</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Cybersecurity</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Cloud Services</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Network Infrastructure</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Data Management</a></li>
+            </ul>
+          </div>
+
+          {/* Company */}
+          <div>
+            <h4 className="font-semibold mb-4">Company</h4>
+            <ul className="space-y-2 text-gray-400">
+              <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Our Team</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">News</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+            </ul>
+          </div>
+
+          {/* Support */}
+          <div>
+            <h4 className="font-semibold mb-4">Support</h4>
+            <ul className="space-y-2 text-gray-400">
+              <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+            </ul>
+          </div>
+        </div>
+
+        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
+          <p>&copy; 2024 HandyTech Solutions. All rights reserved.</p>
+        </div>
+      </div>
+    </footer>
+  );
+}
