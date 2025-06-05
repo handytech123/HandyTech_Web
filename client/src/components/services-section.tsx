@@ -9,42 +9,54 @@ import {
   Wrench 
 } from "lucide-react";
 
-const services = [
+const serviceCategories = [
   {
-    icon: Laptop,
-    title: "Smart Home Technologies",
-    description: "Professional smart home installation and automation setup for modern living.",
-    features: ["Smart thermostat installation", "Smart lighting systems", "Security system integration", "Home automation setup"]
-  },
-  {
-    icon: Network,
-    title: "Electrical Services",
-    description: "Safe and reliable electrical installations, repairs, and upgrades.",
-    features: ["Light fixture installation", "Outlet and switch installation", "Ceiling fan installation", "Troubleshooting and repairs"]
-  },
-  {
-    icon: Database,
-    title: "Plumbing Services",
-    description: "Professional plumbing repairs, installations, and maintenance.",
-    features: ["Faucet and fixture installation", "Drain cleaning and unclogging", "Toilet repair and replacement", "Water heater maintenance"]
+    icon: Wrench,
+    title: "Essential Repairs & Maintenance",
+    subtitle: "🛠️ Service A",
+    description: "Quick fixes and routine maintenance to keep your home in top shape.",
+    features: [
+      "Smart thermostat installation",
+      "Smart lighting and switches", 
+      "Security camera setup",
+      "Home automation systems",
+      "Light plumbing repairs (faucets, drains)",
+      "Electrical services (fixtures, outlets, ceiling fans)",
+      "Drywall repair and installation",
+      "Appliance repairs and furniture assembly",
+      "Pressure washing"
+    ]
   },
   {
     icon: Shield,
-    title: "Low Voltage Systems",
-    description: "Advanced low voltage installations for security and entertainment systems.",
-    features: ["Security camera installation", "Home theater wiring", "Network cabling", "TV mounts and setup"]
+    title: "Home Improvement & Remodeling", 
+    subtitle: "🏡 Service B",
+    description: "Enhance and modernize your living spaces with our remodeling services.",
+    features: [
+      "Interior painting and surface preparation",
+      "Kitchen and bathroom renovations",
+      "Floor installation",
+      "Staircase upgrades", 
+      "Basement finishing",
+      "Garage improvements"
+    ]
   },
   {
-    icon: Cloud,
-    title: "Painting Services",
-    description: "Professional interior painting and surface preparation for your home.",
-    features: ["Interior painting", "Surface preparation and priming", "Touch-ups and repairs", "Wallpaper removal"]
-  },
-  {
-    icon: Wrench,
-    title: "General Maintenance",
-    description: "Complete home maintenance and repair services for all your needs.",
-    features: ["Drywall repair and installation", "Appliance repair", "Furniture assembly", "Pressure washing"]
+    icon: Network,
+    title: "Specialized Installations & Custom Projects",
+    subtitle: "🧰 Service C", 
+    description: "Tailored solutions for unique home projects and installations.",
+    features: [
+      "Home theater and audio wiring",
+      "Network cabling and TV mounting",
+      "Deck rebuilding and repairs",
+      "Shed construction",
+      "Concrete work",
+      "Gutter installation and maintenance",
+      "Vanity installations",
+      "Lighting fixture upgrades",
+      "Fireplace mantel installations"
+    ]
   }
 ];
 
@@ -62,18 +74,23 @@ export default function ServicesSection() {
           </p>
         </div>
         
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service, index) => {
+        <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
+          {serviceCategories.map((service, index) => {
             const IconComponent = service.icon;
             return (
               <Card key={index} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
-                <CardContent className="p-8 text-center">
-                  <div className="bg-light-gray w-20 h-20 rounded-full flex items-center justify-center mb-6 mx-auto group-hover:bg-brand-red transition-colors duration-300">
-                    <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={32} />
+                <CardContent className="p-8">
+                  <div className="flex items-center mb-4">
+                    <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
+                      <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-brand-red mb-1">{service.subtitle}</div>
+                      <h3 className="text-lg font-bold text-charcoal">{service.title}</h3>
+                    </div>
                   </div>
-                  <h3 className="text-xl font-bold text-charcoal mb-4">{service.title}</h3>
                   <p className="text-gray-600 mb-6 leading-relaxed">{service.description}</p>
-                  <ul className="text-sm text-gray-600 space-y-3 text-left">
+                  <ul className="text-sm text-gray-600 space-y-2">
                     {service.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex items-start">
                         <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
