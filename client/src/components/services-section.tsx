@@ -98,6 +98,58 @@ export default function ServicesSection() {
             );
           })}
         </div>
+        
+        {/* Home Depot Pro Benefits Section */}
+        <div className="mt-20 bg-orange-50 rounded-2xl p-8">
+          <div className="text-center mb-8">
+            <div className="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-4">
+              HOME DEPOT PRO CONTRACTOR
+            </div>
+            <h3 className="text-2xl font-bold text-charcoal mb-4">
+              Professional Grade Materials & Service
+            </h3>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              As a certified Home Depot Pro contractor, I have access to professional-grade materials, bulk pricing, and exclusive contractor resources to deliver the best value for your projects.
+            </p>
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-6">
+            <div className="text-center">
+              <div className="bg-orange-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-white text-2xl">💰</span>
+              </div>
+              <h4 className="font-semibold text-charcoal mb-2">Bulk Pricing Savings</h4>
+              <p className="text-gray-600 text-sm">Pass savings directly to you with contractor bulk pricing on materials</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-orange-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-white text-2xl">⚡</span>
+              </div>
+              <h4 className="font-semibold text-charcoal mb-2">Priority Service</h4>
+              <p className="text-gray-600 text-sm">Faster project completion with priority access to materials and delivery</p>
+            </div>
+            
+            <div className="text-center">
+              <div className="bg-orange-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                <span className="text-white text-2xl">🏆</span>
+              </div>
+              <h4 className="font-semibold text-charcoal mb-2">Quality Guarantee</h4>
+              <p className="text-gray-600 text-sm">Professional-grade materials backed by Home Depot's quality standards</p>
+            </div>
+          </div>
+          
+          <div className="text-center mt-8">
+            <a 
+              href="https://www.homedepot.com/c/pro" 
+              target="_blank" 
+              rel="noopener noreferrer"
+              className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors"
+            >
+              Learn More About Home Depot Pro
+            </a>
+          </div>
+        </div>
       </div>
     </section>
   );

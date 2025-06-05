@@ -11,8 +11,25 @@ export default function Footer() {
               HandyTech<span className="text-brand-red">Solutions</span>
             </h3>
             <p className="text-gray-400 mb-4">
-              Professional technology services and maintenance solutions for businesses of all sizes.
+              Professional handyman services and smart home technology solutions for homes and businesses.
             </p>
+            
+            {/* Home Depot Pro Partnership */}
+            <div className="mb-6">
+              <div className="bg-orange-600 text-white px-4 py-3 rounded-lg inline-flex items-center space-x-2">
+                <span className="font-bold text-sm">🔨 HOME DEPOT PRO</span>
+              </div>
+              <p className="text-gray-400 text-sm mt-2">Certified Home Depot Pro Contractor</p>
+              <a 
+                href="https://www.homedepot.com/c/pro" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-orange-400 hover:text-orange-300 text-sm underline transition-colors"
+              >
+                Learn about Home Depot Pro Services
+              </a>
+            </div>
+            
             <div className="flex space-x-4">
               <Facebook className="h-5 w-5 text-gray-400 hover:text-brand-red cursor-pointer transition-colors" />
               <Twitter className="h-5 w-5 text-gray-400 hover:text-brand-red cursor-pointer transition-colors" />

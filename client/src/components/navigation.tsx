@@ -51,6 +51,14 @@ export default function Navigation() {
               >
                 Reviews
               </button>
+              <a 
+                href="https://www.homedepot.com/c/pro" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="bg-orange-600 hover:bg-orange-700 text-white px-3 py-2 rounded text-sm font-medium transition-colors mr-2"
+              >
+                Home Depot Pro
+              </a>
               <Link href="/customer-portal">
                 <Button variant="outline" size="sm" className="mr-2">
                   Customer Portal
@@ -98,6 +106,14 @@ export default function Navigation() {
                   >
                     Reviews
                   </button>
+                  <a 
+                    href="https://www.homedepot.com/c/pro" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded font-medium transition-colors text-center"
+                  >
+                    Home Depot Pro
+                  </a>
                   <Link href="/customer-portal">
                     <Button variant="outline" className="w-full justify-start">
                       Customer Portal
