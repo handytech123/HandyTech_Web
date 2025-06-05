@@ -1,11 +1,13 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
   type Review, type InsertReview,
   type Quote, type InsertQuote,
-  type EmailCampaign, type InsertEmailCampaign
+  type EmailCampaign, type InsertEmailCampaign,
+  type Appointment, type InsertAppointment,
+  type ProjectGallery, type InsertProjectGallery
 } from "@shared/schema";
 
 export interface IStorage {
@@ -45,6 +47,21 @@ export interface IStorage {
   createEmailCampaign(campaign: InsertEmailCampaign): Promise<EmailCampaign>;
   getEmailCampaignsByCustomer(customerId: number): Promise<EmailCampaign[]>;
   getAllEmailCampaigns(): Promise<EmailCampaign[]>;
+
+  // Appointments
+  getAppointment(id: number): Promise<Appointment | undefined>;
+  getAllAppointments(): Promise<Appointment[]>;
+  getAppointmentsByCustomer(customerId: number): Promise<Appointment[]>;
+  createAppointment(appointment: InsertAppointment): Promise<Appointment>;
+  updateAppointmentStatus(id: number, status: string): Promise<void>;
+  getUpcomingAppointments(): Promise<Appointment[]>;
+
+  // Project Gallery
+  getProjectGalleryItem(id: number): Promise<ProjectGallery | undefined>;
+  getAllProjectGalleryItems(): Promise<ProjectGallery[]>;
+  getProjectGalleryByCategory(category: string): Promise<ProjectGallery[]>;
+  getFeaturedProjects(): Promise<ProjectGallery[]>;
+  createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery>;
 }
 
 export class MemStorage implements IStorage {
@@ -54,12 +71,16 @@ export class MemStorage implements IStorage {
   private reviews: Map<number, Review> = new Map();
   private quotes: Map<number, Quote> = new Map();
   private emailCampaigns: Map<number, EmailCampaign> = new Map();
+  private appointments: Map<number, Appointment> = new Map();
+  private projectGallery: Map<number, ProjectGallery> = new Map();
   private currentUserId = 1;
   private currentCustomerId = 1;
   private currentMaintenancePlanId = 1;
   private currentReviewId = 1;
   private currentQuoteId = 1;
   private currentEmailCampaignId = 1;
+  private currentAppointmentId = 1;
+  private currentProjectGalleryId = 1;
 
   constructor() {
     // Seed with sample data
@@ -126,6 +147,49 @@ export class MemStorage implements IStorage {
       nextBillingDate: new Date("2024-12-20"),
     };
     this.maintenancePlans.set(plan1.id, plan1);
+
+    // Create sample project gallery items
+    const project1: ProjectGallery = {
+      id: this.currentProjectGalleryId++,
+      title: "Complete Home Office Tech Setup",
+      description: "Full technology overhaul including network setup, computer installation, and smart home integration for a home office.",
+      category: "tech",
+      imageUrl: "https://images.unsplash.com/photo-1587825140708-dfaf72ae4b04?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      beforeImageUrl: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      completionDate: new Date("2024-02-15"),
+      location: "Springfield",
+      featured: true,
+      createdAt: new Date("2024-02-15"),
+    };
+    this.projectGallery.set(project1.id, project1);
+
+    const project2: ProjectGallery = {
+      id: this.currentProjectGalleryId++,
+      title: "Kitchen Electrical Upgrade",
+      description: "Updated kitchen electrical system with new outlets, under-cabinet lighting, and smart switches.",
+      category: "electrical",
+      imageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      beforeImageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      completionDate: new Date("2024-01-10"),
+      location: "Downtown",
+      featured: true,
+      createdAt: new Date("2024-01-10"),
+    };
+    this.projectGallery.set(project2.id, project2);
+
+    const project3: ProjectGallery = {
+      id: this.currentProjectGalleryId++,
+      title: "Bathroom Plumbing Repair",
+      description: "Complete bathroom plumbing overhaul including new fixtures, pipes, and water-efficient installations.",
+      category: "plumbing",
+      imageUrl: "https://images.unsplash.com/photo-1620626011761-996317b8d101?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      beforeImageUrl: null,
+      completionDate: new Date("2024-03-05"),
+      location: "Riverside",
+      featured: false,
+      createdAt: new Date("2024-03-05"),
+    };
+    this.projectGallery.set(project3.id, project3);
   }
 
   // Users
@@ -156,6 +220,8 @@ export class MemStorage implements IStorage {
     const customer: Customer = {
       ...insertCustomer,
       id: this.currentCustomerId++,
+      phone: insertCustomer.phone || null,
+      company: insertCustomer.company || null,
       createdAt: new Date(),
       lastEmailSent: null,
     };
@@ -188,6 +254,7 @@ export class MemStorage implements IStorage {
     const plan: MaintenancePlan = {
       ...insertPlan,
       id: this.currentMaintenancePlanId++,
+      status: insertPlan.status || "active",
       startDate: new Date(),
     };
     this.maintenancePlans.set(plan.id, plan);
@@ -251,6 +318,8 @@ export class MemStorage implements IStorage {
     const quote: Quote = {
       ...insertQuote,
       id: this.currentQuoteId++,
+      company: insertQuote.company || null,
+      message: insertQuote.message || null,
       status: "pending",
       createdAt: new Date(),
     };

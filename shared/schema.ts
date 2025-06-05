@@ -60,6 +60,34 @@ export const emailCampaigns = pgTable("email_campaigns", {
   campaignType: text("campaign_type").notNull(), // 'maintenance', 'promotional', 'follow_up'
 });
 
+export const appointments = pgTable("appointments", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  serviceType: text("service_type").notNull(),
+  appointmentDate: timestamp("appointment_date").notNull(),
+  appointmentTime: text("appointment_time").notNull(),
+  status: text("status").notNull().default("scheduled"), // 'scheduled', 'confirmed', 'completed', 'cancelled'
+  notes: text("notes"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const projectGallery = pgTable("project_gallery", {
+  id: serial("id").primaryKey(),
+  title: text("title").notNull(),
+  description: text("description").notNull(),
+  category: text("category").notNull(), // 'plumbing', 'electrical', 'carpentry', 'tech', 'general'
+  imageUrl: text("image_url").notNull(),
+  beforeImageUrl: text("before_image_url"),
+  completionDate: timestamp("completion_date").notNull(),
+  location: text("location"),
+  featured: boolean("featured").default(false).notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -94,6 +122,17 @@ export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit
   sentAt: true,
 });
 
+export const insertAppointmentSchema = createInsertSchema(appointments).omit({
+  id: true,
+  createdAt: true,
+  status: true,
+});
+
+export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -112,3 +151,9 @@ export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;
+
+export type Appointment = typeof appointments.$inferSelect;
+export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
+
+export type ProjectGallery = typeof projectGallery.$inferSelect;
+export type InsertProjectGallery = z.infer<typeof insertProjectGallerySchema>;
