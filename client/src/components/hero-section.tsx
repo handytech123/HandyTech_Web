@@ -17,7 +17,7 @@ export default function HeroSection() {
               PROFESSIONAL HANDYMAN SERVICES
             </div>
             <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6 text-charcoal">
-              Expert Handyman Services
+              Expert Handyman <span className="text-brand-red">Solutions</span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
               Your trusted partner for home improvement and smart tech solutions, delivered with precision and professionalism.
