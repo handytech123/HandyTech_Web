@@ -129,7 +129,7 @@ export default function ContactSection() {
                 <Button
                   onClick={() => setShowCalculator(!showCalculator)}
                   variant="outline"
-                  className="border-white text-white hover:bg-white hover:text-charcoal"
+                  className="border-brand-red text-brand-red hover:bg-brand-red hover:text-white"
                 >
                   <Calculator className="mr-2" size={16} />
                   Service Quote Calculator
@@ -171,7 +171,7 @@ export default function ContactSection() {
           </div>
 
           {/* Contact Form */}
-          <div className="bg-white rounded-xl p-8">
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h3 className="text-2xl font-bold text-charcoal mb-6">Request Your Quote</h3>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
