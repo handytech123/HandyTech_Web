@@ -1,6 +1,8 @@
 import Navigation from "@/components/navigation";
 import HeroSection from "@/components/hero-section";
 import ServicesSection from "@/components/services-section";
+import ProjectGallery from "@/components/project-gallery";
+import AppointmentScheduler from "@/components/appointment-scheduler";
 import MaintenancePlans from "@/components/maintenance-plans";
 import TeamSection from "@/components/team-section";
 import TestimonialsSection from "@/components/testimonials-section";
@@ -11,13 +13,15 @@ import ChatWidget from "@/components/chat-widget";
 export default function Home() {
   return (
     <div className="min-h-screen bg-white">
-      <title>HandyTech Solutions - Professional Technology Services</title>
-      <meta name="description" content="Comprehensive IT services, maintenance plans, and customer support that keeps your business running smoothly. Get professional technology solutions tailored to your needs." />
+      <title>HandyTech Solutions - Expert Handyman & Smart Home Services</title>
+      <meta name="description" content="Your trusted handyman service with over a decade of experience. We specialize in plumbing, electrical work, smart home technology, painting, and general maintenance. Expert, detail-oriented work on every job." />
       
       <Navigation />
       <main>
         <HeroSection />
         <ServicesSection />
+        <ProjectGallery />
+        <AppointmentScheduler />
         <MaintenancePlans />
         <TeamSection />
         <TestimonialsSection />

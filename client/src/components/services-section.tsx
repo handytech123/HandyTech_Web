@@ -11,39 +11,39 @@ import {
 const services = [
   {
     icon: Laptop,
-    title: "IT Support & Maintenance",
-    description: "24/7 technical support and proactive maintenance to keep your systems running optimally.",
-    features: ["Remote diagnostics", "Preventive maintenance", "Emergency support"]
-  },
-  {
-    icon: Shield,
-    title: "Cybersecurity Solutions", 
-    description: "Comprehensive security measures to protect your business from digital threats.",
-    features: ["Threat assessment", "Security audits", "Employee training"]
-  },
-  {
-    icon: Cloud,
-    title: "Cloud Services",
-    description: "Scalable cloud solutions for data storage, backup, and application hosting.",
-    features: ["Cloud migration", "Data backup", "24/7 monitoring"]
+    title: "Smart Home Technologies",
+    description: "Professional smart home installation and automation setup for modern living.",
+    features: ["Smart thermostat installation", "Smart lighting systems", "Security system integration", "Home automation setup"]
   },
   {
     icon: Network,
-    title: "Network Infrastructure",
-    description: "Design, installation, and management of robust network systems.",
-    features: ["Network design", "Installation & setup", "Performance optimization"]
+    title: "Electrical Services",
+    description: "Safe and reliable electrical installations, repairs, and upgrades.",
+    features: ["Light fixture installation", "Outlet and switch installation", "Ceiling fan installation", "Troubleshooting and repairs"]
   },
   {
     icon: Database,
-    title: "Data Management",
-    description: "Comprehensive data solutions including backup, recovery, and analytics.",
-    features: ["Data backup strategies", "Disaster recovery", "Analytics & reporting"]
+    title: "Plumbing Services",
+    description: "Professional plumbing repairs, installations, and maintenance.",
+    features: ["Faucet and fixture installation", "Drain cleaning and unclogging", "Toilet repair and replacement", "Water heater maintenance"]
+  },
+  {
+    icon: Shield,
+    title: "Low Voltage Systems",
+    description: "Advanced low voltage installations for security and entertainment systems.",
+    features: ["Security camera installation", "Home theater wiring", "Network cabling", "TV mounts and setup"]
+  },
+  {
+    icon: Cloud,
+    title: "Painting Services",
+    description: "Professional interior painting and surface preparation for your home.",
+    features: ["Interior painting", "Surface preparation and priming", "Touch-ups and repairs", "Wallpaper removal"]
   },
   {
     icon: Wrench,
-    title: "Hardware Solutions",
-    description: "Complete hardware services from procurement to installation and maintenance.",
-    features: ["Hardware procurement", "Installation & setup", "Repair services"]
+    title: "General Maintenance",
+    description: "Complete home maintenance and repair services for all your needs.",
+    features: ["Drywall repair and installation", "Appliance repair", "Furniture assembly", "Pressure washing"]
   }
 ];
 
@@ -52,9 +52,9 @@ export default function ServicesSection() {
     <section id="services" className="py-20 bg-light-gray">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-charcoal mb-4">Our Technology Services</h2>
+          <h2 className="text-4xl font-bold text-charcoal mb-4">Our Expert HandyTech Services</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Comprehensive solutions designed to streamline your business operations and maximize efficiency.
+            Your trusted home improvement experts. With over a decade of experience, we specialize in smart home technology, electrical, plumbing, and general maintenance services.
           </p>
         </div>
         

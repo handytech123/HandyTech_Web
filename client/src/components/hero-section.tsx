@@ -21,10 +21,10 @@ export default function HeroSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
             <h1 className="text-4xl lg:text-6xl font-bold leading-tight mb-6">
-              Professional <span className="text-brand-red">Technology</span> Solutions
+              Expert Handyman Services: <span className="text-brand-red">Modern Solutions</span> for Your Home
             </h1>
             <p className="text-xl lg:text-2xl text-gray-300 mb-8 leading-relaxed">
-              Comprehensive IT services, maintenance plans, and customer support that keeps your business running smoothly.
+              Your trusted handyman service provider. Specializing in home improvement and smart tech solutions, we cater to every need with precision and professionalism.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
