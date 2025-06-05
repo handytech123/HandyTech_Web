@@ -9,45 +9,61 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative bg-gradient-to-br from-charcoal via-gray-800 to-black text-white">
-      <div className="absolute inset-0 bg-black opacity-50"></div>
-      <div 
-        className="absolute inset-0 bg-cover bg-center"
-        style={{
-          backgroundImage: "url('https://images.unsplash.com/photo-1518709268805-4e9042af2176?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&h=1080')"
-        }}
-      ></div>
-      <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-24 lg:py-32">
+    <section className="relative bg-white">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div>
-            <h1 className="text-4xl lg:text-6xl font-bold leading-tight mb-6">
+            <div className="bg-brand-red text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+              PROFESSIONAL HANDYMAN SERVICES
+            </div>
+            <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6 text-charcoal">
               Expert Handyman Services: <span className="text-brand-red">Modern Solutions</span> for Your Home
             </h1>
-            <p className="text-xl lg:text-2xl text-gray-300 mb-8 leading-relaxed">
+            <p className="text-xl text-gray-600 mb-8 leading-relaxed">
               Your trusted handyman service provider. Specializing in home improvement and smart tech solutions, we cater to every need with precision and professionalism.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
               <Button 
                 onClick={() => scrollToSection('contact')}
-                className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 rounded-lg text-lg font-semibold"
+                className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-lg"
               >
-                Get Free Quote
+                Get Free Estimate
               </Button>
               <Button 
-                onClick={() => scrollToSection('services')}
+                onClick={() => scrollToSection('scheduler')}
                 variant="outline"
-                className="border-2 border-white text-white hover:bg-white hover:text-charcoal px-8 py-4 rounded-lg text-lg font-semibold"
+                className="border-2 border-charcoal text-charcoal hover:bg-charcoal hover:text-white px-8 py-4 rounded-lg text-lg font-semibold"
               >
-                View Services
+                Schedule Service
               </Button>
             </div>
+            <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+                <span>Licensed & Insured</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+                <span>10+ Years Experience</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+                <span>Same Day Service</span>
+              </div>
+            </div>
           </div>
-          <div className="hidden lg:block">
-            <img 
-              src="https://images.unsplash.com/photo-1551434678-e076c223a692?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
-              alt="Professional technology workspace" 
-              className="rounded-xl shadow-2xl" 
-            />
+          <div className="relative">
+            <div className="bg-light-gray rounded-2xl p-8">
+              <img 
+                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
+                alt="Professional handyman at work" 
+                className="rounded-xl shadow-lg w-full h-96 object-cover" 
+              />
+              <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-xl border">
+                <div className="text-3xl font-bold text-brand-red">500+</div>
+                <div className="text-gray-600 font-medium">Projects Completed</div>
+              </div>
+            </div>
           </div>
         </div>
       </div>

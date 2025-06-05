@@ -1,4 +1,5 @@
 import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { 
   Laptop, 
   Shield, 
@@ -49,10 +50,13 @@ const services = [
 
 export default function ServicesSection() {
   return (
-    <section id="services" className="py-20 bg-light-gray">
+    <section id="services" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-charcoal mb-4">Our Expert HandyTech Services</h2>
+          <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            OUR SERVICES
+          </div>
+          <h2 className="text-4xl font-bold text-charcoal mb-4">Expert HandyTech Services</h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Your trusted home improvement experts. With over a decade of experience, we specialize in smart home technology, electrical, plumbing, and general maintenance services.
           </p>
@@ -62,21 +66,33 @@ export default function ServicesSection() {
           {services.map((service, index) => {
             const IconComponent = service.icon;
             return (
-              <Card key={index} className="bg-white hover:shadow-xl transition-shadow group">
-                <CardContent className="p-8">
-                  <div className="bg-brand-red w-16 h-16 rounded-lg flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                    <IconComponent className="text-white text-2xl" size={24} />
+              <Card key={index} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
+                <CardContent className="p-8 text-center">
+                  <div className="bg-light-gray w-20 h-20 rounded-full flex items-center justify-center mb-6 mx-auto group-hover:bg-brand-red transition-colors duration-300">
+                    <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={32} />
                   </div>
-                  <h3 className="text-2xl font-bold text-charcoal mb-4">{service.title}</h3>
-                  <p className="text-gray-600 mb-6">{service.description}</p>
-                  <ul className="text-sm text-gray-600 space-y-2">
+                  <h3 className="text-xl font-bold text-charcoal mb-4">{service.title}</h3>
+                  <p className="text-gray-600 mb-6 leading-relaxed">{service.description}</p>
+                  <ul className="text-sm text-gray-600 space-y-3 text-left">
                     {service.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-center">
-                        <div className="w-2 h-2 bg-brand-red rounded-full mr-3"></div>
-                        {feature}
+                      <li key={featureIndex} className="flex items-start">
+                        <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                        <span className="leading-relaxed">{feature}</span>
                       </li>
                     ))}
                   </ul>
+                  <div className="mt-6 pt-6 border-t border-gray-100">
+                    <Button 
+                      onClick={() => {
+                        const element = document.getElementById('scheduler');
+                        if (element) element.scrollIntoView({ behavior: 'smooth' });
+                      }}
+                      variant="outline" 
+                      className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
+                    >
+                      Book This Service
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             );

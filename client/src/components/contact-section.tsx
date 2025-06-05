@@ -75,17 +75,24 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contact" className="py-20 bg-charcoal text-white">
+    <section id="contact" className="py-20 bg-light-gray">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="text-center mb-16">
+          <div className="bg-white text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            GET IN TOUCH
+          </div>
+          <h2 className="text-4xl font-bold text-charcoal mb-4">
+            Ready to Start Your <span className="text-brand-red">Next Project?</span>
+          </h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            HandyTech Solutions: Your premier choice for home improvement. With 10+ years of experience, we ensure high-quality service from minor repairs to major renovations.
+          </p>
+        </div>
+        
         <div className="grid lg:grid-cols-2 gap-16">
           {/* Contact Information */}
-          <div>
-            <h2 className="text-4xl font-bold mb-6">
-              Contact Us for Expert <span className="text-brand-red">Handyman & Smart Tech Services</span>
-            </h2>
-            <p className="text-xl text-gray-300 mb-8">
-              HandyTech Solutions: Your premier choice for home improvement. With 10+ years of experience, we ensure high-quality service from minor repairs to major renovations.
-            </p>
+          <div className="bg-white rounded-2xl p-8 shadow-lg">
+            <h3 className="text-2xl font-bold text-charcoal mb-6">Get Your Free Estimate</h3>
             
             <div className="space-y-6">
               <div className="flex items-center">
@@ -93,8 +100,8 @@ export default function ContactSection() {
                   <Phone className="text-white" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Phone</h3>
-                  <p className="text-gray-300">(555) 123-4567</p>
+                  <h3 className="font-semibold text-charcoal">Phone</h3>
+                  <p className="text-gray-600">(555) 123-4567</p>
                 </div>
               </div>
               
@@ -103,8 +110,8 @@ export default function ContactSection() {
                   <Mail className="text-white" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Email</h3>
-                  <p className="text-gray-300">info@handytech-solution.com</p>
+                  <h3 className="font-semibold text-charcoal">Email</h3>
+                  <p className="text-gray-600">info@handytech-solution.com</p>
                 </div>
               </div>
               
@@ -113,8 +120,8 @@ export default function ContactSection() {
                   <Clock className="text-white" size={20} />
                 </div>
                 <div>
-                  <h3 className="font-semibold">Business Hours</h3>
-                  <p className="text-gray-300">Mon-Fri: 8AM-6PM<br />Sat: 9AM-3PM</p>
+                  <h3 className="font-semibold text-charcoal">Business Hours</h3>
+                  <p className="text-gray-600">Mon-Fri: 8AM-6PM<br />Sat: 9AM-3PM</p>
                 </div>
               </div>
 

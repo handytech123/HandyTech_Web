@@ -108,11 +108,14 @@ export default function AppointmentScheduler() {
   };
 
   return (
-    <section id="scheduler" className="py-20 bg-light-gray">
+    <section id="scheduler" className="py-20 bg-white">
       <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-12">
+          <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            SCHEDULE SERVICE
+          </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Schedule Your <span className="text-brand-red">Service Appointment</span>
+            Book Your <span className="text-brand-red">Service Appointment</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
             Book a convenient time for your handyman services. We'll confirm your appointment and provide an estimated arrival time.

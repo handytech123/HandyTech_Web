@@ -38,11 +38,14 @@ export default function ProjectGallery() {
   const displayProjects = selectedCategory === "all" ? projects : projects;
 
   return (
-    <section id="gallery" className="py-20 bg-white">
+    <section id="gallery" className="py-20 bg-light-gray">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
+          <div className="bg-white text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            PROJECT GALLERY
+          </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Project <span className="text-brand-red">Gallery</span>
+            Our Work <span className="text-brand-red">Speaks for Itself</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Take a look at our completed projects. From tech installations to home repairs, 
