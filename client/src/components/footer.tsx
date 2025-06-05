@@ -7,9 +7,15 @@ export default function Footer() {
         <div className="grid md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
-            <h3 className="text-xl font-bold mb-4">
-              HandyTech<span className="text-brand-red">Solutions</span>
-            </h3>
+            <div className="flex items-center mb-4">
+              <div className="w-8 h-8 bg-brand-red rounded-lg flex items-center justify-center mr-3">
+                <span className="text-white font-bold">H</span>
+              </div>
+              <h3 className="text-xl font-bold">
+                <span className="text-white">HandyTech</span>
+                <span className="text-brand-red ml-1 font-extrabold italic">Solutions</span>
+              </h3>
+            </div>
             <p className="text-gray-400 mb-4">
               Professional handyman services and smart home technology solutions for homes and businesses.
             </p>

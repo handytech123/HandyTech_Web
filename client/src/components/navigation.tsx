@@ -20,9 +20,15 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <Link href="/" className="text-xl font-bold text-charcoal">
-              HandyTech<span className="text-brand-red">Solutions</span>
-            </Link>
+            <div className="flex items-center">
+              <div className="w-10 h-10 bg-brand-red rounded-lg flex items-center justify-center mr-3">
+                <span className="text-white font-bold text-lg">H</span>
+              </div>
+              <Link href="/" className="text-2xl font-bold">
+                <span className="text-charcoal">HandyTech</span>
+                <span className="text-brand-red ml-1 font-extrabold italic">Solutions</span>
+              </Link>
+            </div>
           </div>
           
           <div className="hidden md:block">
