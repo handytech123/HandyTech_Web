@@ -68,8 +68,8 @@ export default function HeroSection() {
           <div className="relative">
             <div className="bg-light-gray rounded-2xl p-8">
               <img 
-                src="https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
-                alt="Professional handyman at work" 
+                src="https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
+                alt="Diverse team of professional contractors working together" 
                 className="rounded-xl shadow-lg w-full h-96 object-cover" 
               />
               <div className="absolute -bottom-6 -left-6 bg-white p-6 rounded-xl shadow-xl border">
