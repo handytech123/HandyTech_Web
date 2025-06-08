@@ -2,38 +2,74 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Version 1: Black Background with Orange Accents */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 220 14% 25%; /* #374151 charcoal */
-  --muted: 210 10% 96%; /* #F3F4F6 light-gray */
-  --muted-foreground: 220 9% 46%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 220 14% 25%;
-  --card: 0 0% 100%;
-  --card-foreground: 220 14% 25%;
-  --border: 210 10% 90%;
-  --input: 210 10% 90%;
-  --primary: 0 74% 42%; /* #DC2626 brand-red */
-  --primary-foreground: 0 0% 100%;
-  --secondary: 210 10% 96%;
-  --secondary-foreground: 220 14% 25%;
-  --accent: 210 10% 96%;
-  --accent-foreground: 220 14% 25%;
+  --background: 0 0% 8%; /* #141414 dark black */
+  --foreground: 0 0% 95%; /* #F2F2F2 light text */
+  --muted: 0 0% 15%; /* #262626 dark gray */
+  --muted-foreground: 0 0% 70%; /* #B3B3B3 muted text */
+  --popover: 0 0% 12%; /* #1F1F1F dark popover */
+  --popover-foreground: 0 0% 95%;
+  --card: 0 0% 12%; /* #1F1F1F dark cards */
+  --card-foreground: 0 0% 95%;
+  --border: 0 0% 20%; /* #333333 borders */
+  --input: 0 0% 15%; /* #262626 inputs */
+  --primary: 25 95% 53%; /* #FF6600 Home Depot orange */
+  --primary-foreground: 0 0% 8%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 95%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 95%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --ring: 0 74% 42%;
+  --ring: 25 95% 53%;
   --radius: 0.5rem;
-  --chart-1: 0 74% 42%;
-  --chart-2: 220 14% 25%;
-  --chart-3: 210 10% 70%;
+  --chart-1: 25 95% 53%;
+  --chart-2: 0 0% 70%;
+  --chart-3: 0 0% 50%;
   --chart-4: 0 84% 60%;
-  --chart-5: 210 10% 50%;
+  --chart-5: 0 0% 30%;
   
-  /* Custom brand colors */
-  --brand-red: 0 74% 42%; /* #DC2626 */
-  --brand-red-dark: 0 74% 36%; /* #B91C1C */
-  --charcoal: 220 14% 25%; /* #374151 */
-  --light-gray: 210 10% 96%; /* #F3F4F6 */
+  /* Custom brand colors for black theme */
+  --brand-red: 25 95% 53%; /* #FF6600 Home Depot orange */
+  --brand-red-dark: 25 95% 47%; /* #E55A00 darker orange */
+  --charcoal: 0 0% 95%; /* #F2F2F2 light text (inverted) */
+  --light-gray: 0 0% 15%; /* #262626 dark background sections */
+}
+
+/* Version 2: Alternative Black with Vibrant Orange */
+.theme-black-vibrant {
+  --background: 0 0% 5%; /* #0D0D0D deeper black */
+  --foreground: 0 0% 98%; /* #FAFAFA bright white text */
+  --muted: 0 0% 12%; /* #1F1F1F dark sections */
+  --muted-foreground: 0 0% 75%; /* #BFBFBF lighter muted text */
+  --popover: 0 0% 8%; /* #141414 popover */
+  --popover-foreground: 0 0% 98%;
+  --card: 0 0% 8%; /* #141414 cards */
+  --card-foreground: 0 0% 98%;
+  --border: 0 0% 25%; /* #404040 lighter borders */
+  --input: 0 0% 12%; /* #1F1F1F inputs */
+  --primary: 22 100% 55%; /* #FF7700 vibrant orange */
+  --primary-foreground: 0 0% 5%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 98%;
+  --accent: 0 0% 12%;
+  --accent-foreground: 0 0% 98%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 22 100% 55%;
+  --radius: 0.5rem;
+  --chart-1: 22 100% 55%;
+  --chart-2: 0 0% 75%;
+  --chart-3: 0 0% 55%;
+  --chart-4: 0 84% 60%;
+  --chart-5: 0 0% 35%;
+  
+  /* Custom brand colors for vibrant black theme */
+  --brand-red: 22 100% 55%; /* #FF7700 vibrant orange */
+  --brand-red-dark: 22 100% 48%; /* #E56600 darker vibrant orange */
+  --charcoal: 0 0% 98%; /* #FAFAFA bright text */
+  --light-gray: 0 0% 12%; /* #1F1F1F dark sections */
 }
 
 .dark {
