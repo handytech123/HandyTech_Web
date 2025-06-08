@@ -4,7 +4,7 @@ import ServicesSection from "@/components/services-section";
 import ProjectGallery from "@/components/project-gallery";
 import AppointmentScheduler from "@/components/appointment-scheduler";
 import MaintenancePlans from "@/components/maintenance-plans";
-import TeamSection from "@/components/team-section";
+
 import TestimonialsSection from "@/components/testimonials-section";
 import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
@@ -23,7 +23,7 @@ export default function Home() {
         <ProjectGallery />
         <AppointmentScheduler />
         <MaintenancePlans />
-        <TeamSection />
+
         <TestimonialsSection />
         <ContactSection />
       </main>
