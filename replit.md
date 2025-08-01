@@ -1,0 +1,104 @@
+# HandyTech Solutions - Handyman Services Platform
+
+## Overview
+
+HandyTech Solutions is a full-stack web application for a professional handyman service business specializing in home improvement and smart technology solutions. The platform provides a comprehensive business management system with customer relationship management, appointment scheduling, project galleries, maintenance plans, quote requests, and automated email marketing capabilities.
+
+## User Preferences
+
+Preferred communication style: Simple, everyday language.
+
+## System Architecture
+
+### Frontend Architecture
+- **Framework**: React with TypeScript using Vite as the build tool
+- **Routing**: Wouter for client-side routing
+- **State Management**: TanStack Query (React Query) for server state management
+- **UI Framework**: Shadcn/ui components built on Radix UI primitives
+- **Styling**: Tailwind CSS with custom Ohio State Buckeyes brand theming
+- **Form Handling**: React Hook Form with Zod validation
+- **Component Structure**: Modular component architecture with reusable UI components
+
+### Backend Architecture
+- **Runtime**: Node.js with Express.js framework
+- **Language**: TypeScript with ES modules
+- **API Design**: RESTful API with structured route handlers
+- **Error Handling**: Centralized error handling middleware
+- **Development Server**: Vite integration for hot module replacement in development
+
+### Data Storage Solutions
+- **Database**: PostgreSQL with Neon serverless hosting
+- **ORM**: Drizzle ORM for type-safe database operations
+- **Schema Management**: Drizzle Kit for migrations and schema management
+- **Session Storage**: PostgreSQL-based session storage using connect-pg-simple
+
+### Database Schema Design
+The application uses a normalized relational database structure with the following core entities:
+- **Users**: Authentication and admin access
+- **Customers**: Customer information and contact details
+- **Maintenance Plans**: Subscription-based service plans
+- **Reviews**: Customer feedback and testimonials
+- **Quotes**: Service quote requests and lead management
+- **Appointments**: Service scheduling system
+- **Email Campaigns**: Automated marketing campaigns
+- **Project Gallery**: Portfolio showcase with categorization
+
+### Authentication & Authorization
+- Session-based authentication with secure cookie management
+- Role-based access control for admin and customer portals
+- Customer self-service portal for managing services and appointments
+
+### Business Logic Features
+- **Appointment Scheduling**: Calendar-based booking system with time slot management
+- **Maintenance Plans**: Tiered subscription services (Annual, Seasonal, On-Demand)
+- **Quote Management**: Lead capture and conversion tracking
+- **Email Automation**: Automated follow-up campaigns with 45-day intervals
+- **Project Portfolio**: Categorized gallery with featured projects
+- **Review System**: Customer testimonials with approval workflow
+- **Service Calculator**: Dynamic pricing estimation tools
+
+### UI/UX Design Patterns
+- **Responsive Design**: Mobile-first approach with breakpoint-specific layouts
+- **Brand Theming**: Ohio State Buckeyes color scheme with theme switching capability
+- **Component Library**: Consistent design system using Shadcn/ui components
+- **Interactive Elements**: Chat widget, toast notifications, and modal dialogs
+- **Accessibility**: ARIA-compliant components with keyboard navigation support
+
+### Development Architecture
+- **Build System**: Vite with TypeScript compilation and hot reloading
+- **Code Organization**: Shared types and schemas between client and server
+- **Path Aliases**: Configured import aliases for clean code organization
+- **Development Tools**: ESBuild for production bundling with external package handling
+
+## External Dependencies
+
+### Database & Infrastructure
+- **Neon Database**: Serverless PostgreSQL hosting with connection pooling
+- **Drizzle ORM**: Type-safe database operations and query building
+- **Drizzle Kit**: Database schema management and migration tools
+
+### Frontend Libraries
+- **React Ecosystem**: React 18 with TypeScript and Vite
+- **TanStack Query**: Server state management and caching
+- **Wouter**: Lightweight client-side routing
+- **React Hook Form**: Form state management and validation
+- **Zod**: Runtime type validation and schema definition
+
+### UI Component Libraries
+- **Radix UI**: Accessible primitive components for complex UI elements
+- **Shadcn/ui**: Pre-built component library with customizable theming
+- **Tailwind CSS**: Utility-first CSS framework
+- **Class Variance Authority**: Type-safe variant management for components
+- **Lucide React**: Icon library for consistent iconography
+
+### Development Tools
+- **Vite**: Fast build tool with hot module replacement
+- **TypeScript**: Type safety across the entire application
+- **ESBuild**: Fast JavaScript bundler for production builds
+- **PostCSS**: CSS processing with Tailwind CSS integration
+- **Replit Integration**: Development environment optimization for Replit platform
+
+### Business Integration
+- **Home Depot Pro**: Partnership integration for contractor services
+- **Email Automation**: Custom-built system for customer retention campaigns
+- **Session Management**: PostgreSQL-backed session storage for user authentication
