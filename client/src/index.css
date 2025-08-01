@@ -4,9 +4,9 @@
 
 :root {
   --background: 0 0% 8%; /* #141414 dark black */
-  --foreground: 0 0% 95%; /* #F2F2F2 light text */
+  --foreground: 0 0% 98%; /* #FAFAFA bright white text */
   --muted: 0 0% 15%; /* #262626 dark gray */
-  --muted-foreground: 0 0% 70%; /* #B3B3B3 muted text */
+  --muted-foreground: 0 0% 88%; /* #E0E0E0 much brighter muted text */
   --popover: 0 0% 12%; /* #1F1F1F dark popover */
   --popover-foreground: 0 0% 95%;
   --card: 0 0% 12%; /* #1F1F1F dark cards */
@@ -24,7 +24,7 @@
   --ring: 0 0% 95%;
   --radius: 0.5rem;
   --chart-1: 0 0% 95%;
-  --chart-2: 0 0% 70%;
+  --chart-2: 0 0% 88%;
   --chart-3: 0 0% 50%;
   --chart-4: 0 84% 60%;
   --chart-5: 0 0% 30%;
@@ -41,7 +41,7 @@
   --background: 0 0% 5%; /* #0D0D0D deeper black */
   --foreground: 0 0% 98%; /* #FAFAFA bright white text */
   --muted: 0 0% 12%; /* #1F1F1F dark sections */
-  --muted-foreground: 0 0% 75%; /* #BFBFBF lighter muted text */
+  --muted-foreground: 0 0% 90%; /* #E6E6E6 much brighter muted text */
   --popover: 0 0% 8%; /* #141414 popover */
   --popover-foreground: 0 0% 98%;
   --card: 0 0% 8%; /* #141414 cards */
