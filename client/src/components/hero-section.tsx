@@ -68,9 +68,13 @@ export default function HeroSection() {
           <div className="relative">
             <div className="bg-light-gray rounded-2xl p-8">
               <img 
-                src="https://images.unsplash.com/photo-1594736797933-d0401ba2fe65?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
-                alt="Diverse team of professional contractors working together" 
+                src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
+                alt="Professional handyman tools and equipment" 
                 className="rounded-xl shadow-lg w-full h-96 object-cover" 
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = "https://via.placeholder.com/800x600/374151/ffffff?text=HandyTech+Solutions";
+                }}
               />
 
             </div>
