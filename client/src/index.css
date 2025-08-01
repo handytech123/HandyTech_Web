@@ -3,72 +3,72 @@
 @tailwind utilities;
 
 :root {
-  --background: 0 0% 8%; /* #141414 dark black */
-  --foreground: 0 0% 98%; /* #FAFAFA bright white text */
-  --muted: 0 0% 15%; /* #262626 dark gray */
-  --muted-foreground: 0 0% 88%; /* #E0E0E0 much brighter muted text */
-  --popover: 0 0% 12%; /* #1F1F1F dark popover */
+  --background: 0 0% 95%; /* #F2F2F2 light gray background */
+  --foreground: 0 0% 15%; /* #262626 dark text */
+  --muted: 0 0% 90%; /* #E6E6E6 light gray sections */
+  --muted-foreground: 0 0% 35%; /* #595959 readable gray text */
+  --popover: 0 0% 98%; /* #FAFAFA white popover */
+  --popover-foreground: 0 0% 15%;
+  --card: 0 0% 98%; /* #FAFAFA white cards */
+  --card-foreground: 0 0% 15%;
+  --border: 0 0% 85%; /* #D9D9D9 light borders */
+  --input: 0 0% 98%; /* #FAFAFA white inputs */
+  --primary: 0 82% 45%; /* #BB0000 Ohio State scarlet red */
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 90%;
+  --secondary-foreground: 0 0% 15%;
+  --accent: 0 0% 90%;
+  --accent-foreground: 0 0% 15%;
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  --ring: 0 82% 45%;
+  --radius: 0.5rem;
+  --chart-1: 0 82% 45%;
+  --chart-2: 0 0% 35%;
+  --chart-3: 0 0% 50%;
+  --chart-4: 0 84% 60%;
+  --chart-5: 0 0% 70%;
+  
+  /* Custom brand colors for Ohio State Buckeyes theme */
+  --brand-red: 0 82% 45%; /* #BB0000 Ohio State scarlet */
+  --brand-red-dark: 0 82% 38%; /* #9A0000 darker scarlet */
+  --charcoal: 0 0% 25%; /* #404040 dark gray text */
+  --light-gray: 0 0% 90%; /* #E6E6E6 light gray sections */
+}
+
+/* Alternative: Ohio State Dark Theme */
+.theme-black-vibrant {
+  --background: 0 0% 15%; /* #262626 dark gray background */
+  --foreground: 0 0% 95%; /* #F2F2F2 light text */
+  --muted: 0 0% 20%; /* #333333 darker sections */
+  --muted-foreground: 0 0% 80%; /* #CCCCCC bright readable text */
+  --popover: 0 0% 18%; /* #2E2E2E dark popover */
   --popover-foreground: 0 0% 95%;
-  --card: 0 0% 12%; /* #1F1F1F dark cards */
+  --card: 0 0% 18%; /* #2E2E2E dark cards */
   --card-foreground: 0 0% 95%;
-  --border: 0 0% 20%; /* #333333 borders */
-  --input: 0 0% 15%; /* #262626 inputs */
-  --primary: 0 0% 95%; /* #F2F2F2 white accent */
-  --primary-foreground: 0 0% 8%;
-  --secondary: 0 0% 15%;
+  --border: 0 0% 30%; /* #4D4D4D borders */
+  --input: 0 0% 20%; /* #333333 inputs */
+  --primary: 0 88% 55%; /* #DD0000 brighter Ohio State red */
+  --primary-foreground: 0 0% 95%;
+  --secondary: 0 0% 20%;
   --secondary-foreground: 0 0% 95%;
-  --accent: 0 0% 15%;
+  --accent: 0 0% 20%;
   --accent-foreground: 0 0% 95%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --ring: 0 0% 95%;
+  --ring: 0 88% 55%;
   --radius: 0.5rem;
-  --chart-1: 0 0% 95%;
-  --chart-2: 0 0% 88%;
-  --chart-3: 0 0% 50%;
+  --chart-1: 0 88% 55%;
+  --chart-2: 0 0% 80%;
+  --chart-3: 0 0% 60%;
   --chart-4: 0 84% 60%;
-  --chart-5: 0 0% 30%;
+  --chart-5: 0 0% 40%;
   
-  /* Custom brand colors for black/white/gray theme */
-  --brand-red: 0 0% 95%; /* #F2F2F2 white accent */
-  --brand-red-dark: 0 0% 85%; /* #D9D9D9 light gray accent */
-  --charcoal: 0 0% 95%; /* #F2F2F2 light text */
-  --light-gray: 0 0% 15%; /* #262626 dark background sections */
-}
-
-/* Alternative: Darker black with gray accents */
-.theme-black-vibrant {
-  --background: 0 0% 5%; /* #0D0D0D deeper black */
-  --foreground: 0 0% 98%; /* #FAFAFA bright white text */
-  --muted: 0 0% 12%; /* #1F1F1F dark sections */
-  --muted-foreground: 0 0% 90%; /* #E6E6E6 much brighter muted text */
-  --popover: 0 0% 8%; /* #141414 popover */
-  --popover-foreground: 0 0% 98%;
-  --card: 0 0% 8%; /* #141414 cards */
-  --card-foreground: 0 0% 98%;
-  --border: 0 0% 25%; /* #404040 lighter borders */
-  --input: 0 0% 12%; /* #1F1F1F inputs */
-  --primary: 0 0% 85%; /* #D9D9D9 light gray accent */
-  --primary-foreground: 0 0% 5%;
-  --secondary: 0 0% 12%;
-  --secondary-foreground: 0 0% 98%;
-  --accent: 0 0% 12%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --ring: 0 0% 85%;
-  --radius: 0.5rem;
-  --chart-1: 0 0% 85%;
-  --chart-2: 0 0% 75%;
-  --chart-3: 0 0% 55%;
-  --chart-4: 0 84% 60%;
-  --chart-5: 0 0% 35%;
-  
-  /* Custom brand colors for darker black/white/gray theme */
-  --brand-red: 0 0% 85%; /* #D9D9D9 light gray accent */
-  --brand-red-dark: 0 0% 75%; /* #BFBFBF medium gray accent */
-  --charcoal: 0 0% 98%; /* #FAFAFA bright text */
-  --light-gray: 0 0% 12%; /* #1F1F1F dark sections */
+  /* Custom brand colors for Ohio State dark theme */
+  --brand-red: 0 88% 55%; /* #DD0000 bright Ohio State red */
+  --brand-red-dark: 0 88% 48%; /* #CC0000 darker red */
+  --charcoal: 0 0% 95%; /* #F2F2F2 bright text */
+  --light-gray: 0 0% 20%; /* #333333 dark sections */
 }
 
 .dark {
