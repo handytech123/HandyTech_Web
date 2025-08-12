@@ -328,7 +328,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     if (electrical.some(word => message.includes(word))) {
-      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. Our licensed electricians ensure safe, code-compliant work. Would you like to schedule a consultation to discuss your electrical needs? How else may I assist you?";
+      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. I have an experienced handyman that can handle your electrical issues with safe, reliable work. Would you like to schedule a consultation to discuss your electrical needs? How else may I assist you?";
     }
     
     if (plumbing.some(word => message.includes(word))) {

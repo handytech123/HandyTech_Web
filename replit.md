@@ -11,6 +11,7 @@ Business location: Missouri-based handyman service
 Color scheme: Ohio State Buckeyes colors (scarlet red #BB0000 and gray) for proper text visibility
 Database preference: User chose to build own backend rather than use external CRM software
 Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
+Electrical work disclaimer: Not a licensed electrician - has experienced handyman for electrical issues
 
 ## Recent Changes (August 12, 2024)
 
