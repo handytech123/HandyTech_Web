@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
+import CalendarView from "@/components/calendar-view";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
 
@@ -167,13 +168,18 @@ export default function AdminDashboard() {
           </Card>
         </div>
 
-        <Tabs defaultValue="quotes" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
-            <TabsTrigger value="quotes">Quote Requests</TabsTrigger>
+        <Tabs defaultValue="calendar" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-5">
+            <TabsTrigger value="calendar">Calendar</TabsTrigger>
+            <TabsTrigger value="quotes">Quotes</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="reviews">Reviews</TabsTrigger>
             <TabsTrigger value="customers">Customers</TabsTrigger>
           </TabsList>
+
+          <TabsContent value="calendar">
+            <CalendarView />
+          </TabsContent>
 
           <TabsContent value="quotes">
             <Card>
