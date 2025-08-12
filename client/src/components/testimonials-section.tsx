@@ -63,6 +63,8 @@ export default function TestimonialsSection() {
   // Use fallback testimonials if no reviews available
   const displayTestimonials = testimonials.length > 0 ? [...testimonials, ...fallbackTestimonials] : fallbackTestimonials;
 
+  console.log('Testimonials data:', { reviews, customers, testimonials, displayTestimonials });
+
   return (
     <section id="testimonials" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -71,6 +73,7 @@ export default function TestimonialsSection() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Don't just take our word for it. Here's what our satisfied customers have to say about our services.
           </p>
+          <p className="text-sm text-gray-500 mt-2">Showing {displayTestimonials.length} testimonials</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
