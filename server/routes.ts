@@ -131,22 +131,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const localReviews = await storage.getApprovedReviews();
       
-      // Fetch Home Depot reviews
-      const homeDepotReviews = await fetchHomeDepotReviews("HandyTech Solutions");
-      const contractorReviews = await fetchContractorReviews("HandyTech Solutions");
+      // Fetch authentic Home Depot reviews
+      const homeDepotReviews = await fetchHomeDepotReviews("885948");
       
-      // Combine and transform Home Depot reviews to match our format
-      const combinedHomeDepotReviews = [...homeDepotReviews, ...contractorReviews];
-      const transformedHomeDepotReviews = combinedHomeDepotReviews.slice(0, 3).map((review, index) => ({
-        id: `hd-${index + 100}`, // Use high IDs to avoid conflicts
+      // Transform Home Depot reviews to match our format
+      const transformedHomeDepotReviews = homeDepotReviews.map((review) => ({
+        id: review.id,
         customerId: 999, // Special customer ID for Home Depot reviews
-        rating: Math.min(review.rating || 5, 5), // Ensure rating is max 5
-        title: review.title || "Home Depot Customer Review",
-        content: review.snippet || "Great service from HandyTech Solutions!",
-        createdAt: review.date || new Date().toISOString(),
+        rating: review.rating,
+        title: `${review.service} - ${review.customer}`,
+        content: review.content,
+        createdAt: review.date,
         approved: true,
-        source: "Home Depot",
-        sourceLink: review.source?.link || "https://www.homedepot.com"
+        source: "Home Depot Pro",
+        sourceLink: review.source.link,
+        location: review.location,
+        service: review.service
       }));
       
       // Combine local and Home Depot reviews
