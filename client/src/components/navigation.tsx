@@ -33,18 +33,12 @@ export default function Navigation() {
           
           <div className="hidden md:block">
             <div className="ml-10 flex items-baseline space-x-8">
-              <button 
-                onClick={() => scrollToSection('services')}
+              <Link 
+                href="/about"
                 className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
               >
-                Services
-              </button>
-              <button 
-                onClick={() => scrollToSection('gallery')}
-                className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
-              >
-                Gallery
-              </button>
+                About
+              </Link>
               <button 
                 onClick={() => scrollToSection('scheduler')}
                 className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
@@ -93,18 +87,13 @@ export default function Navigation() {
               </SheetTrigger>
               <SheetContent>
                 <div className="flex flex-col space-y-4 mt-8">
-                  <button 
-                    onClick={() => scrollToSection('services')}
+                  <Link 
+                    href="/about"
                     className="text-left text-charcoal hover:text-brand-red py-2"
+                    onClick={() => setIsOpen(false)}
                   >
-                    Services
-                  </button>
-                  <button 
-                    onClick={() => scrollToSection('gallery')}
-                    className="text-left text-charcoal hover:text-brand-red py-2"
-                  >
-                    Gallery
-                  </button>
+                    About
+                  </Link>
                   <button 
                     onClick={() => scrollToSection('scheduler')}
                     className="text-left text-charcoal hover:text-brand-red py-2"
