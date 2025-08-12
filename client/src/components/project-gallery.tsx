@@ -61,16 +61,29 @@ export default function ProjectGallery() {
               {featuredProjects.slice(0, 2).map((project) => (
                 <Card key={project.id} className="overflow-hidden hover:shadow-xl transition-shadow group">
                   <div className="relative">
-                    <img 
-                      src={project.imageUrl}
-                      alt={project.title}
-                      className="w-full h-64 object-cover group-hover:scale-105 transition-transform duration-300"
-                      onError={(e) => {
-                        console.log("Image failed to load:", project.imageUrl);
-                        e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjQkIwMDAwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5Qcm9qZWN0IEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-                      }}
-                      onLoad={() => console.log("Image loaded successfully:", project.imageUrl)}
-                    />
+                    <div className="w-full h-64 bg-gray-200 flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                      <img 
+                        src={project.imageUrl}
+                        alt={project.title}
+                        className="w-full h-full object-cover absolute inset-0"
+                        onError={(e) => {
+                          console.log("Image failed to load:", project.imageUrl);
+                          e.currentTarget.style.display = 'none';
+                        }}
+                        onLoad={() => console.log("Image loaded successfully:", project.imageUrl)}
+                      />
+                      <div className="absolute inset-0 bg-brand-red/10 flex items-center justify-center">
+                        <div className="text-center text-brand-red">
+                          <div className="w-16 h-16 bg-brand-red rounded-lg flex items-center justify-center mx-auto mb-2">
+                            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                          </div>
+                          <p className="text-sm font-semibold">{project.title}</p>
+                          <p className="text-xs opacity-75">Project Photo</p>
+                        </div>
+                      </div>
+                    </div>
                     <Badge className="absolute top-4 left-4 bg-brand-red">Featured</Badge>
                     <Dialog>
                       <DialogTrigger asChild>
@@ -132,16 +145,28 @@ export default function ProjectGallery() {
           {displayProjects.map((project) => (
             <Card key={project.id} className="overflow-hidden hover:shadow-lg transition-shadow group">
               <div className="relative">
-                <img 
-                  src={project.imageUrl}
-                  alt={project.title}
-                  className="w-full h-48 object-cover group-hover:scale-105 transition-transform duration-300"
-                  onError={(e) => {
-                    console.log("Image failed to load:", project.imageUrl);
-                    e.currentTarget.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjQkIwMDAwIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIyNCIgZmlsbD0id2hpdGUiIHRleHQtYW5jaG9yPSJtaWRkbGUiIGR5PSIuM2VtIj5Qcm9qZWN0IEltYWdlPC90ZXh0Pjwvc3ZnPg==';
-                  }}
-                  onLoad={() => console.log("Image loaded successfully:", project.imageUrl)}
-                />
+                <div className="w-full h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
+                  <img 
+                    src={project.imageUrl}
+                    alt={project.title}
+                    className="w-full h-full object-cover absolute inset-0"
+                    onError={(e) => {
+                      console.log("Image failed to load:", project.imageUrl);
+                      e.currentTarget.style.display = 'none';
+                    }}
+                    onLoad={() => console.log("Image loaded successfully:", project.imageUrl)}
+                  />
+                  <div className="absolute inset-0 bg-brand-red/10 flex items-center justify-center">
+                    <div className="text-center text-brand-red">
+                      <div className="w-12 h-12 bg-brand-red rounded-lg flex items-center justify-center mx-auto mb-1">
+                        <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                      </div>
+                      <p className="text-xs font-semibold">{project.title}</p>
+                    </div>
+                  </div>
+                </div>
                 <Dialog>
                   <DialogTrigger asChild>
                     <Button
