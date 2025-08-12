@@ -2,33 +2,36 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import { type Review, type Customer } from "@shared/schema";
+import { staticReviews, staticCustomers } from "@/data/static-reviews";
 
 // No fallback testimonials - use only authentic reviews
 
 export default function TestimonialsSection() {
-  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery<Review[]>({
+  const { data: reviews = staticReviews, isLoading: reviewsLoading, error: reviewsError } = useQuery<Review[]>({
     queryKey: ["/api/reviews"],
     queryFn: async () => {
       const response = await fetch("/api/reviews");
       if (!response.ok) {
-        throw new Error(`Failed to fetch reviews: ${response.status}`);
+        // If API is unavailable (like in static deployment), use static data
+        throw new Error(`API unavailable: ${response.status}`);
       }
       return response.json();
     },
-    retry: 3,
+    retry: 1, // Reduce retries for faster fallback to static data
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
+  const { data: customers = staticCustomers, isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     queryFn: async () => {
       const response = await fetch("/api/customers");
       if (!response.ok) {
-        throw new Error(`Failed to fetch customers: ${response.status}`);
+        // If API is unavailable (like in static deployment), use static data
+        throw new Error(`API unavailable: ${response.status}`);
       }
       return response.json();
     },
-    retry: 3,
+    retry: 1, // Reduce retries for faster fallback to static data
     staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
@@ -96,8 +99,9 @@ export default function TestimonialsSection() {
     );
   }
 
-  // Show error state with fallback content
-  if (reviewsError) {
+  // If we have static data as fallback, don't show error state
+  // Only show error if we have no data at all
+  if (reviewsError && reviews.length === 0) {
     console.error('Reviews loading error:', reviewsError);
     return (
       <section id="testimonials" className="py-20 bg-white">
@@ -114,7 +118,7 @@ export default function TestimonialsSection() {
               >
                 View Our Home Depot Pro Reviews
                 <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                 </svg>
               </button>
             </div>
@@ -138,7 +142,7 @@ export default function TestimonialsSection() {
             Don't just take our word for it. Here's what our satisfied customers have to say about our services.
           </p>
           <p className="text-sm text-gray-500 mt-2">
-            Featuring authentic Home Depot Pro reviews • {reviews.length} total reviews loaded
+            Featuring authentic Home Depot Pro reviews • {reviews.length} total reviews{reviewsError ? ' (static data)' : ' loaded'}
           </p>
         </div>
 
