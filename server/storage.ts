@@ -149,6 +149,10 @@ export class MemStorage implements IStorage {
       content: "HandyTech transformed our entire IT infrastructure. Their maintenance plan has saved us countless hours and prevented major issues.",
       isApproved: true,
       createdAt: new Date("2024-03-01"),
+      source: null,
+      sourceLink: null,
+      location: null,
+      service: null,
     };
     this.reviews.set(review1.id, review1);
 
@@ -160,6 +164,10 @@ export class MemStorage implements IStorage {
       content: "Exceptional service and support. The team is knowledgeable, responsive, and always goes above and beyond.",
       isApproved: true,
       createdAt: new Date("2024-03-15"),
+      source: null,
+      sourceLink: null,
+      location: null,
+      service: null,
     };
     this.reviews.set(review2.id, review2);
 
@@ -319,6 +327,10 @@ export class MemStorage implements IStorage {
       id: this.currentReviewId++,
       isApproved: false,
       createdAt: new Date(),
+      source: insertReview.source || null,
+      sourceLink: insertReview.sourceLink || null,
+      location: insertReview.location || null,
+      service: insertReview.service || null,
     };
     this.reviews.set(review.id, review);
     return review;
