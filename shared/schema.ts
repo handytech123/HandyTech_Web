@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, date, varchar } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -133,6 +133,21 @@ export const insertProjectGallerySchema = createInsertSchema(projectGallery).omi
   createdAt: true,
 });
 
+export const blockedDates = pgTable("blocked_dates", {
+  id: serial("id").primaryKey(),
+  date: date("date").notNull(),
+  reason: text("reason"),
+  allDay: boolean("all_day").default(true),
+  startTime: text("start_time"),
+  endTime: text("end_time"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBlockedDateSchema = createInsertSchema(blockedDates).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -157,3 +172,6 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 
 export type ProjectGallery = typeof projectGallery.$inferSelect;
 export type InsertProjectGallery = z.infer<typeof insertProjectGallerySchema>;
+
+export type BlockedDate = typeof blockedDates.$inferSelect;
+export type InsertBlockedDate = z.infer<typeof insertBlockedDateSchema>;

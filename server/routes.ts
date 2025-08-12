@@ -8,7 +8,8 @@ import {
   insertQuoteSchema,
   insertEmailCampaignSchema,
   insertAppointmentSchema,
-  insertProjectGallerySchema
+  insertProjectGallerySchema,
+  insertBlockedDateSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -414,6 +415,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ message: "Failed to create project" });
       }
+    }
+  });
+
+  // Blocked Dates routes
+  app.get("/api/blocked-dates", async (req, res) => {
+    try {
+      const blockedDates = await storage.getBlockedDates();
+      res.json(blockedDates);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch blocked dates" });
+    }
+  });
+
+  app.post("/api/blocked-dates", async (req, res) => {
+    try {
+      const validatedData = insertBlockedDateSchema.parse(req.body);
+      const blockedDate = await storage.createBlockedDate(validatedData);
+      res.status(201).json(blockedDate);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid blocked date data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create blocked date" });
+      }
+    }
+  });
+
+  app.delete("/api/blocked-dates/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteBlockedDate(id);
+      res.json({ message: "Blocked date deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete blocked date" });
     }
   });
 

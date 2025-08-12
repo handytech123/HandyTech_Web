@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User, Phone, Mail } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek } from "date-fns";
-import type { Appointment } from "@shared/schema";
+import type { Appointment, BlockedDate } from "@shared/schema";
 
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -13,6 +13,10 @@ export default function CalendarView() {
 
   const { data: appointments = [] } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments"]
+  });
+
+  const { data: blockedDates = [] } = useQuery<BlockedDate[]>({
+    queryKey: ["/api/blocked-dates"]
   });
 
   // Get calendar days for the current month
@@ -26,6 +30,20 @@ export default function CalendarView() {
   const getAppointmentsForDay = (day: Date) => {
     return appointments.filter(appointment => 
       isSameDay(new Date(appointment.appointmentDate), day)
+    );
+  };
+
+  // Check if a day is blocked
+  const isDateBlocked = (day: Date) => {
+    return blockedDates.some(blockedDate => 
+      isSameDay(new Date(blockedDate.date), day)
+    );
+  };
+
+  // Get blocked date for a specific day
+  const getBlockedDateForDay = (day: Date) => {
+    return blockedDates.find(blockedDate => 
+      isSameDay(new Date(blockedDate.date), day)
     );
   };
 
@@ -97,6 +115,8 @@ export default function CalendarView() {
               const isCurrentMonth = day.getMonth() === currentDate.getMonth();
               const isSelected = selectedDate && isSameDay(day, selectedDate);
               const isTodayDate = isToday(day);
+              const isBlocked = isDateBlocked(day);
+              const blockedDate = getBlockedDateForDay(day);
               
               return (
                 <div
@@ -106,6 +126,7 @@ export default function CalendarView() {
                     ${isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-100 text-gray-400'}
                     ${isSelected ? 'ring-2 ring-brand-red bg-brand-red/5' : ''}
                     ${isTodayDate ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}
+                    ${isBlocked ? 'bg-red-50 border-red-300' : ''}
                   `}
                   onClick={() => setSelectedDate(day)}
                 >
@@ -114,7 +135,16 @@ export default function CalendarView() {
                   </div>
                   
                   <div className="space-y-1">
-                    {dayAppointments.slice(0, 2).map(appointment => (
+                    {isBlocked && blockedDate && (
+                      <div className="text-xs p-1 rounded bg-red-200 text-red-800 border border-red-300">
+                        <div className="font-medium truncate">BLOCKED</div>
+                        <div className="truncate">
+                          {blockedDate.allDay ? 'All Day' : `${blockedDate.startTime}-${blockedDate.endTime}`}
+                        </div>
+                      </div>
+                    )}
+                    
+                    {!isBlocked && dayAppointments.slice(0, 2).map(appointment => (
                       <div
                         key={appointment.id}
                         className={`text-xs p-1 rounded border ${getStatusColor(appointment.status)}`}
@@ -127,7 +157,8 @@ export default function CalendarView() {
                         </div>
                       </div>
                     ))}
-                    {dayAppointments.length > 2 && (
+                    
+                    {!isBlocked && dayAppointments.length > 2 && (
                       <div className="text-xs text-gray-500 text-center">
                         +{dayAppointments.length - 2} more
                       </div>

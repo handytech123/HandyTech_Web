@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -7,7 +7,8 @@ import {
   type Quote, type InsertQuote,
   type EmailCampaign, type InsertEmailCampaign,
   type Appointment, type InsertAppointment,
-  type ProjectGallery, type InsertProjectGallery
+  type ProjectGallery, type InsertProjectGallery,
+  type BlockedDate, type InsertBlockedDate
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte } from "drizzle-orm";
@@ -64,6 +65,12 @@ export interface IStorage {
   getProjectGalleryByCategory(category: string): Promise<ProjectGallery[]>;
   getFeaturedProjects(): Promise<ProjectGallery[]>;
   createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery>;
+
+  // Blocked Dates
+  getBlockedDates(): Promise<BlockedDate[]>;
+  createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate>;
+  deleteBlockedDate(id: number): Promise<void>;
+  getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -427,6 +434,23 @@ export class MemStorage implements IStorage {
     this.projectGallery.set(item.id, item);
     return item;
   }
+
+  // Blocked Dates (MemStorage placeholder - not used since we use DatabaseStorage)
+  async getBlockedDates(): Promise<BlockedDate[]> {
+    return [];
+  }
+
+  async createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate> {
+    throw new Error("MemStorage not implemented for blocked dates");
+  }
+
+  async deleteBlockedDate(id: number): Promise<void> {
+    throw new Error("MemStorage not implemented for blocked dates");
+  }
+
+  async getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]> {
+    return [];
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -600,6 +624,26 @@ export class DatabaseStorage implements IStorage {
   async createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery> {
     const [created] = await db.insert(projectGallery).values(item).returning();
     return created;
+  }
+
+  // Blocked Dates
+  async getBlockedDates(): Promise<BlockedDate[]> {
+    return await db.select().from(blockedDates).orderBy(blockedDates.date);
+  }
+
+  async createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate> {
+    const [created] = await db.insert(blockedDates).values(blockedDate).returning();
+    return created;
+  }
+
+  async deleteBlockedDate(id: number): Promise<void> {
+    await db.delete(blockedDates).where(eq(blockedDates.id, id));
+  }
+
+  async getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]> {
+    return await db.select().from(blockedDates)
+      .where(and(gte(blockedDates.date, startDate), gte(blockedDates.date, startDate)))
+      .orderBy(blockedDates.date);
   }
 }
 
