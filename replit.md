@@ -38,6 +38,8 @@ Electrical work disclaimer: Not a licensed electrician - has experienced handyma
 ✓ **Authentic Home Depot Reviews**: Integrated real customer reviews from Home Depot Pro profile (885948)
 ✓ **Testimonials Display Optimized**: Shows only 4 authentic Home Depot Pro reviews with "View All" button linking to profile
 ✓ **Review Priority System**: Home Depot Pro reviews displayed first, removing generic fallback testimonials
+✓ **Static Deployment Fix**: Created deployment preparation script to resolve build output structure for static hosting
+✓ **Deployment Documentation**: Added comprehensive deployment guide with automated file structure correction
 
 ## System Architecture
 
@@ -103,6 +105,12 @@ The application uses a normalized relational database structure with the followi
 - **Code Organization**: Shared types and schemas between client and server
 - **Path Aliases**: Configured import aliases for clean code organization
 - **Development Tools**: ESBuild for production bundling with external package handling
+
+### Deployment Architecture
+- **Static Deployment Ready**: Automated file structure correction for static hosting platforms
+- **Build Output**: Vite builds to `dist/public`, deployment script moves to `dist/` root
+- **Deployment Script**: `scripts/prepare-deploy.js` handles file structure reorganization
+- **Asset Management**: Maintains proper asset paths and references during deployment preparation
 
 ## External Dependencies
 
