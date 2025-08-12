@@ -324,30 +324,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const scheduling = ["schedule", "appointment", "book", "when", "available"];
 
     if (greetings.some(word => message.includes(word))) {
-      return "Hello! Welcome to HandyTech Solutions. We're Missouri's trusted handyman service specializing in electrical work, plumbing, smart home technology, and general maintenance. How can I help you today?";
+      return "Hello! Welcome to HandyTech Solutions. We're Missouri's trusted handyman service specializing in electrical work, plumbing, smart home technology, and general maintenance. How may I assist you today?";
     }
     
     if (electrical.some(word => message.includes(word))) {
-      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. Our licensed electricians ensure safe, code-compliant work. Would you like to schedule a consultation to discuss your electrical needs?";
+      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. Our licensed electricians ensure safe, code-compliant work. Would you like to schedule a consultation to discuss your electrical needs? How else may I assist you?";
     }
     
     if (plumbing.some(word => message.includes(word))) {
-      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced plumbers can handle both minor repairs and major renovations. Let me help you schedule a service call!";
+      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced plumbers can handle both minor repairs and major renovations. Let me help you schedule a service call! How else may I assist you?";
     }
     
     if (tech.some(word => message.includes(word))) {
-      return "Excellent! We specialize in smart home automation, security system installation, home theater setup, and tech integration. We can help you modernize your home with the latest technology. Would you like to discuss your smart home project?";
+      return "Excellent! We specialize in smart home automation, security system installation, home theater setup, and tech integration. We can help you modernize your home with the latest technology. Would you like to discuss your smart home project? How else may I assist you?";
     }
     
     if (painting.some(word => message.includes(word))) {
-      return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint?";
+      return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint? How else may I assist you?";
     }
     
     if (scheduling.some(word => message.includes(word))) {
-      return "I'd be happy to help you schedule a service! We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team can provide free estimates for most projects. What type of service are you looking for?";
+      return "I'd be happy to help you schedule a service! We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team can provide free estimates for most projects. What type of service are you looking for? How else may I assist you?";
     }
 
-    return "Thanks for contacting HandyTech Solutions! We're Missouri's expert handyman service offering electrical work, plumbing, smart home technology, painting, and general maintenance. We'd love to help with your project. What service are you interested in, or would you like to schedule a consultation?";
+    return "Thanks for contacting HandyTech Solutions! We're Missouri's expert handyman service offering electrical work, plumbing, smart home technology, painting, and general maintenance. We'd love to help with your project. What service are you interested in, or would you like to schedule a consultation? How may I assist you?";
   }
 
   // Chatbot endpoint with intelligent fallback system
@@ -356,65 +356,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { message } = req.body;
       let botResponse = "";
 
-      // Try OpenAI first, fallback to rule-based system
-      try {
-        if (process.env.OPENAI_API_KEY) {
-          const response = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are a helpful customer service assistant for HandyTech Solutions, a Missouri-based handyman service specializing in home improvement and smart technology solutions. 
-
-COMPANY INFORMATION:
-- Business: HandyTech Solutions
-- Location: Missouri  
-- Phone: (314) 325-4575
-- Email: contact@handytech-solutions.com
-- Hours: Mon-Fri 8AM-6PM, Sat 9AM-3PM
-
-SERVICES OFFERED:
-1. Essential Repairs & Maintenance: Drywall repair, fixture installation, caulking, minor plumbing, basic electrical, door/window adjustments, garage door maintenance, weatherstripping
-2. Home Improvement & Remodeling: Kitchen upgrades, bathroom renovations, flooring installation, painting, lighting upgrades, cabinet installation, countertop installation, trim work
-3. Specialized Installations & Custom Projects: Smart home automation, security systems, home theater setup, custom storage solutions, deck construction, fence installation, tile installation, electrical panel upgrades
-
-Keep responses helpful and professional. If customer needs scheduling, indicate you can help with that.`
-                },
-                {
-                  role: "user",
-                  content: message
-                }
-              ],
-              max_tokens: 200,
-              temperature: 0.7,
-            }),
-          });
-
-          if (response.ok) {
-            const data = await response.json();
-            botResponse = data.choices[0]?.message?.content || "";
-          } else {
-            // Don't throw, just fall through to use fallback
-            botResponse = "";
-          }
-        } else {
-          throw new Error("No OpenAI key");
-        }
-      } catch (openaiError) {
-        // Use fallback response system
-        console.log("Using fallback chatbot system");
-        botResponse = generateFallbackResponse(message.toLowerCase());
-      }
+      // Use fallback response system directly since OpenAI quota is exceeded
+      console.log("Using fallback chatbot system for message:", message);
+      botResponse = generateFallbackResponse(message.toLowerCase());
+      console.log("Fallback response generated:", botResponse);
 
       // If no response was generated, provide a default
       if (!botResponse) {
-        botResponse = "Hello! I'm here to help with HandyTech Solutions services. We offer electrical work, plumbing, smart home tech, painting, and general maintenance. How can I assist you today?";
+        console.log("No response generated, using default");
+        botResponse = "Hello! I'm here to help with HandyTech Solutions services. We offer electrical work, plumbing, smart home tech, painting, and general maintenance. How may I assist you today?";
       }
 
       // Determine if we should show scheduling
@@ -427,7 +377,7 @@ Keep responses helpful and professional. If customer needs scheduling, indicate 
     } catch (error) {
       console.error("Final chatbot error:", error);
       res.json({ 
-        response: "Hello! I'm here to help with HandyTech Solutions services. We offer electrical work, plumbing, smart home tech, painting, and general maintenance. How can I assist you today? Call us at (314) 325-4575 for immediate help.",
+        response: "Hello! I'm here to help with HandyTech Solutions services. We offer electrical work, plumbing, smart home tech, painting, and general maintenance. How may I assist you today? Call us at (314) 325-4575 for immediate help.",
         shouldShowScheduling: true 
       });
     }
