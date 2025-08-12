@@ -196,6 +196,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Appointments routes
+  app.post("/api/appointments", async (req, res) => {
+    try {
+      const appointmentData = insertAppointmentSchema.parse(req.body);
+      const appointment = await storage.createAppointment({
+        ...appointmentData,
+        status: "scheduled",
+      });
+
+      // Auto-create customer if they don't exist
+      const existingCustomer = await storage.getCustomerByEmail(appointmentData.customerEmail);
+      if (!existingCustomer) {
+        const nameParts = appointmentData.customerName.split(' ');
+        const firstName = nameParts[0] || '';
+        const lastName = nameParts.slice(1).join(' ') || '';
+        
+        await storage.createCustomer({
+          firstName,
+          lastName,
+          email: appointmentData.customerEmail,
+          phone: appointmentData.customerPhone || null,
+          company: null,
+        });
+      }
+
+      res.status(201).json(appointment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
+      } else {
+        console.error("Appointment creation error:", error);
+        res.status(500).json({ message: "Failed to create appointment" });
+      }
+    }
+  });
+
+  app.get("/api/appointments", async (req, res) => {
+    try {
+      const appointments = await storage.getAllAppointments();
+      res.json(appointments);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
   app.patch("/api/quotes/:id/status", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
@@ -266,6 +311,90 @@ export async function registerRoutes(app: Express): Promise<Server> {
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to send batch emails" });
+    }
+  });
+
+  // Chatbot endpoint
+  app.post("/api/chatbot", async (req, res) => {
+    try {
+      const { message } = req.body;
+      
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error("OpenAI API key not configured");
+      }
+
+      const response = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          model: "gpt-3.5-turbo",
+          messages: [
+            {
+              role: "system",
+              content: `You are a helpful customer service assistant for HandyTech Solutions, a Missouri-based handyman service specializing in home improvement and smart technology solutions. 
+
+COMPANY INFORMATION:
+- Business: HandyTech Solutions
+- Location: Missouri
+- Phone: (314) 325-4575
+- Email: contact@handytech-solutions.com
+- Hours: Mon-Fri 8AM-6PM, Sat 9AM-3PM
+
+SERVICES OFFERED:
+1. Essential Repairs & Maintenance: Drywall repair, fixture installation, caulking, minor plumbing, basic electrical, door/window adjustments, garage door maintenance, weatherstripping
+2. Home Improvement & Remodeling: Kitchen upgrades, bathroom renovations, flooring installation, painting, lighting upgrades, cabinet installation, countertop installation, trim work
+3. Specialized Installations & Custom Projects: Smart home automation, security systems, home theater setup, custom storage solutions, deck construction, fence installation, tile installation, electrical panel upgrades
+
+PERSONALITY: Professional, helpful, knowledgeable about home improvement. Focus on understanding customer needs and providing relevant service information.
+
+ESCALATION RULES:
+- If customer wants to schedule service, book consultation, get quote, or requests to speak with someone, respond with information and indicate you can help schedule a meeting
+- If customer has complex technical questions beyond basic service info, offer to schedule a consultation
+- If customer seems frustrated or has complaints, offer to schedule a call with the team
+
+RESPONSE GUIDELINES:
+- Keep responses conversational and helpful
+- Always stay focused on HandyTech Solutions services
+- Be specific about services offered
+- If asked about pricing, explain that quotes are provided after consultation
+- Never make up information about services not listed
+
+Respond to customer inquiries naturally and helpfully. If the customer needs scheduling or complex assistance, your response should indicate this, but don't explicitly mention "shouldShowScheduling" in your response.`
+            },
+            {
+              role: "user",
+              content: message
+            }
+          ],
+          max_tokens: 300,
+          temperature: 0.7,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("OpenAI API request failed");
+      }
+
+      const data = await response.json();
+      const botResponse = data.choices[0]?.message?.content || "I'm sorry, I couldn't process that request.";
+
+      // Determine if we should show scheduling based on keywords and context
+      const shouldShowScheduling = /schedule|appointment|meet|consultation|quote|call|speak|visit|come out|book/i.test(message) ||
+                                  /complex|detailed|estimate|pricing|cost|when can you/i.test(message);
+
+      res.json({
+        response: botResponse,
+        shouldShowScheduling,
+      });
+    } catch (error) {
+      console.error("Chatbot error:", error);
+      res.status(500).json({ 
+        response: "I apologize, but I'm experiencing technical difficulties. Please call us directly at (314) 325-4575 for immediate assistance.",
+        shouldShowScheduling: false 
+      });
     }
   });
 

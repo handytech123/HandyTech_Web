@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import CustomerPortal from "@/pages/customer-portal";
 import AdminDashboard from "@/pages/admin";
 import NotFound from "@/pages/not-found";
+import Chatbot from "@/components/chatbot";
 
 function Router() {
   return (
@@ -25,6 +26,7 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Router />
+        <Chatbot />
       </TooltipProvider>
     </QueryClientProvider>
   );
