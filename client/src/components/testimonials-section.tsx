@@ -3,22 +3,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import { type Review, type Customer } from "@shared/schema";
 
-const fallbackTestimonials = [
-  {
-    name: "Robert Chen",
-    role: "Owner, Local Restaurant", 
-    content: "Their proactive approach to maintenance has eliminated our IT headaches. Best investment we've made for our business.",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  },
-  {
-    name: "Jennifer Adams",
-    role: "Director, Healthcare Solutions",
-    content: "Professional, reliable, and affordable. HandyTech has been instrumental in our company's growth and success.",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  }
-];
+// No fallback testimonials - use only authentic reviews
 
 export default function TestimonialsSection() {
   const { data: reviews = [] } = useQuery<Review[]>({
@@ -60,10 +45,14 @@ export default function TestimonialsSection() {
     };
   });
 
-  // Use fallback testimonials if no reviews available
-  const displayTestimonials = testimonials.length > 0 ? [...testimonials, ...fallbackTestimonials] : fallbackTestimonials;
-
-  console.log('Testimonials data:', { reviews, customers, testimonials, displayTestimonials });
+  // Separate Home Depot reviews from local reviews
+  const homeDepotTestimonials = testimonials.filter((t: any) => t.isHomeDepot);
+  const localTestimonials = testimonials.filter((t: any) => !t.isHomeDepot);
+  
+  // Show only authentic Home Depot reviews first (max 4), then local reviews if needed
+  const displayTestimonials = homeDepotTestimonials.length >= 4 
+    ? homeDepotTestimonials.slice(0, 4)
+    : [...homeDepotTestimonials, ...localTestimonials].slice(0, 4);
 
   return (
     <section id="testimonials" className="py-20 bg-white">
@@ -73,11 +62,11 @@ export default function TestimonialsSection() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Don't just take our word for it. Here's what our satisfied customers have to say about our services.
           </p>
-          <p className="text-sm text-gray-500 mt-2">Showing {displayTestimonials.length} testimonials</p>
+          <p className="text-sm text-gray-500 mt-2">Featuring authentic Home Depot Pro reviews</p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-          {displayTestimonials.slice(0, 4).map((testimonial, index) => (
+          {displayTestimonials.map((testimonial, index) => (
             <Card key={index} className="bg-light-gray hover:shadow-lg transition-shadow">
               <CardContent className="p-6">
                 <div className="flex items-center mb-4">
@@ -111,6 +100,20 @@ export default function TestimonialsSection() {
             </Card>
           ))}
         </div>
+        
+        {(homeDepotTestimonials.length > 4 || localTestimonials.length > 0) && (
+          <div className="text-center mt-12">
+            <button 
+              onClick={() => window.open('https://proreferral.homedepot.com/public-profile/885948', '_blank')}
+              className="inline-flex items-center px-6 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+            >
+              View All Home Depot Pro Reviews
+              <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </button>
+          </div>
+        )}
       </div>
     </section>
   );
