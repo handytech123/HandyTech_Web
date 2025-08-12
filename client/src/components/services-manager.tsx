@@ -340,48 +340,53 @@ export default function ServicesManager() {
             </Dialog>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="overflow-x-auto">
           {services.length > 0 ? (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="font-semibold">Service</TableHead>
-                  <TableHead className="font-semibold">Category</TableHead>
-                  <TableHead className="font-semibold">Price</TableHead>
-                  <TableHead className="font-semibold">Duration</TableHead>
-                  <TableHead className="font-semibold">Status</TableHead>
-                  <TableHead className="font-semibold text-center">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
+            <div className="min-w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead className="font-semibold min-w-[200px]">Service</TableHead>
+                    <TableHead className="font-semibold hidden md:table-cell">Category</TableHead>
+                    <TableHead className="font-semibold">Price</TableHead>
+                    <TableHead className="font-semibold hidden lg:table-cell">Duration</TableHead>
+                    <TableHead className="font-semibold hidden sm:table-cell">Status</TableHead>
+                    <TableHead className="font-semibold text-center min-w-[160px]">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
                 {services
                   .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
                   .map((service) => (
                     <TableRow key={service.id}>
-                      <TableCell>
+                      <TableCell className="min-w-[200px]">
                         <div>
                           <div className="font-medium">{service.name}</div>
-                          <div className="text-sm text-gray-500 truncate max-w-[200px]">
+                          <div className="text-sm text-gray-500 line-clamp-2">
                             {service.description}
+                          </div>
+                          <div className="text-xs text-gray-400 md:hidden mt-1">
+                            {getCategoryLabel(service.category)} • ${service.basePrice} {service.priceUnit}
                           </div>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden md:table-cell">
                         <Badge variant="outline">{getCategoryLabel(service.category)}</Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1">
                           <DollarSign className="h-3 w-3" />
-                          {service.basePrice} {service.priceUnit}
+                          ${service.basePrice}
+                          <span className="hidden lg:inline"> {service.priceUnit}</span>
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden lg:table-cell">
                         <div className="flex items-center gap-1">
                           <Clock className="h-3 w-3" />
                           {service.estimatedDuration ?? "N/A"}
                         </div>
                       </TableCell>
-                      <TableCell>
+                      <TableCell className="hidden sm:table-cell">
                         <div className="flex items-center gap-2">
                           <Badge variant={(service.isActive ?? true) ? "default" : "secondary"}>
                             {(service.isActive ?? true) ? "Active" : "Inactive"}
@@ -431,7 +436,8 @@ export default function ServicesManager() {
                     </TableRow>
                   ))}
               </TableBody>
-            </Table>
+              </Table>
+            </div>
           ) : (
             <div className="text-center py-8 text-gray-500">
               <Settings className="h-12 w-12 mx-auto mb-4 text-gray-300" />
