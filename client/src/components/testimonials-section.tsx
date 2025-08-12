@@ -6,14 +6,30 @@ import { type Review, type Customer } from "@shared/schema";
 // No fallback testimonials - use only authentic reviews
 
 export default function TestimonialsSection() {
-  const { data: reviews = [] } = useQuery<Review[]>({
+  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery<Review[]>({
     queryKey: ["/api/reviews"],
-    queryFn: () => fetch("/api/reviews").then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch("/api/reviews");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch reviews: ${response.status}`);
+      }
+      return response.json();
+    },
+    retry: 3,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
-  const { data: customers = [] } = useQuery<Customer[]>({
+  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
-    queryFn: () => fetch("/api/customers").then(res => res.json()),
+    queryFn: async () => {
+      const response = await fetch("/api/customers");
+      if (!response.ok) {
+        throw new Error(`Failed to fetch customers: ${response.status}`);
+      }
+      return response.json();
+    },
+    retry: 3,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   });
 
   // Combine reviews with customer data
@@ -49,6 +65,65 @@ export default function TestimonialsSection() {
   const homeDepotTestimonials = testimonials.filter((t: any) => t.isHomeDepot);
   const localTestimonials = testimonials.filter((t: any) => !t.isHomeDepot);
   
+  // Show loading state
+  if (reviewsLoading || customersLoading) {
+    return (
+      <section id="testimonials" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-charcoal mb-4">What Our Clients Say</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">Loading customer reviews...</p>
+          </div>
+          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            {[...Array(4)].map((_, i) => (
+              <Card key={i} className="bg-light-gray animate-pulse">
+                <CardContent className="p-6">
+                  <div className="h-4 bg-gray-300 rounded mb-4"></div>
+                  <div className="h-16 bg-gray-300 rounded mb-4"></div>
+                  <div className="flex items-center">
+                    <div className="w-12 h-12 bg-gray-300 rounded-full mr-3"></div>
+                    <div className="flex-1">
+                      <div className="h-4 bg-gray-300 rounded mb-2"></div>
+                      <div className="h-3 bg-gray-300 rounded"></div>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  // Show error state with fallback content
+  if (reviewsError) {
+    console.error('Reviews loading error:', reviewsError);
+    return (
+      <section id="testimonials" className="py-20 bg-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl font-bold text-charcoal mb-4">What Our Clients Say</h2>
+            <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+              Don't just take our word for it. Here's what our satisfied customers have to say about our services.
+            </p>
+            <div className="text-center mt-8">
+              <button 
+                onClick={() => window.open('https://proreferral.homedepot.com/public-profile/885948', '_blank')}
+                className="inline-flex items-center px-6 py-3 bg-orange-600 text-white font-medium rounded-lg hover:bg-orange-700 transition-colors"
+              >
+                View Our Home Depot Pro Reviews
+                <svg className="ml-2 w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   // Show only authentic Home Depot reviews first (max 4), then local reviews if needed
   const displayTestimonials = homeDepotTestimonials.length >= 4 
     ? homeDepotTestimonials.slice(0, 4)
@@ -62,7 +137,9 @@ export default function TestimonialsSection() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Don't just take our word for it. Here's what our satisfied customers have to say about our services.
           </p>
-          <p className="text-sm text-gray-500 mt-2">Featuring authentic Home Depot Pro reviews</p>
+          <p className="text-sm text-gray-500 mt-2">
+            Featuring authentic Home Depot Pro reviews • {reviews.length} total reviews loaded
+          </p>
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
