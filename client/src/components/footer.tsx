@@ -48,11 +48,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Services</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="#" className="hover:text-white transition-colors">IT Support</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Cybersecurity</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Cloud Services</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Network Infrastructure</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Data Management</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Plumbing Repairs</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Electrical Work</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Smart Home Setup</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Painting & Drywall</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">General Repairs</a></li>
             </ul>
           </div>
 
@@ -60,11 +60,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Company</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Our Team</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">News</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+              <li><a href="/about" className="hover:text-white transition-colors">About Us</a></li>
+              <li><a href="#testimonials" className="hover:text-white transition-colors">Reviews</a></li>
+              <li><a href="#scheduler" className="hover:text-white transition-colors">Schedule Service</a></li>
+              <li><a href="#contact" className="hover:text-white transition-colors">Contact</a></li>
+              <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
             </ul>
           </div>
 
