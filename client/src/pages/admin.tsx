@@ -1,14 +1,60 @@
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import AdminLogin from "@/components/admin-login";
+import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
 
 export default function AdminDashboard() {
+  const { isAuthenticated, isLoading: authLoading, login, logout } = useAdminAuth();
+  const [loginError, setLoginError] = useState<string>("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
   const queryClient = useQueryClient();
+
+  const handleLogin = async (username: string, password: string) => {
+    setIsLoggingIn(true);
+    setLoginError("");
+    
+    const result = await login(username, password);
+    
+    if (!result.success) {
+      setLoginError(result.error || "Login failed");
+    }
+    
+    setIsLoggingIn(false);
+  };
+
+  const handleLogout = () => {
+    logout();
+  };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-red mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <AdminLogin 
+        onLogin={handleLogin}
+        error={loginError}
+        isLoading={isLoggingIn}
+      />
+    );
+  }
 
   const { data: quotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/quotes"]
@@ -58,12 +104,24 @@ export default function AdminDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            HandyTech Solutions - Admin Dashboard
-          </h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            Manage your business operations and customer relationships
-          </p>
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+                HandyTech Solutions - Admin Dashboard
+              </h1>
+              <p className="text-gray-600 dark:text-gray-300">
+                Manage your business operations and customer relationships
+              </p>
+            </div>
+            <Button 
+              variant="outline" 
+              onClick={handleLogout}
+              className="flex items-center gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              Sign Out
+            </Button>
+          </div>
         </div>
 
         {/* KPI Cards */}

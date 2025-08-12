@@ -13,6 +13,37 @@ import {
 import { z } from "zod";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Admin authentication route
+  app.post("/api/admin/login", async (req, res) => {
+    try {
+      const { username, password } = req.body;
+      
+      // Simple authentication - you can change these credentials
+      const ADMIN_USERNAME = "admin";
+      const ADMIN_PASSWORD = "handytech2024";
+      
+      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
+        // Generate a simple token (in production, use proper JWT)
+        const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+        res.json({ 
+          success: true, 
+          token,
+          message: "Login successful" 
+        });
+      } else {
+        res.status(401).json({ 
+          success: false, 
+          message: "Invalid username or password" 
+        });
+      }
+    } catch (error) {
+      res.status(500).json({ 
+        success: false, 
+        message: "Login failed" 
+      });
+    }
+  });
+
   // Customer routes
   app.get("/api/customers", async (req, res) => {
     try {
