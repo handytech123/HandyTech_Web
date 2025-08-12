@@ -9,6 +9,8 @@ import {
   type Appointment, type InsertAppointment,
   type ProjectGallery, type InsertProjectGallery
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc, and, gte } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -427,4 +429,178 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+export class DatabaseStorage implements IStorage {
+  // Users
+  async getUser(id: number): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.id, id));
+    return user;
+  }
+
+  async getUserByUsername(username: string): Promise<User | undefined> {
+    const [user] = await db.select().from(users).where(eq(users.username, username));
+    return user;
+  }
+
+  async createUser(user: InsertUser): Promise<User> {
+    const [created] = await db.insert(users).values(user).returning();
+    return created;
+  }
+
+  // Customers
+  async getCustomer(id: number): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+    return customer;
+  }
+
+  async getCustomerByEmail(email: string): Promise<Customer | undefined> {
+    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+    return customer;
+  }
+
+  async createCustomer(customer: InsertCustomer): Promise<Customer> {
+    const [created] = await db.insert(customers).values(customer).returning();
+    return created;
+  }
+
+  async getAllCustomers(): Promise<Customer[]> {
+    return await db.select().from(customers).orderBy(desc(customers.createdAt));
+  }
+
+  async updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void> {
+    await db.update(customers).set({ lastEmailSent }).where(eq(customers.id, id));
+  }
+
+  // Maintenance Plans
+  async getMaintenancePlan(id: number): Promise<MaintenancePlan | undefined> {
+    const [plan] = await db.select().from(maintenancePlans).where(eq(maintenancePlans.id, id));
+    return plan;
+  }
+
+  async getMaintenancePlansByCustomer(customerId: number): Promise<MaintenancePlan[]> {
+    return await db.select().from(maintenancePlans).where(eq(maintenancePlans.customerId, customerId));
+  }
+
+  async createMaintenancePlan(plan: InsertMaintenancePlan): Promise<MaintenancePlan> {
+    const [created] = await db.insert(maintenancePlans).values(plan).returning();
+    return created;
+  }
+
+  async updateMaintenancePlanStatus(id: number, status: string): Promise<void> {
+    await db.update(maintenancePlans).set({ status }).where(eq(maintenancePlans.id, id));
+  }
+
+  async getAllActiveMaintenancePlans(): Promise<MaintenancePlan[]> {
+    return await db.select().from(maintenancePlans).where(eq(maintenancePlans.status, "active"));
+  }
+
+  // Reviews
+  async getReview(id: number): Promise<Review | undefined> {
+    const [review] = await db.select().from(reviews).where(eq(reviews.id, id));
+    return review;
+  }
+
+  async getApprovedReviews(): Promise<Review[]> {
+    return await db.select().from(reviews).where(eq(reviews.isApproved, true)).orderBy(desc(reviews.createdAt));
+  }
+
+  async getReviewsByCustomer(customerId: number): Promise<Review[]> {
+    return await db.select().from(reviews).where(eq(reviews.customerId, customerId));
+  }
+
+  async createReview(review: InsertReview): Promise<Review> {
+    const [created] = await db.insert(reviews).values(review).returning();
+    return created;
+  }
+
+  async approveReview(id: number): Promise<void> {
+    await db.update(reviews).set({ isApproved: true }).where(eq(reviews.id, id));
+  }
+
+  // Quotes
+  async getQuote(id: number): Promise<Quote | undefined> {
+    const [quote] = await db.select().from(quotes).where(eq(quotes.id, id));
+    return quote;
+  }
+
+  async getAllQuotes(): Promise<Quote[]> {
+    return await db.select().from(quotes).orderBy(desc(quotes.createdAt));
+  }
+
+  async createQuote(quote: InsertQuote): Promise<Quote> {
+    const [created] = await db.insert(quotes).values(quote).returning();
+    return created;
+  }
+
+  async updateQuoteStatus(id: number, status: string): Promise<void> {
+    await db.update(quotes).set({ status }).where(eq(quotes.id, id));
+  }
+
+  // Email Campaigns
+  async createEmailCampaign(campaign: InsertEmailCampaign): Promise<EmailCampaign> {
+    const [created] = await db.insert(emailCampaigns).values(campaign).returning();
+    return created;
+  }
+
+  async getEmailCampaignsByCustomer(customerId: number): Promise<EmailCampaign[]> {
+    return await db.select().from(emailCampaigns).where(eq(emailCampaigns.customerId, customerId));
+  }
+
+  async getAllEmailCampaigns(): Promise<EmailCampaign[]> {
+    return await db.select().from(emailCampaigns).orderBy(desc(emailCampaigns.sentAt));
+  }
+
+  // Appointments
+  async getAppointment(id: number): Promise<Appointment | undefined> {
+    const [appointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    return appointment;
+  }
+
+  async getAllAppointments(): Promise<Appointment[]> {
+    return await db.select().from(appointments).orderBy(desc(appointments.createdAt));
+  }
+
+  async getAppointmentsByCustomer(customerId: number): Promise<Appointment[]> {
+    return await db.select().from(appointments).where(eq(appointments.customerId, customerId));
+  }
+
+  async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
+    const [created] = await db.insert(appointments).values(appointment).returning();
+    return created;
+  }
+
+  async updateAppointmentStatus(id: number, status: string): Promise<void> {
+    await db.update(appointments).set({ status }).where(eq(appointments.id, id));
+  }
+
+  async getUpcomingAppointments(): Promise<Appointment[]> {
+    const now = new Date();
+    return await db.select().from(appointments)
+      .where(and(gte(appointments.appointmentDate, now), eq(appointments.status, "scheduled")))
+      .orderBy(appointments.appointmentDate);
+  }
+
+  // Project Gallery
+  async getProjectGalleryItem(id: number): Promise<ProjectGallery | undefined> {
+    const [item] = await db.select().from(projectGallery).where(eq(projectGallery.id, id));
+    return item;
+  }
+
+  async getAllProjectGalleryItems(): Promise<ProjectGallery[]> {
+    return await db.select().from(projectGallery).orderBy(desc(projectGallery.createdAt));
+  }
+
+  async getProjectGalleryByCategory(category: string): Promise<ProjectGallery[]> {
+    return await db.select().from(projectGallery).where(eq(projectGallery.category, category));
+  }
+
+  async getFeaturedProjects(): Promise<ProjectGallery[]> {
+    return await db.select().from(projectGallery).where(eq(projectGallery.featured, true));
+  }
+
+  async createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery> {
+    const [created] = await db.insert(projectGallery).values(item).returning();
+    return created;
+  }
+}
+
+export const storage = new DatabaseStorage();

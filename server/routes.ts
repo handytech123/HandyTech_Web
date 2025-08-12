@@ -162,6 +162,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.patch("/api/quotes/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      await storage.updateQuoteStatus(id, status);
+      res.json({ message: "Quote status updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update quote status" });
+    }
+  });
+
   // Email campaign routes
   app.post("/api/email-campaigns", async (req, res) => {
     try {
