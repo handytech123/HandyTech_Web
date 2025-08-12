@@ -345,12 +345,12 @@ export default function ServicesManager() {
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Service</TableHead>
-                  <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead>Duration</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead>Actions</TableHead>
+                  <TableHead className="font-semibold">Service</TableHead>
+                  <TableHead className="font-semibold">Category</TableHead>
+                  <TableHead className="font-semibold">Price</TableHead>
+                  <TableHead className="font-semibold">Duration</TableHead>
+                  <TableHead className="font-semibold">Status</TableHead>
+                  <TableHead className="font-semibold text-center">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -409,17 +409,24 @@ export default function ServicesManager() {
                             size="sm"
                             variant="outline"
                             onClick={() => handleEdit(service)}
+                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
                           >
                             <Edit className="h-3 w-3" />
+                            <span className="hidden sm:inline">Edit</span>
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            onClick={() => deleteService.mutate(service.id)}
+                            onClick={() => {
+                              if (confirm('Are you sure you want to delete this service? This action cannot be undone.')) {
+                                deleteService.mutate(service.id);
+                              }
+                            }}
                             disabled={deleteService.isPending}
-                            className="text-red-600 hover:text-red-700"
+                            className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
                           >
                             <Trash2 className="h-3 w-3" />
+                            <span className="hidden sm:inline">Delete</span>
                           </Button>
                         </div>
                       </TableCell>
