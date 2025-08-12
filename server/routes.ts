@@ -314,31 +314,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Chatbot endpoint
+  // Fallback response generator
+  function generateFallbackResponse(message: string): string {
+    const greetings = ["hello", "hi", "hey", "good morning", "good afternoon"];
+    const electrical = ["electrical", "electric", "wiring", "outlet", "switch", "panel", "breaker"];
+    const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water"];
+    const tech = ["smart home", "automation", "security", "tech", "installation", "setup"];
+    const painting = ["paint", "painting", "wall", "color", "interior", "exterior"];
+    const scheduling = ["schedule", "appointment", "book", "when", "available"];
+
+    if (greetings.some(word => message.includes(word))) {
+      return "Hello! Welcome to HandyTech Solutions. We're Missouri's trusted handyman service specializing in electrical work, plumbing, smart home technology, and general maintenance. How can I help you today?";
+    }
+    
+    if (electrical.some(word => message.includes(word))) {
+      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. Our licensed electricians ensure safe, code-compliant work. Would you like to schedule a consultation to discuss your electrical needs?";
+    }
+    
+    if (plumbing.some(word => message.includes(word))) {
+      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced plumbers can handle both minor repairs and major renovations. Let me help you schedule a service call!";
+    }
+    
+    if (tech.some(word => message.includes(word))) {
+      return "Excellent! We specialize in smart home automation, security system installation, home theater setup, and tech integration. We can help you modernize your home with the latest technology. Would you like to discuss your smart home project?";
+    }
+    
+    if (painting.some(word => message.includes(word))) {
+      return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint?";
+    }
+    
+    if (scheduling.some(word => message.includes(word))) {
+      return "I'd be happy to help you schedule a service! We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team can provide free estimates for most projects. What type of service are you looking for?";
+    }
+
+    return "Thanks for contacting HandyTech Solutions! We're Missouri's expert handyman service offering electrical work, plumbing, smart home technology, painting, and general maintenance. We'd love to help with your project. What service are you interested in, or would you like to schedule a consultation?";
+  }
+
+  // Chatbot endpoint with intelligent fallback system
   app.post("/api/chatbot", async (req, res) => {
     try {
       const { message } = req.body;
-      
-      if (!process.env.OPENAI_API_KEY) {
-        throw new Error("OpenAI API key not configured");
-      }
+      let botResponse = "";
 
-      const response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          model: "gpt-3.5-turbo",
-          messages: [
-            {
-              role: "system",
-              content: `You are a helpful customer service assistant for HandyTech Solutions, a Missouri-based handyman service specializing in home improvement and smart technology solutions. 
+      // Try OpenAI first, fallback to rule-based system
+      try {
+        if (process.env.OPENAI_API_KEY) {
+          const response = await fetch("https://api.openai.com/v1/chat/completions", {
+            method: "POST",
+            headers: {
+              "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`,
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+              model: "gpt-4o-mini",
+              messages: [
+                {
+                  role: "system",
+                  content: `You are a helpful customer service assistant for HandyTech Solutions, a Missouri-based handyman service specializing in home improvement and smart technology solutions. 
 
 COMPANY INFORMATION:
 - Business: HandyTech Solutions
-- Location: Missouri
+- Location: Missouri  
 - Phone: (314) 325-4575
 - Email: contact@handytech-solutions.com
 - Hours: Mon-Fri 8AM-6PM, Sat 9AM-3PM
@@ -348,52 +384,51 @@ SERVICES OFFERED:
 2. Home Improvement & Remodeling: Kitchen upgrades, bathroom renovations, flooring installation, painting, lighting upgrades, cabinet installation, countertop installation, trim work
 3. Specialized Installations & Custom Projects: Smart home automation, security systems, home theater setup, custom storage solutions, deck construction, fence installation, tile installation, electrical panel upgrades
 
-PERSONALITY: Professional, helpful, knowledgeable about home improvement. Focus on understanding customer needs and providing relevant service information.
+Keep responses helpful and professional. If customer needs scheduling, indicate you can help with that.`
+                },
+                {
+                  role: "user",
+                  content: message
+                }
+              ],
+              max_tokens: 200,
+              temperature: 0.7,
+            }),
+          });
 
-ESCALATION RULES:
-- If customer wants to schedule service, book consultation, get quote, or requests to speak with someone, respond with information and indicate you can help schedule a meeting
-- If customer has complex technical questions beyond basic service info, offer to schedule a consultation
-- If customer seems frustrated or has complaints, offer to schedule a call with the team
-
-RESPONSE GUIDELINES:
-- Keep responses conversational and helpful
-- Always stay focused on HandyTech Solutions services
-- Be specific about services offered
-- If asked about pricing, explain that quotes are provided after consultation
-- Never make up information about services not listed
-
-Respond to customer inquiries naturally and helpfully. If the customer needs scheduling or complex assistance, your response should indicate this, but don't explicitly mention "shouldShowScheduling" in your response.`
-            },
-            {
-              role: "user",
-              content: message
-            }
-          ],
-          max_tokens: 300,
-          temperature: 0.7,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error("OpenAI API request failed");
+          if (response.ok) {
+            const data = await response.json();
+            botResponse = data.choices[0]?.message?.content || "";
+          } else {
+            // Don't throw, just fall through to use fallback
+            botResponse = "";
+          }
+        } else {
+          throw new Error("No OpenAI key");
+        }
+      } catch (openaiError) {
+        // Use fallback response system
+        console.log("Using fallback chatbot system");
+        botResponse = generateFallbackResponse(message.toLowerCase());
       }
 
-      const data = await response.json();
-      const botResponse = data.choices[0]?.message?.content || "I'm sorry, I couldn't process that request.";
+      // If no response was generated, provide a default
+      if (!botResponse) {
+        botResponse = "Hello! I'm here to help with HandyTech Solutions services. We offer electrical work, plumbing, smart home tech, painting, and general maintenance. How can I assist you today?";
+      }
 
-      // Determine if we should show scheduling based on keywords and context
-      const shouldShowScheduling = /schedule|appointment|meet|consultation|quote|call|speak|visit|come out|book/i.test(message) ||
-                                  /complex|detailed|estimate|pricing|cost|when can you/i.test(message);
+      // Determine if we should show scheduling
+      const shouldShowScheduling = /schedule|appointment|meet|consultation|quote|call|speak|visit|come out|book|when can you|cost|price|estimate/i.test(message);
 
       res.json({
         response: botResponse,
         shouldShowScheduling,
       });
     } catch (error) {
-      console.error("Chatbot error:", error);
-      res.status(500).json({ 
-        response: "I apologize, but I'm experiencing technical difficulties. Please call us directly at (314) 325-4575 for immediate assistance.",
-        shouldShowScheduling: false 
+      console.error("Final chatbot error:", error);
+      res.json({ 
+        response: "Hello! I'm here to help with HandyTech Solutions services. We offer electrical work, plumbing, smart home tech, painting, and general maintenance. How can I assist you today? Call us at (314) 325-4575 for immediate help.",
+        shouldShowScheduling: true 
       });
     }
   });
