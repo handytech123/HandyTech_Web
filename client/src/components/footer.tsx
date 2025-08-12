@@ -64,19 +64,19 @@ export default function Footer() {
               <li><a href="#testimonials" className="hover:text-white transition-colors">Reviews</a></li>
               <li><a href="#scheduler" className="hover:text-white transition-colors">Schedule Service</a></li>
               <li><a href="#contact" className="hover:text-white transition-colors">Contact</a></li>
-              <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Free Estimates</a></li>
             </ul>
           </div>
 
-          {/* Support */}
+          {/* Contact */}
           <div>
-            <h4 className="font-semibold mb-4">Support</h4>
+            <h4 className="font-semibold mb-4">Get In Touch</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+              <li><a href="tel:(314) 325-4575" className="hover:text-white transition-colors">(314) 325-4575</a></li>
+              <li><a href="#contact" className="hover:text-white transition-colors">Request Quote</a></li>
+              <li><a href="#scheduler" className="hover:text-white transition-colors">Schedule Service</a></li>
+              <li><a href="#" className="hover:text-white transition-colors">Emergency Repairs</a></li>
+              <li><a href="#testimonials" className="hover:text-white transition-colors">Customer Reviews</a></li>
             </ul>
           </div>
         </div>

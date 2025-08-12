@@ -59,11 +59,7 @@ export default function Navigation() {
               >
                 Home Depot Pro
               </a>
-              <Link href="/customer-portal">
-                <Button variant="outline" size="sm" className="mr-2">
-                  Customer Portal
-                </Button>
-              </Link>
+
               <Link href="/admin">
                 <Button variant="outline" size="sm" className="mr-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white">
                   Admin
@@ -114,11 +110,7 @@ export default function Navigation() {
                   >
                     Home Depot Pro
                   </a>
-                  <Link href="/customer-portal">
-                    <Button variant="outline" className="w-full justify-start">
-                      Customer Portal
-                    </Button>
-                  </Link>
+
                   <Link href="/admin">
                     <Button variant="outline" className="w-full justify-start border-brand-red text-brand-red hover:bg-brand-red hover:text-white">
                       Admin Dashboard
