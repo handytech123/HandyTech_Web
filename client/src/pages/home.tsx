@@ -1,6 +1,6 @@
 import Navigation from "@/components/navigation";
 import HeroSection from "@/components/hero-section";
-import ServicesSection from "@/components/services-section";
+import DynamicServicesSection from "@/components/dynamic-services-section";
 import ProjectGallery from "@/components/project-gallery";
 import AppointmentScheduler from "@/components/appointment-scheduler";
 import MaintenancePlans from "@/components/maintenance-plans";
@@ -21,7 +21,7 @@ export default function Home() {
       <Navigation />
       <main>
         <HeroSection />
-        <ServicesSection />
+        <DynamicServicesSection />
         <ProjectGallery />
         <AppointmentScheduler />
         <MaintenancePlans />

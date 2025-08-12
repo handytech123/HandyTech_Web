@@ -9,7 +9,9 @@ import {
   insertEmailCampaignSchema,
   insertAppointmentSchema,
   insertProjectGallerySchema,
-  insertBlockedDateSchema
+  insertBlockedDateSchema,
+  insertServiceSchema,
+  insertServiceAddonSchema
 } from "@shared/schema";
 import { z } from "zod";
 
@@ -449,6 +451,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Blocked date deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete blocked date" });
+    }
+  });
+
+  // Services Management routes
+  app.get("/api/services", async (req, res) => {
+    try {
+      const { category, active } = req.query;
+      let services;
+      
+      if (category && typeof category === 'string') {
+        services = await storage.getServicesByCategory(category);
+      } else if (active === 'true') {
+        services = await storage.getActiveServices();
+      } else {
+        services = await storage.getAllServices();
+      }
+      
+      res.json(services);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch services" });
+    }
+  });
+
+  app.get("/api/services/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const service = await storage.getService(id);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found" });
+      }
+      res.json(service);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch service" });
+    }
+  });
+
+  app.post("/api/services", async (req, res) => {
+    try {
+      const validatedData = insertServiceSchema.parse(req.body);
+      const service = await storage.createService(validatedData);
+      res.status(201).json(service);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid service data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create service" });
+      }
+    }
+  });
+
+  app.put("/api/services/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertServiceSchema.partial().parse(req.body);
+      await storage.updateService(id, validatedData);
+      res.json({ message: "Service updated successfully" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid service data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update service" });
+      }
+    }
+  });
+
+  app.delete("/api/services/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteService(id);
+      res.json({ message: "Service deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete service" });
+    }
+  });
+
+  app.patch("/api/services/:id/toggle", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { isActive } = req.body;
+      await storage.toggleServiceStatus(id, isActive);
+      res.json({ message: "Service status updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update service status" });
+    }
+  });
+
+  // Service Add-ons routes
+  app.get("/api/services/:serviceId/addons", async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.serviceId);
+      const addons = await storage.getServiceAddons(serviceId);
+      res.json(addons);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch service addons" });
+    }
+  });
+
+  app.post("/api/services/:serviceId/addons", async (req, res) => {
+    try {
+      const serviceId = parseInt(req.params.serviceId);
+      const validatedData = insertServiceAddonSchema.parse({ ...req.body, serviceId });
+      const addon = await storage.createServiceAddon(validatedData);
+      res.status(201).json(addon);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid addon data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create service addon" });
+      }
+    }
+  });
+
+  app.put("/api/service-addons/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const validatedData = insertServiceAddonSchema.partial().parse(req.body);
+      await storage.updateServiceAddon(id, validatedData);
+      res.json({ message: "Service addon updated successfully" });
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid addon data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update service addon" });
+      }
+    }
+  });
+
+  app.delete("/api/service-addons/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteServiceAddon(id);
+      res.json({ message: "Service addon deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete service addon" });
     }
   });
 

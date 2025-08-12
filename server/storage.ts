@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates, services, serviceAddons,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -8,7 +8,9 @@ import {
   type EmailCampaign, type InsertEmailCampaign,
   type Appointment, type InsertAppointment,
   type ProjectGallery, type InsertProjectGallery,
-  type BlockedDate, type InsertBlockedDate
+  type BlockedDate, type InsertBlockedDate,
+  type Service, type InsertService,
+  type ServiceAddon, type InsertServiceAddon
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte } from "drizzle-orm";
@@ -71,6 +73,22 @@ export interface IStorage {
   createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate>;
   deleteBlockedDate(id: number): Promise<void>;
   getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]>;
+
+  // Services Management
+  getAllServices(): Promise<Service[]>;
+  getActiveServices(): Promise<Service[]>;
+  getServicesByCategory(category: string): Promise<Service[]>;
+  getService(id: number): Promise<Service | undefined>;
+  createService(service: InsertService): Promise<Service>;
+  updateService(id: number, updates: Partial<InsertService>): Promise<void>;
+  deleteService(id: number): Promise<void>;
+  toggleServiceStatus(id: number, isActive: boolean): Promise<void>;
+
+  // Service Add-ons
+  getServiceAddons(serviceId: number): Promise<ServiceAddon[]>;
+  createServiceAddon(addon: InsertServiceAddon): Promise<ServiceAddon>;
+  updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void>;
+  deleteServiceAddon(id: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -451,6 +469,55 @@ export class MemStorage implements IStorage {
   async getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]> {
     return [];
   }
+
+  // Services Management (MemStorage placeholder - not used since we use DatabaseStorage)
+  async getAllServices(): Promise<Service[]> {
+    return [];
+  }
+
+  async getActiveServices(): Promise<Service[]> {
+    return [];
+  }
+
+  async getServicesByCategory(category: string): Promise<Service[]> {
+    return [];
+  }
+
+  async getService(id: number): Promise<Service | undefined> {
+    throw new Error("MemStorage not implemented for services");
+  }
+
+  async createService(service: InsertService): Promise<Service> {
+    throw new Error("MemStorage not implemented for services");
+  }
+
+  async updateService(id: number, updates: Partial<InsertService>): Promise<void> {
+    throw new Error("MemStorage not implemented for services");
+  }
+
+  async deleteService(id: number): Promise<void> {
+    throw new Error("MemStorage not implemented for services");
+  }
+
+  async toggleServiceStatus(id: number, isActive: boolean): Promise<void> {
+    throw new Error("MemStorage not implemented for services");
+  }
+
+  async getServiceAddons(serviceId: number): Promise<ServiceAddon[]> {
+    return [];
+  }
+
+  async createServiceAddon(addon: InsertServiceAddon): Promise<ServiceAddon> {
+    throw new Error("MemStorage not implemented for service addons");
+  }
+
+  async updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void> {
+    throw new Error("MemStorage not implemented for service addons");
+  }
+
+  async deleteServiceAddon(id: number): Promise<void> {
+    throw new Error("MemStorage not implemented for service addons");
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -644,6 +711,68 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(blockedDates)
       .where(and(gte(blockedDates.date, startDate), gte(blockedDates.date, startDate)))
       .orderBy(blockedDates.date);
+  }
+
+  // Services Management
+  async getAllServices(): Promise<Service[]> {
+    return await db.select().from(services).orderBy(services.displayOrder, services.name);
+  }
+
+  async getActiveServices(): Promise<Service[]> {
+    return await db.select().from(services)
+      .where(eq(services.isActive, true))
+      .orderBy(services.displayOrder, services.name);
+  }
+
+  async getServicesByCategory(category: string): Promise<Service[]> {
+    return await db.select().from(services)
+      .where(and(eq(services.category, category), eq(services.isActive, true)))
+      .orderBy(services.displayOrder, services.name);
+  }
+
+  async getService(id: number): Promise<Service | undefined> {
+    const [service] = await db.select().from(services).where(eq(services.id, id));
+    return service;
+  }
+
+  async createService(service: InsertService): Promise<Service> {
+    const [created] = await db.insert(services).values(service).returning();
+    return created;
+  }
+
+  async updateService(id: number, updates: Partial<InsertService>): Promise<void> {
+    await db.update(services)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(services.id, id));
+  }
+
+  async deleteService(id: number): Promise<void> {
+    await db.delete(services).where(eq(services.id, id));
+  }
+
+  async toggleServiceStatus(id: number, isActive: boolean): Promise<void> {
+    await db.update(services)
+      .set({ isActive, updatedAt: new Date() })
+      .where(eq(services.id, id));
+  }
+
+  // Service Add-ons
+  async getServiceAddons(serviceId: number): Promise<ServiceAddon[]> {
+    return await db.select().from(serviceAddons)
+      .where(and(eq(serviceAddons.serviceId, serviceId), eq(serviceAddons.isActive, true)));
+  }
+
+  async createServiceAddon(addon: InsertServiceAddon): Promise<ServiceAddon> {
+    const [created] = await db.insert(serviceAddons).values(addon).returning();
+    return created;
+  }
+
+  async updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void> {
+    await db.update(serviceAddons).set(updates).where(eq(serviceAddons.id, id));
+  }
+
+  async deleteServiceAddon(id: number): Promise<void> {
+    await db.delete(serviceAddons).where(eq(serviceAddons.id, id));
   }
 }
 

@@ -148,6 +148,44 @@ export const insertBlockedDateSchema = createInsertSchema(blockedDates).omit({
   createdAt: true,
 });
 
+export const services = pgTable("services", {
+  id: serial("id").primaryKey(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description").notNull(),
+  category: varchar("category", { length: 100 }).notNull(), // 'electrical', 'plumbing', 'tech', 'carpentry', 'general'
+  basePrice: real("base_price").notNull(),
+  priceUnit: varchar("price_unit", { length: 50 }).default("per hour"), // 'per hour', 'flat rate', 'per square foot'
+  isActive: boolean("is_active").default(true),
+  estimatedDuration: varchar("estimated_duration", { length: 50 }), // '1-2 hours', '2-4 hours', etc.
+  skillLevel: varchar("skill_level", { length: 50 }).default("standard"), // 'basic', 'standard', 'expert'
+  includedInQuoteCalculator: boolean("included_in_quote_calculator").default(true),
+  displayOrder: integer("display_order").default(0),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+export const serviceAddons = pgTable("service_addons", {
+  id: serial("id").primaryKey(),
+  serviceId: integer("service_id").references(() => services.id).notNull(),
+  name: varchar("name", { length: 255 }).notNull(),
+  description: text("description"),
+  additionalPrice: real("additional_price").notNull(),
+  isOptional: boolean("is_optional").default(true),
+  isActive: boolean("is_active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertServiceSchema = createInsertSchema(services).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertServiceAddonSchema = createInsertSchema(serviceAddons).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -175,3 +213,9 @@ export type InsertProjectGallery = z.infer<typeof insertProjectGallerySchema>;
 
 export type BlockedDate = typeof blockedDates.$inferSelect;
 export type InsertBlockedDate = z.infer<typeof insertBlockedDateSchema>;
+
+export type Service = typeof services.$inferSelect;
+export type InsertService = z.infer<typeof insertServiceSchema>;
+
+export type ServiceAddon = typeof serviceAddons.$inferSelect;
+export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
