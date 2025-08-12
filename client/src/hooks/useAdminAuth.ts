@@ -64,6 +64,8 @@ export function useAdminAuth() {
     localStorage.removeItem("admin_auth");
     localStorage.removeItem("admin_auth_expiry");
     setIsAuthenticated(false);
+    // Navigate back to main page
+    window.location.href = "/";
   };
 
   return {
