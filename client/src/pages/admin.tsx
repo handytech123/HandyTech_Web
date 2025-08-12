@@ -165,8 +165,10 @@ function AuthenticatedDashboard() {
             <BlockedDatesManager />
           </TabsContent>
 
-          <TabsContent value="services">
-            <ServicesManager />
+          <TabsContent value="services" className="mt-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-1">
+              <ServicesManager />
+            </div>
           </TabsContent>
 
           <TabsContent value="quotes">

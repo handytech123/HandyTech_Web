@@ -404,29 +404,27 @@ export default function ServicesManager() {
                         </div>
                       </TableCell>
                       <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-2 justify-center">
                           <Button
                             size="sm"
-                            variant="outline"
                             onClick={() => handleEdit(service)}
-                            className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                            className="bg-blue-600 hover:bg-blue-700 text-white flex items-center gap-1 px-3 py-1"
                           >
-                            <Edit className="h-3 w-3" />
-                            <span className="hidden sm:inline">Edit</span>
+                            <Edit className="h-4 w-4" />
+                            <span>Edit</span>
                           </Button>
                           <Button
                             size="sm"
-                            variant="outline"
                             onClick={() => {
                               if (confirm('Are you sure you want to delete this service? This action cannot be undone.')) {
                                 deleteService.mutate(service.id);
                               }
                             }}
                             disabled={deleteService.isPending}
-                            className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                            className="bg-red-600 hover:bg-red-700 text-white flex items-center gap-1 px-3 py-1"
                           >
-                            <Trash2 className="h-3 w-3" />
-                            <span className="hidden sm:inline">Delete</span>
+                            <Trash2 className="h-4 w-4" />
+                            <span>Remove</span>
                           </Button>
                         </div>
                       </TableCell>
