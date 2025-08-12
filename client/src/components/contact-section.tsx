@@ -1,16 +1,14 @@
-import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertQuoteSchema } from "@shared/schema";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Mail, Clock, Calculator } from "lucide-react";
+import { Phone, Mail, Clock } from "lucide-react";
 import { z } from "zod";
 
 const quoteFormSchema = insertQuoteSchema.extend({
@@ -20,8 +18,6 @@ const quoteFormSchema = insertQuoteSchema.extend({
 type QuoteFormData = z.infer<typeof quoteFormSchema>;
 
 export default function ContactSection() {
-  const [showCalculator, setShowCalculator] = useState(false);
-  const [calculatorResult, setCalculatorResult] = useState<number | null>(null);
   const { toast } = useToast();
 
   const form = useForm<QuoteFormData>({
@@ -55,20 +51,7 @@ export default function ContactSection() {
     },
   });
 
-  const calculateQuote = useMutation({
-    mutationFn: async (data: { serviceType: string; companySize: string; complexity: string }) => {
-      const response = await fetch("/api/service-quote-calculator", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to calculate quote");
-      return response.json();
-    },
-    onSuccess: (data) => {
-      setCalculatorResult(data.estimatedPrice);
-    },
-  });
+
 
   const onSubmit = (data: QuoteFormData) => {
     submitQuote.mutate(data);
@@ -125,48 +108,7 @@ export default function ContactSection() {
                 </div>
               </div>
 
-              <div className="mt-8">
-                <Button
-                  onClick={() => setShowCalculator(!showCalculator)}
-                  variant="outline"
-                  className="border-brand-red text-brand-red hover:bg-brand-red hover:text-white"
-                >
-                  <Calculator className="mr-2" size={16} />
-                  Service Quote Calculator
-                </Button>
-                
-                {showCalculator && (
-                  <Card className="mt-4 bg-white text-charcoal">
-                    <CardContent className="p-4">
-                      <h4 className="font-semibold mb-4">Quick Quote Calculator</h4>
-                      <div className="space-y-4">
-                        <Select 
-                          onValueChange={(value) => {
-                            const [serviceType, companySize, complexity] = ['IT Support & Maintenance', 'medium', 'medium'];
-                            calculateQuote.mutate({ serviceType: value, companySize, complexity });
-                          }}
-                        >
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select service" />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="IT Support & Maintenance">IT Support & Maintenance</SelectItem>
-                            <SelectItem value="Cybersecurity Solutions">Cybersecurity Solutions</SelectItem>
-                            <SelectItem value="Cloud Services">Cloud Services</SelectItem>
-                            <SelectItem value="Network Infrastructure">Network Infrastructure</SelectItem>
-                          </SelectContent>
-                        </Select>
-                        {calculatorResult && (
-                          <div className="text-center p-4 bg-light-gray rounded">
-                            <p className="text-lg font-bold">Estimated Price: ${calculatorResult}</p>
-                            <p className="text-sm text-gray-600">*Final pricing may vary based on specific requirements</p>
-                          </div>
-                        )}
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
-              </div>
+
             </div>
           </div>
 
