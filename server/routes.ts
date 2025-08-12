@@ -314,25 +314,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fallback response generator
+  // Enhanced intelligent fallback response generator
   function generateFallbackResponse(message: string): string {
-    const greetings = ["hello", "hi", "hey", "good morning", "good afternoon"];
-    const electrical = ["electrical", "electric", "wiring", "outlet", "switch", "panel", "breaker"];
-    const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water"];
-    const tech = ["smart home", "automation", "security", "tech", "installation", "setup"];
-    const painting = ["paint", "painting", "wall", "color", "interior", "exterior"];
-    const scheduling = ["schedule", "appointment", "book", "when", "available"];
+    const greetings = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"];
+    const electrical = ["electrical", "electric", "wiring", "outlet", "switch", "panel", "breaker", "lighting", "voltage", "wire"];
+    const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water", "sink", "shower", "bathtub"];
+    const tech = ["smart home", "automation", "security", "tech", "installation", "setup", "thermostat", "camera", "doorbell"];
+    const painting = ["paint", "painting", "wall", "color", "interior", "exterior", "primer", "brush", "roller"];
+    const scheduling = ["schedule", "appointment", "book", "when", "available", "meet", "visit", "come out"];
+    const pricing = ["cost", "price", "quote", "estimate", "how much", "expensive", "cheap", "budget", "bill", "pay"];
+    const repairs = ["repair", "fix", "broken", "damaged", "replace", "maintenance", "service"];
+    const kitchen = ["kitchen", "cabinet", "countertop", "backsplash", "appliance"];
+    const bathroom = ["bathroom", "shower", "bathtub", "vanity", "mirror", "tile"];
+    const flooring = ["floor", "flooring", "hardwood", "laminate", "tile", "carpet"];
+    const drywall = ["drywall", "sheetrock", "hole", "crack", "texture", "mud"];
+    const doors = ["door", "window", "frame", "hinge", "lock", "handle"];
+    const deck = ["deck", "patio", "fence", "outdoor", "pergola"];
 
     if (greetings.some(word => message.includes(word))) {
       return "Hello! Welcome to HandyTech Solutions. We're Missouri's trusted handyman service specializing in electrical work, plumbing, smart home technology, and general maintenance. How may I assist you today?";
     }
+
+    // Check specific services first (before more general ones)
+    if (drywall.some(word => message.includes(word))) {
+      return "Drywall repair is one of our most common services! We fix holes, cracks, water damage, and texture matching. From small nail holes to large repairs, we make your walls look perfect again. Need a drywall estimate? How else may I assist you?";
+    }
+
+    if (kitchen.some(word => message.includes(word))) {
+      return "We love kitchen projects! We handle cabinet installation, countertop replacement, backsplash installation, appliance hookup, and complete kitchen remodeling. Our team can transform your kitchen into the heart of your home. Ready to discuss your kitchen upgrade? How else may I assist you?";
+    }
+
+    if (bathroom.some(word => message.includes(word))) {
+      return "Bathroom renovations are our specialty! We do everything from simple updates like new vanities and mirrors to complete bathroom remodels including tile work, plumbing fixtures, and lighting. Let's create your perfect bathroom space! How else may I assist you?";
+    }
+
+    if (flooring.some(word => message.includes(word))) {
+      return "We install all types of flooring including hardwood, laminate, tile, and luxury vinyl. Whether you need one room or your whole house, we ensure professional installation with attention to detail. What type of flooring are you considering? How else may I assist you?";
+    }
+
+    if (doors.some(word => message.includes(word))) {
+      return "We handle all door and window services including installation, repair, weatherstripping, lock replacement, and frame adjustments. Whether it's sticking doors or drafty windows, we'll get them working smoothly! How else may I assist you?";
+    }
+
+    if (deck.some(word => message.includes(word))) {
+      return "Outdoor projects are great! We build decks, install fencing, create pergolas, and handle various outdoor improvements. Let's enhance your outdoor living space and increase your home's value! How else may I assist you?";
+    }
+
+    if (pricing.some(word => message.includes(word))) {
+      return "We provide free estimates for most projects! Pricing depends on the scope of work, materials, and complexity. We're committed to fair, transparent pricing with no hidden fees. What project would you like an estimate for? How else may I assist you?";
+    }
+
+    if (repairs.some(word => message.includes(word))) {
+      return "We handle all kinds of repairs - from minor fixes to major renovations! Whether it's electrical issues, plumbing problems, drywall damage, or general maintenance, our experienced handyman can get it fixed right. What needs repair? How else may I assist you?";
+    }
     
+    // General service categories
     if (electrical.some(word => message.includes(word))) {
       return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. I have an experienced handyman that can handle your electrical issues with safe, reliable work. Would you like to schedule a consultation to discuss your electrical needs? How else may I assist you?";
     }
     
     if (plumbing.some(word => message.includes(word))) {
-      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced plumbers can handle both minor repairs and major renovations. Let me help you schedule a service call! How else may I assist you?";
+      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced handyman can handle both minor repairs and major renovations. Let me help you schedule a service call! How else may I assist you?";
     }
     
     if (tech.some(word => message.includes(word))) {
