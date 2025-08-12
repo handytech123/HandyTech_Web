@@ -70,6 +70,11 @@ export default function Navigation() {
                   Customer Portal
                 </Button>
               </Link>
+              <Link href="/admin">
+                <Button variant="outline" size="sm" className="mr-2 border-brand-red text-brand-red hover:bg-brand-red hover:text-white">
+                  Admin
+                </Button>
+              </Link>
               <button 
                 onClick={() => scrollToSection('contact')}
                 className="bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-red-dark transition-colors"
@@ -123,6 +128,11 @@ export default function Navigation() {
                   <Link href="/customer-portal">
                     <Button variant="outline" className="w-full justify-start">
                       Customer Portal
+                    </Button>
+                  </Link>
+                  <Link href="/admin">
+                    <Button variant="outline" className="w-full justify-start border-brand-red text-brand-red hover:bg-brand-red hover:text-white">
+                      Admin Dashboard
                     </Button>
                   </Link>
                   <button 

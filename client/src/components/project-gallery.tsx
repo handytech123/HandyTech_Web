@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { type ProjectGallery } from "@shared/schema";
 import { Calendar, MapPin, Eye } from "lucide-react";
 
@@ -175,6 +175,9 @@ export default function ProjectGallery() {
               <>
                 <DialogHeader>
                   <DialogTitle className="text-2xl">{selectedProject.title}</DialogTitle>
+                  <DialogDescription>
+                    View detailed information about this completed project including before/after photos and project specifications.
+                  </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-6">
                   <div className="grid md:grid-cols-2 gap-6">
