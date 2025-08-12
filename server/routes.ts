@@ -337,56 +337,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
     // Check specific services first (before more general ones)
     if (drywall.some(word => message.includes(word))) {
-      return "Drywall repair is one of our most common services! We fix holes, cracks, water damage, and texture matching. From small nail holes to large repairs, we make your walls look perfect again. Need a drywall estimate? How else may I assist you?";
+      return "Drywall repair is one of our most common services! We fix holes, cracks, water damage, and texture matching. From small nail holes to large repairs, we make your walls look perfect again. Need a drywall estimate? How may I assist you?";
     }
 
     if (kitchen.some(word => message.includes(word))) {
-      return "We love kitchen projects! We handle cabinet installation, countertop replacement, backsplash installation, appliance hookup, and complete kitchen remodeling. Our team can transform your kitchen into the heart of your home. Ready to discuss your kitchen upgrade? How else may I assist you?";
+      return "We love kitchen projects! We handle cabinet installation, countertop replacement, backsplash installation, appliance hookup, and complete kitchen remodeling. Our team can transform your kitchen into the heart of your home. Ready to discuss your kitchen upgrade? How may I assist you?";
     }
 
     if (bathroom.some(word => message.includes(word))) {
-      return "Bathroom renovations are our specialty! We do everything from simple updates like new vanities and mirrors to complete bathroom remodels including tile work, plumbing fixtures, and lighting. Let's create your perfect bathroom space! How else may I assist you?";
+      return "Bathroom renovations are our specialty! We do everything from simple updates like new vanities and mirrors to complete bathroom remodels including tile work, plumbing fixtures, and lighting. Let's create your perfect bathroom space! How may I assist you?";
     }
 
     if (flooring.some(word => message.includes(word))) {
-      return "We install all types of flooring including hardwood, laminate, tile, and luxury vinyl. Whether you need one room or your whole house, we ensure professional installation with attention to detail. What type of flooring are you considering? How else may I assist you?";
+      return "We install all types of flooring including hardwood, laminate, tile, and luxury vinyl. Whether you need one room or your whole house, we ensure professional installation with attention to detail. What type of flooring are you considering? How may I assist you?";
     }
 
     if (doors.some(word => message.includes(word))) {
-      return "We handle all door and window services including installation, repair, weatherstripping, lock replacement, and frame adjustments. Whether it's sticking doors or drafty windows, we'll get them working smoothly! How else may I assist you?";
+      return "We handle all door and window services including installation, repair, weatherstripping, lock replacement, and frame adjustments. Whether it's sticking doors or drafty windows, we'll get them working smoothly! How may I assist you?";
     }
 
     if (deck.some(word => message.includes(word))) {
-      return "Outdoor projects are great! We build decks, install fencing, create pergolas, and handle various outdoor improvements. Let's enhance your outdoor living space and increase your home's value! How else may I assist you?";
+      return "Outdoor projects are great! We build decks, install fencing, create pergolas, and handle various outdoor improvements. Let's enhance your outdoor living space and increase your home's value! How may I assist you?";
     }
 
     if (pricing.some(word => message.includes(word))) {
-      return "We provide free estimates for most projects! Pricing depends on the scope of work, materials, and complexity. We're committed to fair, transparent pricing with no hidden fees. What project would you like an estimate for? How else may I assist you?";
+      return "We provide free estimates for most projects! Pricing depends on the scope of work, materials, and complexity. We're committed to fair, transparent pricing with no hidden fees. What project would you like an estimate for? How may I assist you?";
     }
 
     if (repairs.some(word => message.includes(word))) {
-      return "We handle all kinds of repairs - from minor fixes to major renovations! Whether it's electrical issues, plumbing problems, drywall damage, or general maintenance, our experienced handyman can get it fixed right. What needs repair? How else may I assist you?";
+      return "We handle all kinds of repairs - from minor fixes to major renovations! Whether it's electrical issues, plumbing problems, drywall damage, or general maintenance, our experienced handyman can get it fixed right. What needs repair? How may I assist you?";
     }
     
     // General service categories
     if (electrical.some(word => message.includes(word))) {
-      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. I have an experienced handyman that can handle your electrical issues with safe, reliable work. Would you like to schedule a consultation to discuss your electrical needs? How else may I assist you?";
+      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. I have an experienced handyman that can handle your electrical issues with safe, reliable work. Would you like to schedule a consultation to discuss your electrical needs? How may I assist you?";
     }
     
     if (plumbing.some(word => message.includes(word))) {
-      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced handyman can handle both minor repairs and major renovations. Let me help you schedule a service call! How else may I assist you?";
+      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced handyman can handle both minor repairs and major renovations. Let me help you schedule a service call! How may I assist you?";
     }
     
     if (tech.some(word => message.includes(word))) {
-      return "Excellent! We specialize in smart home automation, security system installation, home theater setup, and tech integration. We can help you modernize your home with the latest technology. Would you like to discuss your smart home project? How else may I assist you?";
+      return "Excellent! We specialize in smart home automation, security system installation, home theater setup, and tech integration. We can help you modernize your home with the latest technology. Would you like to discuss your smart home project? How may I assist you?";
     }
     
     if (painting.some(word => message.includes(word))) {
-      return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint? How else may I assist you?";
+      return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint? How may I assist you?";
     }
     
     if (scheduling.some(word => message.includes(word))) {
-      return "I'd be happy to help you schedule a service! We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team can provide free estimates for most projects. What type of service are you looking for? How else may I assist you?";
+      return "I'd be happy to help you schedule a service! We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team can provide free estimates for most projects. What type of service are you looking for? How may I assist you?";
     }
 
     return "Thanks for contacting HandyTech Solutions! We're Missouri's expert handyman service offering electrical work, plumbing, smart home technology, painting, and general maintenance. We'd love to help with your project. What service are you interested in, or would you like to schedule a consultation? How may I assist you?";
