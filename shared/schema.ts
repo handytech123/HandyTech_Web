@@ -37,6 +37,10 @@ export const reviews = pgTable("reviews", {
   content: text("content").notNull(),
   isApproved: boolean("is_approved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
+  source: varchar("source", { length: 100 }),
+  sourceLink: varchar("source_link", { length: 500 }),
+  location: varchar("location", { length: 100 }),
+  service: varchar("service", { length: 255 }),
 });
 
 export const quotes = pgTable("quotes", {

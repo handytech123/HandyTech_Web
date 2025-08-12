@@ -32,14 +32,14 @@ export default function TestimonialsSection() {
   });
 
   // Combine reviews with customer data
-  const testimonials = reviews.map(review => {
+  const testimonials = reviews.map((review: any) => {
     const customer = customers.find(c => c.id === review.customerId);
     
     // Handle Home Depot reviews differently
     if (review.source === "Home Depot Pro") {
       return {
         name: review.title?.split(" - ")[1] || "Home Depot Customer",
-        role: `${review.service} • ${review.location}`,
+        role: `${review.service || "Service"} • ${review.location || "Missouri"}`,
         content: review.content,
         rating: review.rating,
         image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100",
@@ -86,7 +86,7 @@ export default function TestimonialsSection() {
                   <span className="ml-2 text-gray-600 text-sm">{testimonial.rating}.0</span>
                 </div>
                 <p className="text-gray-700 mb-4 italic">"{testimonial.content}"</p>
-                {testimonial.isHomeDepot && (
+                {(testimonial as any).isHomeDepot && (
                   <div className="mb-3">
                     <div className="inline-flex items-center bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
                       🏠 Home Depot Pro Verified
