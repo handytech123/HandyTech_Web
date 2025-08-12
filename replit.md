@@ -7,7 +7,8 @@ HandyTech Solutions is a full-stack web application for a professional handyman 
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.
-Color scheme: Ohio State Buckeyes (scarlet red #BB0000 and gray) for proper text visibility
+Business location: Missouri-based handyman service
+Color scheme: Red and gray theme (scarlet red #BB0000 and gray) for proper text visibility
 Database preference: User chose to build own backend rather than use external CRM software
 Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
 
@@ -75,7 +76,7 @@ The application uses a normalized relational database structure with the followi
 
 ### UI/UX Design Patterns
 - **Responsive Design**: Mobile-first approach with breakpoint-specific layouts
-- **Brand Theming**: Ohio State Buckeyes color scheme with theme switching capability
+- **Brand Theming**: Red and gray color scheme with theme switching capability
 - **Component Library**: Consistent design system using Shadcn/ui components
 - **Interactive Elements**: Chat widget, toast notifications, and modal dialogs
 - **Accessibility**: ARIA-compliant components with keyboard navigation support
