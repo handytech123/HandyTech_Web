@@ -251,7 +251,7 @@ export default function ServicesManager() {
                     <div className="space-y-2">
                       <Label htmlFor="priceUnit">Price Unit</Label>
                       <Select
-                        value={form.watch("priceUnit")}
+                        value={form.watch("priceUnit") || ""}
                         onValueChange={(value) => form.setValue("priceUnit", value)}
                       >
                         <SelectTrigger>
@@ -279,7 +279,7 @@ export default function ServicesManager() {
                     <div className="space-y-2">
                       <Label htmlFor="skillLevel">Skill Level</Label>
                       <Select
-                        value={form.watch("skillLevel")}
+                        value={form.watch("skillLevel") || ""}
                         onValueChange={(value) => form.setValue("skillLevel", value)}
                       >
                         <SelectTrigger>
@@ -308,14 +308,14 @@ export default function ServicesManager() {
                     <div className="space-y-4">
                       <div className="flex items-center space-x-2">
                         <Switch
-                          checked={form.watch("isActive")}
+                          checked={form.watch("isActive") ?? false}
                           onCheckedChange={(checked) => form.setValue("isActive", checked)}
                         />
                         <Label>Active</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Switch
-                          checked={form.watch("includedInQuoteCalculator")}
+                          checked={form.watch("includedInQuoteCalculator") ?? false}
                           onCheckedChange={(checked) => form.setValue("includedInQuoteCalculator", checked)}
                         />
                         <Label>Include in Quote Calculator</Label>

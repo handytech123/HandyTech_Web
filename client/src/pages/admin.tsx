@@ -1,6 +1,5 @@
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { apiRequest } from "@/lib/queryClient";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -13,77 +12,33 @@ import ServicesManager from "@/components/services-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
 
-export default function AdminDashboard() {
-  const { isAuthenticated, isLoading: authLoading, login, logout } = useAdminAuth();
-  const [loginError, setLoginError] = useState<string>("");
-  const [isLoggingIn, setIsLoggingIn] = useState(false);
+function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
+  const { logout } = useAdminAuth();
 
-  // All queries need to be at the top level - React Hooks rules
   const { data: quotes = [] } = useQuery<Quote[]>({
-    queryKey: ["/api/quotes"],
-    enabled: isAuthenticated
+    queryKey: ["/api/quotes"]
   });
 
   const { data: appointments = [] } = useQuery<Appointment[]>({
-    queryKey: ["/api/appointments"],
-    enabled: isAuthenticated
+    queryKey: ["/api/appointments"]
   });
 
   const { data: reviews = [] } = useQuery<Review[]>({
-    queryKey: ["/api/reviews"],
-    enabled: isAuthenticated
+    queryKey: ["/api/reviews"]
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    enabled: isAuthenticated
+    queryKey: ["/api/customers"]
   });
 
   const { data: maintenancePlans = [] } = useQuery<MaintenancePlan[]>({
-    queryKey: ["/api/maintenance-plans"],
-    enabled: isAuthenticated
+    queryKey: ["/api/maintenance-plans"]
   });
-
-  const handleLogin = async (username: string, password: string) => {
-    setIsLoggingIn(true);
-    setLoginError("");
-    
-    const result = await login(username, password);
-    
-    if (!result.success) {
-      setLoginError(result.error || "Login failed");
-    }
-    
-    setIsLoggingIn(false);
-  };
 
   const handleLogout = () => {
     logout();
   };
-
-  // Show loading state while checking authentication
-  if (authLoading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-red mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // Show login form if not authenticated
-  if (!isAuthenticated) {
-    return (
-      <AdminLogin 
-        onLogin={handleLogin}
-        error={loginError}
-        isLoading={isLoggingIn}
-      />
-    );
-  }
 
   const approveReviewMutation = useMutation({
     mutationFn: async (reviewId: number) => {
@@ -371,4 +326,49 @@ export default function AdminDashboard() {
       </div>
     </div>
   );
+}
+
+export default function AdminDashboard() {
+  const { isAuthenticated, isLoading: authLoading, login } = useAdminAuth();
+  const [loginError, setLoginError] = useState<string>("");
+  const [isLoggingIn, setIsLoggingIn] = useState(false);
+
+  const handleLogin = async (username: string, password: string) => {
+    setIsLoggingIn(true);
+    setLoginError("");
+    
+    const result = await login(username, password);
+    
+    if (!result.success) {
+      setLoginError(result.error || "Login failed");
+    }
+    
+    setIsLoggingIn(false);
+  };
+
+  // Show loading state while checking authentication
+  if (authLoading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-red mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login form if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <AdminLogin 
+        onLogin={handleLogin}
+        error={loginError}
+        isLoading={isLoggingIn}
+      />
+    );
+  }
+
+  // Show authenticated dashboard
+  return <AuthenticatedDashboard />;
 }
