@@ -132,15 +132,29 @@ function AuthenticatedDashboard() {
           </Card>
         </div>
 
-        <Tabs defaultValue="calendar" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-7">
-            <TabsTrigger value="calendar">Calendar</TabsTrigger>
-            <TabsTrigger value="blocked-dates">Block Dates</TabsTrigger>
-            <TabsTrigger value="services">Services</TabsTrigger>
-            <TabsTrigger value="quotes">Quotes</TabsTrigger>
-            <TabsTrigger value="appointments">Appointments</TabsTrigger>
-            <TabsTrigger value="reviews">Reviews</TabsTrigger>
-            <TabsTrigger value="customers">Customers</TabsTrigger>
+        <Tabs defaultValue="services" className="space-y-6">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-7 gap-1 h-auto p-1">
+            <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
+              Services
+            </TabsTrigger>
+            <TabsTrigger value="calendar" className="flex-1 min-w-[100px] text-sm">
+              Calendar
+            </TabsTrigger>
+            <TabsTrigger value="blocked-dates" className="flex-1 min-w-[100px] text-sm">
+              Block Dates
+            </TabsTrigger>
+            <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
+              Quotes
+            </TabsTrigger>
+            <TabsTrigger value="appointments" className="flex-1 min-w-[100px] text-sm">
+              Appointments
+            </TabsTrigger>
+            <TabsTrigger value="reviews" className="flex-1 min-w-[100px] text-sm">
+              Reviews
+            </TabsTrigger>
+            <TabsTrigger value="customers" className="flex-1 min-w-[100px] text-sm">
+              Customers
+            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="calendar">
