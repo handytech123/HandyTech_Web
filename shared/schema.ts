@@ -179,6 +179,18 @@ export const serviceAddons = pgTable("service_addons", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+export const appointmentReminders = pgTable("appointment_reminders", {
+  id: serial("id").primaryKey(),
+  appointmentId: integer("appointment_id").references(() => appointments.id).notNull(),
+  reminderType: varchar("reminder_type", { length: 50 }).notNull(), // '24_hours', '2_hours', '30_minutes'
+  reminderTime: timestamp("reminder_time").notNull(),
+  emailSent: boolean("email_sent").default(false).notNull(),
+  emailSentAt: timestamp("email_sent_at"),
+  emailStatus: varchar("email_status", { length: 50 }).default("pending"), // 'pending', 'sent', 'failed'
+  emailContent: text("email_content"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
   createdAt: true,
@@ -188,6 +200,13 @@ export const insertServiceSchema = createInsertSchema(services).omit({
 export const insertServiceAddonSchema = createInsertSchema(serviceAddons).omit({
   id: true,
   createdAt: true,
+});
+
+export const insertAppointmentReminderSchema = createInsertSchema(appointmentReminders).omit({
+  id: true,
+  createdAt: true,
+  emailSent: true,
+  emailSentAt: true,
 });
 
 // Types
@@ -223,3 +242,6 @@ export type InsertService = z.infer<typeof insertServiceSchema>;
 
 export type ServiceAddon = typeof serviceAddons.$inferSelect;
 export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
+
+export type AppointmentReminder = typeof appointmentReminders.$inferSelect;
+export type InsertAppointmentReminder = z.infer<typeof insertAppointmentReminderSchema>;

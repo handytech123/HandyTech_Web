@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates, services, serviceAddons,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates, services, serviceAddons, appointmentReminders,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -10,7 +10,8 @@ import {
   type ProjectGallery, type InsertProjectGallery,
   type BlockedDate, type InsertBlockedDate,
   type Service, type InsertService,
-  type ServiceAddon, type InsertServiceAddon
+  type ServiceAddon, type InsertServiceAddon,
+  type AppointmentReminder, type InsertAppointmentReminder
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte } from "drizzle-orm";
@@ -89,6 +90,13 @@ export interface IStorage {
   createServiceAddon(addon: InsertServiceAddon): Promise<ServiceAddon>;
   updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void>;
   deleteServiceAddon(id: number): Promise<void>;
+
+  // Appointment Reminders
+  createAppointmentReminder(reminder: InsertAppointmentReminder): Promise<AppointmentReminder>;
+  getAppointmentReminders(appointmentId: number): Promise<AppointmentReminder[]>;
+  getPendingReminders(): Promise<AppointmentReminder[]>;
+  markReminderSent(id: number, emailStatus: string, emailContent?: string): Promise<void>;
+  deleteAppointmentReminders(appointmentId: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -530,6 +538,27 @@ export class MemStorage implements IStorage {
   async deleteServiceAddon(id: number): Promise<void> {
     throw new Error("MemStorage not implemented for service addons");
   }
+
+  // Appointment Reminders
+  async createAppointmentReminder(reminder: InsertAppointmentReminder): Promise<AppointmentReminder> {
+    throw new Error("MemStorage not implemented for appointment reminders");
+  }
+
+  async getAppointmentReminders(appointmentId: number): Promise<AppointmentReminder[]> {
+    return [];
+  }
+
+  async getPendingReminders(): Promise<AppointmentReminder[]> {
+    return [];
+  }
+
+  async markReminderSent(id: number, emailStatus: string, emailContent?: string): Promise<void> {
+    throw new Error("MemStorage not implemented for appointment reminders");
+  }
+
+  async deleteAppointmentReminders(appointmentId: number): Promise<void> {
+    throw new Error("MemStorage not implemented for appointment reminders");
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -785,6 +814,50 @@ export class DatabaseStorage implements IStorage {
 
   async deleteServiceAddon(id: number): Promise<void> {
     await db.delete(serviceAddons).where(eq(serviceAddons.id, id));
+  }
+
+  // Appointment Reminders
+  async createAppointmentReminder(reminder: InsertAppointmentReminder): Promise<AppointmentReminder> {
+    const [created] = await db.insert(appointmentReminders).values(reminder).returning();
+    return created;
+  }
+
+  async getAppointmentReminders(appointmentId: number): Promise<AppointmentReminder[]> {
+    return await db.select().from(appointmentReminders)
+      .where(eq(appointmentReminders.appointmentId, appointmentId))
+      .orderBy(appointmentReminders.reminderTime);
+  }
+
+  async getPendingReminders(): Promise<AppointmentReminder[]> {
+    const now = new Date();
+    return await db.select().from(appointmentReminders)
+      .where(
+        and(
+          eq(appointmentReminders.emailSent, false),
+          gte(now, appointmentReminders.reminderTime)
+        )
+      )
+      .orderBy(appointmentReminders.reminderTime);
+  }
+
+  async markReminderSent(id: number, emailStatus: string, emailContent?: string): Promise<void> {
+    const updates: any = {
+      emailSent: true,
+      emailSentAt: new Date(),
+      emailStatus
+    };
+    
+    if (emailContent) {
+      updates.emailContent = emailContent;
+    }
+    
+    await db.update(appointmentReminders)
+      .set(updates)
+      .where(eq(appointmentReminders.id, id));
+  }
+
+  async deleteAppointmentReminders(appointmentId: number): Promise<void> {
+    await db.delete(appointmentReminders).where(eq(appointmentReminders.appointmentId, appointmentId));
   }
 }
 
