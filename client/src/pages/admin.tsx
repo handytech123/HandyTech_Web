@@ -19,6 +19,32 @@ export default function AdminDashboard() {
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const queryClient = useQueryClient();
 
+  // All queries need to be at the top level - React Hooks rules
+  const { data: quotes = [] } = useQuery<Quote[]>({
+    queryKey: ["/api/quotes"],
+    enabled: isAuthenticated
+  });
+
+  const { data: appointments = [] } = useQuery<Appointment[]>({
+    queryKey: ["/api/appointments"],
+    enabled: isAuthenticated
+  });
+
+  const { data: reviews = [] } = useQuery<Review[]>({
+    queryKey: ["/api/reviews"],
+    enabled: isAuthenticated
+  });
+
+  const { data: customers = [] } = useQuery<Customer[]>({
+    queryKey: ["/api/customers"],
+    enabled: isAuthenticated
+  });
+
+  const { data: maintenancePlans = [] } = useQuery<MaintenancePlan[]>({
+    queryKey: ["/api/maintenance-plans"],
+    enabled: isAuthenticated
+  });
+
   const handleLogin = async (username: string, password: string) => {
     setIsLoggingIn(true);
     setLoginError("");
@@ -58,26 +84,6 @@ export default function AdminDashboard() {
       />
     );
   }
-
-  const { data: quotes = [] } = useQuery<Quote[]>({
-    queryKey: ["/api/quotes"]
-  });
-
-  const { data: appointments = [] } = useQuery<Appointment[]>({
-    queryKey: ["/api/appointments"]
-  });
-
-  const { data: reviews = [] } = useQuery<Review[]>({
-    queryKey: ["/api/reviews"]
-  });
-
-  const { data: customers = [] } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"]
-  });
-
-  const { data: maintenancePlans = [] } = useQuery<MaintenancePlan[]>({
-    queryKey: ["/api/maintenance-plans"]
-  });
 
   const approveReviewMutation = useMutation({
     mutationFn: async (reviewId: number) => {
