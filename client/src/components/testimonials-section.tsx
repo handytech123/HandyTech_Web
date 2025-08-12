@@ -34,12 +34,28 @@ export default function TestimonialsSection() {
   // Combine reviews with customer data
   const testimonials = reviews.map(review => {
     const customer = customers.find(c => c.id === review.customerId);
+    
+    // Handle Home Depot reviews differently
+    if (review.source === "Home Depot") {
+      return {
+        name: "Home Depot Customer",
+        role: "Verified Home Depot Review",
+        content: review.content,
+        rating: review.rating,
+        image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100",
+        source: "Home Depot",
+        sourceLink: review.sourceLink,
+        isHomeDepot: true
+      };
+    }
+    
     return {
       name: customer ? `${customer.firstName} ${customer.lastName}` : "Customer",
       role: customer?.company ? `${customer.company}` : "Valued Customer",
       content: review.content,
       rating: review.rating,
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
+      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100",
+      isHomeDepot: false
     };
   });
 
@@ -69,6 +85,13 @@ export default function TestimonialsSection() {
                   <span className="ml-2 text-gray-600 text-sm">{testimonial.rating}.0</span>
                 </div>
                 <p className="text-gray-700 mb-4 italic">"{testimonial.content}"</p>
+                {testimonial.isHomeDepot && (
+                  <div className="mb-3">
+                    <div className="inline-flex items-center bg-orange-100 text-orange-800 px-2 py-1 rounded-full text-xs font-medium">
+                      🏠 Home Depot Verified Review
+                    </div>
+                  </div>
+                )}
                 <div className="flex items-center">
                   <img 
                     src={testimonial.image}

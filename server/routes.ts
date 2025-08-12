@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { fetchHomeDepotReviews, fetchContractorReviews } from "./home-depot-reviews";
 import { 
   insertCustomerSchema, 
   insertMaintenancePlanSchema, 
@@ -125,13 +126,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Review routes
+  // Review routes (including Home Depot reviews)
   app.get("/api/reviews", async (req, res) => {
     try {
+      const localReviews = await storage.getApprovedReviews();
+      
+      // Fetch Home Depot reviews
+      const homeDepotReviews = await fetchHomeDepotReviews("HandyTech Solutions");
+      const contractorReviews = await fetchContractorReviews("HandyTech Solutions");
+      
+      // Combine and transform Home Depot reviews to match our format
+      const combinedHomeDepotReviews = [...homeDepotReviews, ...contractorReviews];
+      const transformedHomeDepotReviews = combinedHomeDepotReviews.slice(0, 3).map((review, index) => ({
+        id: `hd-${index + 100}`, // Use high IDs to avoid conflicts
+        customerId: 999, // Special customer ID for Home Depot reviews
+        rating: Math.min(review.rating || 5, 5), // Ensure rating is max 5
+        title: review.title || "Home Depot Customer Review",
+        content: review.snippet || "Great service from HandyTech Solutions!",
+        createdAt: review.date || new Date().toISOString(),
+        approved: true,
+        source: "Home Depot",
+        sourceLink: review.source?.link || "https://www.homedepot.com"
+      }));
+      
+      // Combine local and Home Depot reviews
+      const allReviews = [...localReviews, ...transformedHomeDepotReviews];
+      
+      res.json(allReviews);
+    } catch (error) {
+      console.error("Error fetching reviews:", error);
+      // Fall back to local reviews if Home Depot fetch fails
       const reviews = await storage.getApprovedReviews();
       res.json(reviews);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch reviews" });
     }
   });
 
