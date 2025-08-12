@@ -26,13 +26,9 @@ const serviceFormSchema = insertServiceSchema.extend({
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
 
 const categories = [
-  { value: "electrical", label: "Electrical Work" },
-  { value: "plumbing", label: "Plumbing" },
-  { value: "tech", label: "Tech Support & Smart Home" },
-  { value: "carpentry", label: "Carpentry" },
-  { value: "general", label: "General Handyman" },
-  { value: "painting", label: "Painting" },
-  { value: "hvac", label: "HVAC" },
+  { value: "essential", label: "Essential Repairs & Maintenance" },
+  { value: "improvement", label: "Home Improvement & Remodeling" },
+  { value: "specialized", label: "Specialized Installations & Custom Projects" },
 ];
 
 const priceUnits = [

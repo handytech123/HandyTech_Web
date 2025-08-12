@@ -1,5 +1,6 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
 import { 
   Laptop, 
   Shield, 
@@ -8,59 +9,44 @@ import {
   Database, 
   Wrench 
 } from "lucide-react";
+import type { Service } from "@shared/schema";
 
-const serviceCategories = [
+const categoryConfig = [
   {
+    category: "essential",
     icon: Wrench,
     title: "Essential Repairs & Maintenance",
     subtitle: "🛠️ Service A",
-    description: "Quick fixes and routine maintenance to keep your home in top shape.",
-    features: [
-      "Smart thermostat installation",
-      "Smart lighting and switches", 
-      "Security camera setup",
-      "Home automation systems",
-      "Light plumbing repairs (faucets, drains)",
-      "Electrical services (fixtures, outlets, ceiling fans)",
-      "Drywall repair and installation",
-      "Appliance repairs and furniture assembly",
-      "Pressure washing"
-    ]
+    description: "Quick fixes and routine maintenance to keep your home in top shape."
   },
   {
+    category: "improvement",
     icon: Shield,
     title: "Home Improvement & Remodeling", 
     subtitle: "🏡 Service B",
-    description: "Enhance and modernize your living spaces with our remodeling services.",
-    features: [
-      "Interior painting and surface preparation",
-      "Kitchen and bathroom renovations",
-      "Floor installation",
-      "Staircase upgrades", 
-      "Basement finishing",
-      "Garage improvements"
-    ]
+    description: "Enhance and modernize your living spaces with our remodeling services."
   },
   {
+    category: "specialized",
     icon: Network,
     title: "Specialized Installations & Custom Projects",
     subtitle: "🧰 Service C", 
-    description: "Tailored solutions for unique home projects and installations.",
-    features: [
-      "Home theater and audio wiring",
-      "Network cabling and TV mounting",
-      "Deck rebuilding and repairs",
-      "Shed construction",
-      "Concrete work",
-      "Gutter installation and maintenance",
-      "Vanity installations",
-      "Lighting fixture upgrades",
-      "Fireplace mantel installations"
-    ]
+    description: "Tailored solutions for unique home projects and installations."
   }
 ];
 
 export default function ServicesSection() {
+  const { data: services = [] } = useQuery<Service[]>({
+    queryKey: ["/api/services"]
+  });
+
+  const getServicesByCategory = (category: string) => {
+    return services
+      .filter(service => service.category === category && service.isActive)
+      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
+      .map(service => service.name);
+  };
+
   return (
     <section id="services" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -75,8 +61,10 @@ export default function ServicesSection() {
         </div>
         
         <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
-          {serviceCategories.map((service, index) => {
-            const IconComponent = service.icon;
+          {categoryConfig.map((categoryInfo, index) => {
+            const IconComponent = categoryInfo.icon;
+            const categoryServices = getServicesByCategory(categoryInfo.category);
+            
             return (
               <Card key={index} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
                 <CardContent className="p-8">
@@ -85,16 +73,16 @@ export default function ServicesSection() {
                       <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
                     </div>
                     <div>
-                      <div className="text-sm font-semibold text-brand-red mb-1">{service.subtitle}</div>
-                      <h3 className="text-lg font-bold text-charcoal">{service.title}</h3>
+                      <div className="text-sm font-semibold text-brand-red mb-1">{categoryInfo.subtitle}</div>
+                      <h3 className="text-lg font-bold text-charcoal">{categoryInfo.title}</h3>
                     </div>
                   </div>
-                  <p className="text-gray-600 mb-6 leading-relaxed">{service.description}</p>
+                  <p className="text-gray-600 mb-6 leading-relaxed">{categoryInfo.description}</p>
                   <ul className="text-sm text-gray-600 space-y-2">
-                    {service.features.map((feature, featureIndex) => (
-                      <li key={featureIndex} className="flex items-start">
+                    {categoryServices.map((serviceName, serviceIndex) => (
+                      <li key={serviceIndex} className="flex items-start">
                         <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
-                        <span className="leading-relaxed">{feature}</span>
+                        <span className="leading-relaxed">{serviceName}</span>
                       </li>
                     ))}
                   </ul>
