@@ -235,12 +235,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res) => {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
-      const appointment = await storage.createAppointment(appointmentData);
-
-      // Auto-create customer if they don't exist
-      const existingCustomer = await storage.getCustomerByEmail(appointmentData.email);
-      if (!existingCustomer) {
-        await storage.createCustomer({
+      
+      // Auto-create customer if they don't exist and link to appointment
+      let customer = await storage.getCustomerByEmail(appointmentData.email);
+      if (!customer) {
+        customer = await storage.createCustomer({
           firstName: appointmentData.firstName,
           lastName: appointmentData.lastName,
           email: appointmentData.email,
@@ -248,6 +247,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: null,
         });
       }
+
+      // Create appointment with customer linkage
+      const appointmentWithCustomer = {
+        ...appointmentData,
+        customerId: customer.id,
+        email: customer.email // Ensure we use the customer's email
+      };
+      
+      const appointment = await storage.createAppointment(appointmentWithCustomer);
 
       // Create appointment reminders automatically
       try {

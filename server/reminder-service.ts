@@ -91,19 +91,28 @@ export class AppointmentReminderService {
         return;
       }
 
+      // Get customer email if appointment is linked to a customer
+      let customerEmail = appointment.email;
+      if (appointment.customerId) {
+        const customer = await storage.getCustomer(appointment.customerId);
+        if (customer) {
+          customerEmail = customer.email; // Use the customer's email for consistency
+        }
+      }
+
       // Generate email content
       const { subject, htmlContent } = emailService.generateReminderEmail(appointment, reminder.reminderType);
       
       // Send email
       const result = await emailService.sendEmail({
-        to: appointment.email,
+        to: customerEmail,
         subject,
         htmlContent
       });
 
       if (result.messageId) {
         await storage.markReminderSent(reminder.id, 'sent', htmlContent);
-        console.log(`Sent ${reminder.reminderType} reminder for appointment ${appointment.id} to ${appointment.email}`);
+        console.log(`Sent ${reminder.reminderType} reminder for appointment ${appointment.id} to ${customerEmail}`);
       } else {
         await storage.markReminderSent(reminder.id, 'failed', result.error || 'Unknown error');
         console.error(`Failed to send reminder for appointment ${appointment.id}:`, result.error);
@@ -134,16 +143,25 @@ export class AppointmentReminderService {
         return false;
       }
 
+      // Get customer email if appointment is linked to a customer
+      let customerEmail = appointment.email;
+      if (appointment.customerId) {
+        const customer = await storage.getCustomer(appointment.customerId);
+        if (customer) {
+          customerEmail = customer.email; // Use the customer's email for consistency
+        }
+      }
+
       const { subject, htmlContent } = emailService.generateReminderEmail(appointment, reminderType);
       
       const result = await emailService.sendEmail({
-        to: appointment.email,
+        to: customerEmail,
         subject,
         htmlContent
       });
 
       if (result.messageId) {
-        console.log(`Manual reminder sent for appointment ${appointmentId}`);
+        console.log(`Manual reminder sent for appointment ${appointmentId}: ${reminderType} to ${customerEmail}`);
         return true;
       } else {
         console.error(`Failed to send manual reminder:`, result.error);

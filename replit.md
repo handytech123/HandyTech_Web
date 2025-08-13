@@ -48,6 +48,8 @@ Electrical work disclaimer: Not a licensed electrician - has experienced handyma
 ✓ **Background Processing**: Server-side reminder processing every 5 minutes with manual override capability
 ✓ **Professional Email Templates**: Branded HTML emails with Ohio State Buckeyes theming and company branding
 ✓ **Admin Reminder Management**: Complete dashboard interface for monitoring and manually triggering reminders
+✓ **Customer Email Integration**: Enhanced reminder system to prioritize linked customer emails over appointment emails
+✓ **Reminder UI Reorganization**: Moved send reminders functionality to appointments tab for streamlined workflow
 
 ## System Architecture
 
