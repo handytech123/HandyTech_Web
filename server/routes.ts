@@ -23,9 +23,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       
-      // Simple authentication - you can change these credentials
-      const ADMIN_USERNAME = "admin";
-      const ADMIN_PASSWORD = "handytech2024";
+      // Simple authentication - credentials from environment variables
+      const ADMIN_USERNAME = process.env.ADMIN_USERNAME || "admin";
+      const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD;
+      
+      if (!ADMIN_PASSWORD) {
+        res.status(500).json({ 
+          success: false, 
+          message: "Admin password not configured. Please set ADMIN_PASSWORD environment variable." 
+        });
+        return;
+      }
       
       if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
         // Generate a simple token (in production, use proper JWT)
