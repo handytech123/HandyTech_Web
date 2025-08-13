@@ -373,7 +373,7 @@ function AuthenticatedDashboard() {
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, customerData }: { id: number; customerData: any }) => {
       console.log("Updating customer:", id, customerData);
-      const response = await apiRequest(`/api/customers/${id}`, "PUT", customerData);
+      const response = await apiRequest("PUT", `/api/customers/${id}`, customerData);
       return response;
     },
     onSuccess: () => {
@@ -396,7 +396,7 @@ function AuthenticatedDashboard() {
   const addCustomerMutation = useMutation({
     mutationFn: async (customerData: any) => {
       console.log("Adding customer:", customerData);
-      const response = await apiRequest("/api/customers", "POST", customerData);
+      const response = await apiRequest("POST", "/api/customers", customerData);
       return response;
     },
     onSuccess: () => {
@@ -622,13 +622,31 @@ function AuthenticatedDashboard() {
                       </div>
                       {appointment.customerId && (
                         <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                          <p className="text-xs text-gray-500">
-                            <strong>Customer ID:</strong> {appointment.customerId}
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs text-gray-500">
+                              <strong>Customer ID:</strong> {appointment.customerId}
+                              {(() => {
+                                const customer = customers.find(c => c.id === appointment.customerId);
+                                return customer ? ` • ${customer.firstName} ${customer.lastName}` : '';
+                              })()}
+                            </p>
                             {(() => {
                               const customer = customers.find(c => c.id === appointment.customerId);
-                              return customer ? ` • ${customer.firstName} ${customer.lastName}` : '';
+                              return customer ? (
+                                <EditCustomerDialog
+                                  customer={customer}
+                                  onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
+                                  isLoading={updateCustomerMutation.isPending}
+                                  trigger={
+                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                      <Edit className="h-3 w-3 mr-1" />
+                                      Edit Customer
+                                    </Button>
+                                  }
+                                />
+                              ) : null;
                             })()}
-                          </p>
+                          </div>
                         </div>
                       )}
                     </div>
