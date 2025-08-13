@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language.
 Business location: Missouri-based handyman service
 Color scheme: Ohio State Buckeyes colors (scarlet red #BB0000 and gray) for proper text visibility
 Database preference: User chose to build own backend rather than use external CRM software
-Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
+Deployment preference: **Replit Autoscale Deployment** (full-stack with all backend features)
 Electrical work disclaimer: Not a licensed electrician - has experienced handyman for electrical issues
 
 ## Recent Changes (August 12, 2024)
@@ -50,6 +50,9 @@ Electrical work disclaimer: Not a licensed electrician - has experienced handyma
 ✓ **Admin Reminder Management**: Complete dashboard interface for monitoring and manually triggering reminders
 ✓ **Customer Email Integration**: Enhanced reminder system to prioritize linked customer emails over appointment emails
 ✓ **Reminder UI Reorganization**: Moved send reminders functionality to appointments tab for streamlined workflow
+✓ **Mobile Responsiveness Enhanced**: Fixed "Send Reminder" button and appointment cards for mobile view
+✓ **Customer Contact Editing Fixed**: Resolved API parameter order bug and added proper database storage methods
+✓ **Deployment Strategy Confirmed**: User selected Replit Autoscale Deployment for full-stack functionality
 
 ## System Architecture
 
