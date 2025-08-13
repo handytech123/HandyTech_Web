@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -297,6 +297,146 @@ function EditCustomerDialog({ customer, onUpdate, isLoading, trigger }: EditCust
   );
 }
 
+// Edit Contact Dialog Component
+interface EditContactDialogProps {
+  customer: Customer | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onUpdate: (customerData: any) => void;
+  isLoading: boolean;
+}
+
+function EditContactDialog({ customer, open, onOpenChange, onUpdate, isLoading }: EditContactDialogProps) {
+  const form = useForm({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      firstName: customer?.firstName || "",
+      lastName: customer?.lastName || "",
+      email: customer?.email || "",
+      phone: customer?.phone || "",
+      company: customer?.company || "",
+    },
+  });
+
+  // Update form when customer changes
+  React.useEffect(() => {
+    if (customer) {
+      form.reset({
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone || "",
+        company: customer.company || "",
+      });
+    }
+  }, [customer, form]);
+
+  const handleSubmit = (data: any) => {
+    onUpdate(data);
+  };
+
+  if (!customer) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>
+            {customer.id === -1 ? "Edit Contact Information" : "Edit Customer"}
+          </DialogTitle>
+          <DialogDescription>
+            {customer.id === -1 
+              ? "Update the contact information for this appointment."
+              : "Update the customer information in your database."
+            }
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            {customer.id !== -1 && (
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            )}
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
@@ -363,7 +503,7 @@ function AuthenticatedDashboard() {
 
   const sendAppointmentReminderMutation = useMutation({
     mutationFn: async (appointmentId: number) => {
-      await apiRequest(`/api/admin/reminders/appointment/${appointmentId}`, "POST");
+      await apiRequest("POST", `/api/admin/reminders/appointment/${appointmentId}`);
     },
     onSuccess: () => {
       toast({
@@ -425,6 +565,33 @@ function AuthenticatedDashboard() {
       });
     },
   });
+
+  const updateAppointmentMutation = useMutation({
+    mutationFn: async ({ id, appointmentData }: { id: number; appointmentData: any }) => {
+      console.log("Updating appointment:", id, appointmentData);
+      const response = await apiRequest("PUT", `/api/appointments/${id}`, appointmentData);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      toast({
+        title: "Success",
+        description: "Contact information updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Appointment update error:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update contact information",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // State for edit customer dialog
+  const [editCustomerOpen, setEditCustomerOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
 
   const totalRevenue = maintenancePlans.reduce((sum, plan) => sum + plan.price, 0);
   const pendingQuotes = quotes.filter(q => q.status === "pending").length;
@@ -661,31 +828,27 @@ function AuthenticatedDashboard() {
                           ) : (
                             <div className="flex items-center gap-2">
                               <p className="text-xs text-gray-500">
-                                <strong>Not linked to customer database</strong>
+                                <strong>Appointment Contact Information</strong>
                               </p>
-                              <div className="flex gap-1">
-                                <AddCustomerDialog
-                                  onAdd={(customerData) => addCustomerMutation.mutate(customerData)}
-                                  isLoading={addCustomerMutation.isPending}
-                                  defaultValues={{
+                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs"
+                                onClick={() => {
+                                  // Create a temporary customer object for editing
+                                  const tempCustomer = {
+                                    id: -1, // Temporary ID to indicate this is appointment data
                                     firstName: appointment.firstName,
                                     lastName: appointment.lastName,
                                     email: appointment.email,
                                     phone: appointment.phone || "",
-                                    company: ""
-                                  }}
-                                  trigger={
-                                    <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                                      <Plus className="h-3 w-3 mr-1" />
-                                      Create Customer
-                                    </Button>
-                                  }
-                                />
-                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                                  <Link className="h-3 w-3 mr-1" />
-                                  Link Customer
-                                </Button>
-                              </div>
+                                    company: "",
+                                    createdAt: new Date().toISOString(),
+                                    lastEmailSent: null
+                                  };
+                                  setEditingCustomer(tempCustomer);
+                                  setEditCustomerOpen(true);
+                                }}>
+                                <Edit className="h-3 w-3 mr-1" />
+                                Edit Contact Info
+                              </Button>
                             </div>
                           )}
                         </div>
@@ -714,6 +877,41 @@ function AuthenticatedDashboard() {
                 </div>
               </CardContent>
             </Card>
+            
+            {/* Edit Customer/Contact Dialog */}
+            <EditContactDialog
+              customer={editingCustomer}
+              open={editCustomerOpen}
+              onOpenChange={setEditCustomerOpen}
+              onUpdate={(customerData) => {
+                if (editingCustomer?.id === -1) {
+                  // This is appointment contact info, find the appointment and update it
+                  const appointment = appointments.find(a => 
+                    a.firstName === editingCustomer.firstName && 
+                    a.lastName === editingCustomer.lastName && 
+                    a.email === editingCustomer.email
+                  );
+                  if (appointment) {
+                    updateAppointmentMutation.mutate({ 
+                      id: appointment.id, 
+                      appointmentData: {
+                        ...appointment,
+                        firstName: customerData.firstName,
+                        lastName: customerData.lastName,
+                        email: customerData.email,
+                        phone: customerData.phone,
+                      }
+                    });
+                  }
+                } else if (editingCustomer) {
+                  // This is a regular customer update
+                  updateCustomerMutation.mutate({ id: editingCustomer.id, customerData });
+                }
+                setEditCustomerOpen(false);
+                setEditingCustomer(null);
+              }}
+              isLoading={updateCustomerMutation.isPending || updateAppointmentMutation.isPending}
+            />
           </TabsContent>
 
           <TabsContent value="reviews">

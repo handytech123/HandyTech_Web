@@ -315,6 +315,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Update appointment
+  app.put("/api/appointments/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updateData = insertAppointmentSchema.partial().parse(req.body);
+      
+      const updatedAppointment = await storage.updateAppointment(id, updateData);
+      if (!updatedAppointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+      
+      res.json(updatedAppointment);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
+      } else {
+        console.error("Appointment update error:", error);
+        res.status(500).json({ message: "Failed to update appointment" });
+      }
+    }
+  });
+
   // Update appointment status and handle reminders
   app.patch("/api/appointments/:id/status", async (req, res) => {
     try {

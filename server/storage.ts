@@ -61,6 +61,7 @@ export interface IStorage {
   getAppointmentsByCustomer(customerId: number): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointmentStatus(id: number, status: string): Promise<void>;
+  updateAppointment(id: number, updateData: Partial<InsertAppointment>): Promise<Appointment | null>;
   getUpcomingAppointments(): Promise<Appointment[]>;
 
   // Project Gallery
@@ -450,6 +451,17 @@ export class MemStorage implements IStorage {
       appointment.status = status;
       this.appointments.set(id, appointment);
     }
+  }
+
+  async updateAppointment(id: number, updateData: Partial<InsertAppointment>): Promise<Appointment | null> {
+    const appointment = this.appointments.get(id);
+    if (!appointment) {
+      return null;
+    }
+    
+    const updatedAppointment = { ...appointment, ...updateData };
+    this.appointments.set(id, updatedAppointment);
+    return updatedAppointment;
   }
 
   async getUpcomingAppointments(): Promise<Appointment[]> {
