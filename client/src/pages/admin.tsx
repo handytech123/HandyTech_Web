@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send, Edit, Plus } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send, Edit, Plus, Link } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
@@ -23,19 +23,27 @@ import { insertCustomerSchema, type Quote, Appointment, Review, Customer, Mainte
 interface AddCustomerDialogProps {
   onAdd: (customerData: any) => void;
   isLoading: boolean;
+  trigger?: React.ReactNode;
+  defaultValues?: Partial<{
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string;
+    company: string;
+  }>;
 }
 
-function AddCustomerDialog({ onAdd, isLoading }: AddCustomerDialogProps) {
+function AddCustomerDialog({ onAdd, isLoading, trigger, defaultValues }: AddCustomerDialogProps) {
   const [open, setOpen] = useState(false);
   
   const form = useForm({
     resolver: zodResolver(insertCustomerSchema),
     defaultValues: {
-      firstName: "",
-      lastName: "",
-      email: "",
-      phone: "",
-      company: "",
+      firstName: defaultValues?.firstName || "",
+      lastName: defaultValues?.lastName || "",
+      email: defaultValues?.email || "",
+      phone: defaultValues?.phone || "",
+      company: defaultValues?.company || "",
     },
   });
 
@@ -49,10 +57,12 @@ function AddCustomerDialog({ onAdd, isLoading }: AddCustomerDialogProps) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default" size="sm">
-          <Plus className="h-4 w-4 mr-1" />
-          Add Customer
-        </Button>
+        {trigger || (
+          <Button variant="default" size="sm">
+            <Plus className="h-4 w-4 mr-1" />
+            Add Customer
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -620,35 +630,66 @@ function AuthenticatedDashboard() {
                         <p className="text-sm"><strong>Time:</strong> {appointment.appointmentTime}</p>
                         {appointment.notes && <p className="text-sm mt-1"><strong>Notes:</strong> {appointment.notes}</p>}
                       </div>
-                      {appointment.customerId && (
-                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                          <div className="flex items-center justify-between">
-                            <p className="text-xs text-gray-500">
-                              <strong>Customer ID:</strong> {appointment.customerId}
+                      <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                        <div className="flex items-center justify-between">
+                          {appointment.customerId ? (
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-gray-500">
+                                <strong>Customer ID:</strong> {appointment.customerId}
+                                {(() => {
+                                  const customer = customers.find(c => c.id === appointment.customerId);
+                                  return customer ? ` • ${customer.firstName} ${customer.lastName}` : '';
+                                })()}
+                              </p>
                               {(() => {
                                 const customer = customers.find(c => c.id === appointment.customerId);
-                                return customer ? ` • ${customer.firstName} ${customer.lastName}` : '';
+                                return customer ? (
+                                  <EditCustomerDialog
+                                    customer={customer}
+                                    onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
+                                    isLoading={updateCustomerMutation.isPending}
+                                    trigger={
+                                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                        <Edit className="h-3 w-3 mr-1" />
+                                        Edit Customer
+                                      </Button>
+                                    }
+                                  />
+                                ) : null;
                               })()}
-                            </p>
-                            {(() => {
-                              const customer = customers.find(c => c.id === appointment.customerId);
-                              return customer ? (
-                                <EditCustomerDialog
-                                  customer={customer}
-                                  onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
-                                  isLoading={updateCustomerMutation.isPending}
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <p className="text-xs text-gray-500">
+                                <strong>Not linked to customer database</strong>
+                              </p>
+                              <div className="flex gap-1">
+                                <AddCustomerDialog
+                                  onAdd={(customerData) => addCustomerMutation.mutate(customerData)}
+                                  isLoading={addCustomerMutation.isPending}
+                                  defaultValues={{
+                                    firstName: appointment.firstName,
+                                    lastName: appointment.lastName,
+                                    email: appointment.email,
+                                    phone: appointment.phone || "",
+                                    company: ""
+                                  }}
                                   trigger={
                                     <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
-                                      <Edit className="h-3 w-3 mr-1" />
-                                      Edit Customer
+                                      <Plus className="h-3 w-3 mr-1" />
+                                      Create Customer
                                     </Button>
                                   }
                                 />
-                              ) : null;
-                            })()}
-                          </div>
+                                <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                  <Link className="h-3 w-3 mr-1" />
+                                  Link Customer
+                                </Button>
+                              </div>
+                            </div>
+                          )}
                         </div>
-                      )}
+                      </div>
                     </div>
                   ))}
                   {appointments.length === 0 && (
