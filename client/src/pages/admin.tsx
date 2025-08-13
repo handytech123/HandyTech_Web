@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send, Edit } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send, Edit, Plus } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
@@ -18,6 +18,132 @@ import ServicesManager from "@/components/services-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useToast } from "@/hooks/use-toast";
 import { insertCustomerSchema, type Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
+
+// Add Customer Dialog Component
+interface AddCustomerDialogProps {
+  onAdd: (customerData: any) => void;
+  isLoading: boolean;
+}
+
+function AddCustomerDialog({ onAdd, isLoading }: AddCustomerDialogProps) {
+  const [open, setOpen] = useState(false);
+  
+  const form = useForm({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      company: "",
+    },
+  });
+
+  const handleSubmit = (data: any) => {
+    console.log("Adding new customer:", data);
+    onAdd(data);
+    setOpen(false);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="default" size="sm">
+          <Plus className="h-4 w-4 mr-1" />
+          Add Customer
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Add New Customer</DialogTitle>
+          <DialogDescription>
+            Add a new customer to your database. Fill in their information below.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone (Optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="company"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company (Optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Adding..." : "Add Customer"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 // Customer Edit Dialog Component
 interface EditCustomerDialogProps {
@@ -262,6 +388,29 @@ function AuthenticatedDashboard() {
       toast({
         title: "Error",
         description: error?.message || "Failed to update customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const addCustomerMutation = useMutation({
+    mutationFn: async (customerData: any) => {
+      console.log("Adding customer:", customerData);
+      const response = await apiRequest("/api/customers", "POST", customerData);
+      return response;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Success",
+        description: "Customer added successfully",
+      });
+    },
+    onError: (error: any) => {
+      console.error("Customer add error:", error);
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to add customer",
         variant: "destructive",
       });
     },
@@ -558,9 +707,15 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="customers">
             <Card>
-              <CardHeader>
-                <CardTitle>Customer Database</CardTitle>
-                <CardDescription>View and manage customer information</CardDescription>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <div>
+                  <CardTitle>Customer Database</CardTitle>
+                  <CardDescription>View and manage customer information</CardDescription>
+                </div>
+                <AddCustomerDialog 
+                  onAdd={(customerData) => addCustomerMutation.mutate(customerData)}
+                  isLoading={addCustomerMutation.isPending}
+                />
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
