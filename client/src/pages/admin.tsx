@@ -209,6 +209,25 @@ function AuthenticatedDashboard() {
     },
   });
 
+  const sendAppointmentReminderMutation = useMutation({
+    mutationFn: async (appointmentId: number) => {
+      await apiRequest(`/api/admin/reminders/appointment/${appointmentId}`, "POST");
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Reminder sent successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to send reminder",
+        variant: "destructive",
+      });
+    },
+  });
+
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, customerData }: { id: number; customerData: any }) => {
       await apiRequest(`/api/customers/${id}`, "PUT", customerData);
@@ -410,9 +429,22 @@ function AuthenticatedDashboard() {
                           <p className="text-sm text-gray-600 dark:text-gray-300">{appointment.email}</p>
                           {appointment.phone && <p className="text-sm text-gray-500">{appointment.phone}</p>}
                         </div>
-                        <Badge variant={appointment.status === "scheduled" ? "secondary" : "default"}>
-                          {appointment.status}
-                        </Badge>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={appointment.status === "scheduled" ? "secondary" : "default"}>
+                            {appointment.status}
+                          </Badge>
+                          {appointment.status === "scheduled" && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => sendAppointmentReminderMutation.mutate(appointment.id)}
+                              disabled={sendAppointmentReminderMutation.isPending}
+                            >
+                              <Send className="h-4 w-4 mr-1" />
+                              {sendAppointmentReminderMutation.isPending ? "Sending..." : "Send Reminder"}
+                            </Button>
+                          )}
+                        </div>
                       </div>
                       <div className="mb-3">
                         <p className="text-sm"><strong>Service:</strong> {appointment.serviceType}</p>
@@ -420,6 +452,17 @@ function AuthenticatedDashboard() {
                         <p className="text-sm"><strong>Time:</strong> {appointment.appointmentTime}</p>
                         {appointment.notes && <p className="text-sm mt-1"><strong>Notes:</strong> {appointment.notes}</p>}
                       </div>
+                      {appointment.customerId && (
+                        <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
+                          <p className="text-xs text-gray-500">
+                            <strong>Customer ID:</strong> {appointment.customerId}
+                            {(() => {
+                              const customer = customers.find(c => c.id === appointment.customerId);
+                              return customer ? ` • ${customer.firstName} ${customer.lastName}` : '';
+                            })()}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   ))}
                   {appointments.length === 0 && (

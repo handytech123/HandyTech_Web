@@ -911,6 +911,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Send reminder for specific appointment (admin endpoint)
+  app.post("/api/admin/reminders/appointment/:id", async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      if (isNaN(appointmentId)) {
+        return res.status(400).json({ error: "Invalid appointment ID" });
+      }
+
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ error: "Appointment not found" });
+      }
+
+      if (appointment.status !== "scheduled") {
+        return res.status(400).json({ error: "Can only send reminders for scheduled appointments" });
+      }
+
+      // Determine the best email to use (prioritize customer email)
+      let recipientEmail = appointment.email;
+      let customerName = `${appointment.firstName} ${appointment.lastName}`;
+      
+      if (appointment.customerId) {
+        const customer = await storage.getCustomer(appointment.customerId);
+        if (customer && customer.email) {
+          recipientEmail = customer.email;
+          customerName = `${customer.firstName} ${customer.lastName}`;
+        }
+      }
+
+      // Send the reminder immediately using the reminder service
+      await reminderService.sendImmediateReminder(appointment, recipientEmail, customerName);
+
+      res.json({ 
+        success: true, 
+        message: `Reminder sent to ${recipientEmail}`,
+        appointment: appointment
+      });
+    } catch (error) {
+      console.error("Error sending appointment reminder:", error);
+      res.status(500).json({ error: "Failed to send reminder" });
+    }
+  });
+
   // Send manual reminder (admin endpoint)
   app.post("/api/admin/reminders/send", async (req, res) => {
     try {

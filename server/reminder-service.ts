@@ -74,6 +74,34 @@ export class AppointmentReminderService {
     }
   }
 
+  // Send immediate reminder for a specific appointment (admin triggered)
+  async sendImmediateReminder(appointment: Appointment, recipientEmail: string, customerName: string): Promise<void> {
+    try {
+      // Generate email content using the existing email service method
+      const { subject, htmlContent } = emailService.generateReminderEmail(appointment, 'immediate');
+      
+      // Send email using the correct interface
+      const result = await emailService.sendEmail({
+        to: recipientEmail,
+        subject,
+        htmlContent
+      });
+
+      if (result.messageId) {
+        // Update customer's last email sent date if they have a customer record
+        if (appointment.customerId) {
+          await storage.updateCustomerLastEmail(appointment.customerId, new Date());
+        }
+        console.log(`Immediate reminder sent to ${recipientEmail} for appointment ${appointment.id}`);
+      } else {
+        throw new Error(result.error || 'Failed to send email');
+      }
+    } catch (error) {
+      console.error('Error sending immediate reminder:', error);
+      throw error;
+    }
+  }
+
   private async sendReminderEmail(reminder: any): Promise<void> {
     try {
       // Get the appointment details
