@@ -24,9 +24,10 @@ interface EditCustomerDialogProps {
   customer: Customer;
   onUpdate: (id: number, customerData: any) => void;
   isLoading: boolean;
+  trigger?: React.ReactNode;
 }
 
-function EditCustomerDialog({ customer, onUpdate, isLoading }: EditCustomerDialogProps) {
+function EditCustomerDialog({ customer, onUpdate, isLoading, trigger }: EditCustomerDialogProps) {
   const [open, setOpen] = useState(false);
   
   const form = useForm({
@@ -49,10 +50,12 @@ function EditCustomerDialog({ customer, onUpdate, isLoading }: EditCustomerDialo
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" size="sm">
-          <Edit className="h-4 w-4 mr-1" />
-          Edit
-        </Button>
+        {trigger || (
+          <Button variant="outline" size="sm">
+            <Edit className="h-4 w-4 mr-1" />
+            Edit
+          </Button>
+        )}
       </DialogTrigger>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
@@ -549,23 +552,28 @@ function AuthenticatedDashboard() {
                     <div key={customer.id} className="border rounded-lg p-4 bg-white dark:bg-gray-800">
                       <div className="flex justify-between items-start">
                         <div className="flex-1">
-                          <h3 className="font-semibold">{customer.firstName} {customer.lastName}</h3>
+                          <div className="flex items-center gap-2">
+                            <EditCustomerDialog
+                              customer={customer}
+                              onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
+                              isLoading={updateCustomerMutation.isPending}
+                              trigger={
+                                <button className="text-left hover:text-brand-red transition-colors">
+                                  <h3 className="font-semibold text-left">{customer.firstName} {customer.lastName}</h3>
+                                </button>
+                              }
+                            />
+                            <Edit className="h-4 w-4 text-gray-400" />
+                          </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300">{customer.email}</p>
                           {customer.phone && <p className="text-sm text-gray-500">{customer.phone}</p>}
                           {customer.company && <p className="text-sm text-gray-500">{customer.company}</p>}
                         </div>
-                        <div className="flex items-start gap-3">
-                          <div className="text-right text-sm text-gray-500">
-                            <p>Joined: {new Date(customer.createdAt).toLocaleDateString()}</p>
-                            {customer.lastEmailSent && (
-                              <p>Last Email: {new Date(customer.lastEmailSent).toLocaleDateString()}</p>
-                            )}
-                          </div>
-                          <EditCustomerDialog
-                            customer={customer}
-                            onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
-                            isLoading={updateCustomerMutation.isPending}
-                          />
+                        <div className="text-right text-sm text-gray-500">
+                          <p>Joined: {new Date(customer.createdAt).toLocaleDateString()}</p>
+                          {customer.lastEmailSent && (
+                            <p>Last Email: {new Date(customer.lastEmailSent).toLocaleDateString()}</p>
+                          )}
                         </div>
                       </div>
                     </div>
