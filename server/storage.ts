@@ -26,6 +26,7 @@ export interface IStorage {
   getCustomer(id: number): Promise<Customer | undefined>;
   getCustomerByEmail(email: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
+  updateCustomer(id: number, customer: InsertCustomer): Promise<Customer>;
   getAllCustomers(): Promise<Customer[]>;
   updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void>;
 
@@ -270,6 +271,21 @@ export class MemStorage implements IStorage {
     };
     this.customers.set(customer.id, customer);
     return customer;
+  }
+
+  async updateCustomer(id: number, customerData: InsertCustomer): Promise<Customer> {
+    const existingCustomer = this.customers.get(id);
+    if (!existingCustomer) {
+      throw new Error('Customer not found');
+    }
+    
+    const updatedCustomer = {
+      ...existingCustomer,
+      ...customerData
+    };
+    
+    this.customers.set(id, updatedCustomer);
+    return updatedCustomer;
   }
 
   async getAllCustomers(): Promise<Customer[]> {
@@ -592,6 +608,11 @@ export class DatabaseStorage implements IStorage {
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
     const [created] = await db.insert(customers).values(customer).returning();
     return created;
+  }
+
+  async updateCustomer(id: number, customer: InsertCustomer): Promise<Customer> {
+    const [updated] = await db.update(customers).set(customer).where(eq(customers.id, id)).returning();
+    return updated;
   }
 
   async getAllCustomers(): Promise<Customer[]> {

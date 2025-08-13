@@ -1,10 +1,15 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send } from "lucide-react";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send, Edit } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
@@ -12,7 +17,133 @@ import BlockedDatesManager from "@/components/blocked-dates-manager";
 import ServicesManager from "@/components/services-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import { useToast } from "@/hooks/use-toast";
-import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
+import { insertCustomerSchema, type Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
+
+// Customer Edit Dialog Component
+interface EditCustomerDialogProps {
+  customer: Customer;
+  onUpdate: (id: number, customerData: any) => void;
+  isLoading: boolean;
+}
+
+function EditCustomerDialog({ customer, onUpdate, isLoading }: EditCustomerDialogProps) {
+  const [open, setOpen] = useState(false);
+  
+  const form = useForm({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone || "",
+      company: customer.company || "",
+    },
+  });
+
+  const handleSubmit = (data: any) => {
+    onUpdate(customer.id, data);
+    setOpen(false);
+    form.reset();
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Edit className="h-4 w-4 mr-1" />
+          Edit
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-[425px]">
+        <DialogHeader>
+          <DialogTitle>Edit Customer</DialogTitle>
+          <DialogDescription>
+            Update customer information. Make changes and click save.
+          </DialogDescription>
+        </DialogHeader>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name</FormLabel>
+                    <FormControl>
+                      <Input {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            <FormField
+              control={form.control}
+              name="email"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Email</FormLabel>
+                  <FormControl>
+                    <Input type="email" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="phone"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Phone (Optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="company"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Company (Optional)</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <div className="flex justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setOpen(false)}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading}>
+                {isLoading ? "Saving..." : "Save Changes"}
+              </Button>
+            </div>
+          </form>
+        </Form>
+      </DialogContent>
+    </Dialog>
+  );
+}
 
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
@@ -73,6 +204,26 @@ function AuthenticatedDashboard() {
       toast({
         title: "Error",
         description: "Failed to process pending reminders",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const updateCustomerMutation = useMutation({
+    mutationFn: async ({ id, customerData }: { id: number; customerData: any }) => {
+      await apiRequest(`/api/customers/${id}`, "PUT", customerData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({
+        title: "Success",
+        description: "Customer updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update customer",
         variant: "destructive",
       });
     },
@@ -354,17 +505,24 @@ function AuthenticatedDashboard() {
                   {customers.map((customer) => (
                     <div key={customer.id} className="border rounded-lg p-4 bg-white dark:bg-gray-800">
                       <div className="flex justify-between items-start">
-                        <div>
+                        <div className="flex-1">
                           <h3 className="font-semibold">{customer.firstName} {customer.lastName}</h3>
                           <p className="text-sm text-gray-600 dark:text-gray-300">{customer.email}</p>
                           {customer.phone && <p className="text-sm text-gray-500">{customer.phone}</p>}
                           {customer.company && <p className="text-sm text-gray-500">{customer.company}</p>}
                         </div>
-                        <div className="text-right text-sm text-gray-500">
-                          <p>Joined: {new Date(customer.createdAt).toLocaleDateString()}</p>
-                          {customer.lastEmailSent && (
-                            <p>Last Email: {new Date(customer.lastEmailSent).toLocaleDateString()}</p>
-                          )}
+                        <div className="flex items-start gap-3">
+                          <div className="text-right text-sm text-gray-500">
+                            <p>Joined: {new Date(customer.createdAt).toLocaleDateString()}</p>
+                            {customer.lastEmailSent && (
+                              <p>Last Email: {new Date(customer.lastEmailSent).toLocaleDateString()}</p>
+                            )}
+                          </div>
+                          <EditCustomerDialog
+                            customer={customer}
+                            onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
+                            isLoading={updateCustomerMutation.isPending}
+                          />
                         </div>
                       </div>
                     </div>

@@ -101,6 +101,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/customers/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const customerData = insertCustomerSchema.parse(req.body);
+      
+      // Check if customer exists
+      const existingCustomer = await storage.getCustomer(id);
+      if (!existingCustomer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Check if email is being changed and if new email already exists
+      if (customerData.email !== existingCustomer.email) {
+        const emailExists = await storage.getCustomerByEmail(customerData.email);
+        if (emailExists) {
+          return res.status(400).json({ message: "Email already exists for another customer" });
+        }
+      }
+
+      const updatedCustomer = await storage.updateCustomer(id, customerData);
+      res.json(updatedCustomer);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update customer" });
+      }
+    }
+  });
+
   // Maintenance plan routes
   app.get("/api/maintenance-plans", async (req, res) => {
     try {
