@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -41,7 +41,20 @@ function EditCustomerDialog({ customer, onUpdate, isLoading, trigger }: EditCust
     },
   });
 
+  // Reset form when customer changes or dialog opens
+  useEffect(() => {
+    form.reset({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone || "",
+      company: customer.company || "",
+    });
+  }, [customer, open, form]);
+
   const handleSubmit = (data: any) => {
+    console.log("Form submitted with data:", data);
+    console.log("Customer ID:", customer.id);
     onUpdate(customer.id, data);
     setOpen(false);
     form.reset();
@@ -233,7 +246,9 @@ function AuthenticatedDashboard() {
 
   const updateCustomerMutation = useMutation({
     mutationFn: async ({ id, customerData }: { id: number; customerData: any }) => {
-      await apiRequest(`/api/customers/${id}`, "PUT", customerData);
+      console.log("Updating customer:", id, customerData);
+      const response = await apiRequest(`/api/customers/${id}`, "PUT", customerData);
+      return response;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
@@ -243,6 +258,7 @@ function AuthenticatedDashboard() {
       });
     },
     onError: (error: any) => {
+      console.error("Customer update error:", error);
       toast({
         title: "Error",
         description: error?.message || "Failed to update customer",
@@ -558,12 +574,12 @@ function AuthenticatedDashboard() {
                               onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
                               isLoading={updateCustomerMutation.isPending}
                               trigger={
-                                <button className="text-left hover:text-brand-red transition-colors">
-                                  <h3 className="font-semibold text-left">{customer.firstName} {customer.lastName}</h3>
-                                </button>
+                                <div className="flex items-center gap-2 cursor-pointer hover:text-brand-red transition-colors">
+                                  <h3 className="font-semibold">{customer.firstName} {customer.lastName}</h3>
+                                  <Edit className="h-4 w-4 text-gray-400" />
+                                </div>
                               }
                             />
-                            <Edit className="h-4 w-4 text-gray-400" />
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300">{customer.email}</p>
                           {customer.phone && <p className="text-sm text-gray-500">{customer.phone}</p>}
