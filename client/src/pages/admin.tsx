@@ -768,14 +768,14 @@ function AuthenticatedDashboard() {
                 <div className="space-y-4">
                   {appointments.map((appointment) => (
                     <div key={appointment.id} className="border rounded-lg p-4 bg-white dark:bg-gray-800">
-                      <div className="flex justify-between items-start mb-2">
-                        <div>
+                      <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-2 gap-2">
+                        <div className="flex-1">
                           <h3 className="font-semibold">{appointment.firstName} {appointment.lastName}</h3>
                           <p className="text-sm text-gray-600 dark:text-gray-300">{appointment.email}</p>
                           {appointment.phone && <p className="text-sm text-gray-500">{appointment.phone}</p>}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={appointment.status === "scheduled" ? "secondary" : "default"}>
+                        <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2 sm:gap-2">
+                          <Badge variant={appointment.status === "scheduled" ? "secondary" : "default"} className="w-fit">
                             {appointment.status}
                           </Badge>
                           {appointment.status === "scheduled" && (
@@ -784,6 +784,7 @@ function AuthenticatedDashboard() {
                               size="sm"
                               onClick={() => sendAppointmentReminderMutation.mutate(appointment.id)}
                               disabled={sendAppointmentReminderMutation.isPending}
+                              className="w-full sm:w-auto whitespace-nowrap"
                             >
                               <Send className="h-4 w-4 mr-1" />
                               {sendAppointmentReminderMutation.isPending ? "Sending..." : "Send Reminder"}
@@ -798,9 +799,9 @@ function AuthenticatedDashboard() {
                         {appointment.notes && <p className="text-sm mt-1"><strong>Notes:</strong> {appointment.notes}</p>}
                       </div>
                       <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-                        <div className="flex items-center justify-between">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                           {appointment.customerId ? (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                               <p className="text-xs text-gray-500">
                                 <strong>Customer ID:</strong> {appointment.customerId}
                                 {(() => {
@@ -816,7 +817,7 @@ function AuthenticatedDashboard() {
                                     onUpdate={(id, customerData) => updateCustomerMutation.mutate({ id, customerData })}
                                     isLoading={updateCustomerMutation.isPending}
                                     trigger={
-                                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs">
+                                      <Button variant="ghost" size="sm" className="h-6 px-2 text-xs w-fit">
                                         <Edit className="h-3 w-3 mr-1" />
                                         Edit Customer
                                       </Button>
@@ -826,11 +827,11 @@ function AuthenticatedDashboard() {
                               })()}
                             </div>
                           ) : (
-                            <div className="flex items-center gap-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2">
                               <p className="text-xs text-gray-500">
                                 <strong>Appointment Contact Information</strong>
                               </p>
-                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs"
+                              <Button variant="ghost" size="sm" className="h-6 px-2 text-xs w-fit"
                                 onClick={() => {
                                   // Create a temporary customer object for editing
                                   const tempCustomer = {
@@ -860,7 +861,7 @@ function AuthenticatedDashboard() {
                   )}
                 </div>
                 <div className="mt-6 pt-4 border-t">
-                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                  <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <h4 className="font-medium text-gray-900 dark:text-white">Reminder Management</h4>
                       <p className="text-sm text-gray-600 dark:text-gray-300">Process and send appointment reminders</p>
@@ -868,7 +869,7 @@ function AuthenticatedDashboard() {
                     <Button 
                       onClick={() => processRemindersMutation.mutate()}
                       disabled={processRemindersMutation.isPending}
-                      className="flex items-center gap-2"
+                      className="flex items-center gap-2 w-full sm:w-auto"
                     >
                       <Send className="h-4 w-4" />
                       {processRemindersMutation.isPending ? "Sending..." : "Send Reminders"}
