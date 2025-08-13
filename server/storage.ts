@@ -834,7 +834,7 @@ export class DatabaseStorage implements IStorage {
       .where(
         and(
           eq(appointmentReminders.emailSent, false),
-          gte(now, appointmentReminders.reminderTime)
+          gte(appointmentReminders.reminderTime, now)
         )
       )
       .orderBy(appointmentReminders.reminderTime);

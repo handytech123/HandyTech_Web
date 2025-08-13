@@ -10,6 +10,7 @@ import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
 import BlockedDatesManager from "@/components/blocked-dates-manager";
 import ServicesManager from "@/components/services-manager";
+import { ReminderManagement } from "@/components/reminder-management";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
 
@@ -133,7 +134,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-7 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-8 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
               Services
             </TabsTrigger>
@@ -142,6 +143,9 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="blocked-dates" className="flex-1 min-w-[100px] text-sm">
               Block Dates
+            </TabsTrigger>
+            <TabsTrigger value="reminders" className="flex-1 min-w-[100px] text-sm">
+              Reminders
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
@@ -163,6 +167,10 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="blocked-dates">
             <BlockedDatesManager />
+          </TabsContent>
+
+          <TabsContent value="reminders">
+            <ReminderManagement />
           </TabsContent>
 
           <TabsContent value="services" className="mt-6">

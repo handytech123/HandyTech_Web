@@ -130,6 +130,8 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
   status: true,
+}).extend({
+  appointmentDate: z.string().transform((str) => new Date(str)),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({

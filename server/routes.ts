@@ -2,6 +2,7 @@ import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { fetchHomeDepotReviews, fetchContractorReviews } from "./home-depot-reviews";
+import { reminderService } from "./reminder-service";
 import { 
   insertCustomerSchema, 
   insertMaintenancePlanSchema, 
@@ -226,25 +227,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res) => {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
-      const appointment = await storage.createAppointment({
-        ...appointmentData,
-        status: "scheduled",
-      });
+      const appointment = await storage.createAppointment(appointmentData);
 
       // Auto-create customer if they don't exist
-      const existingCustomer = await storage.getCustomerByEmail(appointmentData.customerEmail);
+      const existingCustomer = await storage.getCustomerByEmail(appointmentData.email);
       if (!existingCustomer) {
-        const nameParts = appointmentData.customerName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
         await storage.createCustomer({
-          firstName,
-          lastName,
-          email: appointmentData.customerEmail,
-          phone: appointmentData.customerPhone || null,
+          firstName: appointmentData.firstName,
+          lastName: appointmentData.lastName,
+          email: appointmentData.email,
+          phone: appointmentData.phone || null,
           company: null,
         });
+      }
+
+      // Create appointment reminders automatically
+      try {
+        await reminderService.createRemindersForAppointment(appointment);
+      } catch (reminderError) {
+        console.error("Failed to create reminders for appointment:", reminderError);
+        // Don't fail the appointment creation if reminders fail
       }
 
       res.status(201).json(appointment);
@@ -264,6 +266,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(appointments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Update appointment status and handle reminders
+  app.patch("/api/appointments/:id/status", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { status } = req.body;
+      
+      await storage.updateAppointmentStatus(id, status);
+      
+      // Clean up reminders if appointment is cancelled
+      if (status === 'cancelled') {
+        try {
+          await reminderService.cleanupReminders(id);
+        } catch (reminderError) {
+          console.error("Failed to cleanup reminders:", reminderError);
+        }
+      }
+      
+      res.json({ message: "Appointment status updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update appointment status" });
     }
   });
 
@@ -787,6 +812,97 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(svg);
   });
 
+  // Appointment Reminders routes
+  app.get("/api/appointments/:id/reminders", async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const reminders = await storage.getAppointmentReminders(appointmentId);
+      res.json(reminders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch appointment reminders" });
+    }
+  });
+
+  // Get all pending reminders (admin endpoint)
+  app.get("/api/admin/reminders/pending", async (req, res) => {
+    try {
+      const pendingReminders = await storage.getPendingReminders();
+      res.json(pendingReminders);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch pending reminders" });
+    }
+  });
+
+  // Create reminders for an existing appointment (admin endpoint)
+  app.post("/api/admin/reminders/create", async (req, res) => {
+    try {
+      const { appointmentId } = req.body;
+      
+      if (!appointmentId) {
+        return res.status(400).json({ message: "Appointment ID is required" });
+      }
+
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      await reminderService.createRemindersForAppointment(appointment);
+      res.json({ message: "Reminders created successfully" });
+    } catch (error) {
+      console.error("Error creating reminders:", error);
+      res.status(500).json({ message: "Failed to create reminders" });
+    }
+  });
+
+  // Process pending reminders manually (admin endpoint)
+  app.post("/api/admin/reminders/process", async (req, res) => {
+    try {
+      await reminderService.processPendingReminders();
+      res.json({ message: "Processed pending reminders successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to process pending reminders" });
+    }
+  });
+
+  // Send manual reminder (admin endpoint)
+  app.post("/api/admin/reminders/send", async (req, res) => {
+    try {
+      const { appointmentId, reminderType } = req.body;
+      const success = await reminderService.sendManualReminder(appointmentId, reminderType);
+      
+      if (success) {
+        res.json({ message: "Manual reminder sent successfully" });
+      } else {
+        res.status(500).json({ message: "Failed to send manual reminder" });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to send manual reminder" });
+    }
+  });
+
+  // Start background reminder processing
+  startReminderProcessing();
+
   const httpServer = createServer(app);
   return httpServer;
+}
+
+// Background task to process reminders every 5 minutes
+function startReminderProcessing() {
+  const processReminders = async () => {
+    try {
+      await reminderService.processPendingReminders();
+    } catch (error) {
+      console.error('Background reminder processing error:', error);
+    }
+  };
+
+  // Process immediately on startup
+  processReminders();
+  
+  // Then process every 5 minutes
+  setInterval(processReminders, 5 * 60 * 1000);
+  
+  console.log('Appointment reminder background processing started');
 }
