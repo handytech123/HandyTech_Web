@@ -4,19 +4,20 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, Send } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
 import BlockedDatesManager from "@/components/blocked-dates-manager";
 import ServicesManager from "@/components/services-manager";
-import { ReminderManagement } from "@/components/reminder-management";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
+import { useToast } from "@/hooks/use-toast";
 import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
 
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
+  const { toast } = useToast();
 
   const { data: quotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/quotes"]
@@ -58,6 +59,23 @@ function AuthenticatedDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
     }
+  });
+
+  const processRemindersMutation = useMutation({
+    mutationFn: () => apiRequest("/api/admin/reminders/process", "POST"),
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Processed pending reminders successfully",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to process pending reminders",
+        variant: "destructive",
+      });
+    },
   });
 
   const totalRevenue = maintenancePlans.reduce((sum, plan) => sum + plan.price, 0);
@@ -134,7 +152,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-8 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-7 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
               Services
             </TabsTrigger>
@@ -143,9 +161,6 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="blocked-dates" className="flex-1 min-w-[100px] text-sm">
               Block Dates
-            </TabsTrigger>
-            <TabsTrigger value="reminders" className="flex-1 min-w-[100px] text-sm">
-              Reminders
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
@@ -169,9 +184,7 @@ function AuthenticatedDashboard() {
             <BlockedDatesManager />
           </TabsContent>
 
-          <TabsContent value="reminders">
-            <ReminderManagement />
-          </TabsContent>
+
 
           <TabsContent value="services" className="mt-6">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-1">
@@ -261,6 +274,22 @@ function AuthenticatedDashboard() {
                   {appointments.length === 0 && (
                     <p className="text-center text-gray-500 py-8">No appointments scheduled</p>
                   )}
+                </div>
+                <div className="mt-6 pt-4 border-t">
+                  <div className="flex flex-col sm:flex-row gap-3 items-start sm:items-center justify-between">
+                    <div>
+                      <h4 className="font-medium text-gray-900 dark:text-white">Reminder Management</h4>
+                      <p className="text-sm text-gray-600 dark:text-gray-300">Process and send appointment reminders</p>
+                    </div>
+                    <Button 
+                      onClick={() => processRemindersMutation.mutate()}
+                      disabled={processRemindersMutation.isPending}
+                      className="flex items-center gap-2"
+                    >
+                      <Send className="h-4 w-4" />
+                      {processRemindersMutation.isPending ? "Sending..." : "Send Reminders"}
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
