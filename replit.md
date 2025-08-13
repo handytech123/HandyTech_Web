@@ -10,7 +10,7 @@ Preferred communication style: Simple, everyday language.
 Business location: Missouri-based handyman service
 Color scheme: Ohio State Buckeyes colors (scarlet red #BB0000 and gray) for proper text visibility
 Database preference: User chose to build own backend rather than use external CRM software
-Deployment preference: **Replit Autoscale Deployment** (full-stack with all backend features)
+Deployment preference: **Ionos VPS Hosting** (full-stack with complete server control and all backend features)
 Electrical work disclaimer: Not a licensed electrician - has experienced handyman for electrical issues
 
 ## Recent Changes (August 12, 2024)
