@@ -38,6 +38,9 @@ DOMAIN=handytechsolutions.com
 # Additional Security Settings
 SECURE_COOKIES=true
 TRUST_PROXY=true
+
+# VPS-specific settings
+USE_VPS_DB=true
 EOF
 
 echo "✅ .env file created successfully!"

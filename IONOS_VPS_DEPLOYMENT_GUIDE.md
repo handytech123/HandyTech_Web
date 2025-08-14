@@ -123,32 +123,38 @@ mkdir -p /var/www/handytech
 cd /var/www/handytech
 ```
 
-### 5.2 Upload Your Code
-**Option A: Git Clone (if you have a Git repository)**
+### 5.2 Prepare and Upload Your Code
+
+**Step 1: Run VPS Deployment Fixes (in Replit)**
 ```bash
-git clone YOUR_REPOSITORY_URL .
+# In your Replit console
+./vps-deployment-fixes.sh
+```
+This script:
+- Installs PostgreSQL driver for VPS
+- Updates database connection for standard PostgreSQL
+- Builds the application for production
+- Creates optimized deployment package
+
+**Step 2: Upload Deployment Package**
+```bash
+# Download handytech-vps-deployment.tar.gz from Replit
+# Upload using SCP to your VPS:
+scp handytech-vps-deployment.tar.gz root@YOUR_VPS_IP:/var/www/handytech/
 ```
 
-**Option B: File Transfer (recommended)**
-1. **Zip your entire Replit project folder**
-2. **Upload using SCP:**
-```bash
-# From your local machine
-scp handytech-project.zip root@YOUR_VPS_IP:/var/www/handytech/
-```
-3. **Extract on VPS:**
+**Step 3: Extract on VPS**
 ```bash
 cd /var/www/handytech
-unzip handytech-project.zip
+tar -xzf handytech-vps-deployment.tar.gz
 ```
 
 ### 5.3 Install Dependencies
 ```bash
-# Install Node.js dependencies
-npm install
+# Install production dependencies only
+npm install --production
 
-# Build the application
-npm run build
+# The application is already built and ready to run
 ```
 
 ### 5.4 Set Up Environment Variables
