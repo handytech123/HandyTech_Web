@@ -1,0 +1,47 @@
+root@ubuntu:~# # Check if application is running
+pm2 status
+
+# Check application logs
+pm2 logs handytech
+
+# Check if port 3000 is listening
+netstat -tlnp | grep 3000
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 0  │ handytech          │ fork     │ 16   │ errored   │ 0%       │ 0b       │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[TAILING] Tailing last 15 lines for [handytech] process (change the value with --lines option)
+/root/.pm2/logs/handytech-out.log last 15 lines:
+0|handytec | > rest-express@1.0.0 start
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+0|handytec |
+0|handytec | > rest-express@1.0.0 start
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+0|handytec |
+0|handytec | > rest-express@1.0.0 start
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+0|handytec |
+0|handytec | > rest-express@1.0.0 start
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+
+/root/.pm2/logs/handytech-error.log last 15 lines:
+0|handytec |     ^
+0|handytec |
+0|handytec | TypeError [ERR_INVALID_ARG_TYPE]: The "paths[0]" argument must be of type string. Received undefined
+0|handytec |     at new NodeError (node:internal/errors:405:5)
+0|handytec |     at validateString (node:internal/validators:162:11)
+0|handytec |     at Object.resolve (node:path:1115:7)
+0|handytec |     at file:///var/www/handytech/HandyTech-Website/dist/index.js:1719:17
+0|handytec |     at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+0|handytec |     at async ModuleLoader.import (node:internal/modules/esm/loader:337:24)
+0|handytec |     at async loadESM (node:internal/process/esm_loader:34:7)
+0|handytec |     at async handleMainPromise (node:internal/modules/run_main:106:12) {
+0|handytec |   code: 'ERR_INVALID_ARG_TYPE'
+0|handytec | }
+0|handytec |
+0|handytec | Node.js v18.20.8

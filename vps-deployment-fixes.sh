@@ -24,24 +24,35 @@ npm install --save pg @types/pg
 echo "🔄 Updating database connection for VPS..."
 cp server/db-vps.ts server/db.ts
 
-# 5. Build the application
+# 5. Fix build configuration for VPS
+echo "🔧 Updating build configuration for VPS..."
+# Update package.json build script for VPS compatibility
+sed -i 's/esbuild server\/index.ts --platform=node --packages=external --bundle --format=esm --outdir=dist/esbuild server\/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist\/server.js/' package.json
+
+# 6. Build the application
 echo "🏗️ Building application for production..."
 npm run build
 
-# 6. Create deployment archive
+# 7. Copy public files to proper location for deployment
+echo "📁 Preparing deployment file structure..."
+mkdir -p server/public
+cp -r dist/* server/public/ 2>/dev/null || echo "No dist files to copy"
+
+# 8. Create deployment archive  
 echo "📦 Creating deployment archive..."
 tar -czf handytech-vps-deployment.tar.gz \
   --exclude=node_modules \
   --exclude=.git \
-  --exclude=dist \
   --exclude=client \
   --exclude=migrations \
   server/ \
   shared/ \
+  dist/ \
   package.json \
   tsconfig.json \
   drizzle.config.ts \
   setup-env.sh \
+  fix-vps-deployment.sh \
   IONOS_VPS_DEPLOYMENT_GUIDE.md
 
 echo "✅ VPS deployment fixes complete!"
