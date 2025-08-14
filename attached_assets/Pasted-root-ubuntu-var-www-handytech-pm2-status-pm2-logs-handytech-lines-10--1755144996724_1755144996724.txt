@@ -1,0 +1,31 @@
+root@ubuntu:/var/www/handytech# pm2 status
+pm2 logs handytech --lines 10
+┌────┬──────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name         │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ handytech    │ default     │ 1.0.0   │ fork    │ 18094    │ 9m     │ 0    │ online    │ 0%       │ 67.1mb   │ root     │ disabled │
+└────┴──────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[TAILING] Tailing last 10 lines for [handytech] process (change the value with --lines option)
+/root/.pm2/logs/handytech-out.log last 10 lines:
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+0|handytec |
+0|handytec | > rest-express@1.0.0 start
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+0|handytec |
+0|handytec | > rest-express@1.0.0 start
+0|handytec | > NODE_ENV=production node dist/index.js
+0|handytec |
+
+/root/.pm2/logs/handytech-error.log last 10 lines:
+0|handytec |     at packageResolve (node:internal/modules/esm/resolve:916:9)
+0|handytec |     at moduleResolve (node:internal/modules/esm/resolve:973:20)
+0|handytec |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+0|handytec |     at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:404:12)
+0|handytec |     at ModuleLoader.resolve (node:internal/modules/esm/loader:373:25)
+0|handytec |     at ModuleLoader.getModuleJob (node:internal/modules/esm/loader:250:38)
+0|handytec |     at ModuleWrap.<anonymous> (node:internal/modules/esm/module_job:76:39)
+0|handytec |     at link (node:internal/modules/esm/module_job:75:36) {
+0|handytec |   code: 'ERR_MODULE_NOT_FOUND'
+0|handytec | }
