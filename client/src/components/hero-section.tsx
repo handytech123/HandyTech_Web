@@ -23,19 +23,18 @@ export default function HeroSection() {
               Your trusted partner for home improvement and smart tech solutions, delivered with precision and professionalism.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
+              <button 
                 onClick={() => scrollToSection('contact')}
-                className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-lg"
+                className="btn-primary text-lg"
               >
                 Get Free Estimate
-              </Button>
-              <Button 
+              </button>
+              <button 
                 onClick={() => scrollToSection('scheduler')}
-                variant="outline"
-                className="border-2 border-charcoal text-charcoal hover:bg-charcoal hover:text-white px-8 py-4 rounded-lg text-lg font-semibold"
+                className="btn-outline text-lg"
               >
                 Schedule Service
-              </Button>
+              </button>
             </div>
             <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
               <div className="flex items-center gap-2">
