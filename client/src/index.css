@@ -2,73 +2,132 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Simple, clean styling approach */
-:root {
-  --primary-red: #BB0000;
-  --primary-red-dark: #9A0000;
-  --dark-gray: #404040;
-  --light-gray: #f5f5f5;
-  --white: #ffffff;
-  --text-dark: #333333;
-  --text-light: #666666;
-}
-
-/* Basic component styling */
-.bg-brand-red { 
-  background-color: var(--primary-red); 
-}
-
-.bg-brand-red-dark { 
-  background-color: var(--primary-red-dark); 
-}
-
-.text-brand-red { 
-  color: var(--primary-red); 
-}
-
-.text-charcoal { 
-  color: var(--dark-gray); 
-}
-
-.border-brand-red { 
-  border-color: var(--primary-red); 
-}
-
-/* Clean body styling */
+/* Original styling before Tailwind configuration changes */
 body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
+  margin: 0;
+  padding: 0;
   line-height: 1.6;
-  color: var(--text-dark);
 }
 
-/* Simple button styling */
-.btn-primary {
-  background-color: var(--primary-red);
-  color: white;
-  padding: 12px 24px;
-  border-radius: 6px;
+/* Brand colors */
+.bg-brand-red {
+  background-color: #BB0000;
+}
+
+.text-brand-red {
+  color: #BB0000;
+}
+
+.border-brand-red {
+  border-color: #BB0000;
+}
+
+.text-charcoal {
+  color: #404040;
+}
+
+.bg-brand-red-dark {
+  background-color: #9A0000;
+}
+
+/* Basic utilities that were working before */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.mb-6 {
+  margin-bottom: 1.5rem;
+}
+
+.mb-8 {
+  margin-bottom: 2rem;
+}
+
+.mt-8 {
+  margin-top: 2rem;
+}
+
+.py-16 {
+  padding-top: 4rem;
+  padding-bottom: 4rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.grid {
+  display: grid;
+}
+
+.gap-4 {
+  gap: 1rem;
+}
+
+.gap-8 {
+  gap: 2rem;
+}
+
+.flex {
+  display: flex;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  justify-content: space-between;
+}
+
+.rounded-lg {
+  border-radius: 0.5rem;
+}
+
+.shadow-lg {
+  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+}
+
+/* Original button styles */
+.btn {
+  display: inline-block;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  text-decoration: none;
   border: none;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background-color 0.2s;
-}
-
-.btn-primary:hover {
-  background-color: var(--primary-red-dark);
-}
-
-.btn-outline {
-  background-color: transparent;
-  color: var(--dark-gray);
-  padding: 12px 24px;
-  border-radius: 6px;
-  border: 2px solid var(--dark-gray);
-  font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
+.btn-primary {
+  background-color: #BB0000;
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #9A0000;
+}
+
+.btn-outline {
+  background-color: transparent;
+  color: #404040;
+  border: 2px solid #404040;
+}
+
 .btn-outline:hover {
-  background-color: var(--dark-gray);
+  background-color: #404040;
   color: white;
 }
