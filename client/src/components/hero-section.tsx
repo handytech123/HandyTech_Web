@@ -16,10 +16,10 @@ export default function HeroSection() {
             <div className="bg-brand-red text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
               PROFESSIONAL HANDYMAN SERVICES
             </div>
-            <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6 text-charcoal">
-              Expert Handyman <span className="text-brand-red">Solutions</span>
+            <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6" style={{color: '#404040'}}>
+              Expert Handyman <span style={{color: '#BB0000'}}>Solutions</span>
             </h1>
-            <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+            <p className="text-xl mb-8 leading-relaxed" style={{color: '#666666'}}>
               Your trusted partner for home improvement and smart tech solutions, delivered with precision and professionalism.
             </p>
             <div className="flex flex-col sm:flex-row gap-4">
