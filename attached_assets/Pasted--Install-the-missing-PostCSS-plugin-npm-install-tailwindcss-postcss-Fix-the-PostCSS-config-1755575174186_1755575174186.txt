@@ -1,0 +1,362 @@
+
+# Install the missing PostCSS plugin
+npm install @tailwindcss/postcss
+
+# Fix the PostCSS configuration
+sed -i "s/'@tailwindcss\/postcss'/tailwindcss/g" postcss.config.js
+
+# Or manually edit the postcss.config.js file to use:
+# plugins: { tailwindcss: {}, autoprefixer: {} }
+
+# Test the build
+npm run build
+
+# Restart the application
+pm2 restart handytech-simple
+
+added 18 packages, and audited 241 packages in 10s
+
+33 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (2 low, 2 moderate)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+
+> handytech-solutions@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server.js
+
+vite v5.4.15 building for production...
+transforming (1) index.htmlnode:internal/process/promises:288
+            triggerUncaughtException(err, true /* fromPromise */);
+            ^
+
+[Failed to load PostCSS config: Failed to load PostCSS config (searchPath: /var/www/handytech/client): [Error] Loading PostCSS Plugin failed: Cannot find module 'autoprefixer'
+Require stack:
+- /var/www/handytech/postcss.config.js
+
+(@/var/www/handytech/postcss.config.js)
+Error: Loading PostCSS Plugin failed: Cannot find module 'autoprefixer'
+Require stack:
+- /var/www/handytech/postcss.config.js
+
+(@/var/www/handytech/postcss.config.js)
+    at load (file:///var/www/handytech/node_modules/vite/dist/node/chunks/dep-CevzF2vT.js:33632:11)
+    at file:///var/www/handytech/node_modules/vite/dist/node/chunks/dep-CevzF2vT.js:33657:16
+    at Array.map (<anonymous>)
+    at plugins (file:///var/www/handytech/node_modules/vite/dist/node/chunks/dep-CevzF2vT.js:33656:8)
+    at processResult (file:///var/www/handytech/node_modules/vite/dist/node/chunks/dep-CevzF2vT.js:33726:14)
+    at file:///var/www/handytech/node_modules/vite/dist/node/chunks/dep-CevzF2vT.js:33856:14]
+
+Node.js v18.20.8
+Use --update-env to update environment variables
+[PM2][ERROR] Process or Namespace handytech-simple not found
+root@ubuntu:/var/www/handytech# cd /var/www/handytech
+
+# Install missing autoprefixer
+npm install autoprefixer
+
+# Test your website - it should work NOW!
+# Visit: http://209.46.125.246
+
+# Check if the app is responding
+pm2 logs handytech --lines 5
+
+added 5 packages, and audited 246 packages in 4s
+
+35 packages are looking for funding
+  run `npm fund` for details
+
+4 vulnerabilities (2 low, 2 moderate)
+
+To address all issues, run:
+  npm audit fix
+
+Run `npm audit` for details.
+[TAILING] Tailing last 5 lines for [handytech] process (change the value with --lines option)
+/root/.pm2/logs/handytech-out.log last 5 lines:
+0|handytec |
+0|handytec |
+0|handytec | > handytech-solutions@1.0.0 dev
+0|handytec | > NODE_ENV=development tsx server/index.ts
+0|handytec |
+
+/root/.pm2/logs/handytech-error.log last 5 lines:
+0|handytec |   url: 'file:///var/www/vite.config',
+0|handytec |   code: 'ERR_MODULE_NOT_FOUND'
+0|handytec | }
+0|handytec |
+0|handytec | Node.js v18.20.8
+
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575053841:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575053841:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575053841:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575055401:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575055401:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575055401:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575057037:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575057037:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575057037:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575058700:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575058700:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575058700:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575060371:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575060371:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575060371:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575061893:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575061893:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575061893:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575063410:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575063410:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575063410:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575065231:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575065231:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575065231:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575066875:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575066875:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575066875:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575068527:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575068527:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575068527:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575070212:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575070212:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575070212:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575071764:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575071764:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575071764:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575073272:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575073272:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575073272:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575074775:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575074775:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575074775:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
+2|handytech  | Node.js v18.20.8
+2|handytech  | node:internal/process/esm_loader:40
+2|handytech  |       internalBinding('errors').triggerUncaughtException(
+2|handytech  |                                 ^
+2|handytech  | Error [ERR_MODULE_NOT_FOUND]: Cannot find module '/var/www/vite.config' imported from /var/www/handytech/vite.ts
+2|handytech  |     at new NodeError (node:internal/errors:405:5)
+2|handytech  |     at finalizeResolution (node:internal/modules/esm/resolve:327:11)
+2|handytech  |     at moduleResolve (node:internal/modules/esm/resolve:980:10)
+2|handytech  |     at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+2|handytech  |     at nextResolve (node:internal/modules/esm/hooks:864:28)
+2|handytech  |     at resolveBase (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575076300:2:3811)
+2|handytech  |     at async resolveDirectory (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575076300:2:4304)
+2|handytech  |     at async resolve (file:///root/.npm/_npx/fd45a72a545557e9/node_modules/tsx/dist/esm/index.mjs?1755575076300:2:5422)
+2|handytech  |     at async nextResolve (node:internal/modules/esm/hooks:864:22)
+2|handytech  |     at async Hooks.resolve (node:internal/modules/esm/hooks:302:24) {
+2|handytech  |   url: 'file:///var/www/vite.config',
+2|handytech  |   code: 'ERR_MODULE_NOT_FOUND'
+2|handytech  | }
