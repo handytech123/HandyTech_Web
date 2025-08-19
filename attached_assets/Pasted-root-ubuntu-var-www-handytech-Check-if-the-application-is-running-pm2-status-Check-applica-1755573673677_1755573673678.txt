@@ -1,0 +1,65 @@
+root@ubuntu:/var/www/handytech# # Check if the application is running
+pm2 status
+
+# Check application logs
+pm2 logs handytech --lines 20
+
+# Check if port 3000 is listening
+netstat -tlnp | grep 3000
+
+# Check if Nginx is running and configured
+systemctl status nginx
+nginx -t
+
+# Check firewall status
+ufw status
+┌────┬────────────────────┬──────────┬──────┬───────────┬──────────┬──────────┐
+│ id │ name               │ mode     │ ↺    │ status    │ cpu      │ memory   │
+├────┼────────────────────┼──────────┼──────┼───────────┼──────────┼──────────┤
+│ 1  │ handytech          │ fork     │ 15   │ errored   │ 0%       │ 0b       │
+│ 0  │ handytech-simple   │ fork     │ 0    │ online    │ 0%       │ 45.0mb   │
+└────┴────────────────────┴──────────┴──────┴───────────┴──────────┴──────────┘
+[TAILING] Tailing last 20 lines for [handytech] process (change the value with --lines option)
+/root/.pm2/logs/handytech-out.log last 20 lines:
+1|handytec |
+1|handytec | > handytech-solutions@1.0.0 start
+1|handytec | > NODE_ENV=production node dist/server.js
+1|handytec |
+1|handytec |
+1|handytec | > handytech-solutions@1.0.0 start
+1|handytec | > NODE_ENV=production node dist/server.js
+1|handytec |
+1|handytec |
+1|handytec | > handytech-solutions@1.0.0 start
+1|handytec | > NODE_ENV=production node dist/server.js
+1|handytec |
+1|handytec |
+1|handytec | > handytech-solutions@1.0.0 start
+1|handytec | > NODE_ENV=production node dist/server.js
+1|handytec |
+1|handytec |
+1|handytec | > handytech-solutions@1.0.0 start
+1|handytec | > NODE_ENV=production node dist/server.js
+1|handytec |
+
+/root/.pm2/logs/handytech-error.log last 20 lines:
+1|handytec |     at node:internal/main/run_main_module:28:49 {
+1|handytec |   code: 'MODULE_NOT_FOUND',
+1|handytec |   requireStack: []
+1|handytec | }
+1|handytec |
+1|handytec | Node.js v18.20.8
+1|handytec | node:internal/modules/cjs/loader:1143
+1|handytec |   throw err;
+1|handytec |   ^
+1|handytec |
+1|handytec | Error: Cannot find module '/var/www/handytech/dist/server.js'
+1|handytec |     at Module._resolveFilename (node:internal/modules/cjs/loader:1140:15)
+1|handytec |     at Module._load (node:internal/modules/cjs/loader:981:27)
+1|handytec |     at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:128:12)
+1|handytec |     at node:internal/main/run_main_module:28:49 {
+1|handytec |   code: 'MODULE_NOT_FOUND',
+1|handytec |   requireStack: []
+1|handytec | }
+1|handytec |
+1|handytec | Node.js v18.20.8
