@@ -27,22 +27,22 @@ export default function AdminSimple() {
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
 
-  const { data: customers = [] } = useQuery({
+  const { data: customers = [] } = useQuery<Customer[]>({
     queryKey: ["/api/customers"],
     enabled: isAuthenticated
   });
 
-  const { data: appointments = [] } = useQuery({
+  const { data: appointments = [] } = useQuery<Appointment[]>({
     queryKey: ["/api/appointments"],
     enabled: isAuthenticated
   });
 
-  const { data: quotes = [] } = useQuery({
+  const { data: quotes = [] } = useQuery<any[]>({
     queryKey: ["/api/quotes"],
     enabled: isAuthenticated
   });
 
-  const { data: reviews = [] } = useQuery({
+  const { data: reviews = [] } = useQuery<any[]>({
     queryKey: ["/api/reviews"],
     enabled: isAuthenticated
   });
@@ -254,7 +254,7 @@ export default function AdminSimple() {
 
         <div style={{ background: "white", padding: "20px", borderRadius: "8px", marginBottom: "20px" }}>
           <h2 style={{ margin: "0 0 20px", color: "#333" }}>Recent Customers</h2>
-          {customers.slice(0, 5).map((customer: any) => (
+          {customers.slice(0, 5).map((customer) => (
             <div key={customer.id} style={{
               padding: "15px",
               border: "1px solid #eee",
@@ -278,7 +278,7 @@ export default function AdminSimple() {
 
         <div style={{ background: "white", padding: "20px", borderRadius: "8px" }}>
           <h2 style={{ margin: "0 0 20px", color: "#333" }}>Recent Appointments</h2>
-          {appointments.slice(0, 5).map((appointment: any) => (
+          {appointments.slice(0, 5).map((appointment) => (
             <div key={appointment.id} style={{
               padding: "15px",
               border: "1px solid #eee",
