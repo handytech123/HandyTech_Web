@@ -1,12 +1,14 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Pure CSS styling like 7 days ago - no Tailwind interference */
 
-/* Original styling from 7 days ago - simple and clean */
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Open Sans', 'Helvetica Neue', sans-serif;
+/* Reset and base styles */
+* {
   margin: 0;
   padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', sans-serif;
   line-height: 1.6;
   background-color: #ffffff;
   color: #333333;
@@ -16,79 +18,99 @@ html {
   background-color: #ffffff;
 }
 
-/* Ohio State Buckeyes brand colors - original implementation */
-:root {
-  --buckeye-red: #BB0000;
-  --buckeye-red-dark: #9A0000;
-  --charcoal-gray: #404040;
-  --light-gray: #f5f5f5;
-  --home-depot-orange: #F96302;
+/* Typography */
+h1 {
+  font-size: 3rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin-bottom: 1.5rem;
+  color: #404040;
 }
 
-/* Simple color classes without complex variables */
-.bg-brand-red {
-  background-color: var(--buckeye-red);
+h1 span {
+  color: #BB0000;
 }
 
-.text-brand-red {
-  color: var(--buckeye-red);
+h2 {
+  font-size: 2rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+  color: #404040;
 }
 
-.border-brand-red {
-  border-color: var(--buckeye-red);
+h3 {
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  color: #404040;
 }
 
-.text-charcoal {
-  color: var(--charcoal-gray);
+p {
+  font-size: 1.125rem;
+  color: #666666;
+  margin-bottom: 1rem;
+  line-height: 1.7;
 }
 
-.bg-brand-red-dark {
-  background-color: var(--buckeye-red-dark);
+/* Layout containers */
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 20px;
 }
 
-.bg-home-depot {
-  background-color: var(--home-depot-orange);
+section {
+  padding: 4rem 0;
+  background-color: #ffffff;
 }
 
-.text-home-depot {
-  color: var(--home-depot-orange);
+/* Grid system */
+.grid {
+  display: grid;
+  gap: 3rem;
+  align-items: center;
 }
 
-/* Original button styling - clean and simple */
+.grid-two-cols {
+  grid-template-columns: 1fr 1fr;
+}
+
+/* Buttons */
 .btn {
   display: inline-block;
-  padding: 12px 24px;
-  border-radius: 6px;
+  padding: 16px 32px;
+  border-radius: 8px;
   font-weight: 600;
   text-decoration: none;
   border: none;
   cursor: pointer;
   transition: all 0.3s ease;
-  font-size: 16px;
+  font-size: 1.125rem;
+  text-align: center;
 }
 
 .btn-primary {
-  background-color: var(--buckeye-red);
+  background-color: #BB0000;
   color: white;
 }
 
 .btn-primary:hover {
-  background-color: var(--buckeye-red-dark);
+  background-color: #9A0000;
 }
 
 .btn-outline {
   background-color: transparent;
-  color: var(--charcoal-gray);
-  border: 2px solid var(--charcoal-gray);
+  color: #404040;
+  border: 2px solid #404040;
 }
 
 .btn-outline:hover {
-  background-color: var(--charcoal-gray);
+  background-color: #404040;
   color: white;
 }
 
 .btn-home-depot {
-  background-color: var(--home-depot-orange);
+  background-color: #F96302;
   color: white;
 }
 
@@ -96,26 +118,136 @@ html {
   background-color: #E55100;
 }
 
-/* Typography fixes for proper text display */
-h1, h2, h3, h4, h5, h6 {
-  color: var(--charcoal-gray);
+/* Badge */
+.badge {
+  background-color: #BB0000;
+  color: white;
+  padding: 8px 16px;
+  border-radius: 20px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  display: inline-block;
+  margin-bottom: 1.5rem;
 }
 
-p {
-  color: #666666;
+/* Flex utilities */
+.flex {
+  display: flex;
 }
 
-/* Ensure white backgrounds everywhere */
-section {
-  background-color: white;
+.flex-col {
+  flex-direction: column;
 }
 
-.bg-white {
-  background-color: white !important;
+.gap-4 {
+  gap: 1rem;
 }
 
-/* Remove any dark theme remnants */
-.dark,
-[data-theme="dark"] {
-  display: none !important;
+.gap-8 {
+  gap: 2rem;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-center {
+  justify-content: center;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .grid-two-cols {
+    grid-template-columns: 1fr;
+  }
+  
+  h1 {
+    font-size: 2.5rem;
+  }
+  
+  .flex {
+    flex-direction: column;
+  }
+}
+
+/* Utility classes */
+.text-center {
+  text-align: center;
+}
+
+.mb-4 {
+  margin-bottom: 1rem;
+}
+
+.mb-6 {
+  margin-bottom: 1.5rem;
+}
+
+.mb-8 {
+  margin-bottom: 2rem;
+}
+
+.mt-6 {
+  margin-top: 1.5rem;
+}
+
+.px-4 {
+  padding-left: 1rem;
+  padding-right: 1rem;
+}
+
+.py-2 {
+  padding-top: 0.5rem;
+  padding-bottom: 0.5rem;
+}
+
+.rounded-lg {
+  border-radius: 8px;
+}
+
+.rounded-full {
+  border-radius: 50%;
+}
+
+.font-semibold {
+  font-weight: 600;
+}
+
+.text-sm {
+  font-size: 0.875rem;
+}
+
+.text-white {
+  color: white;
+}
+
+/* Specific component styles */
+.hero-section {
+  padding: 6rem 0;
+  background-color: #ffffff;
+}
+
+.feature-dots {
+  width: 12px;
+  height: 12px;
+  background-color: #BB0000;
+  border-radius: 50%;
+  display: inline-block;
+  margin-right: 8px;
+}
+
+.home-depot-badge {
+  background-color: #F96302;
+  color: white;
+  padding: 12px 20px;
+  border-radius: 8px;
+  font-weight: 600;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  transition: background-color 0.3s ease;
+}
+
+.home-depot-badge:hover {
+  background-color: #E55100;
 }

@@ -9,55 +9,55 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="relative" style={{backgroundColor: 'white'}}>
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
-        <div className="grid lg:grid-cols-2 gap-12 items-center">
+    <section className="hero-section">
+      <div className="container">
+        <div className="grid grid-two-cols">
           <div>
-            <div className="bg-brand-red text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            <div className="badge">
               PROFESSIONAL HANDYMAN SERVICES
             </div>
-            <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6" style={{color: '#404040'}}>
-              Expert Handyman <span style={{color: '#BB0000'}}>Solutions</span>
+            <h1>
+              Expert Handyman <span>Solutions</span>
             </h1>
-            <p className="text-xl mb-8 leading-relaxed" style={{color: '#666666'}}>
+            <p>
               Your trusted partner for home improvement and smart tech solutions, delivered with precision and professionalism.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
-              <Button 
+            <div className="flex gap-4 mb-8">
+              <button 
                 onClick={() => scrollToSection('contact')}
-                className="btn btn-primary text-lg px-8 py-4"
+                className="btn btn-primary"
               >
                 Get Free Estimate
-              </Button>
-              <Button 
+              </button>
+              <button 
                 onClick={() => scrollToSection('scheduler')}
-                className="btn btn-outline text-lg px-8 py-4"
+                className="btn btn-outline"
               >
                 Schedule Service
-              </Button>
+              </button>
             </div>
-            <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+            <div className="flex items-center gap-8 mb-6">
+              <div className="flex items-center">
+                <span className="feature-dots"></span>
                 <span>Licensed & Insured</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+              <div className="flex items-center">
+                <span className="feature-dots"></span>
                 <span>10+ Years Experience</span>
               </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+              <div className="flex items-center">
+                <span className="feature-dots"></span>
                 <span>Same Day Service</span>
               </div>
             </div>
             
             {/* Home Depot Pro Badge */}
-            <div className="mt-6">
+            <div>
               <a 
                 href="https://www.homedepot.com/c/pro_finder_contractor_profile/885948" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="inline-flex items-center bg-home-depot text-white px-4 py-2 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
+                className="home-depot-badge"
               >
                 🔗 Certified Home Depot Pro Contractor
               </a>
