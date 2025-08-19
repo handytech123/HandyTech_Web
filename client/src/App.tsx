@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import About from "@/pages/about";
 import CustomerPortal from "@/pages/customer-portal";
 import AdminDashboard from "@/pages/admin";
+import AdminSimple from "@/pages/admin-simple";
 import NotFound from "@/pages/not-found";
 import Chatbot from "@/components/chatbot";
 
@@ -16,7 +17,8 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/about" component={About} />
       <Route path="/customer-portal" component={CustomerPortal} />
-      <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin" component={AdminSimple} />
+      <Route path="/admin-full" component={AdminDashboard} />
       <Route component={NotFound} />
     </Switch>
   );
