@@ -34,6 +34,16 @@
   --brand-red-dark: 0 82% 38%; /* #9A0000 darker scarlet */
   --charcoal: 0 0% 25%; /* #404040 dark gray text */
   --light-gray: 0 0% 90%; /* #E6E6E6 light gray sections */
+  
+  /* Sidebar variables for Tailwind compatibility */
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 0 0% 15%;
+  --sidebar-primary: 0 82% 45%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 90%;
+  --sidebar-accent-foreground: 0 0% 15%;
+  --sidebar-border: 0 0% 85%;
+  --sidebar-ring: 0 82% 45%;
 }
 
 /* Alternative: Ohio State Dark Theme */
@@ -69,6 +79,16 @@
   --brand-red-dark: 0 88% 48%; /* #CC0000 darker red */
   --charcoal: 0 0% 95%; /* #F2F2F2 bright text */
   --light-gray: 0 0% 20%; /* #333333 dark sections */
+  
+  /* Sidebar variables for dark theme */
+  --sidebar-background: 0 0% 18%;
+  --sidebar-foreground: 0 0% 95%;
+  --sidebar-primary: 0 88% 55%;
+  --sidebar-primary-foreground: 0 0% 95%;
+  --sidebar-accent: 0 0% 20%;
+  --sidebar-accent-foreground: 0 0% 95%;
+  --sidebar-border: 0 0% 30%;
+  --sidebar-ring: 0 88% 55%;
 }
 
 .dark {
@@ -95,12 +115,15 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
     font-family: 'Inter', system-ui, sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
