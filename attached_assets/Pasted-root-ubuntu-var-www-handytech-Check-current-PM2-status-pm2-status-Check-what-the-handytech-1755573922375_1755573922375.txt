@@ -1,0 +1,62 @@
+root@ubuntu:/var/www/handytech# # Check current PM2 status
+pm2 status
+
+# Check what the handytech-simple process is doing (it shows online)
+pm2 logs handytech-simple --lines 10
+
+# Check if the application built correctly
+ls -la dist/
+
+# Check what port it might be running on
+ss -tlnp | grep :300
+
+# If dist/ is empty, rebuild
+npm run build
+
+# Restart the working process on the correct port
+pm2 restart handytech-simple
+┌────┬─────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ handytech           │ default     │ N/A     │ fork    │ 0        │ 0      │ 15   │ errored   │ 0%       │ 0b       │ root     │ disabled │
+│ 0  │ handytech-simple    │ default     │ 1.0.0   │ fork    │ 21669    │ 4D     │ 0    │ online    │ 0%       │ 45.4mb   │ root     │ disabled │
+└────┴─────────────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[TAILING] Tailing last 10 lines for [handytech-simple] process (change the value with --lines option)
+/root/.pm2/logs/handytech-simple-error.log last 10 lines:
+/root/.pm2/logs/handytech-simple-out.log last 10 lines:
+0|handytec | HandyTech Solutions server running on port 3000
+0|handytec | HandyTech Solutions server running on port 3000
+
+^C
+total 92
+drwxr-xr-x  4 1000 1000  4096 Aug 12 22:00 .
+drwxr-xr-x 10 root root  4096 Aug 19 03:18 ..
+drwxr-xr-x  2 1000 1000  4096 Aug 13 02:33 assets
+-rw-r--r--  1 1000 1000   625 Aug 13 02:33 index.html
+-rw-r--r--  1 1000 1000 72689 Aug 13 02:33 index.js
+drwxr-xr-x  3 1000 1000  4096 Aug 13 02:33 public
+LISTEN 0      511          0.0.0.0:3000      0.0.0.0:*    users:(("node /var/www/h",pid=21669,fd=19))
+
+> handytech-solutions@1.0.0 build
+> vite build && esbuild server/index.ts --platform=node --packages=external --bundle --format=esm --outfile=dist/server.js
+
+failed to load config from /var/www/handytech/vite.config.ts
+error during build:
+Error [ERR_MODULE_NOT_FOUND]: Cannot find package '@vitejs/plugin-react' imported from /var/www/handytech/vite.config.ts.timestamp-1755573856369-bd2a8eadc73c7.mjs
+    at new NodeError (node:internal/errors:405:5)
+    at packageResolve (node:internal/modules/esm/resolve:916:9)
+    at moduleResolve (node:internal/modules/esm/resolve:973:20)
+    at defaultResolve (node:internal/modules/esm/resolve:1206:11)
+    at ModuleLoader.defaultResolve (node:internal/modules/esm/loader:404:12)
+    at ModuleLoader.resolve (node:internal/modules/esm/loader:373:25)
+    at ModuleLoader.getModuleJob (node:internal/modules/esm/loader:250:38)
+    at ModuleWrap.<anonymous> (node:internal/modules/esm/module_job:76:39)
+    at link (node:internal/modules/esm/module_job:75:36)
+Use --update-env to update environment variables
+[PM2] Applying action restartProcessId on app [handytech-simple](ids: [ 0 ])
+[PM2] [handytech-simple](0) ✓
+┌────┬─────────────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name                │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼─────────────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 1  │ handytech           │ default     │ N/A     │ fork    │ 0        │ 0      │ 15   │ errored   │ 0%       │ 0b       │ root     │ disabled │
+│ 0  │ handytech-simple    │ default     │ 1.0.0   │ fork    │ 138828   │ 0s     │ 1    │ online    │ 0%       │ 13.1mb   │ root     │ disabled │
