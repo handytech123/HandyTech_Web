@@ -841,7 +841,7 @@ function AuthenticatedDashboard() {
                                     email: appointment.email,
                                     phone: appointment.phone || "",
                                     company: "",
-                                    createdAt: new Date(),
+                                    createdAt: new Date().toISOString(),
                                     lastEmailSent: null
                                   };
                                   setEditingCustomer(tempCustomer);
