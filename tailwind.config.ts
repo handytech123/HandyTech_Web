@@ -1,3 +1,4 @@
+// @ts-ignore - TailwindCSS v4 types compatibility
 import type { Config } from "tailwindcss";
 
 export default {
