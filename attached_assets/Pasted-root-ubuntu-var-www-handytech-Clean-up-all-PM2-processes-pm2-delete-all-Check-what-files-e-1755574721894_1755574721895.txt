@@ -1,0 +1,56 @@
+root@ubuntu:/var/www/handytech# # Clean up all PM2 processes
+pm2 delete all
+
+# Check what files exist in the server directory
+ls -la server/
+
+# Use the original server file that was working
+export NODE_ENV=production
+export ADMIN_PASSWORD="HandyTech2024!"
+export DATABASE_URL="postgresql://handytech_user:YOUR_PASSWORD@localhost:5432/handytech_db"
+
+# Start with the TypeScript file that worked before
+pm2 start "node --loader tsx server/index.ts" --name "handytech"
+pm2 save
+
+# Alternative: Start with npm run dev if the above doesn't work
+pm2 start "npm run dev" --name "handytech"
+pm2 save
+[PM2] Applying action deleteProcessId on app [all](ids: [ 0 ])
+[PM2] [all](0) ✓
+┌────┬───────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name      │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+└────┴───────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+total 128
+drwxr-xr-x  3 1000 1000  4096 Aug 19 03:04 .
+drwxr-xr-x 10 root root  4096 Aug 19 03:25 ..
+-rw-r--r--  1 1000 1000   523 Aug 19 03:04 db-vps.ts
+-rw-r--r--  1 1000 1000   523 Aug 19 03:04 db.ts
+-rw-r--r--  1 1000 1000  5933 Aug 19 03:04 email-service.ts
+-rw-r--r--  1 1000 1000  4231 Aug 19 03:04 home-depot-reviews.ts
+-rw-r--r--  1 1000 1000  1924 Aug 19 03:04 index.ts
+drwxr-xr-x  4 1000 1000  4096 Aug 19 03:04 public
+-rw-r--r--  1 1000 1000  1753 Aug 19 03:04 reminder-scheduler.ts
+-rw-r--r--  1 1000 1000  7426 Aug 19 03:04 reminder-service.ts
+-rw-r--r--  1 1000 1000 38485 Aug 19 03:04 routes.ts
+-rw-r--r--  1 1000 1000 32442 Aug 19 03:04 storage.ts
+-rw-r--r--  1 1000 1000  2254 Aug 19 03:04 vite.ts
+[PM2] Starting /usr/bin/bash in fork_mode (1 instance)
+[PM2] Done.
+┌────┬──────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name         │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ handytech    │ default     │ N/A     │ fork    │ 139912   │ 0s     │ 0    │ online    │ 0%       │ 29.6mb   │ root     │ disabled │
+└────┴──────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2
+[PM2] Starting /usr/bin/bash in fork_mode (1 instance)
+[PM2] Done.
+┌────┬──────────────┬─────────────┬─────────┬─────────┬──────────┬────────┬──────┬───────────┬──────────┬──────────┬──────────┬──────────┐
+│ id │ name         │ namespace   │ version │ mode    │ pid      │ uptime │ ↺    │ status    │ cpu      │ mem      │ user     │ watching │
+├────┼──────────────┼─────────────┼─────────┼─────────┼──────────┼────────┼──────┼───────────┼──────────┼──────────┼──────────┼──────────┤
+│ 0  │ handytech    │ default     │ N/A     │ fork    │ 139966   │ 0s     │ 5    │ online    │ 60%      │ 43.8mb   │ root     │ disabled │
+│ 1  │ handytech    │ default     │ N/A     │ fork    │ 139973   │ 0s     │ 0    │ online    │ 0%       │ 31.0mb   │ root     │ disabled │
+└────┴──────────────┴─────────────┴─────────┴─────────┴──────────┴────────┴──────┴───────────┴──────────┴──────────┴──────────┴──────────┘
+[PM2] Saving current process list...
+[PM2] Successfully saved in /root/.pm2/dump.pm2

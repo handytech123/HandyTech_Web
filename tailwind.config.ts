@@ -1,4 +1,3 @@
-// @ts-ignore - TailwindCSS v4 types compatibility
 import type { Config } from "tailwindcss";
 
 export default {
@@ -62,11 +61,6 @@ export default {
           border: "hsl(var(--sidebar-border))",
           ring: "hsl(var(--sidebar-ring))",
         },
-        // Custom brand colors for HandyTech Solutions
-        "brand-red": "hsl(var(--brand-red))",
-        "brand-red-dark": "hsl(var(--brand-red-dark))",
-        "charcoal": "hsl(var(--charcoal))",
-        "light-gray": "hsl(var(--light-gray))",
       },
       keyframes: {
         "accordion-down": {
