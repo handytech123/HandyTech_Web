@@ -54,6 +54,16 @@ export default function HeroSection() {
             {/* Home Depot Pro Badge */}
             <div className="mt-6">
               <a 
+                href="https://www.homedepot.com/c/pro_finder_contractor_profile/885948" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="inline-flex items-center bg-home-depot text-white px-4 py-2 rounded-lg font-semibold hover:bg-orange-600 transition-colors"
+              >
+                🔗 Certified Home Depot Pro Contractor
+              </a>
+            </div>
+            <div className="mt-6">
+              <a 
                 href="https://www.homedepot.com/c/pro" 
                 target="_blank" 
                 rel="noopener noreferrer"

@@ -2,13 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Force light theme */
-* {
-  background-color: inherit;
-}
-
+/* Force light theme with proper text colors */
 html, body {
   background-color: white !important;
+  color: #333 !important;
+}
+
+/* Override any dark theme styles */
+.text-gray-600 {
+  color: #666 !important;
+}
+
+.text-xl {
+  color: #333 !important;
 }
 
 /* Original styling before Tailwind configuration changes */
@@ -25,25 +31,38 @@ html {
   background-color: white;
 }
 
-/* Brand colors */
+/* Ohio State Buckeyes Brand Colors */
 .bg-brand-red {
-  background-color: #BB0000;
+  background-color: #BB0000 !important;
 }
 
 .text-brand-red {
-  color: #BB0000;
+  color: #BB0000 !important;
 }
 
 .border-brand-red {
-  border-color: #BB0000;
+  border-color: #BB0000 !important;
 }
 
 .text-charcoal {
-  color: #404040;
+  color: #404040 !important;
 }
 
 .bg-brand-red-dark {
-  background-color: #9A0000;
+  background-color: #9A0000 !important;
+}
+
+/* Home Depot Orange for contractor elements */
+.bg-home-depot {
+  background-color: #F96302 !important;
+}
+
+.text-home-depot {
+  color: #F96302 !important;
+}
+
+.border-home-depot {
+  border-color: #F96302 !important;
 }
 
 /* Basic utilities that were working before */
@@ -128,12 +147,21 @@ html {
 }
 
 .btn-primary {
-  background-color: #BB0000;
-  color: white;
+  background-color: #BB0000 !important;
+  color: white !important;
 }
 
 .btn-primary:hover {
-  background-color: #9A0000;
+  background-color: #9A0000 !important;
+}
+
+.btn-home-depot {
+  background-color: #F96302 !important;
+  color: white !important;
+}
+
+.btn-home-depot:hover {
+  background-color: #E55100 !important;
 }
 
 .btn-outline {
