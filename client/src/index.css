@@ -69,10 +69,53 @@
   --brand-red-dark: 0 88% 48%; /* #CC0000 darker red */
   --charcoal: 0 0% 95%; /* #F2F2F2 bright text */
   --light-gray: 0 0% 20%; /* #333333 dark sections */
+  
+  /* Sidebar variables for light theme */
+  --sidebar-background: 0 0% 98%;
+  --sidebar-foreground: 0 0% 35%;
+  --sidebar-primary: 0 82% 45%;
+  --sidebar-primary-foreground: 0 0% 98%;
+  --sidebar-accent: 0 0% 90%;
+  --sidebar-accent-foreground: 0 0% 15%;
+  --sidebar-border: 0 0% 85%;
+  --sidebar-ring: 0 82% 45%;
 }
 
 .dark {
   --background: 220 14% 10%;
+  --foreground: 210 40% 98%;
+  --card: 220 14% 12%;
+  --card-foreground: 210 40% 98%;
+  --popover: 220 14% 12%;
+  --popover-foreground: 210 40% 98%;
+  --primary: 0 82% 45%;
+  --primary-foreground: 210 40% 98%;
+  --secondary: 220 14% 18%;
+  --secondary-foreground: 210 40% 98%;
+  --muted: 220 14% 18%;
+  --muted-foreground: 215 20% 65%;
+  --accent: 220 14% 18%;
+  --accent-foreground: 210 40% 98%;
+  --destructive: 0 62% 50%;
+  --destructive-foreground: 210 40% 98%;
+  --border: 220 14% 18%;
+  --input: 220 14% 18%;
+  --ring: 0 82% 45%;
+  --chart-1: 220 70% 50%;
+  --chart-2: 160 60% 45%;
+  --chart-3: 30 80% 55%;
+  --chart-4: 280 65% 60%;
+  --chart-5: 340 75% 55%;
+  
+  /* Sidebar variables for dark mode */
+  --sidebar-background: 220 14% 12%;
+  --sidebar-foreground: 215 20% 65%;
+  --sidebar-primary: 0 82% 45%;
+  --sidebar-primary-foreground: 210 40% 98%;
+  --sidebar-accent: 220 14% 18%;
+  --sidebar-accent-foreground: 210 40% 98%;
+  --sidebar-border: 220 14% 18%;
+  --sidebar-ring: 0 82% 45%;
   --foreground: 0 0% 98%;
   --muted: 220 14% 15%;
   --muted-foreground: 210 10% 65%;
@@ -95,12 +138,15 @@
 
 @layer base {
   * {
-    @apply border-border;
+    border-color: hsl(var(--border));
   }
 
   body {
-    @apply font-sans antialiased bg-background text-foreground;
     font-family: 'Inter', system-ui, sans-serif;
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
 }
 
