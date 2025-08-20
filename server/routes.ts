@@ -314,7 +314,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fallback response generator - Ordered by business priority
+  // Human-like conversation generator with follow-up questions
   function generateFallbackResponse(message: string): string {
     // Priority 1: Scheduling (highest conversion priority)
     const scheduling = ["schedule", "appointment", "book", "when", "available", "time", "meet", "visit", "come out"];
@@ -334,32 +334,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Priority 6: Painting (maintenance service)
     const painting = ["paint", "painting", "wall", "color", "interior", "exterior", "room", "house"];
 
-    // Check in priority order for business flow optimization
+    // Human-like responses with follow-up questions
     if (scheduling.some(word => message.includes(word))) {
-      return "Perfect! I'd be happy to help you schedule a service. We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team provides free estimates for most projects. What type of service do you need? How else may I assist you?";
+      return "Absolutely! I can help you get that taken care of. What kind of project are you working on? Is this something urgent, or are you planning ahead? I ask because we can usually get emergency calls out same day, but for bigger projects we like to schedule a time that works best for you.";
     }
 
     if (greetings.some(word => message.includes(word))) {
-      return "Hello! Welcome to HandyTech Solutions. We're Missouri's trusted handyman service specializing in electrical work, plumbing, smart home technology, and general maintenance. How may I assist you today?";
+      return "Hi there! Good to hear from you. I'm with HandyTech Solutions here in Missouri. What's going on with your home today - anything I can help you figure out?";
     }
     
     if (electrical.some(word => message.includes(word))) {
-      return "Great! We handle all types of electrical work including outlet installation, switch replacement, lighting upgrades, and electrical panel upgrades. Our licensed electricians ensure safe, code-compliant work. Would you like to schedule a consultation to discuss your electrical needs? How else may I assist you?";
+      return "Oh, electrical work - I can definitely help you with that. What's happening exactly? Are we talking about outlets not working, lights flickering, or maybe you're looking to upgrade something? Also, just to be safe - if anything's sparking or you smell something burning, you'll want to turn off that breaker right away.";
     }
     
     if (plumbing.some(word => message.includes(word))) {
-      return "We provide comprehensive plumbing services including leak repairs, fixture installation, drain cleaning, and pipe replacement. Our experienced plumbers can handle both minor repairs and major renovations. Let me help you schedule a service call! How else may I assist you?";
+      return "Plumbing issues can be such a headache, can't they? Tell me what's going on - is it a leak somewhere, drain backing up, or something else? And how long has this been happening? Sometimes the timeline helps us figure out what we're dealing with.";
     }
     
     if (tech.some(word => message.includes(word))) {
-      return "Excellent! We specialize in smart home automation, security system installation, home theater setup, and tech integration. We can help you modernize your home with the latest technology. Would you like to discuss your smart home project? How else may I assist you?";
+      return "Smart home stuff is really taking off these days! What are you looking to set up? Are you thinking security cameras, smart thermostats, whole home automation, or maybe having trouble with something you already have? I'd love to hear what you have in mind.";
     }
     
     if (painting.some(word => message.includes(word))) {
-      return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint? How else may I assist you?";
+      return "Painting project, huh? Those can really transform a space. What rooms are you thinking about? Interior or exterior work? And are you dealing with any prep work like cracks or peeling, or is everything pretty smooth and ready to go?";
     }
 
-    return "Thanks for contacting HandyTech Solutions! We're Missouri's expert handyman service offering electrical work, plumbing, smart home technology, painting, and general maintenance. We'd love to help with your project. What service are you interested in, or would you like to schedule a consultation? How may I assist you?";
+    return "Hey there! What's going on with your home today? We handle all kinds of stuff - electrical, plumbing, smart home tech, painting, you name it. What can I help you figure out?";
   }
 
   // Chatbot endpoint with intelligent fallback system
