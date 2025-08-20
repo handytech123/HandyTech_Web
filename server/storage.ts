@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates, services, serviceAddons, appointmentReminders,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates, services, serviceAddons,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -10,8 +10,7 @@ import {
   type ProjectGallery, type InsertProjectGallery,
   type BlockedDate, type InsertBlockedDate,
   type Service, type InsertService,
-  type ServiceAddon, type InsertServiceAddon,
-  type AppointmentReminder, type InsertAppointmentReminder
+  type ServiceAddon, type InsertServiceAddon
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte } from "drizzle-orm";
@@ -26,7 +25,6 @@ export interface IStorage {
   getCustomer(id: number): Promise<Customer | undefined>;
   getCustomerByEmail(email: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
-  updateCustomer(id: number, customer: InsertCustomer): Promise<Customer>;
   getAllCustomers(): Promise<Customer[]>;
   updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void>;
 
@@ -61,7 +59,6 @@ export interface IStorage {
   getAppointmentsByCustomer(customerId: number): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointmentStatus(id: number, status: string): Promise<void>;
-  updateAppointment(id: number, updateData: Partial<InsertAppointment>): Promise<Appointment | null>;
   getUpcomingAppointments(): Promise<Appointment[]>;
 
   // Project Gallery
@@ -92,13 +89,6 @@ export interface IStorage {
   createServiceAddon(addon: InsertServiceAddon): Promise<ServiceAddon>;
   updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void>;
   deleteServiceAddon(id: number): Promise<void>;
-
-  // Appointment Reminders
-  createAppointmentReminder(reminder: InsertAppointmentReminder): Promise<AppointmentReminder>;
-  getAppointmentReminders(appointmentId: number): Promise<AppointmentReminder[]>;
-  getPendingReminders(): Promise<AppointmentReminder[]>;
-  markReminderSent(id: number, emailStatus: string, emailContent?: string): Promise<void>;
-  deleteAppointmentReminders(appointmentId: number): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -159,10 +149,6 @@ export class MemStorage implements IStorage {
       content: "HandyTech transformed our entire IT infrastructure. Their maintenance plan has saved us countless hours and prevented major issues.",
       isApproved: true,
       createdAt: new Date("2024-03-01"),
-      source: null,
-      sourceLink: null,
-      location: null,
-      service: null,
     };
     this.reviews.set(review1.id, review1);
 
@@ -174,10 +160,6 @@ export class MemStorage implements IStorage {
       content: "Exceptional service and support. The team is knowledgeable, responsive, and always goes above and beyond.",
       isApproved: true,
       createdAt: new Date("2024-03-15"),
-      source: null,
-      sourceLink: null,
-      location: null,
-      service: null,
     };
     this.reviews.set(review2.id, review2);
 
@@ -274,21 +256,6 @@ export class MemStorage implements IStorage {
     return customer;
   }
 
-  async updateCustomer(id: number, customerData: InsertCustomer): Promise<Customer> {
-    const existingCustomer = this.customers.get(id);
-    if (!existingCustomer) {
-      throw new Error('Customer not found');
-    }
-    
-    const updatedCustomer = {
-      ...existingCustomer,
-      ...customerData
-    };
-    
-    this.customers.set(id, updatedCustomer);
-    return updatedCustomer;
-  }
-
   async getAllCustomers(): Promise<Customer[]> {
     return Array.from(this.customers.values());
   }
@@ -352,10 +319,6 @@ export class MemStorage implements IStorage {
       id: this.currentReviewId++,
       isApproved: false,
       createdAt: new Date(),
-      source: insertReview.source || null,
-      sourceLink: insertReview.sourceLink || null,
-      location: insertReview.location || null,
-      service: insertReview.service || null,
     };
     this.reviews.set(review.id, review);
     return review;
@@ -451,17 +414,6 @@ export class MemStorage implements IStorage {
       appointment.status = status;
       this.appointments.set(id, appointment);
     }
-  }
-
-  async updateAppointment(id: number, updateData: Partial<InsertAppointment>): Promise<Appointment | null> {
-    const appointment = this.appointments.get(id);
-    if (!appointment) {
-      return null;
-    }
-    
-    const updatedAppointment = { ...appointment, ...updateData };
-    this.appointments.set(id, updatedAppointment);
-    return updatedAppointment;
   }
 
   async getUpcomingAppointments(): Promise<Appointment[]> {
@@ -566,27 +518,6 @@ export class MemStorage implements IStorage {
   async deleteServiceAddon(id: number): Promise<void> {
     throw new Error("MemStorage not implemented for service addons");
   }
-
-  // Appointment Reminders
-  async createAppointmentReminder(reminder: InsertAppointmentReminder): Promise<AppointmentReminder> {
-    throw new Error("MemStorage not implemented for appointment reminders");
-  }
-
-  async getAppointmentReminders(appointmentId: number): Promise<AppointmentReminder[]> {
-    return [];
-  }
-
-  async getPendingReminders(): Promise<AppointmentReminder[]> {
-    return [];
-  }
-
-  async markReminderSent(id: number, emailStatus: string, emailContent?: string): Promise<void> {
-    throw new Error("MemStorage not implemented for appointment reminders");
-  }
-
-  async deleteAppointmentReminders(appointmentId: number): Promise<void> {
-    throw new Error("MemStorage not implemented for appointment reminders");
-  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -620,11 +551,6 @@ export class DatabaseStorage implements IStorage {
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
     const [created] = await db.insert(customers).values(customer).returning();
     return created;
-  }
-
-  async updateCustomer(id: number, customer: InsertCustomer): Promise<Customer> {
-    const [updated] = await db.update(customers).set(customer).where(eq(customers.id, id)).returning();
-    return updated;
   }
 
   async getAllCustomers(): Promise<Customer[]> {
@@ -737,11 +663,6 @@ export class DatabaseStorage implements IStorage {
     await db.update(appointments).set({ status }).where(eq(appointments.id, id));
   }
 
-  async updateAppointment(id: number, updateData: Partial<InsertAppointment>): Promise<Appointment | null> {
-    const [updated] = await db.update(appointments).set(updateData).where(eq(appointments.id, id)).returning();
-    return updated || null;
-  }
-
   async getUpcomingAppointments(): Promise<Appointment[]> {
     const now = new Date();
     return await db.select().from(appointments)
@@ -852,50 +773,6 @@ export class DatabaseStorage implements IStorage {
 
   async deleteServiceAddon(id: number): Promise<void> {
     await db.delete(serviceAddons).where(eq(serviceAddons.id, id));
-  }
-
-  // Appointment Reminders
-  async createAppointmentReminder(reminder: InsertAppointmentReminder): Promise<AppointmentReminder> {
-    const [created] = await db.insert(appointmentReminders).values(reminder).returning();
-    return created;
-  }
-
-  async getAppointmentReminders(appointmentId: number): Promise<AppointmentReminder[]> {
-    return await db.select().from(appointmentReminders)
-      .where(eq(appointmentReminders.appointmentId, appointmentId))
-      .orderBy(appointmentReminders.reminderTime);
-  }
-
-  async getPendingReminders(): Promise<AppointmentReminder[]> {
-    const now = new Date();
-    return await db.select().from(appointmentReminders)
-      .where(
-        and(
-          eq(appointmentReminders.emailSent, false),
-          gte(appointmentReminders.reminderTime, now)
-        )
-      )
-      .orderBy(appointmentReminders.reminderTime);
-  }
-
-  async markReminderSent(id: number, emailStatus: string, emailContent?: string): Promise<void> {
-    const updates: any = {
-      emailSent: true,
-      emailSentAt: new Date(),
-      emailStatus
-    };
-    
-    if (emailContent) {
-      updates.emailContent = emailContent;
-    }
-    
-    await db.update(appointmentReminders)
-      .set(updates)
-      .where(eq(appointmentReminders.id, id));
-  }
-
-  async deleteAppointmentReminders(appointmentId: number): Promise<void> {
-    await db.delete(appointmentReminders).where(eq(appointmentReminders.appointmentId, appointmentId));
   }
 }
 

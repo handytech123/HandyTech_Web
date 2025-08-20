@@ -10,8 +10,7 @@ Preferred communication style: Simple, everyday language.
 Business location: Missouri-based handyman service
 Color scheme: Ohio State Buckeyes colors (scarlet red #BB0000 and gray) for proper text visibility
 Database preference: User chose to build own backend rather than use external CRM software
-Deployment preference: **Ionos VPS Hosting** (full-stack with complete server control and all backend features)
-Electrical work disclaimer: Not a licensed electrician - has experienced handyman for electrical issues
+Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
 
 ## Recent Changes (August 12, 2024)
 
@@ -31,31 +30,6 @@ Electrical work disclaimer: Not a licensed electrician - has experienced handyma
 ✓ **Smart Appointment Scheduling**: Chatbot can intelligently escalate to meeting scheduling when appropriate
 ✓ **Customer Auto-Creation**: System automatically creates customer records from chat interactions
 ✓ **Project Gallery Removed**: Completely removed project gallery section from main page per user request
-✓ **Services Section Restored**: Restored main three-tier services section to homepage
-✓ **Footer Services Updated**: Replaced IT services in footer with relevant handyman services
-✓ **Customer Portal Removed**: Eliminated customer portal from navigation - not needed for handyman business model
-✓ **About Page Created**: Added dedicated About page (/about) with professional content and navigation from main page
-✓ **Authentic Home Depot Reviews**: Integrated real customer reviews from Home Depot Pro profile (885948)
-✓ **Testimonials Display Optimized**: Shows only 4 authentic Home Depot Pro reviews with "View All" button linking to profile
-✓ **Review Priority System**: Home Depot Pro reviews displayed first, removing generic fallback testimonials
-✓ **Static Deployment Fix**: Created build-for-deployment.sh script to resolve build output structure mismatch
-✓ **Deployment File Structure Fixed**: Assets now correctly placed in dist/ root for static deployment compatibility
-✓ **Reviews Static Data Solution**: Added static review data for deployment environments without backend server
-✓ **API Fallback System**: Implemented graceful degradation from API to static data for reviews display
-✓ **Deployment Documentation**: Added DEPLOYMENT_FIX.md with complete solution details and technical notes
-✓ **Appointment Reminder System**: Complete automated email reminder system using Brevo API
-✓ **Smart Reminder Scheduling**: Automatic 24-hour, 2-hour, and 30-minute appointment reminders
-✓ **Background Processing**: Server-side reminder processing every 5 minutes with manual override capability
-✓ **Professional Email Templates**: Branded HTML emails with Ohio State Buckeyes theming and company branding
-✓ **Admin Reminder Management**: Complete dashboard interface for monitoring and manually triggering reminders
-✓ **Customer Email Integration**: Enhanced reminder system to prioritize linked customer emails over appointment emails
-✓ **Reminder UI Reorganization**: Moved send reminders functionality to appointments tab for streamlined workflow
-✓ **Mobile Responsiveness Enhanced**: Fixed "Send Reminder" button and appointment cards for mobile view
-✓ **Customer Contact Editing Fixed**: Resolved API parameter order bug and added proper database storage methods
-✓ **VPS Deployment Complete**: Successfully deployed HandyTech Solutions to Ionos VPS (209.46.125.246) with full functionality
-✓ **Admin System Fully Restored**: Fixed Tailwind CSS configuration errors and restored complete admin dashboard functionality
-✓ **All APIs Operational**: Customer management, appointments, quotes, reviews, and reminder systems working perfectly
-✓ **Database Connections Active**: PostgreSQL database with 5 customers, 6 appointments, 3 quotes, 9 reviews, and 24 services
 
 ## System Architecture
 
@@ -121,12 +95,6 @@ The application uses a normalized relational database structure with the followi
 - **Code Organization**: Shared types and schemas between client and server
 - **Path Aliases**: Configured import aliases for clean code organization
 - **Development Tools**: ESBuild for production bundling with external package handling
-
-### Deployment Architecture
-- **Static Deployment Ready**: Automated file structure correction for static hosting platforms
-- **Build Output**: Vite builds to `dist/public`, deployment script moves to `dist/` root
-- **Deployment Script**: `scripts/prepare-deploy.js` handles file structure reorganization
-- **Asset Management**: Maintains proper asset paths and references during deployment preparation
 
 ## External Dependencies
 

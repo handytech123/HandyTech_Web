@@ -37,10 +37,6 @@ export const reviews = pgTable("reviews", {
   content: text("content").notNull(),
   isApproved: boolean("is_approved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
-  source: varchar("source", { length: 100 }),
-  sourceLink: varchar("source_link", { length: 500 }),
-  location: varchar("location", { length: 100 }),
-  service: varchar("service", { length: 255 }),
 });
 
 export const quotes = pgTable("quotes", {
@@ -130,8 +126,6 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
   status: true,
-}).extend({
-  appointmentDate: z.string().transform((str) => new Date(str)),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
@@ -181,18 +175,6 @@ export const serviceAddons = pgTable("service_addons", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const appointmentReminders = pgTable("appointment_reminders", {
-  id: serial("id").primaryKey(),
-  appointmentId: integer("appointment_id").references(() => appointments.id).notNull(),
-  reminderType: varchar("reminder_type", { length: 50 }).notNull(), // '24_hours', '2_hours', '30_minutes'
-  reminderTime: timestamp("reminder_time").notNull(),
-  emailSent: boolean("email_sent").default(false).notNull(),
-  emailSentAt: timestamp("email_sent_at"),
-  emailStatus: varchar("email_status", { length: 50 }).default("pending"), // 'pending', 'sent', 'failed'
-  emailContent: text("email_content"),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
 export const insertServiceSchema = createInsertSchema(services).omit({
   id: true,
   createdAt: true,
@@ -202,13 +184,6 @@ export const insertServiceSchema = createInsertSchema(services).omit({
 export const insertServiceAddonSchema = createInsertSchema(serviceAddons).omit({
   id: true,
   createdAt: true,
-});
-
-export const insertAppointmentReminderSchema = createInsertSchema(appointmentReminders).omit({
-  id: true,
-  createdAt: true,
-  emailSent: true,
-  emailSentAt: true,
 });
 
 // Types
@@ -244,6 +219,3 @@ export type InsertService = z.infer<typeof insertServiceSchema>;
 
 export type ServiceAddon = typeof serviceAddons.$inferSelect;
 export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
-
-export type AppointmentReminder = typeof appointmentReminders.$inferSelect;
-export type InsertAppointmentReminder = z.infer<typeof insertAppointmentReminderSchema>;
