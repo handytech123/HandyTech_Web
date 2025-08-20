@@ -314,14 +314,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Fallback response generator
+  // Fallback response generator - Ordered by business priority
   function generateFallbackResponse(message: string): string {
-    const greetings = ["hello", "hi", "hey", "good morning", "good afternoon"];
-    const electrical = ["electrical", "electric", "wiring", "outlet", "switch", "panel", "breaker"];
-    const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water"];
-    const tech = ["smart home", "automation", "security", "tech", "installation", "setup"];
-    const painting = ["paint", "painting", "wall", "color", "interior", "exterior"];
-    const scheduling = ["schedule", "appointment", "book", "when", "available"];
+    // Priority 1: Scheduling (highest conversion priority)
+    const scheduling = ["schedule", "appointment", "book", "when", "available", "time", "meet", "visit", "come out"];
+    
+    // Priority 2: Greetings (first impression)
+    const greetings = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"];
+    
+    // Priority 3: Emergency Services (high urgency - electrical first)
+    const electrical = ["electrical", "electric", "wiring", "outlet", "switch", "panel", "breaker", "power", "lights"];
+    
+    // Priority 4: Plumbing (second emergency priority)
+    const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water", "bathroom", "kitchen"];
+    
+    // Priority 5: Smart Home Tech (specialty service)
+    const tech = ["smart home", "automation", "security", "tech", "installation", "setup", "wifi", "network", "theater"];
+    
+    // Priority 6: Painting (maintenance service)
+    const painting = ["paint", "painting", "wall", "color", "interior", "exterior", "room", "house"];
+
+    // Check in priority order for business flow optimization
+    if (scheduling.some(word => message.includes(word))) {
+      return "Perfect! I'd be happy to help you schedule a service. We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team provides free estimates for most projects. What type of service do you need? How else may I assist you?";
+    }
 
     if (greetings.some(word => message.includes(word))) {
       return "Hello! Welcome to HandyTech Solutions. We're Missouri's trusted handyman service specializing in electrical work, plumbing, smart home technology, and general maintenance. How may I assist you today?";
@@ -341,10 +357,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     
     if (painting.some(word => message.includes(word))) {
       return "We offer professional painting services for both interior and exterior projects. From single rooms to whole house painting, we use quality materials and provide detailed preparation work. Ready to transform your space with a fresh coat of paint? How else may I assist you?";
-    }
-    
-    if (scheduling.some(word => message.includes(word))) {
-      return "I'd be happy to help you schedule a service! We're available Mon-Fri 8AM-6PM and Sat 9AM-3PM. Our team can provide free estimates for most projects. What type of service are you looking for? How else may I assist you?";
     }
 
     return "Thanks for contacting HandyTech Solutions! We're Missouri's expert handyman service offering electrical work, plumbing, smart home technology, painting, and general maintenance. We'd love to help with your project. What service are you interested in, or would you like to schedule a consultation? How may I assist you?";
