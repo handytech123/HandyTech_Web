@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import CustomerPortal from "@/pages/customer-portal";
 import AdminDashboard from "@/pages/admin";
+import LiveChatAdmin from "@/pages/live-chat-admin";
 import NotFound from "@/pages/not-found";
 import Chatbot from "@/components/chatbot";
 
@@ -15,6 +16,7 @@ function Router() {
       <Route path="/" component={Home} />
       <Route path="/customer-portal" component={CustomerPortal} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/live-chat" component={LiveChatAdmin} />
       <Route component={NotFound} />
     </Switch>
   );

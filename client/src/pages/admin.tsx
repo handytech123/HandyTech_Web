@@ -4,7 +4,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
@@ -78,14 +78,24 @@ function AuthenticatedDashboard() {
                 Manage your business operations and customer relationships
               </p>
             </div>
-            <Button 
-              variant="outline" 
-              onClick={handleLogout}
-              className="flex items-center gap-2"
-            >
-              <LogOut className="h-4 w-4" />
-              Sign Out
-            </Button>
+            <div className="flex items-center gap-3">
+              <Button 
+                variant="outline"
+                onClick={() => window.location.href = '/live-chat'}
+                className="flex items-center gap-2 bg-red-50 border-red-200 hover:bg-red-100"
+              >
+                <MessageSquare className="h-4 w-4 text-red-600" />
+                Live Chat
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={handleLogout}
+                className="flex items-center gap-2"
+              >
+                <LogOut className="h-4 w-4" />
+                Sign Out
+              </Button>
+            </div>
           </div>
         </div>
 

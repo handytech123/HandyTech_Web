@@ -327,7 +327,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       timeframe: /days?|weeks?|months?|yesterday|today|few.*days|several/i,
       location: /underneath|under.*sink|basement|crawl space|cabinet/i,
       costConcern: /charge|cost|price|expensive|estimate|how much|fee/i,
-      urgentWords: /urgent|emergency|asap|right away|immediately|help/i
+      urgentWords: /urgent|emergency|asap|right away|immediately|help/i,
+      humanRequest: /human|person|live person|real person|speak to someone|talk to someone|representative|agent|operator|manager|owner/i
     };
     
     // Priority triggers
@@ -337,6 +338,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water", "bathroom", "kitchen"];
     const tech = ["smart home", "automation", "security", "tech", "installation", "setup", "wifi", "network", "theater"];
     const painting = ["paint", "painting", "wall", "color", "interior", "exterior", "room", "house"];
+
+    // Priority 1: Human handoff request (highest priority)
+    if (specificDetails.humanRequest.test(message)) {
+      // This will trigger admin notification
+      return "I completely understand wanting to speak with someone directly! Let me connect you with our team right away. One moment please while I get someone on the line for you.";
+    }
 
     // Context-aware responses for specific situations
     if (specificDetails.faucetLeak.test(message) && specificDetails.kitchenIssue.test(message)) {
@@ -389,16 +396,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return "Hey there! What's going on with your home today? We handle all kinds of stuff - electrical, plumbing, smart home tech, painting, you name it. What can I help you figure out?";
   }
 
-  // Chatbot endpoint with intelligent fallback system
+  // Live chat sessions storage
+  const liveChatSessions = new Map();
+  
+  // Chatbot endpoint with intelligent fallback system and live handoff
   app.post("/api/chatbot", async (req, res) => {
     try {
-      const { message } = req.body;
+      const { message, sessionId = 'default' } = req.body;
       let botResponse = "";
+      let needsHumanHandoff = false;
 
-      // Use fallback response system directly since OpenAI quota is exceeded
+      // Check if this session is in live mode
+      const liveSession = liveChatSessions.get(sessionId);
+      if (liveSession && liveSession.isLive) {
+        // Store message for admin to see, but don't respond
+        liveSession.messages.push({ 
+          type: 'customer', 
+          message, 
+          timestamp: new Date() 
+        });
+        
+        return res.json({
+          response: "Please hold, you're speaking with our team member...",
+          isLiveMode: true,
+          shouldShowScheduling: false
+        });
+      }
+
+      // Use fallback response system
       console.log("Using fallback chatbot system for message:", message);
       botResponse = generateFallbackResponse(message.toLowerCase());
       console.log("Fallback response generated:", botResponse);
+
+      // Check if human handoff was requested
+      const humanRequest = /human|person|live person|real person|speak to someone|talk to someone|representative|agent|operator|manager|owner/i;
+      if (humanRequest.test(message.toLowerCase())) {
+        needsHumanHandoff = true;
+        
+        // Create or update live chat session
+        liveChatSessions.set(sessionId, {
+          isLive: false, // Admin hasn't taken over yet
+          needsHandoff: true,
+          customerMessage: message,
+          messages: [
+            { type: 'customer', message, timestamp: new Date() }
+          ],
+          startTime: new Date()
+        });
+        
+        console.log(`🚨 HUMAN HANDOFF REQUEST - Session: ${sessionId}, Message: "${message}"`);
+      }
 
       // If no response was generated, provide a default
       if (!botResponse) {
@@ -412,6 +459,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({
         response: botResponse,
         shouldShowScheduling,
+        needsHumanHandoff,
+        sessionId
       });
     } catch (error) {
       console.error("Final chatbot error:", error);
@@ -420,6 +469,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
         shouldShowScheduling: true 
       });
     }
+  });
+
+  // Admin endpoints for live chat management
+  app.get("/api/admin/live-chats", (req, res) => {
+    const sessions = Array.from(liveChatSessions.entries()).map(([id, session]) => ({
+      sessionId: id,
+      ...session,
+      messages: session.messages || []
+    }));
+    res.json(sessions);
+  });
+
+  app.post("/api/admin/take-chat", (req, res) => {
+    const { sessionId } = req.body;
+    const session = liveChatSessions.get(sessionId);
+    
+    if (session) {
+      session.isLive = true;
+      session.adminTakeoverTime = new Date();
+      console.log(`👤 Admin took over chat session: ${sessionId}`);
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: "Session not found" });
+    }
+  });
+
+  app.post("/api/admin/send-message", (req, res) => {
+    const { sessionId, message } = req.body;
+    const session = liveChatSessions.get(sessionId);
+    
+    if (session && session.isLive) {
+      session.messages.push({ 
+        type: 'admin', 
+        message, 
+        timestamp: new Date() 
+      });
+      res.json({ success: true });
+    } else {
+      res.status(404).json({ error: "Session not found or not live" });
+    }
+  });
+
+  app.post("/api/admin/end-chat", (req, res) => {
+    const { sessionId } = req.body;
+    liveChatSessions.delete(sessionId);
+    console.log(`🔚 Admin ended chat session: ${sessionId}`);
+    res.json({ success: true });
   });
 
   // Service calculator endpoint
