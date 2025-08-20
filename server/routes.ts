@@ -314,15 +314,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Intelligent conversation generator with context awareness
+  // Intelligent conversation generator with context awareness and natural name usage
   function generateFallbackResponse(message: string): string {
+    // Extract customer name from message (common patterns)
+    const nameMatch = message.match(/(?:my name is|i'm|i am|this is|call me)\s+([a-z]+)/i);
+    const customerName = nameMatch ? nameMatch[1] : null;
+    
     // Context detection patterns
     const specificDetails = {
       faucetLeak: /faucet.*leak|leak.*faucet|dripping.*faucet|faucet.*drip/i,
       kitchenIssue: /kitchen.*leak|kitchen.*faucet|kitchen.*water|under.*sink/i,
       timeframe: /days?|weeks?|months?|yesterday|today|few.*days|several/i,
       location: /underneath|under.*sink|basement|crawl space|cabinet/i,
-      costConcern: /charge|cost|price|expensive|estimate|how much|fee/i
+      costConcern: /charge|cost|price|expensive|estimate|how much|fee/i,
+      urgentWords: /urgent|emergency|asap|right away|immediately|help/i
     };
     
     // Priority triggers
@@ -343,20 +348,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     if (specificDetails.location.test(message) && plumbing.some(word => message.includes(word))) {
-      return "Underneath leaks are tricky because they can cause damage if they go too long. Smart of you to catch it! Is this something that just started, or has it been building up? And is the cabinet floor getting wet or warped at all? We should probably get someone out there sooner rather than later.";
+      const urgentResponse = specificDetails.urgentWords.test(message) 
+        ? "You're absolutely right to be concerned about that. " 
+        : "Smart of you to catch it! ";
+      return `Underneath leaks are tricky because they can cause damage if they go too long. ${urgentResponse}Is this something that just started, or has it been building up? And is the cabinet floor getting wet or warped at all? We should probably get someone out there sooner rather than later.`;
     }
     
-    if (specificDetails.costConcern.test(message) && greetings.some(word => message.includes(word))) {
-      return "Hi Bob! Nice to meet you. I totally understand wanting to know what you're looking at cost-wise before we get started. What kind of project are we talking about? For most basic repairs we can give you a pretty good idea over the phone, and we always do free estimates for bigger jobs.";
+    if (specificDetails.costConcern.test(message) && (greetings.some(word => message.includes(word)) || customerName)) {
+      const greeting = customerName ? `Hi ${customerName}! Nice to meet you.` : "Hi there! Good to hear from you.";
+      return `${greeting} I totally understand wanting to know what you're looking at cost-wise before we get started. What kind of project are we talking about? For most basic repairs we can give you a pretty good idea over the phone, and we always do free estimates for bigger jobs.`;
     }
 
-    // Standard priority responses
+    // Standard priority responses with natural name usage
     if (scheduling.some(word => message.includes(word))) {
-      return "Absolutely! I can help you get that taken care of. What kind of project are you working on? Is this something urgent, or are you planning ahead? I ask because we can usually get emergency calls out same day, but for bigger projects we like to schedule a time that works best for you.";
+      const nameResponse = customerName ? `Absolutely, ${customerName}! ` : "Absolutely! ";
+      return `${nameResponse}I can help you get that taken care of. What kind of project are you working on? Is this something urgent, or are you planning ahead? I ask because we can usually get emergency calls out same day, but for bigger projects we like to schedule a time that works best for you.`;
     }
 
     if (greetings.some(word => message.includes(word))) {
-      return "Hi there! Good to hear from you. I'm with HandyTech Solutions here in Missouri. What's going on with your home today - anything I can help you figure out?";
+      const greeting = customerName ? `Hi ${customerName}! Good to hear from you.` : "Hi there! Good to hear from you.";
+      return `${greeting} I'm with HandyTech Solutions here in Missouri. What's going on with your home today - anything I can help you figure out?`;
     }
     
     if (electrical.some(word => message.includes(word))) {
