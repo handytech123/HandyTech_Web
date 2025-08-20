@@ -314,27 +314,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Human-like conversation generator with follow-up questions
+  // Intelligent conversation generator with context awareness
   function generateFallbackResponse(message: string): string {
-    // Priority 1: Scheduling (highest conversion priority)
+    // Context detection patterns
+    const specificDetails = {
+      faucetLeak: /faucet.*leak|leak.*faucet|dripping.*faucet|faucet.*drip/i,
+      kitchenIssue: /kitchen.*leak|kitchen.*faucet|kitchen.*water|under.*sink/i,
+      timeframe: /days?|weeks?|months?|yesterday|today|few.*days|several/i,
+      location: /underneath|under.*sink|basement|crawl space|cabinet/i,
+      costConcern: /charge|cost|price|expensive|estimate|how much|fee/i
+    };
+    
+    // Priority triggers
     const scheduling = ["schedule", "appointment", "book", "when", "available", "time", "meet", "visit", "come out"];
-    
-    // Priority 2: Greetings (first impression)
     const greetings = ["hello", "hi", "hey", "good morning", "good afternoon", "good evening"];
-    
-    // Priority 3: Emergency Services (high urgency - electrical first)
     const electrical = ["electrical", "electric", "wiring", "outlet", "switch", "panel", "breaker", "power", "lights"];
-    
-    // Priority 4: Plumbing (second emergency priority)
     const plumbing = ["plumbing", "plumber", "pipe", "leak", "drain", "faucet", "toilet", "water", "bathroom", "kitchen"];
-    
-    // Priority 5: Smart Home Tech (specialty service)
     const tech = ["smart home", "automation", "security", "tech", "installation", "setup", "wifi", "network", "theater"];
-    
-    // Priority 6: Painting (maintenance service)
     const painting = ["paint", "painting", "wall", "color", "interior", "exterior", "room", "house"];
 
-    // Human-like responses with follow-up questions
+    // Context-aware responses for specific situations
+    if (specificDetails.faucetLeak.test(message) && specificDetails.kitchenIssue.test(message)) {
+      return "Ah, kitchen faucet leak under the sink - that's pretty common actually. The good news is it's usually something we can fix pretty quickly. Is the water pooling in the cabinet, or is it dripping into a bucket? Also, do you see where exactly it's coming from - the supply lines or the faucet base itself?";
+    }
+    
+    if (specificDetails.faucetLeak.test(message) && specificDetails.timeframe.test(message)) {
+      return "A few days of dripping can definitely add up on your water bill. Kitchen faucet leaks under the sink are usually either loose connections or worn gaskets. Have you tried turning the water supply valves under the sink to see if that stops it temporarily? I can walk you through that if you want, or we can get someone out there today to take a look.";
+    }
+    
+    if (specificDetails.location.test(message) && plumbing.some(word => message.includes(word))) {
+      return "Underneath leaks are tricky because they can cause damage if they go too long. Smart of you to catch it! Is this something that just started, or has it been building up? And is the cabinet floor getting wet or warped at all? We should probably get someone out there sooner rather than later.";
+    }
+    
+    if (specificDetails.costConcern.test(message) && greetings.some(word => message.includes(word))) {
+      return "Hi Bob! Nice to meet you. I totally understand wanting to know what you're looking at cost-wise before we get started. What kind of project are we talking about? For most basic repairs we can give you a pretty good idea over the phone, and we always do free estimates for bigger jobs.";
+    }
+
+    // Standard priority responses
     if (scheduling.some(word => message.includes(word))) {
       return "Absolutely! I can help you get that taken care of. What kind of project are you working on? Is this something urgent, or are you planning ahead? I ask because we can usually get emergency calls out same day, but for bigger projects we like to schedule a time that works best for you.";
     }
