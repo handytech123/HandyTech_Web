@@ -69,7 +69,7 @@ export default function HeroSection() {
             <div className="bg-light-gray rounded-2xl p-8">
               <img 
                 src="https://images.unsplash.com/photo-1504307651254-35680f356dfd?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600" 
-                alt="Professional handyman tools and equipment" 
+                alt="HandyTech Solutions professional handyman with smart home technology tools and equipment" 
                 className="rounded-xl shadow-lg w-full h-96 object-cover" 
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;

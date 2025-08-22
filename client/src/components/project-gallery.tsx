@@ -64,7 +64,7 @@ export default function ProjectGallery() {
                     <div className="w-full h-64 bg-gray-200 flex items-center justify-center relative overflow-hidden group-hover:scale-105 transition-transform duration-300">
                       <img 
                         src={project.imageUrl}
-                        alt={project.title}
+                        alt={`${project.title} - ${project.category} handyman project by HandyTech Solutions`}
                         className="w-full h-full object-cover absolute inset-0"
                         onError={(e) => {
                           console.log("Image failed to load:", project.imageUrl);

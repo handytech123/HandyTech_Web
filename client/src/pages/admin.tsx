@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from 'react-helmet';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -388,14 +389,30 @@ export default function AdminDashboard() {
   // Show login form if not authenticated
   if (!isAuthenticated) {
     return (
-      <AdminLogin 
-        onLogin={handleLogin}
-        error={loginError}
-        isLoading={isLoggingIn}
-      />
+      <>
+        <Helmet>
+          <title>Admin Login | HandyTech Solutions</title>
+          <meta name="description" content="Admin dashboard login for HandyTech Solutions business management system." />
+          <meta name="robots" content="noindex, nofollow" />
+        </Helmet>
+        <AdminLogin 
+          onLogin={handleLogin}
+          error={loginError}
+          isLoading={isLoggingIn}
+        />
+      </>
     );
   }
 
   // Show authenticated dashboard
-  return <AuthenticatedDashboard />;
+  return (
+    <>
+      <Helmet>
+        <title>Admin Dashboard | HandyTech Solutions Business Management</title>
+        <meta name="description" content="Manage reviews, quotes, appointments, and customers for HandyTech Solutions handyman services." />
+        <meta name="robots" content="noindex, nofollow" />
+      </Helmet>
+      <AuthenticatedDashboard />
+    </>
+  );
 }

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Helmet } from 'react-helmet';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -69,8 +70,12 @@ export default function CustomerPortal() {
 
   return (
     <div className="min-h-screen bg-light-gray">
-      <title>Customer Portal - HandyTech Solutions</title>
-      <meta name="description" content="Manage your HandyTech Solutions maintenance plans, view billing history, and access customer support." />
+      <Helmet>
+        <title>Customer Portal | HandyTech Solutions Account Management</title>
+        <meta name="description" content="Manage your HandyTech Solutions account, view maintenance plans, service history, and access customer support. Secure customer self-service portal." />
+        <link rel="canonical" href="https://yourdomain.com/customer-portal" />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
       
       <div className="bg-charcoal text-white py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">

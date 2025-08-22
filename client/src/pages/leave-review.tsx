@@ -1,8 +1,18 @@
+import { Helmet } from 'react-helmet';
 import CustomerReviewForm from "@/components/customer-review-form";
 
 export default function LeaveReview() {
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
+      <Helmet>
+        <title>Leave a Review | HandyTech Solutions Customer Feedback</title>
+        <meta name="description" content="Share your experience with HandyTech Solutions. Leave a review for our professional handyman services in Missouri. Your feedback helps other customers make informed decisions." />
+        <link rel="canonical" href="https://yourdomain.com/leave-review" />
+        <meta property="og:title" content="Leave a Review | HandyTech Solutions" />
+        <meta property="og:description" content="Share your experience with our professional handyman services." />
+        <meta property="og:url" content="https://yourdomain.com/leave-review" />
+        <meta name="robots" content="noindex, follow" />
+      </Helmet>
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-charcoal mb-4">
