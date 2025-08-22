@@ -54,15 +54,13 @@ export default function HeroSection() {
             
             {/* Home Depot Pro Badge */}
             <div className="mt-6">
-              <a 
-                href="https://www.homedepot.com/c/pro" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+              <button 
+                onClick={() => scrollToSection('testimonials')}
+                className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors cursor-pointer"
               >
                 <span className="mr-2">🔨</span>
-                Certified Home Depot Pro Contractor
-              </a>
+                Certified Home Depot Pro Contractor - View Reviews
+              </button>
             </div>
           </div>
           <div className="relative">
