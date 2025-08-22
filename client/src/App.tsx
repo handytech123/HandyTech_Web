@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import CustomerPortal from "@/pages/customer-portal";
 import AdminDashboard from "@/pages/admin";
 import LiveChatAdmin from "@/pages/live-chat-admin";
+import LeaveReview from "@/pages/leave-review";
 import NotFound from "@/pages/not-found";
 import Chatbot from "@/components/chatbot";
 
@@ -17,6 +18,7 @@ function Router() {
       <Route path="/customer-portal" component={CustomerPortal} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/live-chat" component={LiveChatAdmin} />
+      <Route path="/leave-review" component={LeaveReview} />
       <Route component={NotFound} />
     </Switch>
   );

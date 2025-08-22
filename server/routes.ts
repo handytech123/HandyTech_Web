@@ -159,6 +159,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Customer review submission endpoint
+  app.post("/api/reviews/submit", async (req, res) => {
+    try {
+      const {
+        firstName,
+        lastName,
+        email,
+        phone,
+        serviceType,
+        rating,
+        title,
+        content
+      } = req.body;
+
+      // Validate required fields
+      if (!firstName || !lastName || !email || !rating || !title || !content) {
+        return res.status(400).json({ 
+          message: "Missing required fields: firstName, lastName, email, rating, title, and content are required" 
+        });
+      }
+
+      // Validate rating
+      if (rating < 1 || rating > 5) {
+        return res.status(400).json({ message: "Rating must be between 1 and 5" });
+      }
+
+      // Auto-create customer if they don't exist
+      let customer = await storage.getCustomerByEmail(email);
+      if (!customer) {
+        customer = await storage.createCustomer({
+          firstName,
+          lastName,
+          email,
+          phone: phone || null,
+          company: null,
+        });
+      }
+
+      // Create the review
+      const reviewData = {
+        customerId: customer.id,
+        rating: parseInt(rating),
+        title,
+        content,
+      };
+
+      const review = await storage.createReview(reviewData);
+      res.status(201).json(review);
+    } catch (error) {
+      console.error("Error creating customer review:", error);
+      res.status(500).json({ message: "Failed to submit review" });
+    }
+  });
+
   // Quote routes
   app.get("/api/quotes", async (req, res) => {
     try {

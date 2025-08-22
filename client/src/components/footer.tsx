@@ -73,6 +73,7 @@ export default function Footer() {
             <h4 className="font-semibold mb-4">Support</h4>
             <ul className="space-y-2 text-gray-400">
               <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
+              <li><a href="/leave-review" className="hover:text-white transition-colors">Leave a Review</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
