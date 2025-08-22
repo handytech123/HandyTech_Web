@@ -3,20 +3,41 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Star } from "lucide-react";
 import { type Review, type Customer } from "@shared/schema";
 
-const fallbackTestimonials = [
+const homeDepotProTestimonials = [
   {
-    name: "Robert Chen",
-    role: "Owner, Local Restaurant", 
-    content: "Their proactive approach to maintenance has eliminated our IT headaches. Best investment we've made for our business.",
+    name: "Ardell Henderson Jr",
+    role: "Berkeley, MO - Grab Bar Installation",
+    content: "The professionalism was amazing!! He communicated with me every step of the installation to make sure it was exactly like I wanted. I've had to clean up behind other installers before. But not Lou, he left my bathroom just as clean as it was when he started.",
+    rating: 5,
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
+  },
+  {
+    name: "Pro Referral Customer", 
+    role: "Saint Louis, MO - Screen Door Installation",
+    content: "Lou was fantastic. Would highly recommend.",
     rating: 5,
     image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
   },
   {
-    name: "Jennifer Adams",
-    role: "Director, Healthcare Solutions",
-    content: "Professional, reliable, and affordable. HandyTech has been instrumental in our company's growth and success.",
+    name: "Pro Referral Customer",
+    role: "Manchester, MO - Dishwasher Installation", 
+    content: "Our installation was done professionally and timely.",
     rating: 5,
     image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
+  },
+  {
+    name: "Nautica Emberton",
+    role: "Saint Louis, MO - Television Mount",
+    content: "He is so amazing and kind! 10/10 experience, will be rehiring!",
+    rating: 5,
+    image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
+  },
+  {
+    name: "Tammy Shannon", 
+    role: "Saint Peters, MO - Microwave Installation",
+    content: "Lou went out of his way, and did a great job 👍",
+    rating: 5,
+    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
   }
 ];
 
@@ -43,8 +64,8 @@ export default function TestimonialsSection() {
     };
   });
 
-  // Use fallback testimonials if no reviews available
-  const displayTestimonials = testimonials.length > 0 ? [...testimonials, ...fallbackTestimonials] : fallbackTestimonials;
+  // Use Home Depot Pro testimonials if no internal reviews available
+  const displayTestimonials = testimonials.length > 0 ? [...testimonials, ...homeDepotProTestimonials] : homeDepotProTestimonials;
 
   return (
     <section id="testimonials" className="py-20 bg-white">
