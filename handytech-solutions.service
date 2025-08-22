@@ -1,0 +1,25 @@
+# Systemd service file for HandyTech Solutions
+# Place this file in /etc/systemd/system/handytech-solutions.service
+# Alternative to PM2 if you prefer systemd
+
+[Unit]
+Description=HandyTech Solutions Node.js App
+After=network.target
+
+[Service]
+Type=simple
+User=www-data
+WorkingDirectory=/var/www/handytech-solutions
+ExecStart=/usr/bin/node dist/index.js
+Restart=always
+RestartSec=10
+StandardOutput=syslog
+StandardError=syslog
+SyslogIdentifier=handytech-solutions
+
+# Environment variables
+Environment=NODE_ENV=production
+Environment=PORT=5000
+
+[Install]
+WantedBy=multi-user.target

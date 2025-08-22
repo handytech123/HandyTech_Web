@@ -254,23 +254,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/appointments", async (req, res) => {
     try {
       const appointmentData = insertAppointmentSchema.parse(req.body);
-      const appointment = await storage.createAppointment({
-        ...appointmentData,
-        status: "scheduled",
-      });
+      const appointment = await storage.createAppointment(appointmentData);
 
       // Auto-create customer if they don't exist
-      const existingCustomer = await storage.getCustomerByEmail(appointmentData.customerEmail);
+      const existingCustomer = await storage.getCustomerByEmail(appointmentData.email);
       if (!existingCustomer) {
-        const nameParts = appointmentData.customerName.split(' ');
-        const firstName = nameParts[0] || '';
-        const lastName = nameParts.slice(1).join(' ') || '';
-        
         await storage.createCustomer({
-          firstName,
-          lastName,
-          email: appointmentData.customerEmail,
-          phone: appointmentData.customerPhone || null,
+          firstName: appointmentData.firstName,
+          lastName: appointmentData.lastName,
+          email: appointmentData.email,
+          phone: appointmentData.phone || null,
           company: null,
         });
       }
