@@ -221,6 +221,7 @@ NODE_ENV=production
 DATABASE_URL=postgresql://handytech_user:your_secure_password_here@localhost:5432/handytech_db
 PORT=3000
 OPENAI_API_KEY=your_openai_api_key_here
+BREVO_API_KEY=your_brevo_api_key_here
 SESSION_SECRET=your_very_long_random_session_secret_here
 ```
 
@@ -617,6 +618,26 @@ Following this guide will give you a production-ready HandyTech Solutions websit
 Your website will be accessible at `https://your-domain.com` with professional hosting that can handle real business traffic.
 
 For any issues during deployment, check the troubleshooting section or review the logs using the commands provided.
+
+## Getting Your API Keys
+
+### OpenAI API Key (for chatbot functionality):
+1. Go to https://platform.openai.com/
+2. Sign up or log in
+3. Go to "API Keys" in your dashboard
+4. Click "Create new secret key"
+5. Copy the key (starts with `sk-`)
+
+### Brevo API Key (for email automation):
+1. Go to https://www.brevo.com/ and create an account
+2. Once logged in, go to "SMTP & API" → "API Keys"
+3. Click "Generate a new API key"
+4. Give it a name like "HandyTech Website"
+5. Copy the key (it will look like a long string)
+
+**Note:** Brevo is free for up to 300 emails per day, perfect for your handyman business email automation and contact forms.
+
+Both keys go in your `.env.production` file on your VPS during the deployment process.
 
 ## Windows-Specific Troubleshooting
 
