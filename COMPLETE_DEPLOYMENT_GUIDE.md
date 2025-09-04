@@ -319,90 +319,30 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-## Step 7: SSL Certificate Setup (Ionos Options)
+## Step 7: SSL Certificate Setup (Let's Encrypt Recommended)
 
-### 7.1 Option A: Use Ionos SSL Certificate (Recommended for handytech-solutions.com)
+### 7.1 Option A: Use Let's Encrypt SSL Certificate (Recommended)
 
-**Step-by-step Ionos SSL Certificate Setup:**
+**Simple Let's Encrypt SSL Setup:**
 
-1. **Log into your Ionos Control Panel**
-2. **Navigate to SSL Certificates:**
-   - Go to "Domains & SSL" → "SSL Certificates"
-   - Look for your handytech-solutions.com domain
-
-3. **Generate/Obtain SSL Certificate:**
-   - If you don't have one yet, click "Order SSL Certificate" 
-   - Select "Domain Validated (DV)" certificate (usually free with hosting)
-   - Choose "handytech-solutions.com" and include "www.handytech-solutions.com"
-
-4. **Download Certificate Files:**
-   Once issued, download these files:
-   - `handytech-solutions.com.crt` (main certificate)
-   - `handytech-solutions.com.key` (private key)
-   - `ca-bundle.crt` or `intermediate.crt` (certificate chain)
-
-5. **Upload Certificates to Your VPS:**
-```cmd
-REM From Windows Command Prompt, upload each certificate file:
-scp handytech-solutions.com.crt root@209.46.125.246:/tmp/
-scp handytech-solutions.com.key root@209.46.125.246:/tmp/
-scp ca-bundle.crt root@209.46.125.246:/tmp/
-```
-
-6. **Install Certificates on VPS:**
 ```bash
-# On your VPS via SSH
-sudo mkdir -p /etc/nginx/ssl
-sudo mv /tmp/handytech-solutions.com.crt /etc/nginx/ssl/
-sudo mv /tmp/handytech-solutions.com.key /etc/nginx/ssl/
-sudo mv /tmp/ca-bundle.crt /etc/nginx/ssl/
-sudo chmod 600 /etc/nginx/ssl/*.key
-sudo chmod 644 /etc/nginx/ssl/*.crt
+# Get SSL certificate from Let's Encrypt (one command does everything!)
+sudo certbot --nginx -d handytech-solutions.com -d www.handytech-solutions.com
 ```
 
-7. **Update Nginx Configuration:**
-```bash
-sudo nano /etc/nginx/sites-available/handytech-solutions
-```
+Follow the prompts:
+1. Enter your email address
+2. Agree to terms of service
+3. Choose whether to share email with EFF
+4. Select option 2 (redirect HTTP to HTTPS)
 
-Add this SSL configuration:
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name handytech-solutions.com www.handytech-solutions.com;
-    
-    ssl_certificate /etc/nginx/ssl/handytech-solutions.com.crt;
-    ssl_certificate_key /etc/nginx/ssl/handytech-solutions.com.key;
-    ssl_trusted_certificate /etc/nginx/ssl/ca-bundle.crt;
-    
-    # Modern SSL configuration
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers ECDHE-RSA-AES256-GCM-SHA512:DHE-RSA-AES256-GCM-SHA512:ECDHE-RSA-AES256-GCM-SHA384;
-    ssl_prefer_server_ciphers off;
-    ssl_session_cache shared:SSL:10m;
-    
-    location / {
-        proxy_pass http://localhost:3000;
-        proxy_http_version 1.1;
-        proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection 'upgrade';
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
-        proxy_cache_bypass $http_upgrade;
-    }
-}
+**That's it!** Certbot automatically:
+- ✅ Gets your SSL certificate
+- ✅ Updates your Nginx configuration
+- ✅ Sets up HTTPS redirects
+- ✅ Configures automatic renewal
 
-# Redirect HTTP to HTTPS
-server {
-    listen 80;
-    server_name handytech-solutions.com www.handytech-solutions.com;
-    return 301 https://$server_name$request_uri;
-}
-```
-
-### 7.2 Option B: Use Let's Encrypt (Free Alternative)
+### 7.2 Option B: Use Ionos SSL Certificate (If You Prefer)
 ```bash
 # Get SSL certificate from Let's Encrypt
 sudo certbot --nginx -d handytech-solutions.com -d www.handytech-solutions.com
