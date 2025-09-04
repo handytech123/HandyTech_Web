@@ -29,10 +29,10 @@ Windows 10/11 includes OpenSSH client by default. If you're on an older version,
 **Connect using Windows Command Prompt:**
 ```cmd
 REM Open Command Prompt (cmd) and connect to your VPS
-ssh root@your-ionos-vps-ip
+ssh root@209.46.125.246
 
 REM Or if you have a custom user:
-ssh your-username@your-ionos-vps-ip
+ssh your-username@209.46.125.246
 
 REM If this is your first connection, you'll see a fingerprint warning - type 'yes'
 REM Enter the password when prompted (get credentials from Ionos control panel)
@@ -137,12 +137,12 @@ sudo ln -s /snap/bin/certbot /usr/bin/certbot
    ```
    Type: A
    Name: @
-   Value: your-ionos-vps-ip
+   Value: 209.46.125.246
    TTL: 300
 
    Type: A  
    Name: www
-   Value: your-ionos-vps-ip
+   Value: 209.46.125.246
    TTL: 300
    ```
 
@@ -150,7 +150,7 @@ sudo ln -s /snap/bin/certbot /usr/bin/certbot
 - Point your domain's nameservers to Ionos:
   - ns1.ionos.com
   - ns2.ionos.com
-- Or update A records at your current registrar to point to your Ionos VPS IP
+- Or update A records at your current registrar to point to your Ionos VPS IP (209.46.125.246)
 
 ### 3.2 Verify DNS Propagation
 ```bash
@@ -177,7 +177,7 @@ REM Navigate to where you have the handytech-solutions-complete.tar.gz file
 cd C:\path\to\your\download\folder
 
 REM Upload the file to your VPS
-scp handytech-solutions-complete.tar.gz handytech@your-ionos-vps-ip:/home/handytech/
+scp handytech-solutions-complete.tar.gz handytech@209.46.125.246:/home/handytech/
 
 REM You'll be prompted for the password
 ```
@@ -621,7 +621,7 @@ For any issues during deployment, check the troubleshooting section or review th
 ### SSH Connection Issues from Windows
 ```cmd
 REM If SSH connection fails, check:
-ssh -v root@your-ionos-vps-ip
+ssh -v root@209.46.125.246
 
 REM Common Windows SSH issues:
 REM 1. SSH client not installed - run as admin:
@@ -631,19 +631,19 @@ REM 2. Firewall blocking - temporarily disable Windows Firewall
 REM 3. Wrong IP address - verify from Ionos control panel
 
 REM Test basic connectivity:
-ping your-ionos-vps-ip
-telnet your-ionos-vps-ip 22
+ping 209.46.125.246
+telnet 209.46.125.246 22
 ```
 
 ### File Transfer Issues from Windows
 ```cmd
 REM If SCP fails from Windows Command Prompt:
 REM 1. Check file path (use quotes for paths with spaces)
-scp "C:\path with spaces\handytech-solutions-complete.tar.gz" handytech@your-vps-ip:/home/handytech/
+scp "C:\path with spaces\handytech-solutions-complete.tar.gz" handytech@209.46.125.246:/home/handytech/
 
 REM 2. Use PowerShell instead of cmd
 powershell
-scp handytech-solutions-complete.tar.gz handytech@your-vps-ip:/home/handytech/
+scp handytech-solutions-complete.tar.gz handytech@209.46.125.246:/home/handytech/
 
 REM 3. Use WinSCP as alternative GUI tool
 ```
