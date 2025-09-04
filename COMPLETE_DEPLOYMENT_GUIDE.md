@@ -10,6 +10,42 @@ This guide will help you deploy your HandyTech Solutions website to your Ionos V
 - Windows computer with Command Prompt
 - Basic command line knowledge
 
+## STEP 0: Clean Server (Start Fresh)
+
+**Connect to your server from Windows Command Prompt:**
+```cmd
+ssh root@209.46.125.246
+```
+
+**Remove any existing web files and services:**
+```bash
+# Stop any running services
+sudo systemctl stop nginx
+sudo systemctl stop apache2
+sudo pkill -f node
+sudo pkill -f npm
+
+# Remove web directories
+sudo rm -rf /var/www/*
+sudo rm -rf /home/*/handytech*
+sudo rm -rf /root/handytech*
+sudo rm -rf /opt/handytech*
+
+# Remove nginx configs
+sudo rm -f /etc/nginx/sites-available/handytech*
+sudo rm -f /etc/nginx/sites-enabled/handytech*
+
+# Clean up any leftover files
+sudo find / -name "*handytech*" -type f -delete 2>/dev/null
+sudo find / -name "*handytech*" -type d -exec rm -rf {} + 2>/dev/null
+
+# Reset nginx to default
+sudo rm -f /etc/nginx/sites-enabled/*
+sudo ln -s /etc/nginx/sites-available/default /etc/nginx/sites-enabled/
+
+echo "Server cleaned - ready for fresh deployment"
+```
+
 ## Step 1: Ionos VPS Setup
 
 ### 1.1 Access Your Ionos VPS
@@ -320,42 +356,108 @@ sudo nginx -t
 sudo systemctl restart nginx
 ```
 
-## Step 7: SSL Certificate Setup (Let's Encrypt Recommended)
+## Step 7: SSL Certificate Setup with Ionos
 
-### 7.1 Option A: Use Let's Encrypt SSL Certificate (Recommended)
+### Get Your SSL Certificate from Ionos Control Panel
 
-**Simple Let's Encrypt SSL Setup:**
+**In your Ionos Control Panel:**
+1. Go to "Domains & SSL" → "SSL Certificates"
+2. Select your domain `handytech-solutions.com`
+3. Order/activate SSL certificate (usually included with domain)
+4. Download the certificate files:
+   - `certificate.crt` (SSL certificate)
+   - `private.key` (Private key)  
+   - `ca_bundle.crt` (Certificate authority bundle)
 
+### Upload SSL Files to Your VPS
+
+**Create SSL directory on your server:**
 ```bash
-# Get SSL certificate from Let's Encrypt (one command does everything!)
-sudo certbot --nginx -d handytech-solutions.com -d www.handytech-solutions.com
+sudo mkdir -p /etc/ssl/ionos/
+sudo chmod 700 /etc/ssl/ionos/
 ```
 
-Follow the prompts:
-1. Enter your email address
-2. Agree to terms of service
-3. Choose whether to share email with EFF
-4. Select option 2 (redirect HTTP to HTTPS)
-
-**That's it!** Certbot automatically:
-- ✅ Gets your SSL certificate
-- ✅ Updates your Nginx configuration
-- ✅ Sets up HTTPS redirects
-- ✅ Configures automatic renewal
-
-### 7.2 Option B: Use Ionos SSL Certificate (If You Prefer)
-```bash
-# Get SSL certificate from Let's Encrypt
-sudo certbot --nginx -d handytech-solutions.com -d www.handytech-solutions.com
+**From Windows Command Prompt, upload your SSL files:**
+```cmd
+REM Replace with your actual SSL file paths from Ionos downloads
+scp "C:\Users\Luis\Downloads\certificate.crt" root@209.46.125.246:/etc/ssl/ionos/
+scp "C:\Users\Luis\Downloads\private.key" root@209.46.125.246:/etc/ssl/ionos/
+scp "C:\Users\Luis\Downloads\ca_bundle.crt" root@209.46.125.246:/etc/ssl/ionos/
 ```
 
-Follow the prompts:
-1. Enter your email address
-2. Agree to terms of service
-3. Choose whether to share email with EFF
-4. Select option 2 (redirect HTTP to HTTPS)
+**Set proper permissions:**
+```bash
+sudo chmod 600 /etc/ssl/ionos/private.key
+sudo chmod 644 /etc/ssl/ionos/certificate.crt
+sudo chmod 644 /etc/ssl/ionos/ca_bundle.crt
+```
 
-### 7.3 Verify SSL Certificate
+### Update Nginx Configuration for Ionos SSL
+
+**Edit your Nginx site configuration:**
+```bash
+sudo nano /etc/nginx/sites-available/handytech
+```
+
+**Replace the SSL section with Ionos certificate paths:**
+```nginx
+server {
+    listen 80;
+    server_name handytech-solutions.com www.handytech-solutions.com;
+    return 301 https://$server_name$request_uri;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name handytech-solutions.com www.handytech-solutions.com;
+
+    # Ionos SSL Certificate Configuration
+    ssl_certificate /etc/ssl/ionos/certificate.crt;
+    ssl_certificate_key /etc/ssl/ionos/private.key;
+    ssl_trusted_certificate /etc/ssl/ionos/ca_bundle.crt;
+    
+    # SSL Security Settings
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers ECDHE-RSA-AES128-GCM-SHA256:ECDHE-RSA-AES256-GCM-SHA384;
+    ssl_prefer_server_ciphers off;
+    ssl_session_cache shared:SSL:10m;
+    ssl_session_timeout 10m;
+    
+    location / {
+        proxy_pass http://localhost:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+**Test and restart Nginx:**
+```bash
+sudo nginx -t
+sudo systemctl restart nginx
+```
+
+## Step 2: Upload Your Project Files
+
+**From Windows Command Prompt, upload your project:**
+```cmd
+scp "C:\Users\Luis\Downloads\handytech-solutions-complete.tar.gz" root@209.46.125.246:/root/
+```
+
+**Extract the files on your server:**
+```bash
+cd /root/
+tar -xzf handytech-solutions-complete.tar.gz
+cd handytech-solutions/
+```
+
+### Verify SSL Certificate
 ```bash
 # Check certificate status
 sudo certbot certificates
