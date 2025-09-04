@@ -379,7 +379,7 @@ sudo chmod 700 /etc/ssl/ionos/
 
 **From Windows Command Prompt, upload your SSL files:**
 ```cmd
-REM Replace with your actual SSL file paths from Ionos downloads
+REM Upload SSL files from your Downloads folder
 scp "C:\Users\Luis\Downloads\certificate.crt" root@209.46.125.246:/etc/ssl/ionos/
 scp "C:\Users\Luis\Downloads\private.key" root@209.46.125.246:/etc/ssl/ionos/
 scp "C:\Users\Luis\Downloads\ca_bundle.crt" root@209.46.125.246:/etc/ssl/ionos/
