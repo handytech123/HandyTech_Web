@@ -31,7 +31,7 @@ export default function LiveChatAdmin() {
   const queryClient = useQueryClient();
 
   // Fetch live chat sessions
-  const { data: sessions = [], refetch } = useQuery({
+  const { data: sessions = [], refetch } = useQuery<LiveChatSession[]>({
     queryKey: ['/api/admin/live-chats'],
     refetchInterval: 2000, // Refresh every 2 seconds
   });
@@ -205,7 +205,7 @@ export default function LiveChatAdmin() {
               <>
                 {/* Messages */}
                 <ScrollArea className="h-[400px] mb-4 p-4 border rounded-lg bg-gray-50">
-                  {selectedSessionData.messages.map((msg, index) => (
+                  {selectedSessionData.messages.map((msg: ChatMessage, index: number) => (
                     <div key={index} className="mb-4">
                       <div
                         className={`flex ${
