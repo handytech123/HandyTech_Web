@@ -6,13 +6,13 @@ This guide will help you deploy HandyTech Solutions to your IONOS VPS.
 
 - IONOS VPS with Ubuntu 20.04+ or similar Linux distribution
 - Root or sudo access to the server
-- Domain name pointing to your VPS IP address
+- Domain name pointing to your VPS IP address (209.46.125.246)
 
 ## Step 1: Prepare Your VPS
 
 1. **Connect to your VPS via SSH:**
    ```bash
-   ssh root@your-vps-ip-address
+   ssh root@209.46.125.246
    ```
 
 2. **Create a new user for security (optional but recommended):**
