@@ -40,7 +40,7 @@ export default function HeroSection() {
             <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-red rounded-full"></div>
-                <span>Licensed & Insured</span>
+                <span>Trusted Service</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-red rounded-full"></div>
@@ -61,7 +61,7 @@ export default function HeroSection() {
                 className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
               >
                 <span className="mr-2">🔨</span>
-                Certified Home Depot Pro Contractor - View Reviews
+                Home Depot Pro Partner - View Reviews
               </a>
             </div>
           </div>

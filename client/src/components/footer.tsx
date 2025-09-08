@@ -25,7 +25,7 @@ export default function Footer() {
               <div className="bg-orange-600 text-white px-4 py-3 rounded-lg inline-flex items-center space-x-2">
                 <span className="font-bold text-sm">🔨 HOME DEPOT PRO</span>
               </div>
-              <p className="text-gray-400 text-sm mt-2">Certified Home Depot Pro Contractor</p>
+              <p className="text-gray-400 text-sm mt-2">Trusted Home Depot Pro Partner</p>
               <a 
                 href="https://www.homedepot.com/c/pro" 
                 target="_blank" 

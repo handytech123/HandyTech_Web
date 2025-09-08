@@ -27,13 +27,13 @@ export default function LeaveReview() {
         <div className="bg-white rounded-2xl shadow-xl p-8 mb-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-semibold mb-4">
-              ⭐ CERTIFIED HOME DEPOT PRO CONTRACTOR
+              ⭐ TRUSTED HOME DEPOT PRO PARTNER
             </div>
             <h2 className="text-2xl font-bold text-charcoal mb-4">
               Your Opinion Matters
             </h2>
             <p className="text-gray-600">
-              As a certified Home Depot Pro contractor, we maintain the highest standards of quality and professionalism. 
+              As a trusted Home Depot Pro partner, we maintain the highest standards of quality and service. 
               Your honest review helps us continue to improve our services and assists other customers in their decision-making.
             </p>
           </div>

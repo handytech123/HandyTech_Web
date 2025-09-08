@@ -108,13 +108,13 @@ export default function ServicesSection() {
         <div className="mt-20 bg-orange-50 rounded-2xl p-8">
           <div className="text-center mb-8">
             <div className="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-4">
-              HOME DEPOT PRO CONTRACTOR
+              HOME DEPOT PRO PARTNER
             </div>
             <h3 className="text-2xl font-bold text-charcoal mb-4">
               Professional Grade Materials & Service
             </h3>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              As a certified Home Depot Pro contractor, I have access to professional-grade materials, bulk pricing, and exclusive contractor resources to deliver the best value for your projects.
+              As a trusted Home Depot Pro partner, I have access to professional-grade materials, bulk pricing, and exclusive resources to deliver the best value for your projects.
             </p>
           </div>
           
