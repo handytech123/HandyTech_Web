@@ -1,4 +1,4 @@
-import { Phone, Mail, Clock } from "lucide-react";
+import { Phone, Mail } from "lucide-react";
 
 export default function ContactBanner() {
   return (
@@ -33,20 +33,6 @@ export default function ContactBanner() {
 
           {/* Divider */}
           <div className="hidden md:block h-12 w-px bg-white bg-opacity-30"></div>
-
-          {/* Hours */}
-          <div className="flex items-center space-x-3">
-            <div className="bg-white bg-opacity-20 rounded-lg p-2">
-              <Clock className="h-6 w-6" />
-            </div>
-            <div>
-              <p className="text-sm font-medium opacity-90">Business Hours</p>
-              <p className="text-lg font-semibold">Mon-Fri: 8AM-6PM | Sat: 9AM-3PM</p>
-            </div>
-          </div>
-          
-          {/* Divider */}
-          <div className="hidden lg:block h-12 w-px bg-white bg-opacity-30"></div>
           
           {/* Family Owned & Insured */}
           <div className="flex items-center space-x-3">
