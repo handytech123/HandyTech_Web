@@ -73,7 +73,7 @@ export default function CustomerPortal() {
       <Helmet>
         <title>Customer Portal | HandyTech Solutions Account Management</title>
         <meta name="description" content="Manage your HandyTech Solutions account, view maintenance plans, service history, and access customer support. Secure customer self-service portal." />
-        <link rel="canonical" href="https://yourdomain.com/customer-portal" />
+        <link rel="canonical" href="https://handytech-solutions.com/customer-portal" />
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       

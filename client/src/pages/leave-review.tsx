@@ -7,10 +7,10 @@ export default function LeaveReview() {
       <Helmet>
         <title>Leave a Review | HandyTech Solutions Customer Feedback</title>
         <meta name="description" content="Share your experience with HandyTech Solutions. Leave a review for our professional handyman services in Missouri. Your feedback helps other customers make informed decisions." />
-        <link rel="canonical" href="https://yourdomain.com/leave-review" />
+        <link rel="canonical" href="https://handytech-solutions.com/leave-review" />
         <meta property="og:title" content="Leave a Review | HandyTech Solutions" />
         <meta property="og:description" content="Share your experience with our professional handyman services." />
-        <meta property="og:url" content="https://yourdomain.com/leave-review" />
+        <meta property="og:url" content="https://handytech-solutions.com/leave-review" />
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       <div className="max-w-4xl mx-auto">

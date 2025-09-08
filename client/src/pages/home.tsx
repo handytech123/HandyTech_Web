@@ -18,11 +18,11 @@ export default function Home() {
       <Helmet>
         <title>HandyTech Solutions | Professional Handyman Services in Missouri</title>
         <meta name="description" content="Expert handyman services in St. Louis, Florissant, and Hazelwood. Professional home repairs, smart home installations, plumbing, electrical work, and maintenance. Over a decade of trusted service." />
-        <link rel="canonical" href="https://yourdomain.com" />
+        <link rel="canonical" href="https://handytech-solutions.com" />
         <meta property="og:title" content="HandyTech Solutions | Professional Handyman Services" />
         <meta property="og:description" content="Expert handyman services in Missouri. Professional home repairs and smart home installations." />
-        <meta property="og:image" content="https://yourdomain.com/preview.jpg" />
-        <meta property="og:url" content="https://yourdomain.com" />
+        <meta property="og:image" content="https://handytech-solutions.com/preview.jpg" />
+        <meta property="og:url" content="https://handytech-solutions.com" />
         <meta name="twitter:card" content="summary_large_image" />
         <link rel="icon" href="/favicon.ico" />
         
@@ -32,8 +32,8 @@ export default function Home() {
             "@context": "https://schema.org",
             "@type": "LocalBusiness",
             "name": "HandyTech Solutions",
-            "image": "https://yourdomain.com/logo.png",
-            "url": "https://yourdomain.com",
+            "image": "https://handytech-solutions.com/logo.png",
+            "url": "https://handytech-solutions.com",
             "telephone": "+1-314-325-4575",
             "priceRange": "$$",
             "address": {
