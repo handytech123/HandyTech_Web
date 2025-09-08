@@ -68,7 +68,7 @@ export default function ContactSection() {
             Ready to Start Your <span className="text-brand-red">Next Project?</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            HandyTech Solutions: Your premier choice for home improvement. With 10+ years of experience and full insurance coverage, we ensure high-quality service from minor repairs to major renovations.
+            HandyTech Solutions: Your family-owned premier choice for home improvement. With 10+ years of experience and full insurance coverage, we ensure high-quality service from minor repairs to major renovations.
           </p>
         </div>
         
@@ -77,9 +77,14 @@ export default function ContactSection() {
           <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h3 className="text-2xl font-bold text-charcoal mb-6">Get Your Free Estimate</h3>
             <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
-              <div className="flex items-center">
-                <span className="text-green-600 font-semibold">✓ Fully Insured</span>
-                <span className="text-gray-600 ml-2">- Protected for your peace of mind</span>
+              <div className="flex flex-col space-y-1">
+                <div className="flex items-center">
+                  <span className="text-green-600 font-semibold">✓ Family Owned & Operated</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="text-green-600 font-semibold">✓ Fully Insured</span>
+                  <span className="text-gray-600 ml-2">- Protected for your peace of mind</span>
+                </div>
               </div>
             </div>
             

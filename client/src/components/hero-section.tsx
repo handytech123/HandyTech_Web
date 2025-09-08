@@ -40,15 +40,15 @@ export default function HeroSection() {
             <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-red rounded-full"></div>
+                <span>Family Owned</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
                 <span>Fully Insured</span>
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-red rounded-full"></div>
                 <span>10+ Years Experience</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <div className="w-3 h-3 bg-brand-red rounded-full"></div>
-                <span>Flexible Scheduling</span>
               </div>
             </div>
             
