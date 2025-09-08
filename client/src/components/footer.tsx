@@ -17,7 +17,7 @@ export default function Footer() {
               </h3>
             </div>
             <p className="text-gray-400 mb-4">
-              Professional handyman services and smart home technology solutions for homes and businesses.
+              Professional handyman services and smart home technology solutions for homes and businesses. Fully insured for your peace of mind.
             </p>
             
             {/* Home Depot Pro Partnership */}

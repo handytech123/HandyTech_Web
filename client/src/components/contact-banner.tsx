@@ -45,6 +45,20 @@ export default function ContactBanner() {
             </div>
           </div>
           
+          {/* Divider */}
+          <div className="hidden lg:block h-12 w-px bg-white bg-opacity-30"></div>
+          
+          {/* Insurance */}
+          <div className="flex items-center space-x-3">
+            <div className="bg-white bg-opacity-20 rounded-lg p-2">
+              <span className="text-xl">✓</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium opacity-90">Protected</p>
+              <p className="text-lg font-semibold">Fully Insured</p>
+            </div>
+          </div>
+          
         </div>
       </div>
     </div>
