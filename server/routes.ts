@@ -22,8 +22,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { username, password } = req.body;
       
       // Simple authentication - you can change these credentials
-      const ADMIN_USERNAME = "admin";
-      const ADMIN_PASSWORD = "handytech2024";
+      const ADMIN_USERNAME = "handytech";
+      const ADMIN_PASSWORD = "Savannah2";
       
       if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
         // Generate a simple token (in production, use proper JWT)
