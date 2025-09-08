@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,12 @@ export default function ChatWidget() {
     }
   ]);
   const [inputValue, setInputValue] = useState("");
+  
+  // Mobile drag functionality
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+  const [isDragging, setIsDragging] = useState(false);
+  const [dragStart, setDragStart] = useState({ x: 0, y: 0 });
+  const chatRef = useRef<HTMLDivElement>(null);
 
   const handleSendMessage = () => {
     if (!inputValue.trim()) return;
@@ -41,11 +47,71 @@ export default function ChatWidget() {
     }, 1000);
   };
 
+  // Touch event handlers for mobile dragging
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (window.innerWidth <= 768) { // Only on mobile
+      const touch = e.touches[0];
+      setIsDragging(true);
+      setDragStart({
+        x: touch.clientX - position.x,
+        y: touch.clientY - position.y
+      });
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (!isDragging || window.innerWidth > 768) return;
+    
+    e.preventDefault();
+    const touch = e.touches[0];
+    const newX = touch.clientX - dragStart.x;
+    const newY = touch.clientY - dragStart.y;
+    
+    // Keep within viewport bounds
+    const maxX = window.innerWidth - 80; // 80px for button width + margin
+    const maxY = window.innerHeight - 80;
+    
+    setPosition({
+      x: Math.max(-20, Math.min(maxX, newX)),
+      y: Math.max(-20, Math.min(maxY, newY))
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDragging(false);
+  };
+
+  const handleButtonClick = () => {
+    // Only toggle if not dragging (prevent accidental opens during drag)
+    if (!isDragging) {
+      setIsOpen(!isOpen);
+    }
+  };
+
   return (
-    <div className="fixed bottom-6 right-6 z-50">
+    <div 
+      ref={chatRef}
+      className={`fixed z-50 transition-all duration-200 ${
+        position.x === 0 && position.y === 0 ? 'bottom-6 right-6' : ''
+      }`}
+      style={{
+        transform: position.x !== 0 || position.y !== 0 
+          ? `translate(${position.x}px, ${position.y}px)` 
+          : 'none',
+        right: position.x === 0 && position.y === 0 ? '24px' : 'auto',
+        bottom: position.x === 0 && position.y === 0 ? '24px' : 'auto',
+        left: position.x !== 0 || position.y !== 0 ? '24px' : 'auto',
+        top: position.x !== 0 || position.y !== 0 ? '24px' : 'auto'
+      }}
+    >
       <Button
-        onClick={() => setIsOpen(!isOpen)}
-        className="bg-brand-red text-white w-16 h-16 rounded-full shadow-lg hover:bg-brand-red-dark"
+        onClick={handleButtonClick}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
+        className={`bg-brand-red text-white w-16 h-16 rounded-full shadow-lg hover:bg-brand-red-dark select-none ${
+          isDragging ? 'cursor-grabbing' : 'cursor-pointer'
+        } md:cursor-pointer`}
         size="icon"
       >
         {isOpen ? <X size={24} /> : <MessageCircle size={24} />}
