@@ -1,0 +1,32 @@
+{
+  "type": "nodejs",
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
+  "port": 3000,
+  "requiredServices": ["nodejs", "npm", "nginx", "postgresql"],
+  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET"],
+  "framework": "express",
+  "frontend": "react",
+  "database": "postgresql",
+  "buildOutput": "dist/",
+  "staticFiles": "dist/public/",
+  "packageManager": "npm",
+  "nodeVersion": "18",
+  "features": [
+    "ssr",
+    "api",
+    "database",
+    "sessions",
+    "static-assets"
+  ],
+  "dependencies": {
+    "production": true,
+    "devDependencies": false
+  },
+  "healthCheck": {
+    "path": "/api/health",
+    "timeout": 30
+  },
+  "ssl": true,
+  "domain": "handytech-solutions.com"
+}
