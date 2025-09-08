@@ -8,7 +8,6 @@ import MaintenancePlans from "@/components/maintenance-plans";
 import TestimonialsSection from "@/components/testimonials-section";
 import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
-import ChatWidget from "@/components/chat-widget";
 import ThemeSwitcher from "@/components/theme-switcher";
 import ContactBanner from "@/components/contact-banner";
 
@@ -116,7 +115,6 @@ export default function Home() {
         <ContactSection />
       </main>
       <Footer />
-      <ChatWidget />
     </div>
   );
 }

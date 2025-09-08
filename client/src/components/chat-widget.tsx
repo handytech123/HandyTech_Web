@@ -39,7 +39,7 @@ export default function ChatWidget() {
     setTimeout(() => {
       const botResponse = {
         id: messages.length + 2,
-        text: "Thank you for your message! Our HandyTech team will get back to you shortly. You can also schedule an appointment directly on this page or call us at (555) 123-4567 for immediate assistance.",
+        text: "Thank you for your message! Our HandyTech team will get back to you shortly. You can also schedule an appointment directly on this page or call us at <a href=\"tel:+13143254575\" class=\"underline hover:text-brand-red\">(314) 325-4575</a> for immediate assistance.",
         isBot: true,
         timestamp: new Date()
       };
