@@ -48,7 +48,7 @@ export default function HeroSection() {
               </div>
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-red rounded-full"></div>
-                <span>Same Day Service</span>
+                <span>Flexible Scheduling</span>
               </div>
             </div>
             

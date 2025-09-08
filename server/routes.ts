@@ -416,7 +416,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Standard priority responses with natural name usage
     if (scheduling.some(word => message.includes(word))) {
       const nameResponse = customerName ? `Absolutely, ${customerName}! ` : "Absolutely! ";
-      return `${nameResponse}I can help you get that taken care of. What kind of project are you working on? Is this something urgent, or are you planning ahead? I ask because we can usually get emergency calls out same day, but for bigger projects we like to schedule a time that works best for you.`;
+      return `${nameResponse}I can help you get that taken care of. What kind of project are you working on? Is this something urgent, or are you planning ahead? For urgent issues we'll work with you to get out there as quickly as possible, and for bigger projects we like to schedule a time that works best for you.`;
     }
 
     if (greetings.some(word => message.includes(word))) {
