@@ -214,7 +214,11 @@ export default function Chatbot() {
                     ? "bg-white text-gray-800 shadow-sm" 
                     : "bg-brand-red text-white"
                 }`}>
-                  <p className="text-sm">{message.text}</p>
+                  <div className="text-sm" dangerouslySetInnerHTML={{
+                    __html: message.text
+                      .replace(/\((\d{3})\)\s(\d{3})-(\d{4})/g, '<a href="tel:+1$1$2$3" class="underline hover:text-brand-red">($1) $2-$3</a>')
+                      .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<a href="mailto:$1" class="underline hover:text-brand-red">$1</a>')
+                  }} />
                   {message.showScheduling && (
                     <Button
                       onClick={() => setShowScheduling(true)}
