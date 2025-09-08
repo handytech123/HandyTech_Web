@@ -95,7 +95,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-charcoal">Phone</h3>
-                  <p className="text-gray-600">(314) 325-4575</p>
+                  <a href="tel:+13143254575" className="text-gray-600 hover:text-brand-red hover:underline">(314) 325-4575</a>
                 </div>
               </div>
               
@@ -105,7 +105,7 @@ export default function ContactSection() {
                 </div>
                 <div>
                   <h3 className="font-semibold text-charcoal">Email</h3>
-                  <p className="text-gray-600">contact@handytech-solutions.com</p>
+                  <a href="mailto:contact@handytech-solutions.com" className="text-gray-600 hover:text-brand-red hover:underline">contact@handytech-solutions.com</a>
                 </div>
               </div>
               

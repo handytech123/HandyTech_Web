@@ -13,7 +13,7 @@ export default function ContactBanner() {
             </div>
             <div>
               <p className="text-sm font-medium opacity-90">Call Now</p>
-              <p className="text-xl font-bold">(314) 325-4575</p>
+              <a href="tel:+13143254575" className="text-xl font-bold hover:underline">(314) 325-4575</a>
             </div>
           </div>
 
@@ -27,7 +27,7 @@ export default function ContactBanner() {
             </div>
             <div>
               <p className="text-sm font-medium opacity-90">Email Us</p>
-              <p className="text-lg font-semibold">contact@handytech-solutions.com</p>
+              <a href="mailto:contact@handytech-solutions.com" className="text-lg font-semibold hover:underline">contact@handytech-solutions.com</a>
             </div>
           </div>
 
