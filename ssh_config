@@ -1,0 +1,9 @@
+Host vps
+    HostName 74.2.8.149.78
+    User root
+    StrictHostKeyChecking no
+    PasswordAuthentication yes
+    PreferredAuthentications password
+    ConnectTimeout 10
+    CanonicalizeHostname no
+    GSSAPIAuthentication no
