@@ -10,6 +10,7 @@ import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
 import ChatWidget from "@/components/chat-widget";
 import ThemeSwitcher from "@/components/theme-switcher";
+import ContactBanner from "@/components/contact-banner";
 
 export default function Home() {
   return (
@@ -104,6 +105,7 @@ export default function Home() {
       
       <ThemeSwitcher />
       <Navigation />
+      <ContactBanner />
       <main>
         <HeroSection />
         <ServicesSection />
