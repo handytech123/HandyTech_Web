@@ -11,7 +11,7 @@ Business location: Missouri-based handyman service
 Color scheme: Ohio State Buckeyes colors (scarlet red #BB0000 and gray) for proper text visibility
 Database preference: User chose to build own backend rather than use external CRM software
 Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
-**Deployment Archive Requirements**: Always automatically generate complete deploy.json file when creating deployment archives. Must include all API key specifications (requiredSecrets, optionalSecrets with descriptions, categories, examples) plus all deployment configuration (app details, port, framework, features, etc.) for deployment automation tools.
+**Deployment Archive Requirements**: Always automatically generate complete deploy.json file when creating deployment archives. Must include all API key specifications (requiredSecrets, optionalSecrets with descriptions, categories, examples) plus all deployment configuration (app details, port, framework, features, etc.) AND explicit deployment type specifications (deploymentType: "dynamic", architecture: "full-stack", siteType: "web-application", requiresServer: true) for deployment automation tools to know exactly what kind of site is being deployed.
 
 ## Recent Changes (August 12, 2024)
 
