@@ -71,6 +71,8 @@ export const appointments = pgTable("appointments", {
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentTime: text("appointment_time").notNull(),
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'confirmed', 'completed', 'cancelled'
+  source: text("source").notNull().default("manual"), // 'calendly', 'manual', 'chatbot'
+  calendlyEventId: text("calendly_event_id"), // Store Calendly's unique event ID
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

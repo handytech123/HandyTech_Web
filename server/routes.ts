@@ -956,6 +956,161 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(svg);
   });
 
+  // Calendly Webhook Endpoint
+  app.post("/api/webhooks/calendly", async (req, res) => {
+    try {
+      console.log("📅 Calendly webhook received:", JSON.stringify(req.body, null, 2));
+      
+      const { payload } = req.body;
+      
+      // Handle different Calendly event types
+      if (payload?.event === "invitee.created") {
+        const event = payload;
+        const invitee = event.invitee;
+        const eventType = event.event_type;
+        
+        // Extract appointment details
+        const appointmentData = {
+          firstName: invitee.name.split(' ')[0] || 'Unknown',
+          lastName: invitee.name.split(' ').slice(1).join(' ') || '',
+          email: invitee.email,
+          phone: invitee.text_reminder_number || '',
+          serviceType: eventType.name || 'Calendly Booking',
+          appointmentDate: new Date(event.start_time),
+          appointmentTime: new Date(event.start_time).toLocaleTimeString('en-US', { 
+            hour: 'numeric', 
+            minute: '2-digit', 
+            hour12: true 
+          }),
+          source: 'calendly',
+          calendlyEventId: event.uri,
+          notes: `Calendly booking - ${eventType.name}. Location: ${event.location?.location || 'TBD'}`
+        };
+
+        console.log("📋 Processing appointment data:", appointmentData);
+
+        // Create or find customer
+        let customer = null;
+        try {
+          const existingCustomers = await storage.getAllCustomers();
+          customer = existingCustomers.find(c => c.email.toLowerCase() === invitee.email.toLowerCase());
+          
+          if (!customer) {
+            const newCustomer = await storage.createCustomer({
+              firstName: appointmentData.firstName,
+              lastName: appointmentData.lastName,
+              email: appointmentData.email,
+              phone: appointmentData.phone || '',
+              address: '',
+              emergencyContact: '',
+              specialInstructions: `Created from Calendly booking - ${new Date().toLocaleDateString()}`
+            });
+            customer = newCustomer;
+            console.log("👤 Created new customer:", customer);
+          } else {
+            console.log("👤 Found existing customer:", customer);
+          }
+        } catch (customerError) {
+          console.error("❌ Customer creation/lookup failed:", customerError);
+        }
+
+        // Create appointment
+        const appointment = await storage.createAppointment({
+          ...appointmentData,
+          customerId: customer?.id || null
+        });
+
+        console.log("✅ Created appointment:", appointment);
+
+        // Send confirmation email via Brevo
+        try {
+          const emailSuccess = await emailService.sendAppointmentConfirmation({
+            customerName: `${appointmentData.firstName} ${appointmentData.lastName}`,
+            customerEmail: appointmentData.email,
+            appointmentDate: appointmentData.appointmentDate.toISOString(),
+            appointmentTime: appointmentData.appointmentTime,
+            serviceType: appointmentData.serviceType,
+            description: appointmentData.notes
+          });
+
+          if (emailSuccess) {
+            console.log("📧 Confirmation email sent successfully");
+          } else {
+            console.log("📧 Confirmation email skipped (Brevo not configured)");
+          }
+        } catch (emailError) {
+          console.error("📧 Failed to send confirmation email:", emailError);
+        }
+
+        res.json({ 
+          success: true, 
+          message: "Appointment processed successfully",
+          appointmentId: appointment.id
+        });
+      } else {
+        console.log("ℹ️ Ignoring Calendly event type:", payload?.event);
+        res.json({ success: true, message: "Event type not handled" });
+      }
+    } catch (error) {
+      console.error("❌ Calendly webhook error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to process Calendly webhook" 
+      });
+    }
+  });
+
+  // Test Webhook Simulator - Admin Only
+  app.post("/api/admin/test-calendly-webhook", async (req, res) => {
+    try {
+      console.log("🧪 Testing Calendly webhook simulation");
+      
+      const testWebhookData = {
+        payload: {
+          event: "invitee.created",
+          invitee: {
+            name: req.body.name || "Test Customer",
+            email: req.body.email || "test@example.com",
+            text_reminder_number: req.body.phone || "(555) 123-4567"
+          },
+          event_type: {
+            name: req.body.serviceType || "Home Repair Consultation"
+          },
+          start_time: req.body.appointmentDateTime || new Date().toISOString(),
+          uri: `calendly://events/test-${Date.now()}`,
+          location: {
+            location: "Customer's Home"
+          }
+        }
+      };
+
+      console.log("🧪 Simulating webhook with data:", testWebhookData);
+
+      // Call our own webhook endpoint
+      const response = await fetch(`${req.protocol}://${req.get('host')}/api/webhooks/calendly`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(testWebhookData)
+      });
+
+      const result = await response.json();
+      
+      res.json({
+        success: true,
+        message: "Test webhook processed successfully",
+        result: result
+      });
+    } catch (error) {
+      console.error("❌ Test webhook error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to test webhook" 
+      });
+    }
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }
