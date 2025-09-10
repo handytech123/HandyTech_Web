@@ -1036,12 +1036,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.send(svg);
   });
 
-  // Calendly Webhook Endpoint
+  // Raw body middleware for webhook signature verification
+  app.use("/api/webhooks/calendly", async (req, res, next) => {
+    const chunks: Buffer[] = [];
+    req.on('data', (chunk) => chunks.push(chunk));
+    req.on('end', () => {
+      (req as any).rawBody = Buffer.concat(chunks);
+      next();
+    });
+  });
+
+  // Enhanced Calendly Webhook Endpoint with signature verification
   app.post("/api/webhooks/calendly", async (req, res) => {
     try {
-      console.log("📅 Calendly webhook received:", JSON.stringify(req.body, null, 2));
-      
-      const { payload } = req.body;
+      const sig = req.get("Calendly-Webhook-Signature");
+      const rawBody = (req as any).rawBody || Buffer.from(JSON.stringify(req.body));
+
+      // Verify signature if signing key is configured
+      if (CALENDLY_SIGNING_KEY) {
+        const isValid = verifyCalendlySignature(CALENDLY_SIGNING_KEY, sig || "", rawBody);
+        if (!isValid) {
+          console.warn("❌ Invalid Calendly webhook signature");
+          return res.status(400).send("Invalid signature");
+        }
+        console.log("✅ Calendly webhook signature verified");
+      } else {
+        console.log("⚠️ Calendly webhook received (no signature verification - add CALENDLY_SIGNING_KEY for security)");
+      }
+
+      // Parse the JSON payload
+      const payload = typeof req.body === 'string' ? JSON.parse(req.body) : req.body;
+      console.log("📅 Calendly webhook event:", payload?.event, payload?.payload?.invitee?.email);
       
       // Handle different Calendly event types
       if (payload?.event === "invitee.created") {

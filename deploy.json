@@ -47,6 +47,13 @@
       "required": true,
       "category": "email_services",
       "example": "xkeysib-..."
+    },
+    {
+      "key": "CALENDLY_PAT",
+      "description": "Calendly Personal Access Token for API integration and dynamic event type fetching",
+      "required": true,
+      "category": "scheduling_services",
+      "example": "your_calendly_personal_access_token"
     }
   ],
   "optionalSecrets": [
@@ -56,6 +63,27 @@
       "required": false,
       "category": "security",
       "example": "random_string_for_session_encryption"
+    },
+    {
+      "key": "CALENDLY_USER_URI",
+      "description": "Calendly user URI (auto-fetched if not provided)",
+      "required": false,
+      "category": "scheduling_services",
+      "example": "https://api.calendly.com/users/XXXXXX"
+    },
+    {
+      "key": "CALENDLY_ORG_URI",
+      "description": "Calendly organization URI (auto-fetched if not provided)",
+      "required": false,
+      "category": "scheduling_services",
+      "example": "https://api.calendly.com/organizations/XXXXXX"
+    },
+    {
+      "key": "CALENDLY_SIGNING_KEY",
+      "description": "Calendly webhook signing key for signature verification (recommended for security)",
+      "required": false,
+      "category": "security",
+      "example": "webhook_signing_key_from_calendly"
     }
   ],
   "framework": "express_vite",

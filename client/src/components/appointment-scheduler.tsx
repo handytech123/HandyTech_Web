@@ -1,7 +1,8 @@
-import { useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Clock, CheckCircle, CalendarDays } from "lucide-react";
+import { Clock, CheckCircle, CalendarDays, AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 // Declare Calendly as global for TypeScript
 declare global {
@@ -12,15 +13,82 @@ declare global {
   }
 }
 
+interface EventType {
+  name: string;
+  scheduling_url: string;
+  duration: number;
+}
+
+interface CalendlyEventTypes {
+  twoHour?: EventType;
+  fourHour?: EventType;
+  sixHour?: EventType;
+}
+
 export default function AppointmentScheduler() {
+  const [eventTypes, setEventTypes] = useState<CalendlyEventTypes>({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string>("");
+  const { toast } = useToast();
+
+  // Fetch Calendly event types dynamically
+  useEffect(() => {
+    const fetchEventTypes = async () => {
+      try {
+        const response = await fetch("/api/calendly/event-types");
+        
+        if (!response.ok) {
+          throw new Error("Failed to fetch event types");
+        }
+
+        const data = await response.json();
+        const ets = data.event_types || [];
+
+        // Smart matching by name patterns
+        const twoHour = ets.find((e: EventType) => /2.*hour/i.test(e.name));
+        const fourHour = ets.find((e: EventType) => /4.*hour|half.*day/i.test(e.name));
+        const sixHour = ets.find((e: EventType) => /6.*hour|full.*day/i.test(e.name));
+
+        setEventTypes({
+          twoHour,
+          fourHour,
+          sixHour
+        });
+
+        console.log("Calendly event types loaded:", { twoHour, fourHour, sixHour });
+      } catch (err: any) {
+        console.error("Failed to fetch Calendly event types:", err);
+        setError(err.message);
+        // Show fallback notice
+        toast({
+          title: "Calendly Configuration Needed",
+          description: "Add your CALENDLY_PAT to environment variables for dynamic booking.",
+          variant: "destructive"
+        });
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchEventTypes();
+  }, [toast]);
   
-  const handleBooking = (timeBlock: string, url: string) => {
+  const handleBooking = (timeBlock: string, eventType: EventType | undefined) => {
+    if (!eventType || !eventType.scheduling_url) {
+      toast({
+        title: "Booking Unavailable",
+        description: `${timeBlock} time block is not configured yet. Please contact us directly.`,
+        variant: "destructive"
+      });
+      return;
+    }
+
     // Ensure Calendly is loaded
     if (typeof window !== 'undefined' && window.Calendly) {
-      window.Calendly.initPopupWidget({ url });
+      window.Calendly.initPopupWidget({ url: eventType.scheduling_url });
     } else {
       // Fallback - open in new window if Calendly widget fails
-      window.open(url, '_blank');
+      window.open(eventType.scheduling_url, '_blank');
     }
   };
 
@@ -71,11 +139,12 @@ export default function AppointmentScheduler() {
                 </ul>
                 
                 <Button
-                  onClick={() => handleBooking("2h", "https://calendly.com/handytech/2h")}
-                  className="w-full bg-blue-600 hover:bg-blue-700 text-white py-3 text-lg font-semibold rounded-lg"
+                  onClick={() => handleBooking("2-Hour Block", eventTypes.twoHour)}
+                  disabled={loading || (!eventTypes.twoHour && !error)}
+                  className="w-full bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white py-3 text-lg font-semibold rounded-lg"
                 >
                   <CalendarDays className="mr-2" size={20} />
-                  Book 2 Hours
+                  {loading ? "Loading..." : "Book 2 Hours"}
                 </Button>
               </div>
             </CardContent>
@@ -110,11 +179,12 @@ export default function AppointmentScheduler() {
                 </ul>
                 
                 <Button
-                  onClick={() => handleBooking("4h", "https://calendly.com/handytech/4h")}
-                  className="w-full bg-brand-red hover:bg-brand-red-dark text-white py-3 text-lg font-semibold rounded-lg"
+                  onClick={() => handleBooking("4-Hour Block", eventTypes.fourHour)}
+                  disabled={loading || (!eventTypes.fourHour && !error)}
+                  className="w-full bg-brand-red hover:bg-brand-red-dark disabled:bg-gray-400 text-white py-3 text-lg font-semibold rounded-lg"
                 >
                   <CalendarDays className="mr-2" size={20} />
-                  Book 4 Hours
+                  {loading ? "Loading..." : "Book 4 Hours"}
                 </Button>
               </div>
             </CardContent>
@@ -146,11 +216,12 @@ export default function AppointmentScheduler() {
                 </ul>
                 
                 <Button
-                  onClick={() => handleBooking("6h", "https://calendly.com/handytech/6h")}
-                  className="w-full bg-orange-600 hover:bg-orange-700 text-white py-3 text-lg font-semibold rounded-lg"
+                  onClick={() => handleBooking("6-Hour Block", eventTypes.sixHour)}
+                  disabled={loading || (!eventTypes.sixHour && !error)}
+                  className="w-full bg-orange-600 hover:bg-orange-700 disabled:bg-gray-400 text-white py-3 text-lg font-semibold rounded-lg"
                 >
                   <CalendarDays className="mr-2" size={20} />
-                  Book 6 Hours
+                  {loading ? "Loading..." : "Book 6 Hours"}
                 </Button>
               </div>
             </CardContent>
