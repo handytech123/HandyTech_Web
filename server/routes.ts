@@ -1000,10 +1000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               firstName: appointmentData.firstName,
               lastName: appointmentData.lastName,
               email: appointmentData.email,
-              phone: appointmentData.phone || '',
-              address: '',
-              emergencyContact: '',
-              specialInstructions: `Created from Calendly booking - ${new Date().toLocaleDateString()}`
+              phone: appointmentData.phone || ''
             });
             customer = newCustomer;
             console.log("👤 Created new customer:", customer);
