@@ -16,6 +16,8 @@ import {
 import { z } from "zod";
 import OpenAI from "openai";
 import { BrevoEmailService } from "./brevo-service";
+import axios from "axios";
+import crypto from "crypto";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
@@ -25,6 +27,84 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize Brevo email service
   const emailService = new BrevoEmailService();
+
+  // Initialize Calendly API client
+  const CALENDLY_PAT = process.env.CALENDLY_PAT;
+  let CALENDLY_USER_URI = process.env.CALENDLY_USER_URI || "";
+  let CALENDLY_ORG_URI = process.env.CALENDLY_ORG_URI || "";
+  const CALENDLY_SIGNING_KEY = process.env.CALENDLY_SIGNING_KEY || "";
+
+  const calendly = axios.create({
+    baseURL: "https://api.calendly.com",
+    headers: CALENDLY_PAT ? { Authorization: `Bearer ${CALENDLY_PAT}` } : {}
+  });
+
+  // Bootstrap to fetch user/org if not provided
+  async function ensureUserAndOrg() {
+    if (CALENDLY_PAT && (!CALENDLY_USER_URI || !CALENDLY_ORG_URI)) {
+      try {
+        const { data } = await calendly.get("/users/me");
+        CALENDLY_USER_URI = data?.resource?.uri || CALENDLY_USER_URI;
+        CALENDLY_ORG_URI = data?.resource?.current_organization || CALENDLY_ORG_URI;
+        console.log("Calendly user/org URIs fetched:", { CALENDLY_USER_URI, CALENDLY_ORG_URI });
+      } catch (error: any) {
+        console.error("Failed to fetch Calendly user/org:", error.message);
+      }
+    }
+  }
+
+  // Verify Calendly webhook signature
+  function verifyCalendlySignature(signingKey: string, signatureHeader: string, bodyBuffer: Buffer): boolean {
+    if (!signingKey || !signatureHeader) return false;
+    
+    const parts = signatureHeader.split(",").reduce((acc: any, kv: string) => {
+      const [k, v] = kv.split("=");
+      acc[k.trim()] = (v || "").trim();
+      return acc;
+    }, {});
+
+    const ts = parts["t"];
+    const v1 = parts["v1"];
+    if (!ts || !v1) return false;
+
+    const payload = `${ts}.${bodyBuffer.toString("utf8")}`;
+    const expected = crypto.createHmac("sha256", signingKey).update(payload).digest("hex");
+
+    // Compare safely
+    return crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
+  }
+
+  // Calendly API: Get event types dynamically
+  app.get("/api/calendly/event-types", async (req, res) => {
+    try {
+      if (!CALENDLY_PAT) {
+        return res.status(400).json({ error: "Calendly PAT not configured" });
+      }
+      
+      await ensureUserAndOrg();
+      
+      const { data } = await calendly.get("/event_types", {
+        params: { user: CALENDLY_USER_URI }
+      });
+
+      const items = (data?.resource || data?.collection || []).map((et: any) => ({
+        name: et.name,
+        uri: et.uri,
+        slug: et.slug,
+        scheduling_url: et.scheduling_url,
+        duration: et.duration
+      }));
+
+      res.json({ 
+        user: CALENDLY_USER_URI, 
+        organization: CALENDLY_ORG_URI, 
+        event_types: items 
+      });
+    } catch (error) {
+      console.error("Calendly event types error:", (error as any).response?.data || (error as any).message);
+      res.status(500).json({ error: "Failed to fetch event types" });
+    }
+  });
 
   // Admin authentication route
   app.post("/api/admin/login", async (req, res) => {
