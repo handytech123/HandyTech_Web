@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare, TestTube } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
@@ -19,6 +20,7 @@ import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@sha
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
+  const { toast } = useToast();
   const [testData, setTestData] = useState({
     name: "Test Customer",
     email: "test@example.com", 
@@ -77,6 +79,31 @@ function AuthenticatedDashboard() {
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
     }
   });
+
+  // Test Calendly API Integration
+  const testCalendlyAPI = async () => {
+    try {
+      const response = await fetch("/api/calendly/event-types");
+      const data = await response.json();
+      
+      toast({
+        title: "Calendly API Test",
+        description: response.ok 
+          ? `Found ${data.event_types?.length || 0} event types` 
+          : `Error: ${data.error}`,
+        variant: response.ok ? "default" : "destructive"
+      });
+
+      console.log("Calendly API Test Results:", data);
+    } catch (error) {
+      toast({
+        title: "Calendly API Test Failed", 
+        description: "Check console for details",
+        variant: "destructive"
+      });
+      console.error("Calendly API test error:", error);
+    }
+  };
 
   const totalRevenue = maintenancePlans.reduce((sum, plan) => sum + plan.price, 0);
   const pendingQuotes = quotes.filter(q => q.status === "pending").length;
@@ -482,13 +509,21 @@ function AuthenticatedDashboard() {
                     </div>
                   </div>
 
-                  <div className="flex gap-3">
+                  <div className="flex flex-wrap gap-3">
                     <Button
                       onClick={() => testCalendlyWebhookMutation.mutate(testData)}
                       disabled={testCalendlyWebhookMutation.isPending}
                       className="bg-brand-red hover:bg-brand-red-dark text-white"
                     >
                       {testCalendlyWebhookMutation.isPending ? "Testing..." : "🧪 Test Calendly Integration"}
+                    </Button>
+                    <Button
+                      onClick={testCalendlyAPI}
+                      variant="outline"
+                      className="border-blue-500 text-blue-600 hover:bg-blue-50"
+                    >
+                      <TestTube className="mr-2 h-4 w-4" />
+                      Test API Connection
                     </Button>
                     <Button
                       variant="outline"
