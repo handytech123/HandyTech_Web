@@ -67,13 +67,14 @@
   "nodeVersion": "20",
   "features": [
     "Customer Management",
-    "Appointment Scheduling", 
+    "Calendly Integration - 3 Time Blocks (2h/4h/6h)", 
     "Quote Management",
     "Project Gallery",
     "Admin Dashboard",
-    "AI Chatbot",
-    "Email Automation",
+    "AI Chatbot with OpenAI GPT-5",
+    "Brevo Email Automation",
     "Review System",
+    "Webhook Integration",
     "ssr",
     "api",
     "database",
@@ -87,6 +88,35 @@
   "healthCheck": {
     "path": "/api/health",
     "timeout": 30
+  },
+  "webhooks": {
+    "description": "Webhook endpoints for external service integrations",
+    "endpoints": {
+      "calendly": {
+        "url": "/api/webhooks/calendly",
+        "method": "POST",
+        "description": "Calendly webhook endpoint for appointment booking notifications",
+        "purpose": "Receives Calendly invitee.created events and creates appointments in HandyTech database with Brevo email confirmations"
+      }
+    }
+  },
+  "integrations": {
+    "calendly": {
+      "name": "Calendly Appointment Scheduling",
+      "description": "Professional appointment scheduling with 2h/4h/6h time blocks",
+      "webhook_url": "https://{{domain}}/api/webhooks/calendly",
+      "features": ["appointment_scheduling", "email_confirmations", "customer_creation"]
+    },
+    "brevo": {
+      "name": "Brevo Email Automation",
+      "description": "Automated appointment confirmations and reminder emails",
+      "features": ["appointment_confirmations", "reminder_emails", "customer_communications"]
+    },
+    "openai": {
+      "name": "AI Customer Service Chatbot",
+      "description": "Intelligent customer service with fallback system",
+      "features": ["customer_support", "appointment_assistance", "service_information"]
+    }
   },
   "ssl": true,
   "domain": "handytech-solutions.com"
