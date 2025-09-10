@@ -1,4 +1,4 @@
-import SibApiV3Sdk from 'sib-api-v3-sdk';
+const SibApiV3Sdk = require('sib-api-v3-sdk');
 
 interface AppointmentReminderData {
   customerName: string;

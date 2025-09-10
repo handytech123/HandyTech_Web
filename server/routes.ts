@@ -15,12 +15,16 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
+import { BrevoEmailService } from "./brevo-service";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
   const openai = process.env.OPENAI_API_KEY ? new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
   }) : null;
+
+  // Initialize Brevo email service
+  const emailService = new BrevoEmailService();
 
   // Admin authentication route
   app.post("/api/admin/login", async (req, res) => {
@@ -272,6 +276,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
           phone: appointmentData.phone || null,
           company: null,
         });
+      }
+
+      // Send confirmation email
+      try {
+        await emailService.sendAppointmentConfirmation({
+          customerName: `${appointmentData.firstName} ${appointmentData.lastName}`,
+          customerEmail: appointmentData.email,
+          appointmentDate: appointmentData.preferredDate,
+          appointmentTime: appointmentData.preferredTime,
+          serviceType: appointmentData.serviceType,
+          description: appointmentData.description
+        });
+      } catch (emailError) {
+        console.error('Failed to send confirmation email:', emailError);
+        // Don't fail the appointment creation if email fails
       }
 
       res.status(201).json(appointment);
