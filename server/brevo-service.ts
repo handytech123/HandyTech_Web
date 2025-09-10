@@ -29,7 +29,7 @@ export class BrevoEmailService {
 
   private async initializeBrevo() {
     try {
-      const SibApiV3Sdk = await import('sib-api-v3-sdk');
+      const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
       const defaultClient = SibApiV3Sdk.default.ApiClient.instance;
       const apiKey = defaultClient.authentications['api-key'];
       apiKey.apiKey = process.env.BREVO_API_KEY;
@@ -69,7 +69,8 @@ export class BrevoEmailService {
     }
 
     try {
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+      const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
+      const sendSmtpEmail = new SibApiV3Sdk.default.SendSmtpEmail();
       
       sendSmtpEmail.subject = `Appointment Confirmed - HandyTech Solutions`;
       sendSmtpEmail.to = [{ email: data.customerEmail, name: data.customerName }];
@@ -121,7 +122,8 @@ export class BrevoEmailService {
     }
 
     try {
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+      const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
+      const sendSmtpEmail = new SibApiV3Sdk.default.SendSmtpEmail();
       
       sendSmtpEmail.subject = `Reminder: Your HandyTech Appointment is Tomorrow`;
       sendSmtpEmail.to = [{ email: data.customerEmail, name: data.customerName }];
@@ -173,7 +175,8 @@ export class BrevoEmailService {
     }
 
     try {
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+      const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
+      const sendSmtpEmail = new SibApiV3Sdk.default.SendSmtpEmail();
       
       sendSmtpEmail.subject = `We'll See You Soon! - HandyTech Arriving in 2 Hours`;
       sendSmtpEmail.to = [{ email: data.customerEmail, name: data.customerName }];
@@ -229,7 +232,8 @@ export class BrevoEmailService {
     }
 
     try {
-      const sendSmtpEmail = new SibApiV3Sdk.SendSmtpEmail();
+      const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
+      const sendSmtpEmail = new SibApiV3Sdk.default.SendSmtpEmail();
       
       sendSmtpEmail.subject = `How Was Your HandyTech Service?`;
       sendSmtpEmail.to = [{ email: data.customerEmail, name: data.customerName }];
