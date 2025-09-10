@@ -283,10 +283,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await emailService.sendAppointmentConfirmation({
           customerName: `${appointmentData.firstName} ${appointmentData.lastName}`,
           customerEmail: appointmentData.email,
-          appointmentDate: appointmentData.preferredDate,
-          appointmentTime: appointmentData.preferredTime,
+          appointmentDate: appointmentData.appointmentDate.toISOString().split('T')[0],
+          appointmentTime: appointmentData.appointmentTime,
           serviceType: appointmentData.serviceType,
-          description: appointmentData.description
+          description: appointmentData.notes || ''
         });
       } catch (emailError) {
         console.error('Failed to send confirmation email:', emailError);

@@ -1,5 +1,3 @@
-const SibApiV3Sdk = require('sib-api-v3-sdk');
-
 interface AppointmentReminderData {
   customerName: string;
   customerEmail: string;
@@ -11,13 +9,35 @@ interface AppointmentReminderData {
 
 export class BrevoEmailService {
   private apiInstance: any;
+  private isConfigured: boolean = false;
   
   constructor() {
-    if (process.env.BREVO_API_KEY) {
-      const defaultClient = SibApiV3Sdk.ApiClient.instance;
+    this.isConfigured = !!process.env.BREVO_API_KEY;
+    
+    if (this.isConfigured) {
+      try {
+        // Use dynamic import to handle ES module compatibility
+        this.initializeBrevo();
+      } catch (error) {
+        console.error('Failed to initialize Brevo service:', error);
+        this.isConfigured = false;
+      }
+    } else {
+      console.log('Brevo API key not provided - email reminders will be skipped');
+    }
+  }
+
+  private async initializeBrevo() {
+    try {
+      const SibApiV3Sdk = await import('sib-api-v3-sdk');
+      const defaultClient = SibApiV3Sdk.default.ApiClient.instance;
       const apiKey = defaultClient.authentications['api-key'];
       apiKey.apiKey = process.env.BREVO_API_KEY;
-      this.apiInstance = new SibApiV3Sdk.TransactionalEmailsApi();
+      this.apiInstance = new SibApiV3Sdk.default.TransactionalEmailsApi();
+      console.log('Brevo email service initialized successfully');
+    } catch (error) {
+      console.error('Failed to initialize Brevo service:', error);
+      this.isConfigured = false;
     }
   }
 
@@ -43,7 +63,7 @@ export class BrevoEmailService {
   }
 
   async sendAppointmentConfirmation(data: AppointmentReminderData): Promise<boolean> {
-    if (!this.apiInstance) {
+    if (!this.isConfigured || !this.apiInstance) {
       console.log('Brevo not configured, skipping confirmation email');
       return false;
     }
