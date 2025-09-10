@@ -40,6 +40,13 @@
       "required": false,
       "category": "ai_services",
       "example": "sk-..."
+    },
+    {
+      "key": "BREVO_API_KEY",
+      "description": "Brevo API key for automated appointment reminder emails",
+      "required": true,
+      "category": "email_services",
+      "example": "xkeysib-..."
     }
   ],
   "optionalSecrets": [
