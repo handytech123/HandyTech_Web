@@ -14,8 +14,14 @@ import {
   insertServiceAddonSchema
 } from "@shared/schema";
 import { z } from "zod";
+import OpenAI from "openai";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Initialize OpenAI client
+  const openai = process.env.OPENAI_API_KEY ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY
+  }) : null;
+
   // Admin authentication route
   app.post("/api/admin/login", async (req, res) => {
     try {
@@ -470,10 +476,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Use fallback response system
-      console.log("Using fallback chatbot system for message:", message);
-      botResponse = generateFallbackResponse(message.toLowerCase());
-      console.log("Fallback response generated:", botResponse);
+      // Try OpenAI first, then fallback
+      if (openai) {
+        try {
+          console.log("Using OpenAI for message:", message);
+          // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
+          const response = await openai.chat.completions.create({
+            model: "gpt-5",
+            messages: [
+              {
+                role: "system",
+                content: "You are a friendly customer service representative for HandyTech Solutions, a Missouri-based handyman service. We specialize in electrical work, plumbing, smart home technology, painting, and general maintenance. Be helpful, professional, and knowledgeable about home improvement services. If customers need to schedule an appointment or want a quote, encourage them to do so. Keep responses conversational and under 150 words."
+              },
+              {
+                role: "user",
+                content: message
+              }
+            ],
+            max_tokens: 150,
+            temperature: 0.7,
+          });
+          
+          botResponse = response.choices[0].message.content || "";
+          console.log("OpenAI response generated:", botResponse);
+        } catch (error) {
+          console.error("OpenAI API error:", error);
+          console.log("Falling back to local response system");
+          botResponse = generateFallbackResponse(message.toLowerCase());
+        }
+      } else {
+        // Use fallback response system
+        console.log("Using fallback chatbot system for message:", message);
+        botResponse = generateFallbackResponse(message.toLowerCase());
+        console.log("Fallback response generated:", botResponse);
+      }
 
       // Check if human handoff was requested
       const humanRequest = /human|person|live person|real person|speak to someone|talk to someone|representative|agent|operator|manager|owner/i;
