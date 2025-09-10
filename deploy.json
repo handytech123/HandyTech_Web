@@ -1,18 +1,68 @@
 {
+  "appName": "HandyTech Solutions",
+  "version": "1.0.0",
+  "description": "Handyman Services Platform with CRM, scheduling, and customer management",
   "type": "nodejs",
   "buildCommand": "npm run build",
   "startCommand": "npm start",
-  "port": 3000,
+  "port": 5000,
   "requiredServices": ["nodejs", "npm", "nginx", "postgresql"],
   "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET"],
-  "framework": "express",
+  "requiredSecrets": [
+    {
+      "key": "DATABASE_URL",
+      "description": "PostgreSQL database connection string",
+      "required": true,
+      "category": "database",
+      "example": "postgresql://username:password@hostname:port/database"
+    },
+    {
+      "key": "ADMIN_USERNAME", 
+      "description": "Admin portal login username",
+      "required": true,
+      "category": "authentication",
+      "example": "admin"
+    },
+    {
+      "key": "ADMIN_PASSWORD",
+      "description": "Admin portal login password", 
+      "required": true,
+      "category": "authentication",
+      "example": "secure_password_here"
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "description": "OpenAI API key for chatbot functionality (optional - has fallback system)",
+      "required": false,
+      "category": "ai_services",
+      "example": "sk-..."
+    }
+  ],
+  "optionalSecrets": [
+    {
+      "key": "SESSION_SECRET",
+      "description": "Secret key for session encryption",
+      "required": false,
+      "category": "security",
+      "example": "random_string_for_session_encryption"
+    }
+  ],
+  "framework": "express_vite",
   "frontend": "react",
   "database": "postgresql",
   "buildOutput": "dist/",
   "staticFiles": "dist/public/",
   "packageManager": "npm",
-  "nodeVersion": "18",
+  "nodeVersion": "20",
   "features": [
+    "Customer Management",
+    "Appointment Scheduling", 
+    "Quote Management",
+    "Project Gallery",
+    "Admin Dashboard",
+    "AI Chatbot",
+    "Email Automation",
+    "Review System",
     "ssr",
     "api",
     "database",
