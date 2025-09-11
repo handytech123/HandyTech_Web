@@ -1,7 +1,7 @@
 {
   "appName": "HandyTech Solutions",
-  "version": "1.0.0",
-  "description": "Handyman Services Platform with CRM, scheduling, and customer management",
+  "version": "3.0.0",
+  "description": "Professional handyman services platform with comprehensive business management, appointment scheduling, customer portal, AI chatbot, and automated communications",
   "type": "nodejs",
   "deploymentType": "dynamic",
   "architecture": "full-stack",
@@ -10,113 +10,292 @@
   "buildCommand": "npm run build",
   "startCommand": "npm start",
   "port": 5000,
-  "requiredServices": ["nodejs", "npm", "nginx", "postgresql"],
-  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET"],
+  "nodeVersion": "20",
+  "framework": "express_vite",
+  "frontend": "react",
+  "database": "postgresql",
+  "buildOutput": "dist/public",
+  "staticFiles": "dist/public",
+  "packageManager": "npm",
+  "requiredServices": ["nodejs", "npm", "postgresql"],
+  
+  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "JWT_SECRET", "ADMIN_USERNAME", "ADMIN_PASSWORD"],
+  
   "requiredSecrets": [
     {
       "key": "DATABASE_URL",
       "description": "PostgreSQL database connection string",
       "required": true,
       "category": "database",
-      "example": "postgresql://username:password@hostname:port/database"
+      "example": "postgresql://username:password@hostname:port/database",
+      "notes": "Standard PostgreSQL connection string format"
+    },
+    {
+      "key": "JWT_SECRET",
+      "description": "Secret key for JWT token signing (minimum 32 characters for security)",
+      "required": true,
+      "category": "security",
+      "example": "your-strong-random-jwt-secret-at-least-32-characters-long",
+      "validation": "Must be at least 32 characters long",
+      "notes": "Critical for admin authentication security"
     },
     {
       "key": "ADMIN_USERNAME", 
       "description": "Admin portal login username",
       "required": true,
       "category": "authentication",
-      "example": "admin"
+      "example": "admin",
+      "notes": "Username for accessing admin dashboard"
     },
     {
       "key": "ADMIN_PASSWORD",
-      "description": "Admin portal login password", 
+      "description": "Admin portal login password (use a strong password)", 
       "required": true,
       "category": "authentication",
-      "example": "secure_password_here"
-    },
+      "example": "SecureAdminPassword123!",
+      "notes": "Strong password required for admin authentication"
+    }
+  ],
+  
+  "optionalSecrets": [
     {
       "key": "OPENAI_API_KEY",
-      "description": "OpenAI API key for chatbot functionality (optional - has fallback system)",
+      "description": "OpenAI API key for AI-powered customer service chatbot",
       "required": false,
       "category": "ai_services",
-      "example": "sk-..."
+      "example": "sk-proj-...",
+      "notes": "If not provided, chatbot will use fallback responses. Required for full AI functionality."
     },
     {
       "key": "BREVO_API_KEY",
-      "description": "Brevo API key for automated appointment reminder emails",
-      "required": true,
+      "description": "Brevo (Sendinblue) API key for automated appointment reminder emails",
+      "required": false,
       "category": "email_services",
-      "example": "xkeysib-..."
+      "example": "xkeysib-...",
+      "notes": "Required for automated email confirmations and reminders"
+    },
+    {
+      "key": "FROM_EMAIL",
+      "description": "Default sender email address for system emails",
+      "required": false,
+      "category": "email_services",
+      "example": "service@handytech-solutions.com",
+      "default": "service@handytech-solutions.com"
+    },
+    {
+      "key": "ADMIN_EMAIL",
+      "description": "Admin email address for notifications",
+      "required": false,
+      "category": "email_services",
+      "example": "admin@handytech-solutions.com",
+      "default": "admin@handytech-solutions.com"
+    },
+    {
+      "key": "BUSINESS_NAME",
+      "description": "Business name displayed in emails and communications",
+      "required": false,
+      "category": "business_info",
+      "example": "HandyTech Solutions",
+      "default": "HandyTech Solutions"
+    },
+    {
+      "key": "BUSINESS_PHONE",
+      "description": "Business phone number for customer communications",
+      "required": false,
+      "category": "business_info",
+      "example": "(314) 325-4575",
+      "default": "(314) 325-4575"
+    },
+    {
+      "key": "PUBLIC_BASE_URL",
+      "description": "Base URL for the public-facing website used in email links",
+      "required": false,
+      "category": "business_info",
+      "example": "https://handytech-solutions.com",
+      "default": "https://handytech-solutions.com"
+    },
+    {
+      "key": "SMTP_HOST",
+      "description": "SMTP server hostname for email sending",
+      "required": false,
+      "category": "email_services",
+      "example": "smtp.gmail.com",
+      "notes": "Required for SMTP email functionality. Works with Gmail, Outlook, etc."
+    },
+    {
+      "key": "SMTP_PORT",
+      "description": "SMTP server port (587 for STARTTLS, 465 for SSL)",
+      "required": false,
+      "category": "email_services",
+      "example": "587",
+      "default": "587"
+    },
+    {
+      "key": "SMTP_USER",
+      "description": "SMTP authentication username/email",
+      "required": false,
+      "category": "email_services",
+      "example": "your-email@gmail.com",
+      "notes": "Required for SMTP authentication"
+    },
+    {
+      "key": "SMTP_PASS",
+      "description": "SMTP authentication password or app-specific password",
+      "required": false,
+      "category": "email_services",
+      "example": "your-app-password",
+      "notes": "Use app-specific passwords for Gmail/Outlook"
     },
     {
       "key": "CALENDLY_PAT",
-      "description": "Calendly Personal Access Token for API integration and dynamic event type fetching",
-      "required": true,
-      "category": "scheduling_services",
-      "example": "your_calendly_personal_access_token"
-    }
-  ],
-  "optionalSecrets": [
-    {
-      "key": "SESSION_SECRET",
-      "description": "Secret key for session encryption",
+      "description": "Calendly Personal Access Token for API integration",
       "required": false,
-      "category": "security",
-      "example": "random_string_for_session_encryption"
+      "category": "scheduling_services",
+      "example": "your_calendly_personal_access_token",
+      "notes": "Currently not active in production but available for integration"
     },
     {
       "key": "CALENDLY_USER_URI",
       "description": "Calendly user URI (auto-fetched if not provided)",
       "required": false,
       "category": "scheduling_services",
-      "example": "https://api.calendly.com/users/XXXXXX"
+      "example": "https://api.calendly.com/users/XXXXXX",
+      "notes": "Auto-discovered when CALENDLY_PAT is provided"
     },
     {
       "key": "CALENDLY_ORG_URI",
       "description": "Calendly organization URI (auto-fetched if not provided)",
       "required": false,
       "category": "scheduling_services",
-      "example": "https://api.calendly.com/organizations/XXXXXX"
+      "example": "https://api.calendly.com/organizations/XXXXXX",
+      "notes": "Auto-discovered when CALENDLY_PAT is provided"
     },
     {
       "key": "CALENDLY_SIGNING_KEY",
-      "description": "Calendly webhook signing key for signature verification (recommended for security)",
+      "description": "Calendly webhook signing key for signature verification",
       "required": false,
       "category": "security",
-      "example": "webhook_signing_key_from_calendly"
+      "example": "webhook_signing_key_from_calendly",
+      "notes": "Recommended for webhook security validation"
+    },
+    {
+      "key": "JWT_EXPIRES_IN",
+      "description": "JWT token expiration duration",
+      "required": false,
+      "category": "security",
+      "example": "24h",
+      "default": "24h"
     }
   ],
-  "framework": "express_vite",
-  "frontend": "react",
-  "database": "postgresql",
-  "buildOutput": "dist/",
-  "staticFiles": "dist/public/",
-  "packageManager": "npm",
-  "nodeVersion": "20",
+  
   "features": [
-    "Customer Management",
-    "Calendly Integration - 3 Time Blocks (2h/4h/6h)", 
-    "Quote Management",
-    "Project Gallery",
-    "Admin Dashboard",
-    "AI Chatbot with OpenAI GPT-5",
-    "Brevo Email Automation",
-    "Review System",
-    "Webhook Integration",
-    "ssr",
-    "api",
-    "database",
-    "sessions",
-    "static-assets"
+    "Complete Admin Dashboard",
+    "Appointment Management System with 2h/4h/6h durations",
+    "Customer Relationship Management (CRM)",
+    "Quote Request Management with Status Tracking", 
+    "Review Management with Approval System",
+    "Project Gallery with Categories",
+    "Service Management with Pricing",
+    "Availability Rules Configuration",
+    "Blocked Times Management",
+    "AI-Powered Customer Service Chatbot (OpenAI GPT)",
+    "Automated Email Confirmations & Reminders",
+    "Live Chat Administration",
+    "Customer Self-Service Reschedule Portal",
+    "Secure JWT Admin Authentication",
+    "Email Campaign Management",
+    "Maintenance Plans Tracking",
+    "Calendly Webhook Integration (configurable)",
+    "Responsive Design with Ohio State Buckeyes Branding",
+    "Database Integration with PostgreSQL",
+    "SMTP & Brevo Email Integration",
+    "Real-time Appointment Conflict Detection",
+    "Calendar Integration (.ics file attachments)",
+    "Session Management",
+    "Static Asset Serving",
+    "API Endpoints for All Business Operations"
   ],
-  "dependencies": {
-    "production": true,
-    "devDependencies": false
+  
+  "adminFeatures": [
+    "Full appointment CRUD operations",
+    "Status management (scheduled/completed/cancelled/no-show/in-progress)",
+    "Admin rescheduling with conflict detection", 
+    "Customer detail editing within appointments",
+    "Service management with pricing and categories",
+    "Availability rules configuration (weekly schedule)",
+    "Blocked times management for business closures",
+    "Quote request status tracking and management",
+    "Review approval and management system",
+    "Live chat session management",
+    "Email campaign creation and tracking",
+    "Customer database management",
+    "Project gallery content management",
+    "Calendly integration testing tools",
+    "System health monitoring"
+  ],
+  
+  "customerFeatures": [
+    "Appointment booking with duration selection",
+    "Quote request submission with service categories",
+    "Review and testimonial submission",
+    "Self-service appointment rescheduling",
+    "AI-powered customer service chat",
+    "Project gallery browsing by category",
+    "Service information and pricing display",
+    "Contact forms with automated responses",
+    "Mobile-responsive interface"
+  ],
+  
+  "security": {
+    "authentication": "JWT-based admin authentication",
+    "passwordPolicy": "Strong passwords required for admin accounts",
+    "secretsValidation": "Environment variable validation on startup",
+    "tokenSecurity": "Minimum 32-character JWT secrets enforced",
+    "emailSecurity": "TLS encryption for SMTP communications",
+    "webhookSecurity": "Signature verification for external webhooks"
   },
-  "healthCheck": {
-    "path": "/api/health",
-    "timeout": 30
+  
+  "integrations": {
+    "database": {
+      "name": "PostgreSQL with Drizzle ORM",
+      "description": "Full relational database with migrations support",
+      "features": ["ACID compliance", "automatic migrations", "type-safe queries"]
+    },
+    "email": {
+      "brevo": {
+        "name": "Brevo Email Automation",
+        "description": "Automated appointment confirmations and reminder emails",
+        "features": ["appointment_confirmations", "reminder_emails", "customer_communications"]
+      },
+      "smtp": {
+        "name": "SMTP Email Service", 
+        "description": "Direct SMTP integration for email sending",
+        "features": ["custom_smtp_providers", "gmail_outlook_support", "calendar_invites"]
+      }
+    },
+    "ai": {
+      "openai": {
+        "name": "OpenAI GPT AI Chatbot",
+        "description": "Intelligent customer service with fallback system",
+        "features": ["customer_support", "appointment_assistance", "service_information", "fallback_responses"]
+      }
+    },
+    "scheduling": {
+      "calendly": {
+        "name": "Calendly Appointment Scheduling",
+        "description": "Professional appointment scheduling integration (configurable)",
+        "webhook_url": "https://{{domain}}/api/webhooks/calendly",
+        "features": ["appointment_scheduling", "webhook_integration", "api_integration"],
+        "status": "available_but_disabled"
+      },
+      "custom": {
+        "name": "Built-in Scheduling System",
+        "description": "Custom appointment scheduling with availability management", 
+        "features": ["2h_4h_6h_durations", "conflict_detection", "availability_rules", "blocked_times"]
+      }
+    }
   },
+  
   "webhooks": {
     "description": "Webhook endpoints for external service integrations",
     "endpoints": {
@@ -124,28 +303,52 @@
         "url": "/api/webhooks/calendly",
         "method": "POST",
         "description": "Calendly webhook endpoint for appointment booking notifications",
-        "purpose": "Receives Calendly invitee.created events and creates appointments in HandyTech database with Brevo email confirmations"
+        "purpose": "Receives Calendly invitee.created events and creates appointments in HandyTech database",
+        "security": "Optional signature verification with CALENDLY_SIGNING_KEY"
       }
     }
   },
-  "integrations": {
-    "calendly": {
-      "name": "Calendly Appointment Scheduling",
-      "description": "Professional appointment scheduling with 2h/4h/6h time blocks",
-      "webhook_url": "https://{{domain}}/api/webhooks/calendly",
-      "features": ["appointment_scheduling", "email_confirmations", "customer_creation"]
-    },
-    "brevo": {
-      "name": "Brevo Email Automation",
-      "description": "Automated appointment confirmations and reminder emails",
-      "features": ["appointment_confirmations", "reminder_emails", "customer_communications"]
-    },
-    "openai": {
-      "name": "AI Customer Service Chatbot",
-      "description": "Intelligent customer service with fallback system",
-      "features": ["customer_support", "appointment_assistance", "service_information"]
-    }
+  
+  "healthCheck": {
+    "path": "/api/health",
+    "timeout": 30,
+    "checks": ["database_connection", "jwt_configuration"]
   },
-  "ssl": true,
-  "domain": "handytech-solutions.com"
+  
+  "performance": {
+    "caching": "React Query for client-side caching",
+    "optimization": "Vite build optimization with code splitting",
+    "database": "Connection pooling with Drizzle ORM"
+  },
+  
+  "dependencies": {
+    "production": true,
+    "devDependencies": false,
+    "key_packages": [
+      "@tanstack/react-query",
+      "drizzle-orm", 
+      "express",
+      "jsonwebtoken",
+      "openai",
+      "nodemailer",
+      "sib-api-v3-sdk",
+      "wouter",
+      "@radix-ui components"
+    ]
+  },
+  
+  "deployment": {
+    "ssl": true,
+    "domain": "handytech-solutions.com",
+    "timezone": "America/Chicago",
+    "locale": "en-US",
+    "businessLocation": "Missouri, USA"
+  },
+  
+  "branding": {
+    "colorScheme": "Ohio State Buckeyes (Scarlet Red #BB0000 and Gray)",
+    "businessType": "Professional Handyman Services",
+    "targetMarket": "Missouri residential and commercial customers",
+    "specialties": ["Home Repairs", "Smart Technology", "Electrical", "Plumbing", "Carpentry"]
+  }
 }
