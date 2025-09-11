@@ -1,7 +1,7 @@
 {
   "appName": "HandyTech Solutions",
-  "version": "4.0.0",
-  "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, customer portal, AI chatbot, and automated communications",
+  "version": "5.0.0",
+  "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, customer portal, AI chatbot, automated email notifications, and IONOS SMTP integration",
   "type": "nodejs",
   "deploymentType": "dynamic",
   "architecture": "full-stack",
@@ -46,6 +46,38 @@
       "category": "authentication",
       "example": "SecureAdminPassword123!",
       "notes": "Strong password required for cookie-based admin authentication. No username required."
+    },
+    {
+      "key": "ADMIN_EMAIL",
+      "description": "Admin email address to receive appointment notifications and system alerts",
+      "required": true,
+      "category": "email_services",
+      "example": "contact@handytech-solutions.com",
+      "notes": "Primary email for receiving appointment notifications. Recommended: contact@handytech-solutions.com for IONOS hosting."
+    },
+    {
+      "key": "SMTP_HOST",
+      "description": "SMTP server hostname for sending emails (IONOS recommended)",
+      "required": true,
+      "category": "email_services",
+      "example": "smtp.ionos.com",
+      "notes": "For IONOS hosting: use smtp.ionos.com. Alternative providers: smtp.gmail.com, smtp-mail.outlook.com"
+    },
+    {
+      "key": "SMTP_USER",
+      "description": "SMTP authentication username/email address",
+      "required": true,
+      "category": "email_services",
+      "example": "contact@handytech-solutions.com",
+      "notes": "Must be a valid email address configured with your SMTP provider. For IONOS: use your domain email."
+    },
+    {
+      "key": "SMTP_PASS",
+      "description": "SMTP authentication password or app-specific password",
+      "required": true,
+      "category": "email_services",
+      "example": "your-email-password",
+      "notes": "For security, use app-specific passwords when available. IONOS: use your email account password."
     }
   ],
   
@@ -107,36 +139,13 @@
       "default": "https://handytech-solutions.com"
     },
     {
-      "key": "SMTP_HOST",
-      "description": "SMTP server hostname for email sending",
-      "required": false,
-      "category": "email_services",
-      "example": "smtp.gmail.com",
-      "notes": "Required for SMTP email functionality. Works with Gmail, Outlook, etc."
-    },
-    {
       "key": "SMTP_PORT",
       "description": "SMTP server port (587 for STARTTLS, 465 for SSL)",
       "required": false,
       "category": "email_services",
       "example": "587",
-      "default": "587"
-    },
-    {
-      "key": "SMTP_USER",
-      "description": "SMTP authentication username/email",
-      "required": false,
-      "category": "email_services",
-      "example": "your-email@gmail.com",
-      "notes": "Required for SMTP authentication"
-    },
-    {
-      "key": "SMTP_PASS",
-      "description": "SMTP authentication password or app-specific password",
-      "required": false,
-      "category": "email_services",
-      "example": "your-app-password",
-      "notes": "Use app-specific passwords for Gmail/Outlook"
+      "default": "587",
+      "notes": "IONOS supports both 587 (STARTTLS) and 465 (SSL). Recommended: 587 for better compatibility."
     },
     {
       "key": "CALENDLY_PAT",
@@ -207,7 +216,7 @@
   ],
   
   "features": [
-    "Complete Admin Dashboard",
+    "Complete Admin Dashboard with Real-time Notifications",
     "Appointment Management System with 2h/4h/6h durations",
     "Customer Relationship Management (CRM)",
     "Quote Request Management with Status Tracking", 
@@ -217,24 +226,32 @@
     "Availability Rules Configuration",
     "Blocked Times Management",
     "AI-Powered Customer Service Chatbot (OpenAI GPT)",
-    "Automated Email Confirmations & Reminders",
+    "Professional Email Notification System with IONOS SMTP",
+    "Automated Admin Notifications for All Appointments",
+    "Appointment Confirmation Emails with Calendar Attachments",
+    "24-hour and 2-hour Automated Reminder Emails",
+    "Branded HTML Email Templates with Business Branding",
+    "ICS Calendar Attachments for Easy Scheduling",
+    "Customer Email Confirmations with Reschedule Links",
+    "Email Follow-up Campaigns and Automation",
     "Live Chat Administration",
     "Customer Self-Service Reschedule Portal",
     "Enterprise Cookie-Based Admin Authentication",
     "CSRF Protection for All Admin Operations",
     "PostgreSQL Session Storage for Scalability",
-    "Security Headers and Rate Limiting",
-    "Email Campaign Management",
+    "Comprehensive Security Headers and Rate Limiting",
+    "Production-Ready Email Security with TLS Encryption",
     "Maintenance Plans Tracking",
     "Calendly Webhook Integration (configurable)",
     "Responsive Design with Ohio State Buckeyes Branding",
     "Database Integration with PostgreSQL",
-    "SMTP & Brevo Email Integration",
+    "SMTP & Brevo Dual Email Integration",
     "Real-time Appointment Conflict Detection",
-    "Calendar Integration (.ics file attachments)",
-    "Session Management",
-    "Static Asset Serving",
-    "API Endpoints for All Business Operations"
+    "Session Management with Auto-expiration",
+    "Static Asset Serving with Cache Optimization",
+    "RESTful API Endpoints for All Business Operations",
+    "Environment Variable Validation on Startup",
+    "Health Check Endpoints for Monitoring"
   ],
   
   "adminFeatures": [
@@ -290,15 +307,26 @@
       "features": ["ACID compliance", "automatic migrations", "type-safe queries"]
     },
     "email": {
+      "ionos_smtp": {
+        "name": "IONOS SMTP Email System", 
+        "description": "Professional email service with IONOS hosting integration",
+        "features": ["appointment_notifications", "admin_alerts", "calendar_invites", "reminder_emails", "branded_templates"],
+        "smtp_host": "smtp.ionos.com",
+        "smtp_ports": ["587 (STARTTLS)", "465 (SSL)"],
+        "security": "TLS encryption",
+        "notes": "Primary email system for professional communications"
+      },
+      "smtp_fallback": {
+        "name": "Universal SMTP Service", 
+        "description": "Configurable SMTP for any email provider",
+        "features": ["gmail_support", "outlook_support", "custom_smtp_providers", "calendar_invites"],
+        "providers": ["IONOS", "Gmail", "Outlook", "Custom SMTP"]
+      },
       "brevo": {
         "name": "Brevo Email Automation",
-        "description": "Automated appointment confirmations and reminder emails",
-        "features": ["appointment_confirmations", "reminder_emails", "customer_communications"]
-      },
-      "smtp": {
-        "name": "SMTP Email Service", 
-        "description": "Direct SMTP integration for email sending",
-        "features": ["custom_smtp_providers", "gmail_outlook_support", "calendar_invites"]
+        "description": "Optional automated email marketing and advanced campaigns",
+        "features": ["marketing_campaigns", "advanced_automation", "analytics"],
+        "notes": "Secondary email service for marketing automation"
       }
     },
     "ai": {
