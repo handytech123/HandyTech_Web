@@ -12,7 +12,8 @@ import {
   insertBlockedTimeSchema,
   insertAvailabilityRuleSchema,
   insertServiceSchema,
-  insertServiceAddonSchema
+  insertServiceAddonSchema,
+  rescheduleRequestSchema
 } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
@@ -392,6 +393,172 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(appointments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch appointments" });
+    }
+  });
+
+  // Reschedule endpoints
+  app.get("/api/reschedule/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      // Look up appointment by reschedule token
+      const appointment = await storage.getAppointmentByRescheduleToken(token);
+      
+      if (!appointment) {
+        return res.status(404).json({ 
+          message: "Invalid or expired reschedule token" 
+        });
+      }
+      
+      // Check if token has expired
+      if (appointment.rescheduleExpires && new Date() > appointment.rescheduleExpires) {
+        return res.status(404).json({ 
+          message: "Reschedule token has expired" 
+        });
+      }
+      
+      // Calculate duration from existing appointment
+      let durationHours = 2; // Default duration
+      if (appointment.startTimestamptz && appointment.endTimestamptz) {
+        const durationMs = appointment.endTimestamptz.getTime() - appointment.startTimestamptz.getTime();
+        durationHours = durationMs / (1000 * 60 * 60);
+      }
+      
+      // Return appointment details
+      res.json({
+        id: appointment.id,
+        title: `${appointment.serviceType} - ${appointment.firstName} ${appointment.lastName}`,
+        start: appointment.startTimestamptz?.toISOString() || appointment.appointmentDate?.toISOString(),
+        end: appointment.endTimestamptz?.toISOString(),
+        hours: durationHours
+      });
+    } catch (error) {
+      console.error("Reschedule lookup error:", error);
+      res.status(500).json({ message: "Failed to lookup appointment for rescheduling" });
+    }
+  });
+
+  app.post("/api/reschedule/:token", async (req, res) => {
+    try {
+      const { token } = req.params;
+      
+      // Validate request body - handle ZodError at the top level
+      let validatedData;
+      try {
+        validatedData = rescheduleRequestSchema.parse(req.body);
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          return res.status(400).json({ 
+            message: "Invalid request data", 
+            errors: validationError.errors 
+          });
+        }
+        throw validationError;
+      }
+      
+      const { startISO } = validatedData;
+      const newStartTime = new Date(startISO);
+      
+      // Look up appointment by reschedule token
+      const appointment = await storage.getAppointmentByRescheduleToken(token);
+      
+      if (!appointment) {
+        return res.status(404).json({ 
+          message: "Invalid or expired reschedule token" 
+        });
+      }
+      
+      // Check if token has expired
+      if (appointment.rescheduleExpires && new Date() > appointment.rescheduleExpires) {
+        return res.status(404).json({ 
+          message: "Reschedule token has expired" 
+        });
+      }
+      
+      // Enforce 12-hour minimum notice
+      const now = new Date();
+      const twelveHoursFromNow = new Date(now.getTime() + (12 * 60 * 60 * 1000));
+      
+      if (newStartTime < twelveHoursFromNow) {
+        return res.status(409).json({ 
+          message: "Appointments must be rescheduled at least 12 hours in advance" 
+        });
+      }
+      
+      // Calculate duration and new end time
+      let durationMs = 2 * 60 * 60 * 1000; // Default 2 hours
+      if (appointment.startTimestamptz && appointment.endTimestamptz) {
+        durationMs = appointment.endTimestamptz.getTime() - appointment.startTimestamptz.getTime();
+      }
+      const newEndTime = new Date(newStartTime.getTime() + durationMs);
+      
+      // Perform conflict check using availability engine
+      const durationMinutes = durationMs / (1000 * 60);
+      const searchStart = new Date(newStartTime.getTime() - (24 * 60 * 60 * 1000)); // Search 1 day before
+      const searchEnd = new Date(newStartTime.getTime() + (24 * 60 * 60 * 1000)); // Search 1 day after
+      
+      try {
+        const availableSlots = await getOpenSlots(
+          storage, 
+          searchStart, 
+          searchEnd, 
+          durationMinutes,
+          30, // 30-minute steps
+          15  // 15-minute buffer
+        );
+        
+        // FIXED: Require exact match with available slots instead of 30-minute tolerance
+        const requestedSlotTime = newStartTime.getTime();
+        const isSlotAvailable = availableSlots.some(slot => {
+          const slotTime = new Date(slot).getTime();
+          return slotTime === requestedSlotTime; // Exact match required
+        });
+        
+        if (!isSlotAvailable) {
+          return res.status(409).json({ 
+            message: "The requested time slot conflicts with existing appointments or blocked times",
+            availableSlots: availableSlots.slice(0, 10) // Return first 10 alternative slots
+          });
+        }
+        
+      } catch (availabilityError) {
+        console.error("Availability check error:", availabilityError);
+        return res.status(500).json({ 
+          message: "Failed to check availability for the requested time slot" 
+        });
+      }
+      
+      // Generate new reschedule token and extend expiration
+      const newRescheduleToken = crypto.randomBytes(24).toString('hex');
+      const newRescheduleExpires = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // +30 days
+      
+      // Update appointment with new times and token
+      await storage.updateAppointmentTime(
+        appointment.id,
+        newStartTime,
+        newEndTime,
+        newRescheduleToken,
+        newRescheduleExpires
+      );
+      
+      // Enhanced response with updated appointment details
+      res.json({
+        success: true,
+        message: "Appointment rescheduled successfully",
+        appointment: {
+          id: appointment.id,
+          newStartTime: newStartTime.toISOString(),
+          newEndTime: newEndTime.toISOString(),
+          serviceType: appointment.serviceType,
+          customerName: `${appointment.firstName} ${appointment.lastName}`,
+          rescheduleToken: newRescheduleToken,
+          rescheduleExpires: newRescheduleExpires.toISOString()
+        }
+      });
+      
+    } catch (error) {
+      console.error("Reschedule error:", error);
+      res.status(500).json({ message: "Failed to reschedule appointment" });
     }
   });
 

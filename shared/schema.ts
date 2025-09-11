@@ -214,6 +214,11 @@ export const insertServiceAddonSchema = createInsertSchema(serviceAddons).omit({
   createdAt: true,
 });
 
+// Reschedule validation schema
+export const rescheduleRequestSchema = z.object({
+  startISO: z.string().datetime("Invalid ISO datetime format"),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;

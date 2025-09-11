@@ -56,10 +56,12 @@ export interface IStorage {
 
   // Appointments
   getAppointment(id: number): Promise<Appointment | undefined>;
+  getAppointmentByRescheduleToken(token: string): Promise<Appointment | undefined>;
   getAllAppointments(): Promise<Appointment[]>;
   getAppointmentsByCustomer(customerId: number): Promise<Appointment[]>;
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointmentStatus(id: number, status: string): Promise<void>;
+  updateAppointmentTime(id: number, startTimestamptz: Date, endTimestamptz: Date, rescheduleToken?: string, rescheduleExpires?: Date): Promise<void>;
   getUpcomingAppointments(): Promise<Appointment[]>;
 
   // Project Gallery
@@ -467,6 +469,36 @@ export class MemStorage implements IStorage {
     }
   }
 
+  async getAppointmentByRescheduleToken(token: string): Promise<Appointment | undefined> {
+    return Array.from(this.appointments.values()).find(appointment => 
+      appointment.rescheduleToken === token
+    );
+  }
+
+  async updateAppointmentTime(
+    id: number, 
+    startTimestamptz: Date, 
+    endTimestamptz: Date, 
+    rescheduleToken?: string, 
+    rescheduleExpires?: Date
+  ): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      appointment.startTimestamptz = startTimestamptz;
+      appointment.endTimestamptz = endTimestamptz;
+      appointment.sequence = (appointment.sequence || 0) + 1;
+      
+      if (rescheduleToken !== undefined) {
+        appointment.rescheduleToken = rescheduleToken;
+      }
+      if (rescheduleExpires !== undefined) {
+        appointment.rescheduleExpires = rescheduleExpires;
+      }
+      
+      this.appointments.set(id, appointment);
+    }
+  }
+
   async getUpcomingAppointments(): Promise<Appointment[]> {
     const now = new Date();
     return Array.from(this.appointments.values()).filter(appointment => 
@@ -778,6 +810,39 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(appointments)
       .where(and(gte(appointments.appointmentDate, now), eq(appointments.status, "scheduled")))
       .orderBy(appointments.appointmentDate);
+  }
+
+  async getAppointmentByRescheduleToken(token: string): Promise<Appointment | undefined> {
+    const [appointment] = await db.select().from(appointments).where(eq(appointments.rescheduleToken, token));
+    return appointment;
+  }
+
+  async updateAppointmentTime(
+    id: number, 
+    startTimestamptz: Date, 
+    endTimestamptz: Date, 
+    rescheduleToken?: string, 
+    rescheduleExpires?: Date
+  ): Promise<void> {
+    const updateData: any = {
+      startTimestamptz,
+      endTimestamptz,
+    };
+
+    // Get current appointment to increment sequence
+    const [currentAppointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    if (currentAppointment) {
+      updateData.sequence = (currentAppointment.sequence || 0) + 1;
+    }
+    
+    if (rescheduleToken !== undefined) {
+      updateData.rescheduleToken = rescheduleToken;
+    }
+    if (rescheduleExpires !== undefined) {
+      updateData.rescheduleExpires = rescheduleExpires;
+    }
+    
+    await db.update(appointments).set(updateData).where(eq(appointments.id, id));
   }
 
   // Project Gallery
