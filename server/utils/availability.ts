@@ -215,9 +215,13 @@ function intersectWindowWithBounds(
   dayEnd.setDate(dayEnd.getDate() + 1);
   dayEnd.setHours(0, 0, 0, 0);
   
-  // On the first day of the range, clip window start to 'from' if needed
+  // On the first day of the range, only clip window start to 'from' if 'from' is later than window start
   if (dayStart.getTime() === new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()) {
-    boundedStart = new Date(Math.max(window.start.getTime(), from.getTime()));
+    // Only clip if 'from' is actually later than the natural window start
+    if (from.getTime() > window.start.getTime()) {
+      boundedStart = new Date(from.getTime());
+    }
+    // Otherwise keep the natural window start so earliest slot remains eligible
   }
   
   // On the last day of the range, clip window end to 'to' if needed
