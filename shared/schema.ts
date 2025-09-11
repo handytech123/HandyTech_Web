@@ -138,6 +138,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   startTimestamptz: z.coerce.date().optional(),
   endTimestamptz: z.coerce.date().optional(),
   rescheduleExpires: z.coerce.date().optional(),
+  durationHours: z.number().min(1).max(12).optional(),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({

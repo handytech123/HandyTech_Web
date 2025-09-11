@@ -77,36 +77,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return crypto.timingSafeEqual(Buffer.from(v1), Buffer.from(expected));
   }
 
-  // Calendly API: Get event types dynamically
+  // Calendly API: Get event types dynamically (disabled)
   app.get("/api/calendly/event-types", async (req, res) => {
-    try {
-      if (!CALENDLY_PAT) {
-        return res.status(400).json({ error: "Calendly PAT not configured" });
-      }
-      
-      await ensureUserAndOrg();
-      
-      const { data } = await calendly.get("/event_types", {
-        params: { user: CALENDLY_USER_URI }
-      });
-
-      const items = (data?.resource || data?.collection || []).map((et: any) => ({
-        name: et.name,
-        uri: et.uri,
-        slug: et.slug,
-        scheduling_url: et.scheduling_url,
-        duration: et.duration
-      }));
-
-      res.json({ 
-        user: CALENDLY_USER_URI, 
-        organization: CALENDLY_ORG_URI, 
-        event_types: items 
-      });
-    } catch (error) {
-      console.error("Calendly event types error:", (error as any).response?.data || (error as any).message);
-      res.status(500).json({ error: "Failed to fetch event types" });
-    }
+    // Return empty event types - Calendly integration disabled
+    res.json({ 
+      user: "", 
+      organization: "", 
+      event_types: [] 
+    });
   });
 
   // Admin authentication route
@@ -379,7 +357,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Parse and validate appointment data
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // Service-to-duration mapping (hours)
+      // Use provided duration hours or fallback to service-based duration
       const serviceDurations: Record<string, number> = {
         "Plumbing": 2,
         "Electrical": 3,
@@ -393,8 +371,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         "Custom Project": 4
       };
 
-      // Get duration based on service type (duration is not part of the appointment schema)
-      const durationHours = serviceDurations[appointmentData.serviceType] || 2;
+      // Get duration from request (user-selected) or fallback to service type mapping
+      const durationHours = appointmentData.durationHours || serviceDurations[appointmentData.serviceType] || 2;
       
       // Compute timestamps from appointmentDate and appointmentTime
       const appointmentDateTime = new Date(appointmentData.appointmentDate);
