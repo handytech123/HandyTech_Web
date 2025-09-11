@@ -23,7 +23,8 @@ import axios from "axios";
 import crypto from "crypto";
 import { getOpenSlots } from "./utils/availability";
 import { fromZonedTime } from "date-fns-tz";
-import { authenticateAdmin, generateAdminToken, ADMIN_CREDENTIALS } from "./utils/auth";
+import { ADMIN_CREDENTIALS } from "./utils/auth";
+import { requireAdmin, rlAuth } from "./security";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
@@ -90,35 +91,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
-  // Admin authentication route
-  app.post("/api/admin/login", async (req, res) => {
+  // Admin authentication routes with session-based auth
+  app.post("/api/admin/login", rlAuth, async (req, res) => {
     try {
-      const { username, password } = req.body;
+      const { password } = req.body;
       
       // Validate input
-      if (!username || !password) {
+      if (!password) {
         return res.status(400).json({ 
           success: false, 
-          message: "Username and password are required" 
+          message: "Password is required" 
         });
       }
       
+      // Get admin password from environment variable
+      const adminPassword = process.env.ADMIN_PASS;
+      if (!adminPassword) {
+        console.error("ADMIN_PASS environment variable is not set");
+        return res.status(500).json({ 
+          success: false, 
+          message: "Server configuration error" 
+        });
+      }
       
-      // Check credentials from environment variables
-      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
-        // Generate secure JWT token
-        const token = generateAdminToken(username);
+      // Check password
+      if (password === adminPassword) {
+        // Set admin session
+        (req.session as any).isAdmin = true;
+        
         res.json({ 
           success: true, 
-          token,
-          message: "Login successful",
-          expiresIn: "24h"
+          message: "Login successful"
         });
+        
+        console.log("[AUTH] Admin logged in successfully");
       } else {
         res.status(401).json({ 
           success: false, 
-          message: "Invalid username or password" 
+          message: "Invalid password" 
         });
+        
+        console.warn("[AUTH] Failed admin login attempt");
       }
     } catch (error) {
       console.error("Admin login error:", error);
@@ -129,8 +142,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin logout route
+  app.post("/api/admin/logout", (req, res) => {
+    try {
+      if (req.session) {
+        // Destroy the session
+        req.session.destroy((err) => {
+          if (err) {
+            console.error("Session destroy error:", err);
+            return res.status(500).json({ 
+              success: false, 
+              message: "Logout failed" 
+            });
+          }
+          
+          // Clear the session cookie
+          res.clearCookie("ht.sid", {
+            httpOnly: true,
+            sameSite: "lax",
+            secure: process.env.NODE_ENV === "production"
+          });
+          
+          res.json({ 
+            success: true, 
+            message: "Logged out successfully" 
+          });
+          
+          console.log("[AUTH] Admin logged out successfully");
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          message: "Already logged out" 
+        });
+      }
+    } catch (error) {
+      console.error("Admin logout error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Logout failed" 
+      });
+    }
+  });
+
   // Admin schedule endpoint - Get comprehensive schedule view (Protected)
-  app.get("/api/admin/schedule", authenticateAdmin, async (req, res) => {
+  app.get("/api/admin/schedule", requireAdmin, async (req, res) => {
     try {
       // Fetch all appointments and blocked times for admin view
       const [appointments, blockedTimes] = await Promise.all([
@@ -162,7 +218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin Appointment Management Endpoints (Protected)
   
   // Update appointment status
-  app.put("/api/admin/appointments/:id/status", authenticateAdmin, async (req, res) => {
+  app.put("/api/admin/appointments/:id/status", requireAdmin, async (req, res) => {
     try {
       const appointmentId = parseInt(req.params.id);
       const { status, notes } = req.body;
@@ -195,7 +251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin reschedule appointment
-  app.put("/api/admin/appointments/:id/reschedule", authenticateAdmin, async (req, res) => {
+  app.put("/api/admin/appointments/:id/reschedule", requireAdmin, async (req, res) => {
     try {
       const appointmentId = parseInt(req.params.id);
       const { startTime, endTime, checkAvailability = true } = req.body;
@@ -273,7 +329,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Cancel/Delete appointment
-  app.delete("/api/admin/appointments/:id", authenticateAdmin, async (req, res) => {
+  app.delete("/api/admin/appointments/:id", requireAdmin, async (req, res) => {
     try {
       const appointmentId = parseInt(req.params.id);
       const { action = "cancel" } = req.body; // "cancel" or "delete"
@@ -306,7 +362,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update appointment customer details
-  app.put("/api/admin/appointments/:id/customer", authenticateAdmin, async (req, res) => {
+  app.put("/api/admin/appointments/:id/customer", requireAdmin, async (req, res) => {
     try {
       const appointmentId = parseInt(req.params.id);
       const customerUpdates = req.body;
@@ -1139,7 +1195,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoints for live chat management
-  app.get("/api/admin/live-chats", authenticateAdmin, (req, res) => {
+  app.get("/api/admin/live-chats", requireAdmin, (req, res) => {
     const sessions = Array.from(liveChatSessions.entries()).map(([id, session]) => ({
       sessionId: id,
       ...session,
@@ -1148,7 +1204,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(sessions);
   });
 
-  app.post("/api/admin/take-chat", authenticateAdmin, (req, res) => {
+  app.post("/api/admin/take-chat", requireAdmin, (req, res) => {
     const { sessionId } = req.body;
     const session = liveChatSessions.get(sessionId);
     
@@ -1162,7 +1218,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/send-message", authenticateAdmin, (req, res) => {
+  app.post("/api/admin/send-message", requireAdmin, (req, res) => {
     const { sessionId, message } = req.body;
     const session = liveChatSessions.get(sessionId);
     
@@ -1178,7 +1234,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/end-chat", authenticateAdmin, (req, res) => {
+  app.post("/api/admin/end-chat", requireAdmin, (req, res) => {
     const { sessionId } = req.body;
     liveChatSessions.delete(sessionId);
     console.log(`🔚 Admin ended chat session: ${sessionId}`);
@@ -1709,7 +1765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test Webhook Simulator - Admin Only
-  app.post("/api/admin/test-calendly-webhook", authenticateAdmin, async (req, res) => {
+  app.post("/api/admin/test-calendly-webhook", requireAdmin, async (req, res) => {
     try {
       console.log("🧪 Testing Calendly webhook simulation");
       

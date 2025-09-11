@@ -1,4 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
+import { createCsrfHeaders } from "./csrf";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -22,11 +23,28 @@ export async function apiRequest(
     body = methodOrOptions.body;
   }
 
+  // Prepare base headers
+  const baseHeaders: Record<string, string> = {};
+  if (body) {
+    baseHeaders["Content-Type"] = "application/json";
+  }
+
+  // Add CSRF token for non-GET requests
+  let headers = baseHeaders;
+  if (method !== "GET") {
+    try {
+      headers = await createCsrfHeaders(baseHeaders);
+    } catch (error) {
+      console.error("Failed to get CSRF token:", error);
+      // Continue with request without CSRF token - let server handle the error
+    }
+  }
+
   const res = await fetch(url, {
     method,
-    headers: body ? { "Content-Type": "application/json" } : {},
+    headers,
     body: body ? JSON.stringify(body) : undefined,
-    credentials: "include",
+    credentials: "include", // Always include cookies for session-based auth
   });
 
   await throwIfResNotOk(res);

@@ -1,6 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import { setupSecurity, rlPublic } from "./security";
 
 /**
  * Validates critical environment variables on startup
@@ -20,8 +21,16 @@ async function validateStartupEnvironment(): Promise<void> {
 }
 
 const app = express();
+
+// Apply comprehensive security middleware first
+setupSecurity(app);
+
+// Basic body parsing middleware (after security setup)
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Apply public rate limiting to all routes
+app.use(rlPublic);
 
 app.use((req, res, next) => {
   const start = Date.now();
@@ -57,6 +66,7 @@ app.use((req, res, next) => {
   // Validate environment variables before starting server
   await validateStartupEnvironment();
   
+  // Register all application routes (includes CSRF route from setupSecurity)
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

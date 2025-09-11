@@ -47,6 +47,7 @@ export default function AdminLogin({ onLogin, error, isLoading }: AdminLoginProp
                   onChange={(e) => setUsername(e.target.value)}
                   className="pl-10"
                   required
+                  data-testid="input-username"
                 />
               </div>
             </div>
@@ -63,12 +64,13 @@ export default function AdminLogin({ onLogin, error, isLoading }: AdminLoginProp
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10"
                   required
+                  data-testid="input-password"
                 />
               </div>
             </div>
 
             {error && (
-              <Alert variant="destructive">
+              <Alert variant="destructive" data-testid="alert-login-error">
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
@@ -77,6 +79,7 @@ export default function AdminLogin({ onLogin, error, isLoading }: AdminLoginProp
               type="submit" 
               className="w-full bg-brand-red hover:bg-brand-red-dark"
               disabled={isLoading}
+              data-testid="button-login"
             >
               {isLoading ? "Signing in..." : "Sign In"}
             </Button>
