@@ -8,6 +8,7 @@ import CustomerPortal from "@/pages/customer-portal";
 import AdminDashboard from "@/pages/admin";
 import LiveChatAdmin from "@/pages/live-chat-admin";
 import LeaveReview from "@/pages/leave-review";
+import ReschedulePage from "@/pages/reschedule";
 import NotFound from "@/pages/not-found";
 import Chatbot from "@/components/chatbot";
 
@@ -19,6 +20,7 @@ function Router() {
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/live-chat" component={LiveChatAdmin} />
       <Route path="/leave-review" component={LeaveReview} />
+      <Route path="/reschedule/:token" component={ReschedulePage} />
       <Route component={NotFound} />
     </Switch>
   );
