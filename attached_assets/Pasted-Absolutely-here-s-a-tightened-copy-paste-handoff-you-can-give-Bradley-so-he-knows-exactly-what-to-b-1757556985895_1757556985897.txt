@@ -1,0 +1,398 @@
+Absolutely—here’s a tightened, copy-paste handoff you can give Bradley so he knows exactly what to build, where to put it, and how you’ll test it.
+
+📦 Project Handoff: HandyTech Scheduler + Reschedule + Emails
+
+0) Objectives (what we’re shipping)
+
+Add weekly availability + blocked times and compute open slots for 2h/4h/6h.
+
+Front page shows only open times; booking uses existing /api/appointments.
+
+Reschedule (no online cancel): customer can move an appointment; must call to cancel.
+
+Email confirmations to customer + admin with ICS invites.
+
+Keep Admin as source-of-truth; add a small Availability editor.
+
+
+
+---
+
+1) Data model changes (Postgres/Drizzle)
+
+Files: shared/schema.ts (or wherever tables live)
+
+availability_rules
+
+id serial pk
+
+weekday int (0=Sun..6=Sat)
+
+start_time varchar(5) (“09:00”)
+
+end_time varchar(5) (“17:00”)
+
+active boolean default true
+
+created_at timestamptz default now()
+
+
+blocked_times (if you don’t already have one)
+
+id serial pk
+
+reason text
+
+start timestamptz
+
+end timestamptz
+
+is_full_day boolean default false
+
+created_at timestamptz default now()
+
+
+appointments (add if missing)
+
+start timestamptz
+
+end timestamptz
+
+reschedule_token varchar(64) NULL
+
+reschedule_expires timestamptz NULL
+
+sequence int default 0
+
+
+
+Deliverable: migration + schema definitions committed.
+
+
+---
+
+2) API surface (all JSON)
+
+Mount point: app.use("/api/availability", availabilityRoutes) etc.
+
+Public
+
+GET /api/availability?from=ISO&to=ISO&hours=2|4|6
+
+Resp: { slots: string[] } ISO datetimes (start times).
+
+
+POST /api/appointments (already exists—do not remove)
+
+Server adds: compute end = start + hours; final overlap check; save; send emails; generate reschedule token.
+
+
+GET /api/reschedule/:token
+
+Resp: { id, title, start, end, hours } or 404.
+
+
+POST /api/reschedule/:token
+
+Body: { startISO }
+
+Enforce 12h minimum notice (configurable).
+
+Recompute end, overlap check, update DB, bump sequence, send updated emails.
+
+
+
+Admin (protected)
+
+GET /api/admin/schedule → appointments + blocks
+
+POST /api/admin/block → { reason, startISO, endISO, isFullDay? }
+
+GET /api/availability/rules
+
+POST /api/availability/rules → { weekday, startTime, endTime, active }
+
+PUT /api/availability/rules/:id
+
+DELETE /api/availability/rules/:id
+
+
+Deliverable: routes, validation, error handling.
+
+
+---
+
+3) Availability engine (server util)
+
+File: server/utils/availability.ts
+
+Inputs: { from: Date, to: Date, blockMinutes: number, stepMinutes=30 }
+
+Data sources: availability_rules, appointments(start..end), blocked_times(start..end)
+
+Logic: build windows per day from rules → scan in 30-min steps → accept slot if [start, end) doesn’t overlap any busy interval and fits within window.
+
+(Optional) add a 15–30 min buffer by inflating busy intervals.
+
+
+Deliverable: exported getOpenSlots() used by /api/availability.
+
+
+---
+
+4) Booking flow (front page)
+
+Where: your existing customer booking component/page
+
+When user selects 2/4/6h and a date, call:
+
+GET /api/availability?from=<startOfDay>&to=<endOfDay>&hours=<2|4|6>
+
+
+Render returned times; on submit, call existing POST /api/appointments.
+
+Server:
+
+final overlap check → on conflict return 409 { ok:false, error:"TIME_UNAVAILABLE" }
+
+save, generate reschedule_token (24-byte hex), set reschedule_expires (+30d)
+
+send emails (see below)
+
+
+
+Deliverable: replace static time list with API-driven options.
+
+
+---
+
+5) Emails + ICS
+
+File: server/utils/mail.ts
+
+Use Nodemailer via IONOS SMTP.
+
+Env (Secrets):
+
+SMTP_HOST=smtp.ionos.com
+
+SMTP_PORT=587
+
+SMTP_USER=you@domain.com
+
+SMTP_PASS=*******
+
+FROM_EMAIL=you@domain.com
+
+ADMIN_EMAIL=admin@domain.com
+
+BUSINESS_NAME=HandyTech Solutions
+
+BUSINESS_PHONE=(314) 325-4575
+
+PUBLIC_BASE_URL=https://<repl url>
+
+
+Customer email:
+
+Subject: HandyTech: <Block> — <Date/Time>
+
+Include Reschedule button linking to /reschedule/<token>
+
+No cancel link. Footer text: “To cancel, please call <BUSINESS_PHONE>.”
+
+Attach ICS (METHOD: REQUEST). On reschedule, bump sequence.
+
+
+Admin email: include customer contact + notes + ICS.
+
+
+Deliverable: working mailer; invoked after create + after reschedule.
+
+
+---
+
+6) Reschedule page (token)
+
+Route: GET /reschedule/:token serves a simple page (or React route)
+
+Page flow:
+
+1. GET /api/reschedule/:token → show current appt summary
+
+
+2. date range picker → call GET /api/availability?hours=<same>
+
+
+3. user selects new time → POST /api/reschedule/:token { startISO }
+
+
+4. success alert; emails fire
+
+
+
+
+Deliverable: minimal page with availability picker + POST.
+
+
+---
+
+7) Admin: Availability editor (simple)
+
+New tab/section:
+
+List rules (weekday / start / end / active)
+
+Add rule
+
+Toggle active
+
+Delete
+
+
+Blocks: use existing “blocked dates” UI or add a small form posting to /api/admin/block.
+
+
+Deliverable: CRUD UI wired to the endpoints.
+
+
+---
+
+8) Validation & Errors (standardize)
+
+Input validation (Zod/Joi):
+
+hours ∈ {2,4,6}
+
+ISO datetimes valid, from <= to
+
+
+HTTP codes:
+
+400 bad input
+
+401 admin unauthorized (admin routes)
+
+404 reschedule token invalid/expired
+
+409 time conflict
+
+500 generic
+
+
+409 payload example:
+
+{ "ok": false, "error": "TIME_UNAVAILABLE", "message": "That time was just taken. Please choose another slot." }
+
+
+Deliverable: consistent error responses across routes.
+
+
+---
+
+9) Acceptance tests (how we’ll verify)
+
+1. Rules only: With M–F 9–5 and no busy events, /api/availability&hours=2 returns starts 09:00–15:00.
+
+
+2. Block applied: Add block 12:00–13:00 → 12:00 and 12:30 disappear.
+
+
+3. Booking: Book a 2h slot → appointment saved, 2 emails sent, ICS attached.
+
+
+4. Conflict: Try to book same slot twice → second returns 409.
+
+
+5. Reschedule: Move booked appt → emails re-sent, ICS updates (sequence+1), original time becomes free.
+
+
+6. Cutoff: Try reschedule within 12h → 409 with friendly message.
+
+
+7. No customer cancel: No cancel endpoint/link visible; admin can still cancel internally.
+
+
+
+
+---
+
+10) Out of scope (for this milestone)
+
+Customer authentication/portal UI (except reschedule token page)
+
+Stripe billing/subscriptions
+
+Technician assignment/dispatch
+
+SMS notifications
+
+Multi-timezone support (assume America/Chicago for formatting)
+
+
+
+---
+
+11) Open decisions (confirm with Lou if needed)
+
+Buffer time between jobs (0/15/30 min)? Default 0 for now.
+
+Reschedule cutoff default 12h—OK?
+
+Token expiry default 30 days—OK?
+
+Slot increment 30 minutes—OK?
+
+Blocked times: use existing table vs. new blocked_times? (Bradley: point listBusyIntervals() at whichever exists.)
+
+
+
+---
+
+12) File map (proposed)
+
+shared/schema.ts → tables + types
+
+server/utils/availability.ts → getOpenSlots()
+
+server/utils/mail.ts → nodemailer + ICS
+
+server/routes/availability.ts → public + rules CRUD
+
+server/routes/reschedule.ts → token GET/POST
+
+server/routes/admin.ts (or existing) → schedule list, block create
+
+public/reschedule.html (or React route) → token reschedule UI
+
+Front page booking component → replace static times with /api/availability
+
+
+
+---
+
+13) Checklist for Bradley
+
+[ ] Add DB migrations for availability_rules (+ blocked_times if missing) and appointments columns.
+
+[ ] Implement getOpenSlots() and /api/availability.
+
+[ ] Patch front page to use availability API for time selection.
+
+[ ] Update POST /api/appointments:
+
+compute end, conflict check, save, token + expiry, send emails.
+
+
+[ ] Implement reschedule endpoints + page and email update with ICS sequence bump.
+
+[ ] Add availability rules CRUD endpoints + small Admin UI.
+
+[ ] Standardize error codes; add basic rate-limit to /api/availability.
+
+
+
+---
+
+If you want, I can also include ready-to-paste function stubs (TypeScript signatures) and the exact query code for your appointment/block tables once you confirm their current column names.
+
