@@ -8,14 +8,45 @@ interface AdminPayload {
   exp?: number;
 }
 
-// JWT secret from environment variable with fallback
-const JWT_SECRET = process.env.JWT_SECRET || 'your-fallback-secret-key-change-in-production';
+/**
+ * Validates that all required environment variables are present
+ * Throws an error with specific missing variables if any are not set
+ */
+function validateRequiredEnvVars(): void {
+  const required = ['JWT_SECRET', 'ADMIN_USERNAME', 'ADMIN_PASSWORD'];
+  const missing = required.filter(key => !process.env[key] || process.env[key]!.trim() === '');
+  
+  if (missing.length > 0) {
+    throw new Error(
+      `CRITICAL SECURITY ERROR: Missing required environment variables: ${missing.join(', ')}\n` +
+      'These must be set for secure authentication:\n' +
+      '- JWT_SECRET: A strong random secret for signing JWT tokens (at least 32 characters)\n' +
+      '- ADMIN_USERNAME: The admin username for accessing the admin panel\n' +
+      '- ADMIN_PASSWORD: A strong password for admin authentication\n\n' +
+      'Please set these environment variables and restart the application.'
+    );
+  }
+  
+  // Additional validation for JWT_SECRET strength
+  if (process.env.JWT_SECRET!.length < 32) {
+    throw new Error(
+      'CRITICAL SECURITY ERROR: JWT_SECRET must be at least 32 characters long for security.\n' +
+      'Please use a strong, randomly generated secret.'
+    );
+  }
+}
+
+// Validate environment variables on module load
+validateRequiredEnvVars();
+
+// JWT secret from environment variable (required)
+const JWT_SECRET = process.env.JWT_SECRET!;
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '24h';
 
-// Admin credentials from environment variables
+// Admin credentials from environment variables (required)
 export const ADMIN_CREDENTIALS = {
-  username: process.env.ADMIN_USERNAME || 'handytech',
-  password: process.env.ADMIN_PASSWORD || 'Savannah2'
+  username: process.env.ADMIN_USERNAME!,
+  password: process.env.ADMIN_PASSWORD!
 };
 
 /**

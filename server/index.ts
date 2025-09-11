@@ -2,6 +2,23 @@ import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 
+/**
+ * Validates critical environment variables on startup
+ * Ensures the application doesn't start with missing security configuration
+ */
+async function validateStartupEnvironment(): Promise<void> {
+  try {
+    // Import auth module which will validate auth-related env vars
+    await import('./utils/auth.js');
+    log('✓ Environment variables validated successfully');
+  } catch (error) {
+    console.error('\n🚨 STARTUP FAILED - ENVIRONMENT CONFIGURATION ERROR 🚨\n');
+    console.error((error as Error).message);
+    console.error('\nApplication startup aborted for security reasons.\n');
+    process.exit(1);
+  }
+}
+
 const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
@@ -37,6 +54,9 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Validate environment variables before starting server
+  await validateStartupEnvironment();
+  
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {

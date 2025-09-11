@@ -63,6 +63,13 @@ export interface IStorage {
   updateAppointmentStatus(id: number, status: string): Promise<void>;
   updateAppointmentTime(id: number, startTimestamptz: Date, endTimestamptz: Date, rescheduleToken?: string, rescheduleExpires?: Date): Promise<void>;
   getUpcomingAppointments(): Promise<Appointment[]>;
+  
+  // Admin Appointment Management
+  adminUpdateAppointmentStatus(id: number, status: string, notes?: string): Promise<void>;
+  adminRescheduleAppointment(id: number, startTimestamptz: Date, endTimestamptz: Date): Promise<void>;
+  adminCancelAppointment(id: number): Promise<void>;
+  adminUpdateAppointmentCustomer(id: number, customerData: Partial<InsertCustomer>): Promise<void>;
+  deleteAppointment(id: number): Promise<void>;
 
   // Project Gallery
   getProjectGalleryItem(id: number): Promise<ProjectGallery | undefined>;
@@ -506,6 +513,82 @@ export class MemStorage implements IStorage {
     );
   }
 
+  // Admin Appointment Management Methods
+  async adminUpdateAppointmentStatus(id: number, status: string, notes?: string): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      appointment.status = status;
+      if (notes) {
+        appointment.notes = appointment.notes ? `${appointment.notes}\n\nAdmin Update: ${notes}` : `Admin Update: ${notes}`;
+      }
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async adminRescheduleAppointment(id: number, startTimestamptz: Date, endTimestamptz: Date): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      appointment.startTimestamptz = startTimestamptz;
+      appointment.endTimestamptz = endTimestamptz;
+      appointment.sequence = (appointment.sequence || 0) + 1;
+      
+      // Update legacy fields for compatibility
+      appointment.appointmentDate = startTimestamptz;
+      
+      // Format time in 12-hour format for appointmentTime
+      const hours = startTimestamptz.getHours();
+      const minutes = startTimestamptz.getMinutes();
+      const period = hours >= 12 ? 'PM' : 'AM';
+      const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+      appointment.appointmentTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+      
+      // Generate new reschedule token for customer self-service
+      const crypto = require('crypto');
+      appointment.rescheduleToken = crypto.randomBytes(24).toString('hex');
+      appointment.rescheduleExpires = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+      
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async adminCancelAppointment(id: number): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      appointment.status = "cancelled";
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async adminUpdateAppointmentCustomer(id: number, customerData: Partial<InsertCustomer>): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      // Update appointment fields
+      if (customerData.firstName) appointment.firstName = customerData.firstName;
+      if (customerData.lastName) appointment.lastName = customerData.lastName;
+      if (customerData.email) appointment.email = customerData.email;
+      if (customerData.phone) appointment.phone = customerData.phone;
+      
+      // Also update the customer record if one exists
+      if (appointment.customerId) {
+        const customer = this.customers.get(appointment.customerId);
+        if (customer) {
+          if (customerData.firstName) customer.firstName = customerData.firstName;
+          if (customerData.lastName) customer.lastName = customerData.lastName;
+          if (customerData.email) customer.email = customerData.email;
+          if (customerData.phone) customer.phone = customerData.phone;
+          if (customerData.company) customer.company = customerData.company;
+          this.customers.set(customer.id, customer);
+        }
+      }
+      
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async deleteAppointment(id: number): Promise<void> {
+    this.appointments.delete(id);
+  }
+
   // Project Gallery
   async getProjectGalleryItem(id: number): Promise<ProjectGallery | undefined> {
     return this.projectGallery.get(id);
@@ -843,6 +926,87 @@ export class DatabaseStorage implements IStorage {
     }
     
     await db.update(appointments).set(updateData).where(eq(appointments.id, id));
+  }
+
+  // Admin Appointment Management Methods
+  async adminUpdateAppointmentStatus(id: number, status: string, notes?: string): Promise<void> {
+    const updateData: any = { status };
+    
+    if (notes) {
+      // Get current appointment to append admin notes
+      const [currentAppointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+      if (currentAppointment) {
+        const existingNotes = currentAppointment.notes || "";
+        updateData.notes = existingNotes ? `${existingNotes}\n\nAdmin Update: ${notes}` : `Admin Update: ${notes}`;
+      }
+    }
+    
+    await db.update(appointments).set(updateData).where(eq(appointments.id, id));
+  }
+
+  async adminRescheduleAppointment(id: number, startTimestamptz: Date, endTimestamptz: Date): Promise<void> {
+    // Get current appointment to increment sequence
+    const [currentAppointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    
+    // Format time in 12-hour format for appointmentTime
+    const hours = startTimestamptz.getHours();
+    const minutes = startTimestamptz.getMinutes();
+    const period = hours >= 12 ? 'PM' : 'AM';
+    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    const appointmentTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+    
+    // Generate new reschedule token for customer self-service
+    const crypto = require('crypto');
+    const rescheduleToken = crypto.randomBytes(24).toString('hex');
+    const rescheduleExpires = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+    
+    const updateData = {
+      startTimestamptz,
+      endTimestamptz,
+      appointmentDate: startTimestamptz, // Update legacy field for compatibility
+      appointmentTime,
+      rescheduleToken,
+      rescheduleExpires,
+      sequence: (currentAppointment?.sequence || 0) + 1
+    };
+    
+    await db.update(appointments).set(updateData).where(eq(appointments.id, id));
+  }
+
+  async adminCancelAppointment(id: number): Promise<void> {
+    await db.update(appointments).set({ status: "cancelled" }).where(eq(appointments.id, id));
+  }
+
+  async adminUpdateAppointmentCustomer(id: number, customerData: Partial<InsertCustomer>): Promise<void> {
+    // First update the appointment fields
+    const appointmentUpdates: any = {};
+    if (customerData.firstName) appointmentUpdates.firstName = customerData.firstName;
+    if (customerData.lastName) appointmentUpdates.lastName = customerData.lastName;
+    if (customerData.email) appointmentUpdates.email = customerData.email;
+    if (customerData.phone) appointmentUpdates.phone = customerData.phone;
+    
+    if (Object.keys(appointmentUpdates).length > 0) {
+      await db.update(appointments).set(appointmentUpdates).where(eq(appointments.id, id));
+    }
+    
+    // Also update the customer record if one exists
+    const [appointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    if (appointment?.customerId) {
+      const customerUpdates: any = {};
+      if (customerData.firstName) customerUpdates.firstName = customerData.firstName;
+      if (customerData.lastName) customerUpdates.lastName = customerData.lastName;
+      if (customerData.email) customerUpdates.email = customerData.email;
+      if (customerData.phone) customerUpdates.phone = customerData.phone;
+      if (customerData.company) customerUpdates.company = customerData.company;
+      
+      if (Object.keys(customerUpdates).length > 0) {
+        await db.update(customers).set(customerUpdates).where(eq(customers.id, appointment.customerId));
+      }
+    }
+  }
+
+  async deleteAppointment(id: number): Promise<void> {
+    await db.delete(appointments).where(eq(appointments.id, id));
   }
 
   // Project Gallery

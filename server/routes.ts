@@ -13,7 +13,8 @@ import {
   insertAvailabilityRuleSchema,
   insertServiceSchema,
   insertServiceAddonSchema,
-  rescheduleRequestSchema
+  rescheduleRequestSchema,
+  type InsertCustomer
 } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
@@ -155,6 +156,193 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Failed to fetch admin schedule:", error);
       res.status(500).json({ message: "Failed to fetch schedule data" });
+    }
+  });
+
+  // Admin Appointment Management Endpoints (Protected)
+  
+  // Update appointment status
+  app.put("/api/admin/appointments/:id/status", authenticateAdmin, async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { status, notes } = req.body;
+
+      // Validate status
+      const validStatuses = ["scheduled", "completed", "cancelled", "no-show", "in-progress"];
+      if (!validStatuses.includes(status)) {
+        return res.status(400).json({ 
+          message: "Invalid status. Must be one of: " + validStatuses.join(", ") 
+        });
+      }
+
+      // Check if appointment exists
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // Update appointment status
+      await storage.adminUpdateAppointmentStatus(appointmentId, status, notes);
+
+      res.json({ 
+        success: true, 
+        message: `Appointment status updated to ${status}${notes ? ' with notes' : ''}` 
+      });
+    } catch (error) {
+      console.error("Admin appointment status update error:", error);
+      res.status(500).json({ message: "Failed to update appointment status" });
+    }
+  });
+
+  // Admin reschedule appointment
+  app.put("/api/admin/appointments/:id/reschedule", authenticateAdmin, async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { startTime, endTime, checkAvailability = true } = req.body;
+
+      // Validate input
+      if (!startTime || !endTime) {
+        return res.status(400).json({ 
+          message: "Both startTime and endTime are required" 
+        });
+      }
+
+      const startTimestamp = new Date(startTime);
+      const endTimestamp = new Date(endTime);
+
+      // Validate dates
+      if (isNaN(startTimestamp.getTime()) || isNaN(endTimestamp.getTime())) {
+        return res.status(400).json({ message: "Invalid date format" });
+      }
+
+      if (startTimestamp >= endTimestamp) {
+        return res.status(400).json({ message: "End time must be after start time" });
+      }
+
+      // Check if appointment exists
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // Optional availability check (admin can override)
+      if (checkAvailability) {
+        const durationMinutes = (endTimestamp.getTime() - startTimestamp.getTime()) / (1000 * 60);
+        const searchStart = new Date(startTimestamp.getTime() - (24 * 60 * 60 * 1000));
+        const searchEnd = new Date(startTimestamp.getTime() + (24 * 60 * 60 * 1000));
+
+        try {
+          const availableSlots = await getOpenSlots(
+            storage,
+            searchStart,
+            searchEnd,
+            durationMinutes,
+            30, // 30-minute steps
+            15  // 15-minute buffer
+          );
+
+          // Check if the requested time slot is available
+          const isAvailable = availableSlots.some(slotISO => {
+            const slotStart = new Date(slotISO);
+            const slotEnd = new Date(slotStart.getTime() + (durationMinutes * 60 * 1000));
+            return slotStart <= startTimestamp && slotEnd >= endTimestamp;
+          });
+
+          if (!isAvailable) {
+            return res.status(409).json({ 
+              message: "Time slot is not available. Use 'checkAvailability: false' to override." 
+            });
+          }
+        } catch (availabilityError) {
+          console.warn("Availability check failed:", availabilityError);
+          // Continue with reschedule even if availability check fails
+        }
+      }
+
+      // Perform the reschedule
+      await storage.adminRescheduleAppointment(appointmentId, startTimestamp, endTimestamp);
+
+      res.json({ 
+        success: true, 
+        message: "Appointment rescheduled successfully" 
+      });
+    } catch (error) {
+      console.error("Admin appointment reschedule error:", error);
+      res.status(500).json({ message: "Failed to reschedule appointment" });
+    }
+  });
+
+  // Cancel/Delete appointment
+  app.delete("/api/admin/appointments/:id", authenticateAdmin, async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { action = "cancel" } = req.body; // "cancel" or "delete"
+
+      // Check if appointment exists
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      if (action === "delete") {
+        // Permanently delete the appointment
+        await storage.deleteAppointment(appointmentId);
+        res.json({ 
+          success: true, 
+          message: "Appointment deleted permanently" 
+        });
+      } else {
+        // Cancel the appointment (change status)
+        await storage.adminCancelAppointment(appointmentId);
+        res.json({ 
+          success: true, 
+          message: "Appointment cancelled" 
+        });
+      }
+    } catch (error) {
+      console.error("Admin appointment cancel/delete error:", error);
+      res.status(500).json({ message: "Failed to cancel/delete appointment" });
+    }
+  });
+
+  // Update appointment customer details
+  app.put("/api/admin/appointments/:id/customer", authenticateAdmin, async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const customerUpdates = req.body;
+
+      // Check if appointment exists
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // Validate customer data (partial validation)
+      const validFields = ["firstName", "lastName", "email", "phone", "company"];
+      const updates: Partial<InsertCustomer> = {};
+      
+      for (const field of validFields) {
+        if (customerUpdates[field] !== undefined) {
+          updates[field as keyof InsertCustomer] = customerUpdates[field];
+        }
+      }
+
+      if (Object.keys(updates).length === 0) {
+        return res.status(400).json({ 
+          message: "No valid customer fields provided for update" 
+        });
+      }
+
+      // Update customer details
+      await storage.adminUpdateAppointmentCustomer(appointmentId, updates);
+
+      res.json({ 
+        success: true, 
+        message: "Customer details updated successfully" 
+      });
+    } catch (error) {
+      console.error("Admin appointment customer update error:", error);
+      res.status(500).json({ message: "Failed to update customer details" });
     }
   });
 
