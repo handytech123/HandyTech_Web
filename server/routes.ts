@@ -140,6 +140,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin schedule endpoint - Get comprehensive schedule view
+  app.get("/api/admin/schedule", async (req, res) => {
+    try {
+      // Fetch all appointments and blocked times for admin view
+      const [appointments, blockedTimes] = await Promise.all([
+        storage.getAllAppointments(),
+        storage.getBlockedTimes()
+      ]);
+
+      // Sort appointments by start time for better admin viewing
+      const sortedAppointments = appointments.sort((a, b) => 
+        new Date(a.startTimestamptz || a.appointmentDate).getTime() - 
+        new Date(b.startTimestamptz || b.appointmentDate).getTime()
+      );
+
+      // Sort blocked times by start time
+      const sortedBlockedTimes = blockedTimes.sort((a, b) =>
+        new Date(a.startTimestamptz).getTime() - new Date(b.startTimestamptz).getTime()
+      );
+
+      res.json({
+        appointments: sortedAppointments,
+        blockedTimes: sortedBlockedTimes
+      });
+    } catch (error) {
+      console.error("Failed to fetch admin schedule:", error);
+      res.status(500).json({ message: "Failed to fetch schedule data" });
+    }
+  });
+
   // Customer routes
   app.get("/api/customers", async (req, res) => {
     try {
