@@ -1,7 +1,7 @@
 {
   "appName": "HandyTech Solutions",
-  "version": "3.0.0",
-  "description": "Professional handyman services platform with comprehensive business management, appointment scheduling, customer portal, AI chatbot, and automated communications",
+  "version": "4.0.0",
+  "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, customer portal, AI chatbot, and automated communications",
   "type": "nodejs",
   "deploymentType": "dynamic",
   "architecture": "full-stack",
@@ -19,7 +19,7 @@
   "packageManager": "npm",
   "requiredServices": ["nodejs", "npm", "postgresql"],
   
-  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "JWT_SECRET", "ADMIN_USERNAME", "ADMIN_PASSWORD"],
+  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET", "ADMIN_PASS", "ALLOWED_ORIGINS"],
   
   "requiredSecrets": [
     {
@@ -28,32 +28,24 @@
       "required": true,
       "category": "database",
       "example": "postgresql://username:password@hostname:port/database",
-      "notes": "Standard PostgreSQL connection string format"
+      "notes": "Standard PostgreSQL connection string format. Used for both app data and session storage."
     },
     {
-      "key": "JWT_SECRET",
-      "description": "Secret key for JWT token signing (minimum 32 characters for security)",
+      "key": "SESSION_SECRET",
+      "description": "Secret key for session encryption and signing (minimum 32 characters for security)",
       "required": true,
       "category": "security",
-      "example": "your-strong-random-jwt-secret-at-least-32-characters-long",
+      "example": "your-strong-random-session-secret-at-least-32-characters-long",
       "validation": "Must be at least 32 characters long",
-      "notes": "Critical for admin authentication security"
+      "notes": "Critical for cookie-based session security. Used for express-session encryption and CSRF protection."
     },
     {
-      "key": "ADMIN_USERNAME", 
-      "description": "Admin portal login username",
-      "required": true,
-      "category": "authentication",
-      "example": "admin",
-      "notes": "Username for accessing admin dashboard"
-    },
-    {
-      "key": "ADMIN_PASSWORD",
+      "key": "ADMIN_PASS",
       "description": "Admin portal login password (use a strong password)", 
       "required": true,
       "category": "authentication",
       "example": "SecureAdminPassword123!",
-      "notes": "Strong password required for admin authentication"
+      "notes": "Strong password required for cookie-based admin authentication. No username required."
     }
   ],
   
@@ -179,12 +171,38 @@
       "notes": "Recommended for webhook security validation"
     },
     {
+      "key": "ALLOWED_ORIGINS",
+      "description": "Comma-separated list of allowed CORS origins for production",
+      "required": false,
+      "category": "security",
+      "example": "https://handytech-solutions.com,https://www.handytech-solutions.com",
+      "notes": "Required in production. No wildcards allowed for security. Development allows localhost automatically."
+    },
+    {
+      "key": "JWT_SECRET",
+      "description": "Legacy JWT secret (still used for some operations)",
+      "required": false,
+      "category": "security",
+      "example": "your-strong-random-jwt-secret-at-least-32-characters-long",
+      "validation": "Must be at least 32 characters long",
+      "notes": "Fallback for JWT operations. Primary auth uses cookie sessions."
+    },
+    {
+      "key": "ADMIN_USERNAME",
+      "description": "Legacy admin username (deprecated - not used in cookie auth)",
+      "required": false,
+      "category": "authentication",
+      "example": "admin",
+      "notes": "Deprecated in cookie-based auth system. Only ADMIN_PASS is required."
+    },
+    {
       "key": "JWT_EXPIRES_IN",
-      "description": "JWT token expiration duration",
+      "description": "JWT token expiration duration (legacy)",
       "required": false,
       "category": "security",
       "example": "24h",
-      "default": "24h"
+      "default": "24h",
+      "notes": "Legacy setting for JWT operations. Session-based auth uses express-session configuration."
     }
   ],
   
@@ -202,7 +220,10 @@
     "Automated Email Confirmations & Reminders",
     "Live Chat Administration",
     "Customer Self-Service Reschedule Portal",
-    "Secure JWT Admin Authentication",
+    "Enterprise Cookie-Based Admin Authentication",
+    "CSRF Protection for All Admin Operations",
+    "PostgreSQL Session Storage for Scalability",
+    "Security Headers and Rate Limiting",
     "Email Campaign Management",
     "Maintenance Plans Tracking",
     "Calendly Webhook Integration (configurable)",
@@ -247,12 +268,19 @@
   ],
   
   "security": {
-    "authentication": "JWT-based admin authentication",
+    "authentication": "Enterprise cookie-based admin authentication with httpOnly sessions",
+    "sessionManagement": "PostgreSQL-backed session storage using connect-pg-simple",
+    "csrfProtection": "CSRF tokens required for all state-changing operations",
     "passwordPolicy": "Strong passwords required for admin accounts",
-    "secretsValidation": "Environment variable validation on startup",
-    "tokenSecurity": "Minimum 32-character JWT secrets enforced",
+    "secretsValidation": "Environment variable validation on startup with minimum length enforcement",
+    "securityHeaders": "Comprehensive security headers via Helmet (CSP, HSTS, X-Frame-Options, etc.)",
+    "rateLimiting": "Multiple rate limiting tiers (public, sensitive, auth attempts)",
+    "corsPolicy": "Environment-based CORS with production whitelist (no wildcards)",
+    "inputSanitization": "XSS protection and input sanitization middleware",
+    "cookieSecurity": "Secure httpOnly cookies with SameSite protection",
     "emailSecurity": "TLS encryption for SMTP communications",
-    "webhookSecurity": "Signature verification for external webhooks"
+    "webhookSecurity": "Signature verification for external webhooks",
+    "productionHardening": "Strict security policies enforced in production environment"
   },
   
   "integrations": {
@@ -312,7 +340,7 @@
   "healthCheck": {
     "path": "/api/health",
     "timeout": 30,
-    "checks": ["database_connection", "jwt_configuration"]
+    "checks": ["database_connection", "session_configuration", "security_headers", "csrf_functionality"]
   },
   
   "performance": {
@@ -328,7 +356,13 @@
       "@tanstack/react-query",
       "drizzle-orm", 
       "express",
-      "jsonwebtoken",
+      "express-session",
+      "connect-pg-simple",
+      "helmet",
+      "cors",
+      "express-rate-limit",
+      "cookie-parser",
+      "csrf",
       "openai",
       "nodemailer",
       "sib-api-v3-sdk",
