@@ -15,65 +15,102 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon, Plus, Trash2, Clock } from "lucide-react";
 import { format } from "date-fns";
-import { insertBlockedDateSchema } from "@shared/schema";
+import { insertBlockedTimeSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
-import type { BlockedDate } from "@shared/schema";
+import type { BlockedTime } from "@shared/schema";
 
-const blockedDateFormSchema = insertBlockedDateSchema.extend({
-  date: z.date({
-    required_error: "Please select a date",
+const blockedTimeFormSchema = insertBlockedTimeSchema.extend({
+  startDate: z.date({
+    required_error: "Please select a start date",
   }),
+  endDate: z.date({
+    required_error: "Please select an end date",
+  }),
+  startTime: z.string().optional(),
+  endTime: z.string().optional(),
+}).omit({
+  startTimestamptz: true,
+  endTimestamptz: true,
 });
 
-type BlockedDateFormData = z.infer<typeof blockedDateFormSchema>;
+type BlockedTimeFormData = z.infer<typeof blockedTimeFormSchema>;
 
 const timeSlots = [
   "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
   "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
 ];
 
-export default function BlockedDatesManager() {
+// Helper function to safely parse time strings and create timestamps
+function createTimestamp(date: Date, timeString: string): string {
+  const safeDate = new Date(date);
+  
+  // Parse time string like "9:00 AM" or "2:00 PM"
+  const [time, period] = timeString.split(' ');
+  const [hoursStr, minutesStr] = time.split(':');
+  let hours = parseInt(hoursStr, 10);
+  const minutes = parseInt(minutesStr, 10);
+  
+  // Convert to 24-hour format
+  if (period === 'PM' && hours !== 12) {
+    hours += 12;
+  } else if (period === 'AM' && hours === 12) {
+    hours = 0;
+  }
+  
+  // Set the time safely using setHours/setMinutes
+  safeDate.setHours(hours, minutes, 0, 0);
+  
+  return safeDate.toISOString();
+}
+
+export default function BlockedTimesManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDate, setSelectedDate] = useState<Date>();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  const { data: blockedDates = [] } = useQuery<BlockedDate[]>({
-    queryKey: ["/api/blocked-dates"]
+  const { data: blockedTimes = [] } = useQuery<BlockedTime[]>({
+    queryKey: ["/api/blocked-times"]
   });
 
-  const form = useForm<BlockedDateFormData>({
-    resolver: zodResolver(blockedDateFormSchema),
+  const form = useForm<BlockedTimeFormData>({
+    resolver: zodResolver(blockedTimeFormSchema),
     defaultValues: {
       reason: "",
-      allDay: true,
+      isFullDay: true,
       startTime: "",
       endTime: "",
     },
   });
 
-  const createBlockedDate = useMutation({
-    mutationFn: async (data: BlockedDateFormData) => {
-      const response = await fetch("/api/blocked-dates", {
+  const createBlockedTime = useMutation({
+    mutationFn: async (data: BlockedTimeFormData) => {
+      const response = await fetch("/api/blocked-times", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          ...data,
-          date: data.date.toISOString().split('T')[0], // Format as YYYY-MM-DD
+          reason: data.reason,
+          isFullDay: data.isFullDay,
+          startTimestamptz: data.isFullDay 
+            ? data.startDate.toISOString()
+            : createTimestamp(data.startDate, data.startTime!),
+          endTimestamptz: data.isFullDay
+            ? data.endDate.toISOString() 
+            : createTimestamp(data.endDate, data.endTime!),
         }),
       });
-      if (!response.ok) throw new Error("Failed to create blocked date");
+      if (!response.ok) throw new Error("Failed to create blocked time");
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Blocked date created successfully",
+        description: "Blocked time created successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/blocked-dates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blocked-times"] });
       setIsDialogOpen(false);
       form.reset();
       setSelectedDate(undefined);
@@ -81,41 +118,41 @@ export default function BlockedDatesManager() {
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to create blocked date",
+        description: "Failed to create blocked time",
         variant: "destructive",
       });
     },
   });
 
-  const deleteBlockedDate = useMutation({
+  const deleteBlockedTime = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/blocked-dates/${id}`, {
+      const response = await fetch(`/api/blocked-times/${id}`, {
         method: "DELETE",
       });
-      if (!response.ok) throw new Error("Failed to delete blocked date");
+      if (!response.ok) throw new Error("Failed to delete blocked time");
       return response.json();
     },
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Blocked date deleted successfully",
+        description: "Blocked time deleted successfully",
       });
-      queryClient.invalidateQueries({ queryKey: ["/api/blocked-dates"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/blocked-times"] });
     },
     onError: () => {
       toast({
         title: "Error",
-        description: "Failed to delete blocked date",
+        description: "Failed to delete blocked time",
         variant: "destructive",
       });
     },
   });
 
-  const onSubmit = (data: BlockedDateFormData) => {
-    createBlockedDate.mutate(data);
+  const onSubmit = (data: BlockedTimeFormData) => {
+    createBlockedTime.mutate(data);
   };
 
-  const isAllDay = form.watch("allDay");
+  const isFullDay = form.watch("isFullDay");
 
   return (
     <div className="space-y-6">
@@ -124,22 +161,22 @@ export default function BlockedDatesManager() {
           <div className="flex justify-between items-center">
             <CardTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
-              Blocked Dates Management
+              Blocked Times Management
             </CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="bg-brand-red hover:bg-brand-red-dark">
                   <Plus className="h-4 w-4 mr-2" />
-                  Block Date
+                  Block Time
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[425px]">
                 <DialogHeader>
-                  <DialogTitle>Block a Date</DialogTitle>
+                  <DialogTitle>Block a Time Period</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="date">Date</Label>
+                    <Label htmlFor="startDate">Start Date</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -156,7 +193,8 @@ export default function BlockedDatesManager() {
                           selected={selectedDate}
                           onSelect={(date) => {
                             setSelectedDate(date);
-                            form.setValue("date", date || new Date());
+                            form.setValue("startDate", date || new Date());
+                            form.setValue("endDate", date || new Date());
                           }}
                           initialFocus
                         />
@@ -175,8 +213,8 @@ export default function BlockedDatesManager() {
                   <div className="space-y-2">
                     <Label>Time Block</Label>
                     <Select
-                      value={isAllDay ? "true" : "false"}
-                      onValueChange={(value) => form.setValue("allDay", value === "true")}
+                      value={isFullDay ? "true" : "false"}
+                      onValueChange={(value) => form.setValue("isFullDay", value === "true")}
                     >
                       <SelectTrigger>
                         <SelectValue />
@@ -188,7 +226,7 @@ export default function BlockedDatesManager() {
                     </Select>
                   </div>
 
-                  {!isAllDay && (
+                  {!isFullDay && (
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-2">
                         <Label>Start Time</Label>
@@ -241,9 +279,9 @@ export default function BlockedDatesManager() {
                     <Button
                       type="submit"
                       className="bg-brand-red hover:bg-brand-red-dark"
-                      disabled={createBlockedDate.isPending}
+                      disabled={createBlockedTime.isPending}
                     >
-                      {createBlockedDate.isPending ? "Creating..." : "Block Date"}
+                      {createBlockedTime.isPending ? "Creating..." : "Block Time"}
                     </Button>
                   </div>
                 </form>
@@ -252,19 +290,19 @@ export default function BlockedDatesManager() {
           </div>
         </CardHeader>
         <CardContent>
-          {blockedDates.length > 0 ? (
+          {blockedTimes.length > 0 ? (
             <div className="space-y-3">
-              {blockedDates
-                .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
-                .map((blockedDate) => (
+              {blockedTimes
+                .sort((a, b) => new Date(a.startTimestamptz).getTime() - new Date(b.startTimestamptz).getTime())
+                .map((blockedTime) => (
                   <div
-                    key={blockedDate.id}
+                    key={blockedTime.id}
                     className="flex items-center justify-between p-4 border rounded-lg bg-red-50 border-red-200"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <h3 className="font-semibold">
-                          {format(new Date(blockedDate.date), "EEEE, MMMM d, yyyy")}
+                          {format(new Date(blockedTime.startTimestamptz), "EEEE, MMMM d, yyyy")}
                         </h3>
                         <Badge variant="destructive" className="text-xs">
                           Blocked
@@ -272,17 +310,17 @@ export default function BlockedDatesManager() {
                       </div>
                       
                       <div className="text-sm text-gray-600 space-y-1">
-                        {blockedDate.reason && (
-                          <p><strong>Reason:</strong> {blockedDate.reason}</p>
+                        {blockedTime.reason && (
+                          <p><strong>Reason:</strong> {blockedTime.reason}</p>
                         )}
                         
                         <div className="flex items-center gap-2">
                           <Clock className="h-3 w-3" />
-                          {blockedDate.allDay ? (
+                          {blockedTime.isFullDay ? (
                             <span>All Day</span>
                           ) : (
                             <span>
-                              {blockedDate.startTime} - {blockedDate.endTime}
+                              {format(new Date(blockedTime.startTimestamptz), "h:mm a")} - {format(new Date(blockedTime.endTimestamptz), "h:mm a")}
                             </span>
                           )}
                         </div>
@@ -292,8 +330,8 @@ export default function BlockedDatesManager() {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => deleteBlockedDate.mutate(blockedDate.id)}
-                      disabled={deleteBlockedDate.isPending}
+                      onClick={() => deleteBlockedTime.mutate(blockedTime.id)}
+                      disabled={deleteBlockedTime.isPending}
                       className="text-red-600 hover:text-red-700 hover:bg-red-50"
                     >
                       <Trash2 className="h-4 w-4" />
@@ -304,8 +342,8 @@ export default function BlockedDatesManager() {
           ) : (
             <div className="text-center py-8 text-gray-500">
               <CalendarIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-              <p>No blocked dates set</p>
-              <p className="text-sm">Click "Block Date" to prevent appointments on specific dates</p>
+              <p>No blocked times set</p>
+              <p className="text-sm">Click "Block Time" to prevent appointments during specific periods</p>
             </div>
           )}
         </CardContent>

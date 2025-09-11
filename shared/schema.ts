@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, date, varchar } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, date, varchar, time } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -70,6 +70,11 @@ export const appointments = pgTable("appointments", {
   serviceType: text("service_type").notNull(),
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentTime: text("appointment_time").notNull(),
+  startTimestamptz: timestamp("start_timestamptz", { withTimezone: true }),
+  endTimestamptz: timestamp("end_timestamptz", { withTimezone: true }),
+  rescheduleToken: varchar("reschedule_token", { length: 64 }),
+  rescheduleExpires: timestamp("reschedule_expires", { withTimezone: true }),
+  sequence: integer("sequence").default(0),
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'confirmed', 'completed', 'cancelled'
   source: text("source").notNull().default("manual"), // 'calendly', 'manual', 'chatbot'
   calendlyEventId: text("calendly_event_id"), // Store Calendly's unique event ID
@@ -128,6 +133,11 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
   status: true,
+}).extend({
+  appointmentDate: z.coerce.date(),
+  startTimestamptz: z.coerce.date().optional(),
+  endTimestamptz: z.coerce.date().optional(),
+  rescheduleExpires: z.coerce.date().optional(),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
@@ -135,17 +145,33 @@ export const insertProjectGallerySchema = createInsertSchema(projectGallery).omi
   createdAt: true,
 });
 
-export const blockedDates = pgTable("blocked_dates", {
+export const blockedTimes = pgTable("blocked_times", {
   id: serial("id").primaryKey(),
-  date: date("date").notNull(),
+  startTimestamptz: timestamp("start_timestamptz", { withTimezone: true }).notNull(),
+  endTimestamptz: timestamp("end_timestamptz", { withTimezone: true }).notNull(),
   reason: text("reason"),
-  allDay: boolean("all_day").default(true),
-  startTime: text("start_time"),
-  endTime: text("end_time"),
+  isFullDay: boolean("is_full_day").default(true),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
-export const insertBlockedDateSchema = createInsertSchema(blockedDates).omit({
+export const availabilityRules = pgTable("availability_rules", {
+  id: serial("id").primaryKey(),
+  weekday: integer("weekday").notNull(), // 0=Sunday to 6=Saturday
+  startTime: varchar("start_time", { length: 5 }).notNull(), // format like "09:00"
+  endTime: varchar("end_time", { length: 5 }).notNull(), // format like "17:00"
+  active: boolean("active").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export const insertBlockedTimeSchema = createInsertSchema(blockedTimes).omit({
+  id: true,
+  createdAt: true,
+}).extend({
+  startTimestamptz: z.coerce.date(),
+  endTimestamptz: z.coerce.date(),
+});
+
+export const insertAvailabilityRuleSchema = createInsertSchema(availabilityRules).omit({
   id: true,
   createdAt: true,
 });
@@ -213,8 +239,11 @@ export type InsertAppointment = z.infer<typeof insertAppointmentSchema>;
 export type ProjectGallery = typeof projectGallery.$inferSelect;
 export type InsertProjectGallery = z.infer<typeof insertProjectGallerySchema>;
 
-export type BlockedDate = typeof blockedDates.$inferSelect;
-export type InsertBlockedDate = z.infer<typeof insertBlockedDateSchema>;
+export type BlockedTime = typeof blockedTimes.$inferSelect;
+export type InsertBlockedTime = z.infer<typeof insertBlockedTimeSchema>;
+
+export type AvailabilityRule = typeof availabilityRules.$inferSelect;
+export type InsertAvailabilityRule = z.infer<typeof insertAvailabilityRuleSchema>;
 
 export type Service = typeof services.$inferSelect;
 export type InsertService = z.infer<typeof insertServiceSchema>;

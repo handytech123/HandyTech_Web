@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedDates, services, serviceAddons,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -8,12 +8,13 @@ import {
   type EmailCampaign, type InsertEmailCampaign,
   type Appointment, type InsertAppointment,
   type ProjectGallery, type InsertProjectGallery,
-  type BlockedDate, type InsertBlockedDate,
+  type BlockedTime, type InsertBlockedTime,
+  type AvailabilityRule, type InsertAvailabilityRule,
   type Service, type InsertService,
   type ServiceAddon, type InsertServiceAddon
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte } from "drizzle-orm";
+import { eq, desc, and, gte, lte } from "drizzle-orm";
 
 export interface IStorage {
   // Users
@@ -68,11 +69,19 @@ export interface IStorage {
   getFeaturedProjects(): Promise<ProjectGallery[]>;
   createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery>;
 
-  // Blocked Dates
-  getBlockedDates(): Promise<BlockedDate[]>;
-  createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate>;
-  deleteBlockedDate(id: number): Promise<void>;
-  getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]>;
+  // Blocked Times
+  getBlockedTimes(): Promise<BlockedTime[]>;
+  createBlockedTime(blockedTime: InsertBlockedTime): Promise<BlockedTime>;
+  deleteBlockedTime(id: number): Promise<void>;
+  getBlockedTimesInRange(startDate: string, endDate: string): Promise<BlockedTime[]>;
+
+  // Availability Rules
+  getAvailabilityRules(): Promise<AvailabilityRule[]>;
+  getActiveAvailabilityRules(): Promise<AvailabilityRule[]>;
+  createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule>;
+  updateAvailabilityRule(id: number, updates: Partial<InsertAvailabilityRule>): Promise<void>;
+  deleteAvailabilityRule(id: number): Promise<void>;
+  toggleAvailabilityRuleStatus(id: number, active: boolean): Promise<void>;
 
   // Services Management
   getAllServices(): Promise<Service[]>;
@@ -395,12 +404,54 @@ export class MemStorage implements IStorage {
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
+    // Helper function to create timezone-aware timestamp from legacy date/time
+    const createTimestampFromLegacy = (date: Date, timeString: string): Date => {
+      const safeDate = new Date(date);
+      
+      // Parse time string like "9:00 AM" or "2:00 PM"
+      const [time, period] = timeString.split(' ');
+      const [hoursStr, minutesStr] = time.split(':');
+      let hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr, 10);
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      // Set the time safely using setHours/setMinutes
+      safeDate.setHours(hours, minutes, 0, 0);
+      return safeDate;
+    };
+
+    // Auto-populate timezone-aware fields if not provided but legacy fields exist
+    let startTimestamp = insertAppointment.startTimestamptz;
+    let endTimestamp = insertAppointment.endTimestamptz;
+
+    if (!startTimestamp && insertAppointment.appointmentDate && insertAppointment.appointmentTime) {
+      startTimestamp = createTimestampFromLegacy(insertAppointment.appointmentDate, insertAppointment.appointmentTime);
+      
+      // If no end timestamp provided, estimate based on service type (default 2 hours)
+      if (!endTimestamp) {
+        endTimestamp = new Date(startTimestamp.getTime() + (2 * 60 * 60 * 1000)); // Add 2 hours
+      }
+    }
+
     const appointment: Appointment = {
       ...insertAppointment,
       id: this.currentAppointmentId++,
       customerId: insertAppointment.customerId || null,
       phone: insertAppointment.phone || null,
       notes: insertAppointment.notes || null,
+      startTimestamptz: startTimestamp || null,
+      endTimestamptz: endTimestamp || null,
+      rescheduleToken: insertAppointment.rescheduleToken || null,
+      rescheduleExpires: insertAppointment.rescheduleExpires || null,
+      sequence: insertAppointment.sequence || 0,
+      calendlyEventId: insertAppointment.calendlyEventId || null,
+      source: insertAppointment.source || "manual",
       status: "scheduled",
       createdAt: new Date(),
     };
@@ -453,21 +504,46 @@ export class MemStorage implements IStorage {
     return item;
   }
 
-  // Blocked Dates (MemStorage placeholder - not used since we use DatabaseStorage)
-  async getBlockedDates(): Promise<BlockedDate[]> {
+  // Blocked Times (MemStorage placeholder - not used since we use DatabaseStorage)
+  async getBlockedTimes(): Promise<BlockedTime[]> {
     return [];
   }
 
-  async createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate> {
-    throw new Error("MemStorage not implemented for blocked dates");
+  async createBlockedTime(blockedTime: InsertBlockedTime): Promise<BlockedTime> {
+    throw new Error("MemStorage not implemented for blocked times");
   }
 
-  async deleteBlockedDate(id: number): Promise<void> {
-    throw new Error("MemStorage not implemented for blocked dates");
+  async deleteBlockedTime(id: number): Promise<void> {
+    throw new Error("MemStorage not implemented for blocked times");
   }
 
-  async getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]> {
+  async getBlockedTimesInRange(startDate: string, endDate: string): Promise<BlockedTime[]> {
     return [];
+  }
+
+  // Availability Rules (MemStorage placeholder - not used since we use DatabaseStorage)
+  async getAvailabilityRules(): Promise<AvailabilityRule[]> {
+    return [];
+  }
+
+  async getActiveAvailabilityRules(): Promise<AvailabilityRule[]> {
+    return [];
+  }
+
+  async createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule> {
+    throw new Error("MemStorage not implemented for availability rules");
+  }
+
+  async updateAvailabilityRule(id: number, updates: Partial<InsertAvailabilityRule>): Promise<void> {
+    throw new Error("MemStorage not implemented for availability rules");
+  }
+
+  async deleteAvailabilityRule(id: number): Promise<void> {
+    throw new Error("MemStorage not implemented for availability rules");
+  }
+
+  async toggleAvailabilityRuleStatus(id: number, active: boolean): Promise<void> {
+    throw new Error("MemStorage not implemented for availability rules");
   }
 
   // Services Management (MemStorage placeholder - not used since we use DatabaseStorage)
@@ -654,8 +730,42 @@ export class DatabaseStorage implements IStorage {
     return await db.select().from(appointments).where(eq(appointments.customerId, customerId));
   }
 
-  async createAppointment(appointment: InsertAppointment): Promise<Appointment> {
-    const [created] = await db.insert(appointments).values(appointment).returning();
+  async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
+    // Helper function to create timezone-aware timestamp from legacy date/time
+    const createTimestampFromLegacy = (date: Date, timeString: string): Date => {
+      const safeDate = new Date(date);
+      
+      // Parse time string like "9:00 AM" or "2:00 PM"
+      const [time, period] = timeString.split(' ');
+      const [hoursStr, minutesStr] = time.split(':');
+      let hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr, 10);
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      // Set the time safely using setHours/setMinutes
+      safeDate.setHours(hours, minutes, 0, 0);
+      return safeDate;
+    };
+
+    // Auto-populate timezone-aware fields if not provided but legacy fields exist
+    let appointmentData = { ...insertAppointment };
+
+    if (!appointmentData.startTimestamptz && appointmentData.appointmentDate && appointmentData.appointmentTime) {
+      appointmentData.startTimestamptz = createTimestampFromLegacy(appointmentData.appointmentDate, appointmentData.appointmentTime);
+      
+      // If no end timestamp provided, estimate based on service type (default 2 hours)
+      if (!appointmentData.endTimestamptz) {
+        appointmentData.endTimestamptz = new Date(appointmentData.startTimestamptz.getTime() + (2 * 60 * 60 * 1000)); // Add 2 hours
+      }
+    }
+
+    const [created] = await db.insert(appointments).values(appointmentData).returning();
     return created;
   }
 
@@ -693,24 +803,57 @@ export class DatabaseStorage implements IStorage {
     return created;
   }
 
-  // Blocked Dates
-  async getBlockedDates(): Promise<BlockedDate[]> {
-    return await db.select().from(blockedDates).orderBy(blockedDates.date);
+  // Blocked Times
+  async getBlockedTimes(): Promise<BlockedTime[]> {
+    return await db.select().from(blockedTimes).orderBy(blockedTimes.startTimestamptz);
   }
 
-  async createBlockedDate(blockedDate: InsertBlockedDate): Promise<BlockedDate> {
-    const [created] = await db.insert(blockedDates).values(blockedDate).returning();
+  async createBlockedTime(blockedTime: InsertBlockedTime): Promise<BlockedTime> {
+    const [created] = await db.insert(blockedTimes).values(blockedTime).returning();
     return created;
   }
 
-  async deleteBlockedDate(id: number): Promise<void> {
-    await db.delete(blockedDates).where(eq(blockedDates.id, id));
+  async deleteBlockedTime(id: number): Promise<void> {
+    await db.delete(blockedTimes).where(eq(blockedTimes.id, id));
   }
 
-  async getBlockedDatesInRange(startDate: string, endDate: string): Promise<BlockedDate[]> {
-    return await db.select().from(blockedDates)
-      .where(and(gte(blockedDates.date, startDate), gte(blockedDates.date, startDate)))
-      .orderBy(blockedDates.date);
+  async getBlockedTimesInRange(startDate: string, endDate: string): Promise<BlockedTime[]> {
+    return await db.select().from(blockedTimes)
+      .where(and(
+        gte(blockedTimes.startTimestamptz, new Date(startDate)),
+        lte(blockedTimes.endTimestamptz, new Date(endDate))
+      ))
+      .orderBy(blockedTimes.startTimestamptz);
+  }
+
+  // Availability Rules
+  async getAvailabilityRules(): Promise<AvailabilityRule[]> {
+    return await db.select().from(availabilityRules).orderBy(availabilityRules.weekday, availabilityRules.startTime);
+  }
+
+  async getActiveAvailabilityRules(): Promise<AvailabilityRule[]> {
+    return await db.select().from(availabilityRules)
+      .where(eq(availabilityRules.active, true))
+      .orderBy(availabilityRules.weekday, availabilityRules.startTime);
+  }
+
+  async createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule> {
+    const [created] = await db.insert(availabilityRules).values(rule).returning();
+    return created;
+  }
+
+  async updateAvailabilityRule(id: number, updates: Partial<InsertAvailabilityRule>): Promise<void> {
+    await db.update(availabilityRules).set(updates).where(eq(availabilityRules.id, id));
+  }
+
+  async deleteAvailabilityRule(id: number): Promise<void> {
+    await db.delete(availabilityRules).where(eq(availabilityRules.id, id));
+  }
+
+  async toggleAvailabilityRuleStatus(id: number, active: boolean): Promise<void> {
+    await db.update(availabilityRules)
+      .set({ active })
+      .where(eq(availabilityRules.id, id));
   }
 
   // Services Management

@@ -9,7 +9,8 @@ import {
   insertEmailCampaignSchema,
   insertAppointmentSchema,
   insertProjectGallerySchema,
-  insertBlockedDateSchema,
+  insertBlockedTimeSchema,
+  insertAvailabilityRuleSchema,
   insertServiceSchema,
   insertServiceAddonSchema
 } from "@shared/schema";
@@ -851,37 +852,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Blocked Dates routes
-  app.get("/api/blocked-dates", async (req, res) => {
+  // Blocked Times routes (updated from blocked dates)
+  app.get("/api/blocked-times", async (req, res) => {
     try {
-      const blockedDates = await storage.getBlockedDates();
-      res.json(blockedDates);
+      const blockedTimes = await storage.getBlockedTimes();
+      res.json(blockedTimes);
     } catch (error) {
-      res.status(500).json({ message: "Failed to fetch blocked dates" });
+      res.status(500).json({ message: "Failed to fetch blocked times" });
     }
   });
 
-  app.post("/api/blocked-dates", async (req, res) => {
+  app.post("/api/blocked-times", async (req, res) => {
     try {
-      const validatedData = insertBlockedDateSchema.parse(req.body);
-      const blockedDate = await storage.createBlockedDate(validatedData);
-      res.status(201).json(blockedDate);
+      const validatedData = insertBlockedTimeSchema.parse(req.body);
+      const blockedTime = await storage.createBlockedTime(validatedData);
+      res.status(201).json(blockedTime);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid blocked date data", errors: error.errors });
+        res.status(400).json({ message: "Invalid blocked time data", errors: error.errors });
       } else {
-        res.status(500).json({ message: "Failed to create blocked date" });
+        res.status(500).json({ message: "Failed to create blocked time" });
       }
     }
   });
 
-  app.delete("/api/blocked-dates/:id", async (req, res) => {
+  app.delete("/api/blocked-times/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      await storage.deleteBlockedDate(id);
-      res.json({ message: "Blocked date deleted successfully" });
+      await storage.deleteBlockedTime(id);
+      res.json({ message: "Blocked time deleted successfully" });
     } catch (error) {
-      res.status(500).json({ message: "Failed to delete blocked date" });
+      res.status(500).json({ message: "Failed to delete blocked time" });
+    }
+  });
+
+  // Availability Rules routes
+  app.get("/api/availability-rules", async (req, res) => {
+    try {
+      const rules = await storage.getAvailabilityRules();
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch availability rules" });
+    }
+  });
+
+  app.get("/api/availability-rules/active", async (req, res) => {
+    try {
+      const rules = await storage.getActiveAvailabilityRules();
+      res.json(rules);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch active availability rules" });
+    }
+  });
+
+  app.post("/api/availability-rules", async (req, res) => {
+    try {
+      const validatedData = insertAvailabilityRuleSchema.parse(req.body);
+      const rule = await storage.createAvailabilityRule(validatedData);
+      res.status(201).json(rule);
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid availability rule data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to create availability rule" });
+      }
+    }
+  });
+
+  app.patch("/api/availability-rules/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const updates = req.body;
+      await storage.updateAvailabilityRule(id, updates);
+      res.json({ message: "Availability rule updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update availability rule" });
+    }
+  });
+
+  app.delete("/api/availability-rules/:id", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      await storage.deleteAvailabilityRule(id);
+      res.json({ message: "Availability rule deleted successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete availability rule" });
+    }
+  });
+
+  app.patch("/api/availability-rules/:id/toggle", async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      const { active } = req.body;
+      await storage.toggleAvailabilityRuleStatus(id, active);
+      res.json({ message: "Availability rule status updated successfully" });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to toggle availability rule status" });
     }
   });
 
