@@ -1,5 +1,6 @@
 import type { IStorage } from "../storage";
 import type { AvailabilityRule, Appointment, BlockedTime } from "@shared/schema";
+import { fromZonedTime } from "date-fns-tz";
 
 // Interface for time intervals representing busy periods
 interface TimeInterval {
@@ -230,16 +231,27 @@ function intersectWindowWithBounds(
 
 /**
  * Create an availability window for a specific day and availability rule
+ * Properly handles timezone conversion for Central Time business hours
  */
 function createAvailabilityWindow(date: Date, rule: AvailabilityRule): AvailabilityWindow {
   const startTime = parseTimeString(rule.startTime);
   const endTime = parseTimeString(rule.endTime);
 
-  const windowStart = new Date(date);
-  windowStart.setHours(startTime.hours, startTime.minutes, 0, 0);
-
-  const windowEnd = new Date(date);
-  windowEnd.setHours(endTime.hours, endTime.minutes, 0, 0);
+  // Convert business local times to UTC properly
+  const businessTz = 'America/Chicago';
+  
+  // Format the date for timezone conversion
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const dateStr = `${year}-${month}-${day}`;
+  
+  // Create local time strings and convert to UTC
+  const startTimeStr = `${rule.startTime}:00`;
+  const endTimeStr = `${rule.endTime}:00`;
+  
+  const windowStart = fromZonedTime(`${dateStr}T${startTimeStr}`, businessTz);
+  const windowEnd = fromZonedTime(`${dateStr}T${endTimeStr}`, businessTz);
 
   // Validate for overnight rules (endTime < startTime)
   if (windowEnd <= windowStart) {
