@@ -21,6 +21,7 @@ import { EmailService } from "./utils/mail";
 import axios from "axios";
 import crypto from "crypto";
 import { getOpenSlots } from "./utils/availability";
+import { fromZonedTime } from "date-fns-tz";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
@@ -374,8 +375,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Get duration from request (user-selected) or fallback to service type mapping
       const durationHours = appointmentData.durationHours || serviceDurations[appointmentData.serviceType] || 2;
       
-      // Compute timestamps from appointmentDate and appointmentTime
-      const appointmentDateTime = new Date(appointmentData.appointmentDate);
+      // Compute timestamps from appointmentDate and appointmentTime in Central Time
       const [timeStr, period] = appointmentData.appointmentTime.split(' ');
       const [hoursStr, minutesStr] = timeStr.split(':');
       let hours = parseInt(hoursStr, 10);
@@ -388,9 +388,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hours = 0;
       }
       
-      appointmentDateTime.setHours(hours, minutes, 0, 0);
+      // Create appointment time in Central Time, then convert to UTC
+      const businessTz = 'America/Chicago';
+      const appointmentDate = new Date(appointmentData.appointmentDate);
+      const year = appointmentDate.getFullYear();
+      const month = (appointmentDate.getMonth() + 1).toString().padStart(2, '0');
+      const day = appointmentDate.getDate().toString().padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
       
-      const startTimestamptz = new Date(appointmentDateTime);
+      const timeStr24 = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      const startTimestamptz = fromZonedTime(`${dateStr}T${timeStr24}`, businessTz);
       const endTimestamptz = new Date(startTimestamptz.getTime() + (durationHours * 60 * 60 * 1000));
       
       // Generate reschedule token (24-byte hex)
