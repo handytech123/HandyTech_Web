@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupSecurity, rlPublic } from "./security";
+import { setupSecurity, rlPublic, useCSRF, sanitizeInput } from "./security";
 
 /**
  * Validates critical environment variables on startup
@@ -28,6 +28,12 @@ setupSecurity(app);
 // Basic body parsing middleware (after security setup)
 app.use(express.json());
 app.use(express.urlencoded({ extended: false }));
+
+// Apply input sanitization after body parsing so it can sanitize req.body
+app.use(sanitizeInput);
+
+// Apply CSRF protection after body parsing but before routes
+app.use(useCSRF);
 
 // Apply public rate limiting to all routes
 app.use(rlPublic);

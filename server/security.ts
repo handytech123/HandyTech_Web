@@ -3,8 +3,10 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import cookieParser from "cookie-parser";
 import session from "express-session";
+import connectPgSimple from "connect-pg-simple";
 import csrf from "csrf";
 import type { Request, Response, NextFunction, Express } from "express";
+import { pool } from "./db";
 
 // CSRF tokens manager - modern approach using 'csrf' package
 const tokens = new csrf();
@@ -16,21 +18,59 @@ export const useHelmet = helmet({
     directives: {
       defaultSrc: ["'self'"],
       styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      scriptSrc: ["'self'", "'unsafe-inline'"],
+      // Production: Remove 'unsafe-inline' and use nonces/hashes for scripts
+      scriptSrc: process.env.NODE_ENV === "production" 
+        ? ["'self'"] // More restrictive for production
+        : ["'self'", "'unsafe-inline'"], // Allow inline scripts in development
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "ws:", "wss:"]
+      connectSrc: ["'self'", "ws:", "wss:"],
+      // Production hardening
+      objectSrc: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"]
     }
   }
 });
 
-// CORS middleware - allow localhost and replit.dev origins with credentials
+/**
+ * Validates and parses CORS origins from environment variables
+ * Prevents wildcard patterns in production for security
+ */
+function getProductionCorsOrigins(): string[] {
+  const allowedOrigins = process.env.ALLOWED_ORIGINS;
+  
+  if (!allowedOrigins) {
+    throw new Error(
+      'ALLOWED_ORIGINS environment variable is required in production. ' +
+      'Set it to a comma-separated list of allowed domains (e.g., "https://yourdomain.com,https://app.yourdomain.com")'
+    );
+  }
+  
+  const origins = allowedOrigins.split(',').map(origin => origin.trim());
+  
+  // Validate no wildcards in production
+  const hasWildcards = origins.some(origin => origin.includes('*'));
+  if (hasWildcards) {
+    throw new Error(
+      'Wildcard origins are not allowed in production for security reasons. ' +
+      'ALLOWED_ORIGINS must contain specific domains only.'
+    );
+  }
+  
+  return origins;
+}
+
+// CORS middleware - environment-aware origin restrictions with security validation
 export const useCORS = cors({
-  origin: [
-    /^http:\/\/localhost:\d+$/,
-    /^https:\/\/.*\.replit\.dev$/,
-    /^https:\/\/.*\.repl\.co$/
-  ],
+  origin: process.env.NODE_ENV === 'production' 
+    ? getProductionCorsOrigins()
+    : [
+        // Development origins - wildcards allowed for dev flexibility
+        /^http:\/\/localhost:\d+$/,
+        /^https:\/\/.*\.replit\.dev$/,
+        /^https:\/\/.*\.repl\.co$/
+      ],
   credentials: true,
   methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-csrf-token"]
@@ -39,10 +79,35 @@ export const useCORS = cors({
 // Cookie parser middleware
 export const useCookies = cookieParser();
 
-// Session middleware with secure httpOnly cookies
+/**
+ * Creates production-ready session store using PostgreSQL
+ * Falls back to MemoryStore only in development
+ */
+function createSessionStore() {
+  if (process.env.NODE_ENV === 'production') {
+    // Production: Use PostgreSQL session store for persistence and scalability
+    const PgSession = connectPgSimple(session);
+    return new PgSession({
+      pool: pool as any, // connect-pg-simple expects pg Pool type
+      tableName: 'session', // Will auto-create table if it doesn't exist
+      schemaName: 'public',
+      createTableIfMissing: true,
+      // Session cleanup configuration
+      pruneSessionInterval: 60 * 15, // Clean expired sessions every 15 minutes
+      errorLog: console.error
+    });
+  } else {
+    // Development: MemoryStore for simplicity (not suitable for production)
+    console.warn('[SECURITY] Using MemoryStore for sessions in development mode');
+    return undefined; // Will use default MemoryStore
+  }
+}
+
+// Session middleware with secure httpOnly cookies and production-ready storage
 export const useSession = session({
   name: "ht.sid",
   secret: process.env.SESSION_SECRET || "fallback-dev-secret-change-in-production",
+  store: createSessionStore(),
   resave: false,
   saveUninitialized: false,
   rolling: true, // Reset expiration on activity
@@ -51,7 +116,7 @@ export const useSession = session({
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     maxAge: 1000 * 60 * 60 * 8, // 8 hours
-  },
+  }
 });
 
 // CSRF middleware using modern 'csrf' package
@@ -250,7 +315,7 @@ export function setupSecurity(app: Express) {
   app.use(useSession);
   app.use(ensureCSRFSecret);
   app.use(securityHeaders);
-  app.use(sanitizeInput);
+  // Note: sanitizeInput moved to index.ts after express.json() so it can sanitize req.body
   
   // Attach CSRF route
   attachCsrfRoute(app);

@@ -13,17 +13,30 @@ interface AdminPayload {
  * Throws an error with specific missing variables if any are not set
  */
 function validateRequiredEnvVars(): void {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // Base requirements for all environments
   const required = ['JWT_SECRET', 'ADMIN_USERNAME', 'ADMIN_PASSWORD'];
+  
+  // Additional requirements for production
+  if (isProduction) {
+    required.push('SESSION_SECRET', 'ALLOWED_ORIGINS');
+  }
+  
   const missing = required.filter(key => !process.env[key] || process.env[key]!.trim() === '');
   
   if (missing.length > 0) {
+    const envSpecific = isProduction ? 'production' : 'development';
     throw new Error(
-      `CRITICAL SECURITY ERROR: Missing required environment variables: ${missing.join(', ')}\n` +
+      `CRITICAL SECURITY ERROR: Missing required environment variables for ${envSpecific}: ${missing.join(', ')}\n` +
       'These must be set for secure authentication:\n' +
       '- JWT_SECRET: A strong random secret for signing JWT tokens (at least 32 characters)\n' +
       '- ADMIN_USERNAME: The admin username for accessing the admin panel\n' +
-      '- ADMIN_PASSWORD: A strong password for admin authentication\n\n' +
-      'Please set these environment variables and restart the application.'
+      '- ADMIN_PASSWORD: A strong password for admin authentication\n' +
+      (isProduction ? '\nProduction-specific requirements:\n' +
+        '- SESSION_SECRET: A strong random secret for session encryption (at least 32 characters)\n' +
+        '- ALLOWED_ORIGINS: Comma-separated list of allowed CORS origins (no wildcards)\n' : '') +
+      '\nPlease set these environment variables and restart the application.'
     );
   }
   
@@ -33,6 +46,38 @@ function validateRequiredEnvVars(): void {
       'CRITICAL SECURITY ERROR: JWT_SECRET must be at least 32 characters long for security.\n' +
       'Please use a strong, randomly generated secret.'
     );
+  }
+  
+  // Additional validation for production SESSION_SECRET
+  if (isProduction && process.env.SESSION_SECRET!.length < 32) {
+    throw new Error(
+      'CRITICAL SECURITY ERROR: SESSION_SECRET must be at least 32 characters long for production security.\n' +
+      'Please use a strong, randomly generated secret.'
+    );
+  }
+  
+  // Validate ALLOWED_ORIGINS in production
+  if (isProduction) {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS!;
+    const origins = allowedOrigins.split(',').map(origin => origin.trim());
+    
+    // Check for wildcards in production
+    const hasWildcards = origins.some(origin => origin.includes('*'));
+    if (hasWildcards) {
+      throw new Error(
+        'CRITICAL SECURITY ERROR: Wildcard origins are not allowed in production.\n' +
+        'ALLOWED_ORIGINS must contain specific domains only (e.g., "https://yourdomain.com,https://app.yourdomain.com").'
+      );
+    }
+    
+    // Validate HTTPS in production
+    const hasInsecureOrigins = origins.some(origin => origin.startsWith('http:') && !origin.includes('localhost'));
+    if (hasInsecureOrigins) {
+      console.warn(
+        'SECURITY WARNING: Some ALLOWED_ORIGINS use HTTP instead of HTTPS in production.\n' +
+        'Consider using HTTPS for better security.'
+      );
+    }
   }
 }
 
