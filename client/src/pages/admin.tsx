@@ -14,6 +14,7 @@ import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
 import BlockedDatesManager from "@/components/blocked-dates-manager";
 import ServicesManager from "@/components/services-manager";
+import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
 
@@ -189,7 +190,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-8 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-9 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
               Services
             </TabsTrigger>
@@ -198,6 +199,9 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="blocked-dates" className="flex-1 min-w-[100px] text-sm">
               Block Dates
+            </TabsTrigger>
+            <TabsTrigger value="availability-rules" className="flex-1 min-w-[100px] text-sm">
+              Availability
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
@@ -222,6 +226,10 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="blocked-dates">
             <BlockedDatesManager />
+          </TabsContent>
+
+          <TabsContent value="availability-rules">
+            <AvailabilityRulesManager />
           </TabsContent>
 
           <TabsContent value="services" className="mt-6">
