@@ -22,6 +22,7 @@ import axios from "axios";
 import crypto from "crypto";
 import { getOpenSlots } from "./utils/availability";
 import { fromZonedTime } from "date-fns-tz";
+import { authenticateAdmin, generateAdminToken, ADMIN_CREDENTIALS } from "./utils/auth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
@@ -93,17 +94,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const { username, password } = req.body;
       
-      // Simple authentication - you can change these credentials
-      const ADMIN_USERNAME = "handytech";
-      const ADMIN_PASSWORD = "Savannah2";
+      // Validate input
+      if (!username || !password) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Username and password are required" 
+        });
+      }
       
-      if (username === ADMIN_USERNAME && password === ADMIN_PASSWORD) {
-        // Generate a simple token (in production, use proper JWT)
-        const token = Buffer.from(`${username}:${Date.now()}`).toString('base64');
+      
+      // Check credentials from environment variables
+      if (username === ADMIN_CREDENTIALS.username && password === ADMIN_CREDENTIALS.password) {
+        // Generate secure JWT token
+        const token = generateAdminToken(username);
         res.json({ 
           success: true, 
           token,
-          message: "Login successful" 
+          message: "Login successful",
+          expiresIn: "24h"
         });
       } else {
         res.status(401).json({ 
@@ -112,6 +120,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
     } catch (error) {
+      console.error("Admin login error:", error);
       res.status(500).json({ 
         success: false, 
         message: "Login failed" 
@@ -119,8 +128,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Admin schedule endpoint - Get comprehensive schedule view
-  app.get("/api/admin/schedule", async (req, res) => {
+  // Admin schedule endpoint - Get comprehensive schedule view (Protected)
+  app.get("/api/admin/schedule", authenticateAdmin, async (req, res) => {
     try {
       // Fetch all appointments and blocked times for admin view
       const [appointments, blockedTimes] = await Promise.all([
@@ -942,7 +951,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin endpoints for live chat management
-  app.get("/api/admin/live-chats", (req, res) => {
+  app.get("/api/admin/live-chats", authenticateAdmin, (req, res) => {
     const sessions = Array.from(liveChatSessions.entries()).map(([id, session]) => ({
       sessionId: id,
       ...session,
@@ -951,7 +960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(sessions);
   });
 
-  app.post("/api/admin/take-chat", (req, res) => {
+  app.post("/api/admin/take-chat", authenticateAdmin, (req, res) => {
     const { sessionId } = req.body;
     const session = liveChatSessions.get(sessionId);
     
@@ -965,7 +974,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/send-message", (req, res) => {
+  app.post("/api/admin/send-message", authenticateAdmin, (req, res) => {
     const { sessionId, message } = req.body;
     const session = liveChatSessions.get(sessionId);
     
@@ -981,7 +990,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/end-chat", (req, res) => {
+  app.post("/api/admin/end-chat", authenticateAdmin, (req, res) => {
     const { sessionId } = req.body;
     liveChatSessions.delete(sessionId);
     console.log(`🔚 Admin ended chat session: ${sessionId}`);
@@ -1512,7 +1521,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Test Webhook Simulator - Admin Only
-  app.post("/api/admin/test-calendly-webhook", async (req, res) => {
+  app.post("/api/admin/test-calendly-webhook", authenticateAdmin, async (req, res) => {
     try {
       console.log("🧪 Testing Calendly webhook simulation");
       
