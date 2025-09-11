@@ -17,7 +17,7 @@ import {
 } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
-import { BrevoEmailService } from "./brevo-service";
+import { EmailService } from "./utils/mail";
 import axios from "axios";
 import crypto from "crypto";
 import { getOpenSlots } from "./utils/availability";
@@ -28,8 +28,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     apiKey: process.env.OPENAI_API_KEY
   }) : null;
 
-  // Initialize Brevo email service
-  const emailService = new BrevoEmailService();
+  // Initialize email service
+  const emailService = new EmailService();
 
   // Initialize Calendly API client
   const CALENDLY_PAT = process.env.CALENDLY_PAT;
@@ -346,8 +346,102 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Appointments routes
   app.post("/api/appointments", async (req, res) => {
     try {
+      // Parse and validate appointment data
       const appointmentData = insertAppointmentSchema.parse(req.body);
-      const appointment = await storage.createAppointment(appointmentData);
+      
+      // Service-to-duration mapping (hours)
+      const serviceDurations: Record<string, number> = {
+        "Plumbing": 2,
+        "Electrical": 3,
+        "Carpentry": 4,
+        "Technology Setup": 2,
+        "Appliance Installation": 3,
+        "Appliance Repair": 2,
+        "General Handyman": 2,
+        "Emergency Repair": 1,
+        "Home Security": 3,
+        "Custom Project": 4
+      };
+
+      // Get duration based on service type (duration is not part of the appointment schema)
+      const durationHours = serviceDurations[appointmentData.serviceType] || 2;
+      
+      // Compute timestamps from appointmentDate and appointmentTime
+      const appointmentDateTime = new Date(appointmentData.appointmentDate);
+      const [timeStr, period] = appointmentData.appointmentTime.split(' ');
+      const [hoursStr, minutesStr] = timeStr.split(':');
+      let hours = parseInt(hoursStr, 10);
+      const minutes = parseInt(minutesStr, 10);
+      
+      // Convert to 24-hour format
+      if (period === 'PM' && hours !== 12) {
+        hours += 12;
+      } else if (period === 'AM' && hours === 12) {
+        hours = 0;
+      }
+      
+      appointmentDateTime.setHours(hours, minutes, 0, 0);
+      
+      const startTimestamptz = new Date(appointmentDateTime);
+      const endTimestamptz = new Date(startTimestamptz.getTime() + (durationHours * 60 * 60 * 1000));
+      
+      // Generate reschedule token (24-byte hex)
+      const rescheduleToken = crypto.randomBytes(24).toString('hex');
+      const rescheduleExpires = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // 30 days
+      
+      // Final overlap check using availability engine
+      try {
+        console.log(`Checking availability for ${startTimestamptz.toISOString()} to ${endTimestamptz.toISOString()}`);
+        
+        // Check availability for the specific time slot
+        const searchStart = new Date(startTimestamptz.getTime() - (60 * 60 * 1000)); // 1 hour before
+        const searchEnd = new Date(endTimestamptz.getTime() + (60 * 60 * 1000)); // 1 hour after
+        const durationMinutes = durationHours * 60;
+        
+        const availableSlots = await getOpenSlots(
+          storage,
+          searchStart,
+          searchEnd,
+          durationMinutes,
+          30, // step minutes
+          15  // buffer minutes
+        );
+        
+        // Check if our requested start time is available (exact match required)
+        const requestedSlot = startTimestamptz.toISOString();
+        const slotAvailable = availableSlots.some(slot => {
+          const slotTime = new Date(slot);
+          return slotTime.getTime() === startTimestamptz.getTime(); // Exact match required
+        });
+        
+        if (!slotAvailable) {
+          console.log(`Time slot ${requestedSlot} is not available. Available slots:`, availableSlots);
+          return res.status(409).json({
+            ok: false,
+            error: "TIME_UNAVAILABLE",
+            message: "That time was just taken. Please choose another slot.",
+            availableSlots: availableSlots.slice(0, 10) // Show first 10 alternatives
+          });
+        }
+        
+      } catch (availabilityError) {
+        console.error('Availability check failed:', availabilityError);
+        // Continue with appointment creation but log the error
+      }
+      
+      // Create appointment with computed timestamps and reschedule token
+      const enhancedAppointmentData = {
+        ...appointmentData,
+        startTimestamptz,
+        endTimestamptz,
+        rescheduleToken,
+        rescheduleExpires,
+        sequence: 0,
+        status: "scheduled" as const,
+        source: appointmentData.source || "manual" as const
+      };
+      
+      const appointment = await storage.createAppointment(enhancedAppointmentData);
 
       // Auto-create customer if they don't exist
       const existingCustomer = await storage.getCustomerByEmail(appointmentData.email);
@@ -361,28 +455,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Send confirmation email
+      // Send emails with proper integration
       try {
-        await emailService.sendAppointmentConfirmation({
-          customerName: `${appointmentData.firstName} ${appointmentData.lastName}`,
-          customerEmail: appointmentData.email,
-          appointmentDate: appointmentData.appointmentDate.toISOString().split('T')[0],
-          appointmentTime: appointmentData.appointmentTime,
-          serviceType: appointmentData.serviceType,
-          description: appointmentData.notes || ''
-        });
+        // Send customer confirmation email with ICS attachment and reschedule link
+        await emailService.sendAppointmentConfirmation(appointment, rescheduleToken);
+        
+        // Send admin notification with appointment details
+        await emailService.sendAdminNotification(appointment);
+        
+        console.log(`Appointment ${appointment.id} created successfully with emails sent`);
       } catch (emailError) {
-        console.error('Failed to send confirmation email:', emailError);
+        console.error('Failed to send emails:', emailError);
         // Don't fail the appointment creation if email fails
       }
 
-      res.status(201).json(appointment);
+      res.status(201).json({
+        ...appointment,
+        rescheduleToken, // Include reschedule token in response
+        duration: durationHours
+      });
+      
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
+        res.status(400).json({ 
+          message: "Invalid appointment data", 
+          errors: error.errors 
+        });
       } else {
         console.error("Appointment creation error:", error);
-        res.status(500).json({ message: "Failed to create appointment" });
+        res.status(500).json({ 
+          message: "Failed to create appointment",
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
       }
     }
   });
@@ -1358,21 +1462,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
         console.log("✅ Created appointment:", appointment);
 
-        // Send confirmation email via Brevo
+        // Send confirmation email
         try {
-          const emailSuccess = await emailService.sendAppointmentConfirmation({
-            customerName: `${appointmentData.firstName} ${appointmentData.lastName}`,
-            customerEmail: appointmentData.email,
-            appointmentDate: appointmentData.appointmentDate.toISOString(),
-            appointmentTime: appointmentData.appointmentTime,
-            serviceType: appointmentData.serviceType,
-            description: appointmentData.notes
-          });
+          // Generate reschedule token for Calendly appointments
+          const rescheduleToken = crypto.randomBytes(24).toString('hex');
+          
+          const emailSuccess = await emailService.sendAppointmentConfirmation(appointment, rescheduleToken);
 
           if (emailSuccess) {
             console.log("📧 Confirmation email sent successfully");
           } else {
-            console.log("📧 Confirmation email skipped (Brevo not configured)");
+            console.log("📧 Confirmation email skipped (email service not configured)");
           }
         } catch (emailError) {
           console.error("📧 Failed to send confirmation email:", emailError);
