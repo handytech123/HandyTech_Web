@@ -19,6 +19,7 @@ import OpenAI from "openai";
 import { BrevoEmailService } from "./brevo-service";
 import axios from "axios";
 import crypto from "crypto";
+import { getOpenSlots } from "./utils/availability";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
@@ -1275,6 +1276,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: "Failed to test webhook" 
+      });
+    }
+  });
+
+  // Availability endpoint for scheduler system
+  app.get("/api/availability", async (req, res) => {
+    try {
+      // Define validation schema for query parameters
+      const querySchema = z.object({
+        from: z.string().refine((val) => {
+          const date = new Date(val);
+          return !isNaN(date.getTime());
+        }, { message: "Invalid ISO datetime string for 'from'" }),
+        to: z.string().refine((val) => {
+          const date = new Date(val);
+          return !isNaN(date.getTime());
+        }, { message: "Invalid ISO datetime string for 'to'" }),
+        hours: z.enum(["2", "4", "6"], {
+          errorMap: () => ({ message: "Hours must be one of: 2, 4, 6" })
+        })
+      });
+
+      // Validate query parameters
+      const validatedQuery = querySchema.parse(req.query);
+      
+      // Convert strings to dates and validate date range
+      const fromDate = new Date(validatedQuery.from);
+      const toDate = new Date(validatedQuery.to);
+      
+      if (fromDate >= toDate) {
+        return res.status(400).json({ 
+          error: "Invalid date range: 'from' must be before 'to'" 
+        });
+      }
+      
+      // Convert hours to minutes
+      const hoursToMinutes = {
+        "2": 120,
+        "4": 240,
+        "6": 360
+      };
+      const blockMinutes = hoursToMinutes[validatedQuery.hours];
+      
+      // Use default values as specified
+      const stepMinutes = 30;
+      const bufferMinutes = 15;
+      
+      // Get available slots using the availability engine
+      const slots = await getOpenSlots(
+        storage,
+        fromDate,
+        toDate,
+        blockMinutes,
+        stepMinutes,
+        bufferMinutes
+      );
+      
+      res.json({ slots });
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({ 
+          error: "Invalid query parameters", 
+          details: error.errors 
+        });
+      }
+      
+      console.error("Availability endpoint error:", error);
+      res.status(500).json({ 
+        error: "Failed to fetch availability slots" 
       });
     }
   });
