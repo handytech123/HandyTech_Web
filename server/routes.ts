@@ -246,6 +246,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const token = crypto.randomBytes(32).toString('hex');
       const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
       
+      console.log(`[DEBUG] Creating token for ${email}, expires at: ${expiresAt.toISOString()}, current time: ${new Date().toISOString()}`);
+      
       // Store hashed token in database for security
       await storage.createPortalLoginToken(
         token,
@@ -303,13 +305,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get and verify hashed token
+      console.log(`[DEBUG] Checking token at ${new Date().toISOString()}`);
       const tokenRecord = await storage.getPortalLoginTokenByHash(token);
       if (!tokenRecord) {
+        console.log(`[DEBUG] Token not found or expired for token: ${token}`);
         return res.status(401).json({ 
           success: false, 
           message: "Login link is invalid or has expired" 
         });
       }
+      console.log(`[DEBUG] Token found, expires at: ${tokenRecord.expiresAt?.toISOString()}, used at: ${tokenRecord.usedAt?.toISOString()}`)
       
       // Check if token has been used
       if (tokenRecord.usedAt) {
