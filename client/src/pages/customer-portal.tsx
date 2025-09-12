@@ -110,7 +110,8 @@ export default function CustomerPortal() {
 
   // Handle authentication states  
   if (!isAuthenticated && !authLoading) {
-    // Redirect happens automatically in useCustomerAuth
+    // Redirect to login page
+    window.location.href = "/portal/login";
     return (
       <div className="flex items-center justify-center min-h-screen bg-light-gray">
         <Card className="w-full max-w-md">
@@ -202,7 +203,7 @@ export default function CustomerPortal() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="mb-8">
           <h2 className="text-3xl font-bold text-charcoal mb-2">
-            Welcome back, {customer.firstName}!
+            Welcome back, {customer?.firstName}!
           </h2>
           <p className="text-gray-600">Manage your maintenance plans and account settings</p>
         </div>
@@ -246,7 +247,7 @@ export default function CustomerPortal() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {new Date(customer.createdAt).toLocaleDateString()}
+                    {customer?.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}
                   </div>
                   <p className="text-xs text-muted-foreground">Customer since</p>
                 </CardContent>
@@ -261,20 +262,20 @@ export default function CustomerPortal() {
                 <div className="grid md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" value={customer.firstName} readOnly />
+                    <Input id="firstName" value={customer?.firstName || ''} readOnly />
                   </div>
                   <div>
                     <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" value={customer.lastName} readOnly />
+                    <Input id="lastName" value={customer?.lastName || ''} readOnly />
                   </div>
                 </div>
                 <div>
                   <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={customer.email} readOnly />
+                  <Input id="email" value={customer?.email || ''} readOnly />
                 </div>
                 <div>
                   <Label htmlFor="company">Company</Label>
-                  <Input id="company" value={customer.company || "Not specified"} readOnly />
+                  <Input id="company" value={customer?.company || "Not specified"} readOnly />
                 </div>
               </CardContent>
             </Card>

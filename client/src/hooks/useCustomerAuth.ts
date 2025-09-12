@@ -9,6 +9,8 @@ interface CustomerData {
   email: string;
   phone?: string;
   address?: string;
+  company?: string;
+  createdAt?: Date;
 }
 
 export function useCustomerAuth() {
