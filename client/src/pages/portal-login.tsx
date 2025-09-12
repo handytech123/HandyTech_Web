@@ -35,7 +35,7 @@ export default function PortalLogin() {
     mutationFn: async (data: LoginFormData) => {
       return apiRequest("/api/portal/login", {
         method: "POST",
-        body: JSON.stringify(data),
+        body: data,
       });
     },
     onSuccess: (data, variables) => {
