@@ -102,7 +102,7 @@ export default function CustomerPortal() {
     mutationFn: async (data: UpdateProfileFormData) => {
       return apiRequest("/api/portal/profile", {
         method: "PUT",
-        body: JSON.stringify(data),
+        body: data,
       });
     },
     onSuccess: (response) => {
@@ -123,10 +123,10 @@ export default function CustomerPortal() {
     mutationFn: async (planData: { planType: string; price: number; nextBillingDate: string }) => {
       return apiRequest("/api/maintenance-plans", {
         method: "POST",
-        body: JSON.stringify({
+        body: {
           ...planData,
           customerId: customer?.id,
-        }),
+        },
       });
     },
     onSuccess: () => {
@@ -143,7 +143,7 @@ export default function CustomerPortal() {
     mutationFn: async (data: { appointmentId: number; startISO: string }) => {
       return apiRequest(`/api/portal/appointments/${data.appointmentId}/reschedule`, {
         method: "PUT",
-        body: JSON.stringify({ startISO: data.startISO }),
+        body: { startISO: data.startISO },
       });
     },
     onSuccess: () => {
