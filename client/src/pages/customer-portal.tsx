@@ -18,7 +18,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema } from "@shared/schema";
-import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter } from "lucide-react";
+import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 
@@ -72,6 +72,12 @@ export default function CustomerPortal() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   
+  // Subscription management state
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<MaintenancePlan | null>(null);
+  const [cancellationType, setCancellationType] = useState<'immediate' | 'end_of_period'>('end_of_period');
+  
   // Form setup for profile editing
   const form = useForm<UpdateProfileFormData>({
     resolver: zodResolver(updateCustomerProfileSchema),
@@ -119,22 +125,38 @@ export default function CustomerPortal() {
     },
   });
   
+  // SECURITY: Use secure portal endpoint that only accepts planType
   const subscribeToPlan = useMutation({
-    mutationFn: async (planData: { planType: string; price: number; nextBillingDate: string }) => {
-      return apiRequest("/api/maintenance-plans", {
+    mutationFn: async (planData: { planType: string }) => {
+      return apiRequest("/api/portal/maintenance-plans", {
         method: "POST",
         body: {
-          ...planData,
-          customerId: customer?.id,
+          planType: planData.planType, // Only send planType, server computes all sensitive data
         },
       });
     },
-    onSuccess: () => {
+    onSuccess: (response: any) => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
-      toast({ title: "Successfully subscribed to maintenance plan!" });
+      toast({ 
+        title: "Success!",
+        description: response?.message || "Successfully subscribed to maintenance plan!" 
+      });
     },
-    onError: () => {
-      toast({ title: "Failed to subscribe to plan", variant: "destructive" });
+    onError: (error: any) => {
+      // Handle specific business rule violations
+      let errorMessage = "Failed to subscribe to maintenance plan.";
+      
+      if (error?.message?.includes("already have an active maintenance plan")) {
+        errorMessage = "You already have an active maintenance plan. Please cancel your current plan before creating a new one.";
+      } else if (error?.message) {
+        errorMessage = error.message;
+      }
+      
+      toast({ 
+        title: "Error", 
+        description: errorMessage,
+        variant: "destructive" 
+      });
     },
   });
 
@@ -163,6 +185,60 @@ export default function CustomerPortal() {
     },
   });
 
+  // Cancel subscription mutation
+  const cancelSubscriptionMutation = useMutation({
+    mutationFn: async (data: { planId: number; cancellationType: 'immediate' | 'end_of_period' }) => {
+      return apiRequest(`/api/portal/maintenance-plans/${data.planId}/cancel`, {
+        method: "PUT",
+        body: { cancellationType: data.cancellationType },
+      });
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
+      setCancelDialogOpen(false);
+      setSelectedPlan(null);
+      setCancellationType('end_of_period');
+      toast({ 
+        title: response.message || "Subscription cancelled successfully",
+        description: response.cancellationType === 'immediate' 
+          ? "Your plan access has ended immediately." 
+          : "Your plan will remain active until the end of your current billing period."
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to cancel subscription", 
+        description: error?.message || "Please try again or contact support.",
+        variant: "destructive" 
+      });
+    },
+  });
+
+  // Reactivate subscription mutation
+  const reactivateSubscriptionMutation = useMutation({
+    mutationFn: async (planId: number) => {
+      return apiRequest(`/api/portal/maintenance-plans/${planId}/reactivate`, {
+        method: "PUT",
+      });
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
+      setReactivateDialogOpen(false);
+      setSelectedPlan(null);
+      toast({ 
+        title: "Welcome back!",
+        description: response.message || "Your subscription has been reactivated successfully."
+      });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to reactivate subscription", 
+        description: error?.message || "Please try again or contact support.",
+        variant: "destructive" 
+      });
+    },
+  });
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -175,14 +251,10 @@ export default function CustomerPortal() {
     }
   };
 
+  // SECURITY: Only pass planType, server computes pricing and billing dates
   const handleSubscribe = (planType: string, price: number) => {
-    const nextBillingDate = new Date();
-    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
-    
     subscribeToPlan.mutate({
-      planType,
-      price,
-      nextBillingDate: nextBillingDate.toISOString(),
+      planType, // Only planType needed - server handles all sensitive data
     });
   };
   
@@ -270,6 +342,111 @@ export default function CustomerPortal() {
       appointmentId: selectedAppointment.id,
       startISO: appointmentDateTime.toISOString()
     });
+  };
+
+  // Subscription management handlers
+  const handleCancelSubscription = (plan: MaintenancePlan) => {
+    setSelectedPlan(plan);
+    setCancelDialogOpen(true);
+  };
+
+  const handleReactivateSubscription = (plan: MaintenancePlan) => {
+    setSelectedPlan(plan);
+    setReactivateDialogOpen(true);
+  };
+
+  const handleCancelConfirm = () => {
+    if (!selectedPlan) return;
+    
+    cancelSubscriptionMutation.mutate({
+      planId: selectedPlan.id,
+      cancellationType
+    });
+  };
+
+  const handleReactivateConfirm = () => {
+    if (!selectedPlan) return;
+    
+    reactivateSubscriptionMutation.mutate(selectedPlan.id);
+  };
+
+  // Subscription utility functions
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'active':
+        return 'default';
+      case 'cancelled':
+        return 'destructive';
+      case 'pending_cancellation':
+        return 'secondary';
+      default:
+        return 'outline';
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'active':
+        return <CheckCircle2 className="h-4 w-4 text-green-600" />;
+      case 'cancelled':
+        return <Ban className="h-4 w-4 text-red-600" />;
+      case 'pending_cancellation':
+        return <AlertTriangle className="h-4 w-4 text-orange-600" />;
+      default:
+        return <Info className="h-4 w-4 text-gray-600" />;
+    }
+  };
+
+  const canReactivate = (plan: MaintenancePlan) => {
+    if (plan.status !== 'cancelled' || !plan.cancelledAt) return false;
+    
+    const cancelledDate = new Date(plan.cancelledAt);
+    const thirtyDaysAgo = new Date();
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+    
+    return cancelledDate > thirtyDaysAgo;
+  };
+
+  const getSubscriptionStatusText = (plan: MaintenancePlan) => {
+    switch (plan.status) {
+      case 'active':
+        return `Active until ${new Date(plan.nextBillingDate).toLocaleDateString()}`;
+      case 'pending_cancellation':
+        return `Cancelling at end of period on ${plan.endDate ? new Date(plan.endDate).toLocaleDateString() : 'billing cycle end'}`;
+      case 'cancelled':
+        if (canReactivate(plan)) {
+          return `Cancelled on ${plan.cancelledAt ? new Date(plan.cancelledAt).toLocaleDateString() : 'unknown date'} - Can reactivate`;
+        }
+        return `Cancelled on ${plan.cancelledAt ? new Date(plan.cancelledAt).toLocaleDateString() : 'unknown date'}`;
+      default:
+        return `Status: ${plan.status}`;
+    }
+  };
+
+  const hasActivePlan = (planType: string) => {
+    return maintenancePlans.some(plan => 
+      plan.planType === planType && ['active', 'pending_cancellation'].includes(plan.status)
+    );
+  };
+
+  const getUpgradeText = (planType: string, price: number) => {
+    const currentActivePlans = maintenancePlans.filter(plan => 
+      ['active', 'pending_cancellation'].includes(plan.status)
+    );
+    
+    if (currentActivePlans.length === 0) {
+      return `Subscribe to ${planType}`;
+    }
+    
+    const lowestPlan = currentActivePlans.reduce((lowest, plan) => 
+      plan.price < lowest.price ? plan : lowest
+    );
+    
+    if (price > lowestPlan.price) {
+      return `Upgrade to ${planType}`;
+    }
+    
+    return `Subscribe to ${planType}`;
   };
 
   // Handle loading states
@@ -821,48 +998,363 @@ export default function CustomerPortal() {
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* Cancel Subscription Dialog */}
+            <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+              <DialogContent className="sm:max-w-lg">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-red-600">
+                    <Ban className="h-5 w-5" />
+                    Cancel {selectedPlan?.planType} Plan
+                  </DialogTitle>
+                  <DialogDescription>
+                    We're sorry to see you go! Please review the details below before confirming your cancellation.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-6 py-4">
+                  <Alert>
+                    <AlertTriangle className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>What you'll lose:</strong>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                        <li>{selectedPlan?.planType === 'basic' ? 'Monthly' : selectedPlan?.planType === 'professional' ? 'Bi-weekly' : 'Weekly'} system checkups</li>
+                        <li>{selectedPlan?.planType === 'enterprise' ? '24/7 dedicated' : selectedPlan?.planType === 'professional' ? 'Priority phone' : 'Email'} support</li>
+                        <li>Security monitoring and updates</li>
+                        {selectedPlan?.planType !== 'basic' && <li>Monthly reports and insights</li>}
+                        {selectedPlan?.planType === 'enterprise' && <li>Custom integrations and enterprise features</li>}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Cancellation Type</Label>
+                    <div className="space-y-3">
+                      <div className="flex items-start space-x-3">
+                        <input
+                          type="radio"
+                          id="end-of-period"
+                          name="cancellationType"
+                          value="end_of_period"
+                          checked={cancellationType === 'end_of_period'}
+                          onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
+                          className="mt-1 h-4 w-4 text-brand-red"
+                          data-testid="radio-end-of-period"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="end-of-period" className="font-medium text-sm cursor-pointer">
+                            Cancel at end of billing period (Recommended)
+                          </label>
+                          <p className="text-xs text-gray-600 mt-1">
+                            Continue using your plan until {selectedPlan?.nextBillingDate ? new Date(selectedPlan.nextBillingDate).toLocaleDateString() : 'your next billing date'}. 
+                            You won't be charged again.
+                          </p>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-start space-x-3">
+                        <input
+                          type="radio"
+                          id="immediate"
+                          name="cancellationType"
+                          value="immediate"
+                          checked={cancellationType === 'immediate'}
+                          onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
+                          className="mt-1 h-4 w-4 text-brand-red"
+                          data-testid="radio-immediate"
+                        />
+                        <div className="flex-1">
+                          <label htmlFor="immediate" className="font-medium text-sm cursor-pointer">
+                            Cancel immediately
+                          </label>
+                          <p className="text-xs text-gray-600 mt-1">
+                            Your plan access will end right away. No refund for the current billing period.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      <strong>Need help instead?</strong> Our support team can help resolve issues or adjust your plan. 
+                      <Button 
+                        variant="link" 
+                        className="p-0 h-auto text-brand-red"
+                        onClick={() => {
+                          setCancelDialogOpen(false);
+                          window.open(`mailto:support@handytech-solutions.com?subject=Help with ${selectedPlan?.planType} Plan (ID: ${selectedPlan?.id})`);
+                        }}
+                      >
+                        Contact support instead
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setCancelDialogOpen(false);
+                      setSelectedPlan(null);
+                      setCancellationType('end_of_period');
+                    }}
+                    className="flex-1"
+                    data-testid="button-cancel-dialog-close"
+                  >
+                    Keep My Plan
+                  </Button>
+                  <Button
+                    variant="destructive"
+                    onClick={handleCancelConfirm}
+                    disabled={cancelSubscriptionMutation.isPending}
+                    className="flex-1"
+                    data-testid="button-confirm-cancellation"
+                  >
+                    {cancelSubscriptionMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        Cancelling...
+                      </>
+                    ) : (
+                      cancellationType === 'immediate' ? 'Cancel Now' : 'Cancel at Period End'
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* Reactivate Subscription Dialog */}
+            <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-green-600">
+                    <CheckCircle2 className="h-5 w-5" />
+                    Welcome Back!
+                  </DialogTitle>
+                  <DialogDescription>
+                    We're excited to have you back! Your {selectedPlan?.planType} plan will be reactivated.
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <Alert>
+                    <CheckCircle2 className="h-4 w-4" />
+                    <AlertDescription>
+                      <strong>What you'll get back:</strong>
+                      <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                        <li>{selectedPlan?.planType === 'basic' ? 'Monthly' : selectedPlan?.planType === 'professional' ? 'Bi-weekly' : 'Weekly'} system checkups</li>
+                        <li>{selectedPlan?.planType === 'enterprise' ? '24/7 dedicated' : selectedPlan?.planType === 'professional' ? 'Priority phone' : 'Email'} support</li>
+                        <li>Security monitoring and updates</li>
+                        {selectedPlan?.planType !== 'basic' && <li>Monthly reports and insights</li>}
+                        {selectedPlan?.planType === 'enterprise' && <li>Custom integrations and enterprise features</li>}
+                      </ul>
+                    </AlertDescription>
+                  </Alert>
+                  
+                  <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Plan:</span>
+                      <span className="capitalize">{selectedPlan?.planType} Plan</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Price:</span>
+                      <span className="font-bold">${selectedPlan?.price}/month</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium">Billing resumes:</span>
+                      <span>Immediately</span>
+                    </div>
+                  </div>
+                  
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription className="text-sm">
+                      Your first bill will be prorated if reactivated mid-cycle. You can cancel anytime from your account settings.
+                    </AlertDescription>
+                  </Alert>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setReactivateDialogOpen(false);
+                      setSelectedPlan(null);
+                    }}
+                    className="flex-1"
+                    data-testid="button-reactivate-dialog-close"
+                  >
+                    Not Now
+                  </Button>
+                  <Button
+                    onClick={handleReactivateConfirm}
+                    disabled={reactivateSubscriptionMutation.isPending}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                    data-testid="button-confirm-reactivation"
+                  >
+                    {reactivateSubscriptionMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        Reactivating...
+                      </>
+                    ) : (
+                      'Reactivate Plan'
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Your Maintenance Plans</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {maintenancePlans.length === 0 ? (
-                  <p className="text-muted-foreground">No active maintenance plans. Subscribe to a plan to get started!</p>
-                ) : (
-                  <div className="space-y-4">
-                    {maintenancePlans.map((plan) => (
-                      <div key={plan.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="font-semibold capitalize">{plan.planType} Plan</h3>
-                            <p className="text-sm text-muted-foreground">
-                              Started: {new Date(plan.startDate).toLocaleDateString()}
-                            </p>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal">Your Maintenance Plans</h2>
+                <p className="text-gray-600">Manage your active subscriptions and billing</p>
+              </div>
+            </div>
+
+            {maintenancePlans.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center justify-center py-12">
+                  <CreditCard className="h-12 w-12 text-gray-400 mb-4" />
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Maintenance Plans</h3>
+                  <p className="text-gray-600 text-center max-w-md mb-6">
+                    Subscribe to a maintenance plan to keep your systems running smoothly with regular checkups and priority support.
+                  </p>
+                  <Button 
+                    onClick={() => {/* Navigate to subscribe tab */}}
+                    className="bg-brand-red hover:bg-brand-red/90 text-white"
+                    data-testid="button-browse-plans"
+                  >
+                    Browse Plans
+                  </Button>
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="space-y-6">
+                {maintenancePlans.map((plan) => (
+                  <Card key={plan.id} className="overflow-hidden">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                        <div className="flex-1 space-y-4">
+                          <div className="flex items-center gap-3">
+                            {getStatusIcon(plan.status)}
+                            <div>
+                              <h3 className="text-xl font-semibold capitalize flex items-center gap-2">
+                                {plan.planType} Plan
+                                <Badge 
+                                  variant={getStatusBadgeVariant(plan.status)}
+                                  className="text-xs"
+                                  data-testid={`badge-status-${plan.id}`}
+                                >
+                                  {plan.status === 'pending_cancellation' ? 'Ending Soon' : plan.status}
+                                </Badge>
+                              </h3>
+                              <p className="text-sm text-gray-600">
+                                {getSubscriptionStatusText(plan)}
+                              </p>
+                            </div>
                           </div>
-                          <Badge variant={plan.status === 'active' ? 'default' : 'secondary'}>
-                            {plan.status}
-                          </Badge>
+                          
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                            <div>
+                              <span className="font-medium text-gray-700">Price</span>
+                              <p className="text-lg font-bold text-charcoal">${plan.price}/month</p>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-700">Started</span>
+                              <p className="text-charcoal">{new Date(plan.startDate).toLocaleDateString()}</p>
+                            </div>
+                            <div>
+                              <span className="font-medium text-gray-700">
+                                {plan.status === 'active' ? 'Next Billing' : 
+                                 plan.status === 'pending_cancellation' ? 'Active Until' : 'Cancelled'}
+                              </span>
+                              <p className="text-charcoal">
+                                {plan.status === 'pending_cancellation' && plan.endDate 
+                                  ? new Date(plan.endDate).toLocaleDateString()
+                                  : plan.status === 'cancelled' && plan.cancelledAt
+                                  ? new Date(plan.cancelledAt).toLocaleDateString()
+                                  : new Date(plan.nextBillingDate).toLocaleDateString()}
+                              </p>
+                            </div>
+                          </div>
+
+                          {plan.cancellationReason && (
+                            <Alert>
+                              <Info className="h-4 w-4" />
+                              <AlertDescription>
+                                <span className="font-medium">Cancellation reason:</span> {plan.cancellationReason}
+                              </AlertDescription>
+                            </Alert>
+                          )}
                         </div>
-                        <div className="flex justify-between items-center">
-                          <div className="text-lg font-bold">${plan.price}/month</div>
-                          <div className="text-sm text-muted-foreground">
-                            Next billing: {new Date(plan.nextBillingDate).toLocaleDateString()}
-                          </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          {plan.status === 'active' && (
+                            <Button
+                              variant="destructive"
+                              size="sm"
+                              onClick={() => handleCancelSubscription(plan)}
+                              className="flex items-center gap-2"
+                              data-testid={`button-cancel-${plan.id}`}
+                            >
+                              <Ban className="h-4 w-4" />
+                              Cancel Plan
+                            </Button>
+                          )}
+                          
+                          {plan.status === 'cancelled' && canReactivate(plan) && (
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => handleReactivateSubscription(plan)}
+                              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                              data-testid={`button-reactivate-${plan.id}`}
+                            >
+                              <Play className="h-4 w-4" />
+                              Reactivate
+                            </Button>
+                          )}
+                          
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => window.open(`mailto:support@handytech-solutions.com?subject=Question about ${plan.planType} Plan (ID: ${plan.id})`)}
+                            className="flex items-center gap-2"
+                            data-testid={`button-contact-${plan.id}`}
+                          >
+                            <Phone className="h-4 w-4" />
+                            Contact Support
+                          </Button>
                         </div>
                       </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
           </TabsContent>
 
           <TabsContent value="subscribe" className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal">Available Plans</h2>
+                <p className="text-gray-600">Choose the right maintenance plan for your needs</p>
+              </div>
+            </div>
+
             <div className="grid md:grid-cols-3 gap-6">
-              <Card className="relative">
+              <Card className={`relative ${hasActivePlan('basic') ? 'opacity-75' : ''}`}>
+                {hasActivePlan('basic') && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-green-600">Current Plan</Badge>
+                  </div>
+                )}
                 <CardHeader>
                   <CardTitle>Basic Plan</CardTitle>
                   <div className="text-3xl font-bold">$99<span className="text-lg text-muted-foreground">/month</span></div>
@@ -884,18 +1376,25 @@ export default function CustomerPortal() {
                   </ul>
                   <Button 
                     onClick={() => handleSubscribe('basic', 99)}
-                    className="w-full bg-brand-red hover:bg-brand-red-dark"
-                    disabled={subscribeToPlan.isPending}
+                    className="w-full bg-brand-red hover:bg-brand-red/90"
+                    disabled={subscribeToPlan.isPending || hasActivePlan('basic')}
+                    data-testid="button-subscribe-basic"
                   >
-                    Subscribe to Basic
+                    {hasActivePlan('basic') ? 'Current Plan' : getUpgradeText('Basic', 99)}
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card className="relative border-brand-red border-2">
-                <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-brand-red">Most Popular</Badge>
-                </div>
+              <Card className={`relative border-brand-red border-2 ${hasActivePlan('professional') ? 'opacity-75' : ''}`}>
+                {hasActivePlan('professional') ? (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-green-600">Current Plan</Badge>
+                  </div>
+                ) : (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-brand-red">Most Popular</Badge>
+                  </div>
+                )}
                 <CardHeader>
                   <CardTitle>Professional Plan</CardTitle>
                   <div className="text-3xl font-bold">$199<span className="text-lg text-muted-foreground">/month</span></div>
@@ -921,15 +1420,21 @@ export default function CustomerPortal() {
                   </ul>
                   <Button 
                     onClick={() => handleSubscribe('professional', 199)}
-                    className="w-full bg-brand-red hover:bg-brand-red-dark"
-                    disabled={subscribeToPlan.isPending}
+                    className="w-full bg-brand-red hover:bg-brand-red/90"
+                    disabled={subscribeToPlan.isPending || hasActivePlan('professional')}
+                    data-testid="button-subscribe-professional"
                   >
-                    Subscribe to Professional
+                    {hasActivePlan('professional') ? 'Current Plan' : getUpgradeText('Professional', 199)}
                   </Button>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card className={`relative ${hasActivePlan('enterprise') ? 'opacity-75' : ''}`}>
+                {hasActivePlan('enterprise') && (
+                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
+                    <Badge className="bg-green-600">Current Plan</Badge>
+                  </div>
+                )}
                 <CardHeader>
                   <CardTitle>Enterprise Plan</CardTitle>
                   <div className="text-3xl font-bold">$399<span className="text-lg text-muted-foreground">/month</span></div>
@@ -955,14 +1460,24 @@ export default function CustomerPortal() {
                   </ul>
                   <Button 
                     onClick={() => handleSubscribe('enterprise', 399)}
-                    className="w-full bg-brand-red hover:bg-brand-red-dark"
-                    disabled={subscribeToPlan.isPending}
+                    className="w-full bg-brand-red hover:bg-brand-red/90"
+                    disabled={subscribeToPlan.isPending || hasActivePlan('enterprise')}
+                    data-testid="button-subscribe-enterprise"
                   >
-                    Subscribe to Enterprise
+                    {hasActivePlan('enterprise') ? 'Current Plan' : getUpgradeText('Enterprise', 399)}
                   </Button>
                 </CardContent>
               </Card>
             </div>
+
+            {maintenancePlans.some(plan => ['active', 'pending_cancellation'].includes(plan.status)) && (
+              <Alert>
+                <Info className="h-4 w-4" />
+                <AlertDescription>
+                  You can subscribe to multiple plans or upgrade your existing plan. Contact support if you need help choosing the right combination.
+                </AlertDescription>
+              </Alert>
+            )}
           </TabsContent>
 
           <TabsContent value="history" className="space-y-6">

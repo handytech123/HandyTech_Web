@@ -22,6 +22,22 @@ interface AppointmentEmailData {
   sequence: number;
 }
 
+interface SubscriptionCancellationEmailData {
+  to: string;
+  customerName: string;
+  planType: string;
+  cancellationType: 'immediate' | 'end_of_period';
+  endDate: Date | null;
+  cancellationReason?: string;
+}
+
+interface SubscriptionReactivationEmailData {
+  to: string;
+  customerName: string;
+  planType: string;
+  nextBillingDate: Date;
+}
+
 export class EmailService {
   private transporter!: nodemailer.Transporter;
   private fromEmail: string;
@@ -580,6 +596,150 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to send magic link email:', error);
+      return false;
+    }
+  }
+
+  async sendSubscriptionCancellationConfirmation(data: SubscriptionCancellationEmailData): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping subscription cancellation email');
+      return false;
+    }
+
+    try {
+      const planTypeDisplay = data.planType.charAt(0).toUpperCase() + data.planType.slice(1);
+      const isImmediate = data.cancellationType === 'immediate';
+      
+      const subject = `${this.businessName}: Subscription Cancellation Confirmed`;
+
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">Subscription Cancellation Confirmed</h2>
+        
+        <p>Dear ${data.customerName},</p>
+        
+        <p>We've successfully processed your subscription cancellation request. Here are the details:</p>
+        
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+          <p style="margin: 0 0 10px 0;"><strong>Plan:</strong> ${planTypeDisplay} Maintenance Plan</p>
+          <p style="margin: 0 0 10px 0;"><strong>Cancellation Type:</strong> ${isImmediate ? 'Immediate' : 'End of Billing Period'}</p>
+          ${data.endDate ? `<p style="margin: 0 0 10px 0;"><strong>Service End Date:</strong> ${this.formatDate(data.endDate)}</p>` : ''}
+          ${data.cancellationReason ? `<p style="margin: 0;"><strong>Reason:</strong> ${data.cancellationReason}</p>` : ''}
+        </div>
+        
+        ${isImmediate 
+          ? `<p>Your subscription has been cancelled immediately. You will no longer receive maintenance services or be charged for this plan.</p>`
+          : `<p>Your subscription will remain active until ${data.endDate ? this.formatDate(data.endDate) : 'your next billing date'}. You'll continue to receive maintenance services until then, and no further charges will occur.</p>`
+        }
+        
+        <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #BB0000; margin-top: 0;">What's Next?</h3>
+          <p style="margin: 0 0 10px 0;">• You'll receive confirmation of your final service date</p>
+          <p style="margin: 0 0 10px 0;">• Any scheduled maintenance visits will be ${isImmediate ? 'cancelled' : 'completed through your service end date'}</p>
+          <p style="margin: 0;">• You can reactivate your subscription anytime within 30 days</p>
+        </div>
+        
+        <p>We're sorry to see you go! If there's anything we could have done better, please reply to this email and let us know.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${this.baseUrl}/portal" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Access Customer Portal</a>
+        </div>
+        
+        <p>Thank you for being a valued customer. If you need any assistance or want to discuss your maintenance needs, please don't hesitate to contact us.</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: data.to,
+        subject: subject,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Subscription Management`,
+          'List-Unsubscribe': `<mailto:${this.fromEmail}?subject=Unsubscribe>`
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Subscription cancellation email sent to ${data.to}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send subscription cancellation email:', error);
+      return false;
+    }
+  }
+
+  async sendSubscriptionReactivationConfirmation(data: SubscriptionReactivationEmailData): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping subscription reactivation email');
+      return false;
+    }
+
+    try {
+      const planTypeDisplay = data.planType.charAt(0).toUpperCase() + data.planType.slice(1);
+      
+      const subject = `${this.businessName}: Welcome Back! Subscription Reactivated`;
+
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">Welcome Back!</h2>
+        
+        <p>Dear ${data.customerName},</p>
+        
+        <p>Great news! Your subscription has been successfully reactivated. We're excited to continue providing you with excellent maintenance services.</p>
+        
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+          <p style="margin: 0 0 10px 0;"><strong>Plan:</strong> ${planTypeDisplay} Maintenance Plan</p>
+          <p style="margin: 0 0 10px 0;"><strong>Status:</strong> Active</p>
+          <p style="margin: 0;"><strong>Next Billing Date:</strong> ${this.formatDate(data.nextBillingDate)}</p>
+        </div>
+        
+        <div style="background-color: #e8f5e8; padding: 15px; border-radius: 5px; margin: 20px 0; border-left: 4px solid #28a745;">
+          <h3 style="color: #28a745; margin-top: 0;">Your Plan Benefits</h3>
+          ${data.planType === 'basic' ? `
+            <p style="margin: 0 0 5px 0;">• Annual maintenance inspection</p>
+            <p style="margin: 0 0 5px 0;">• Priority customer support</p>
+            <p style="margin: 0;">• 10% discount on repairs</p>
+          ` : data.planType === 'professional' ? `
+            <p style="margin: 0 0 5px 0;">• Bi-annual maintenance inspections</p>
+            <p style="margin: 0 0 5px 0;">• Emergency service calls</p>
+            <p style="margin: 0 0 5px 0;">• 15% discount on repairs</p>
+            <p style="margin: 0;">• Preventive maintenance alerts</p>
+          ` : `
+            <p style="margin: 0 0 5px 0;">• Quarterly maintenance inspections</p>
+            <p style="margin: 0 0 5px 0;">• 24/7 emergency support</p>
+            <p style="margin: 0 0 5px 0;">• 20% discount on all services</p>
+            <p style="margin: 0 0 5px 0;">• Comprehensive system monitoring</p>
+            <p style="margin: 0;">• Annual equipment upgrades</p>
+          `}
+        </div>
+        
+        <p>Your first maintenance visit will be scheduled soon. We'll contact you to arrange a convenient time that works with your schedule.</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${this.baseUrl}/portal" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Manage Your Subscription</a>
+        </div>
+        
+        <p>Thank you for choosing ${this.businessName} for your maintenance needs. We look forward to continuing to serve you!</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: data.to,
+        subject: subject,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Subscription Management`,
+          'List-Unsubscribe': `<mailto:${this.fromEmail}?subject=Unsubscribe>`
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Subscription reactivation email sent to ${data.to}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send subscription reactivation email:', error);
       return false;
     }
   }

@@ -48,6 +48,8 @@ export interface IStorage {
   createMaintenancePlan(plan: InsertMaintenancePlan): Promise<MaintenancePlan>;
   updateMaintenancePlanStatus(id: number, status: string): Promise<void>;
   getAllActiveMaintenancePlans(): Promise<MaintenancePlan[]>;
+  cancelMaintenancePlan(planId: number, customerId: number, cancellationType: 'immediate' | 'end_of_period', cancellationReason?: string): Promise<MaintenancePlan>;
+  reactivateMaintenancePlan(planId: number, customerId: number): Promise<MaintenancePlan>;
 
   // Reviews
   getReview(id: number): Promise<Review | undefined>;
@@ -323,6 +325,14 @@ export class MemStorage implements IStorage {
   }
 
   async createMaintenancePlan(insertPlan: InsertMaintenancePlan): Promise<MaintenancePlan> {
+    // SECURITY: Storage-level single-active-plan enforcement (failsafe)
+    const existingPlans = await this.getMaintenancePlansByCustomer(insertPlan.customerId);
+    const activePlans = existingPlans.filter(plan => plan.status === 'active');
+    
+    if (activePlans.length > 0) {
+      throw new Error(`SECURITY_VIOLATION: Customer ${insertPlan.customerId} already has ${activePlans.length} active maintenance plan(s). Cannot create duplicate subscriptions.`);
+    }
+    
     const plan: MaintenancePlan = {
       ...insertPlan,
       id: this.currentMaintenancePlanId++,
@@ -330,6 +340,7 @@ export class MemStorage implements IStorage {
       startDate: new Date(),
     };
     this.maintenancePlans.set(plan.id, plan);
+    console.log(`[STORAGE_SECURITY] Created maintenance plan ${plan.id} for customer ${insertPlan.customerId} - verified no active duplicates`);
     return plan;
   }
 
@@ -343,6 +354,70 @@ export class MemStorage implements IStorage {
 
   async getAllActiveMaintenancePlans(): Promise<MaintenancePlan[]> {
     return Array.from(this.maintenancePlans.values()).filter(plan => plan.status === "active");
+  }
+
+  async cancelMaintenancePlan(planId: number, customerId: number, cancellationType: 'immediate' | 'end_of_period', cancellationReason?: string): Promise<MaintenancePlan> {
+    const plan = this.maintenancePlans.get(planId);
+    if (!plan) {
+      throw new Error("Maintenance plan not found");
+    }
+    
+    if (plan.customerId !== customerId) {
+      throw new Error("Unauthorized access to maintenance plan");
+    }
+    
+    if (plan.status === 'cancelled') {
+      throw new Error("Plan is already cancelled");
+    }
+    
+    const now = new Date();
+    const updatedPlan = {
+      ...plan,
+      status: cancellationType === 'immediate' ? 'cancelled' : 'pending_cancellation',
+      cancelledAt: now,
+      cancellationType,
+      cancellationReason: cancellationReason || null,
+      endDate: cancellationType === 'immediate' ? now : plan.nextBillingDate
+    };
+    
+    this.maintenancePlans.set(planId, updatedPlan);
+    return updatedPlan;
+  }
+
+  async reactivateMaintenancePlan(planId: number, customerId: number): Promise<MaintenancePlan> {
+    const plan = this.maintenancePlans.get(planId);
+    if (!plan) {
+      throw new Error("Maintenance plan not found");
+    }
+    
+    if (plan.customerId !== customerId) {
+      throw new Error("Unauthorized access to maintenance plan");
+    }
+    
+    if (plan.status === 'active') {
+      throw new Error("Plan is already active");
+    }
+    
+    // Only allow reactivation if cancelled within 30 days
+    if (plan.cancelledAt && plan.cancelledAt < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) {
+      throw new Error("Cannot reactivate plan cancelled more than 30 days ago");
+    }
+    
+    const nextBillingDate = new Date();
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+    
+    const updatedPlan = {
+      ...plan,
+      status: 'active',
+      cancelledAt: null,
+      cancellationType: null,
+      cancellationReason: null,
+      endDate: null,
+      nextBillingDate
+    };
+    
+    this.maintenancePlans.set(planId, updatedPlan);
+    return updatedPlan;
   }
 
   // Reviews
@@ -811,7 +886,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createMaintenancePlan(plan: InsertMaintenancePlan): Promise<MaintenancePlan> {
+    // SECURITY: Storage-level single-active-plan enforcement (failsafe)
+    const existingPlans = await this.getMaintenancePlansByCustomer(plan.customerId);
+    const activePlans = existingPlans.filter(p => p.status === 'active');
+    
+    if (activePlans.length > 0) {
+      throw new Error(`SECURITY_VIOLATION: Customer ${plan.customerId} already has ${activePlans.length} active maintenance plan(s). Cannot create duplicate subscriptions.`);
+    }
+    
     const [created] = await db.insert(maintenancePlans).values(plan).returning();
+    console.log(`[STORAGE_SECURITY] Created maintenance plan ${created.id} for customer ${plan.customerId} - verified no active duplicates`);
     return created;
   }
 
@@ -821,6 +905,72 @@ export class DatabaseStorage implements IStorage {
 
   async getAllActiveMaintenancePlans(): Promise<MaintenancePlan[]> {
     return await db.select().from(maintenancePlans).where(eq(maintenancePlans.status, "active"));
+  }
+
+  async cancelMaintenancePlan(planId: number, customerId: number, cancellationType: 'immediate' | 'end_of_period', cancellationReason?: string): Promise<MaintenancePlan> {
+    const plan = await this.getMaintenancePlan(planId);
+    if (!plan) {
+      throw new Error("Maintenance plan not found");
+    }
+    
+    if (plan.customerId !== customerId) {
+      throw new Error("Unauthorized access to maintenance plan");
+    }
+    
+    if (plan.status === 'cancelled') {
+      throw new Error("Plan is already cancelled");
+    }
+    
+    const now = new Date();
+    const updateData = {
+      status: cancellationType === 'immediate' ? 'cancelled' : 'pending_cancellation',
+      cancelledAt: now,
+      cancellationType,
+      cancellationReason: cancellationReason || null,
+      endDate: cancellationType === 'immediate' ? now : plan.nextBillingDate
+    };
+    
+    await db.update(maintenancePlans).set(updateData).where(eq(maintenancePlans.id, planId));
+    
+    const [updatedPlan] = await db.select().from(maintenancePlans).where(eq(maintenancePlans.id, planId));
+    return updatedPlan;
+  }
+
+  async reactivateMaintenancePlan(planId: number, customerId: number): Promise<MaintenancePlan> {
+    const plan = await this.getMaintenancePlan(planId);
+    if (!plan) {
+      throw new Error("Maintenance plan not found");
+    }
+    
+    if (plan.customerId !== customerId) {
+      throw new Error("Unauthorized access to maintenance plan");
+    }
+    
+    if (plan.status === 'active') {
+      throw new Error("Plan is already active");
+    }
+    
+    // Only allow reactivation if cancelled within 30 days
+    if (plan.cancelledAt && plan.cancelledAt < new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)) {
+      throw new Error("Cannot reactivate plan cancelled more than 30 days ago");
+    }
+    
+    const nextBillingDate = new Date();
+    nextBillingDate.setMonth(nextBillingDate.getMonth() + 1);
+    
+    const updateData = {
+      status: 'active',
+      cancelledAt: null,
+      cancellationType: null,
+      cancellationReason: null,
+      endDate: null,
+      nextBillingDate
+    };
+    
+    await db.update(maintenancePlans).set(updateData).where(eq(maintenancePlans.id, planId));
+    
+    const [updatedPlan] = await db.select().from(maintenancePlans).where(eq(maintenancePlans.id, planId));
+    return updatedPlan;
   }
 
   // Reviews

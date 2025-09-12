@@ -16,7 +16,10 @@ import {
   insertPortalLoginTokenSchema,
   rescheduleRequestSchema,
   updateCustomerProfileSchema,
-  type InsertCustomer
+  cancelMaintenancePlanSchema,
+  portalCreateMaintenancePlanSchema,
+  type InsertCustomer,
+  type InsertMaintenancePlan
 } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
@@ -36,6 +39,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize email service
   const emailService = new EmailService();
+  
+  // SECURITY: Server-side maintenance plan catalog with canonical pricing
+  // This prevents price tampering by enforcing server-controlled pricing
+  const MAINTENANCE_PLAN_CATALOG = {
+    basic: {
+      planType: 'basic' as const,
+      price: 29.99,
+      features: ['Monthly system check', 'Basic maintenance', 'Email support'],
+      billingCycle: 30 // days
+    },
+    professional: {
+      planType: 'professional' as const,
+      price: 59.99,
+      features: ['Weekly system check', 'Priority maintenance', 'Phone & email support', 'Performance optimization'],
+      billingCycle: 30 // days
+    },
+    enterprise: {
+      planType: 'enterprise' as const,
+      price: 99.99,
+      features: ['24/7 monitoring', 'Instant response', 'Dedicated support', 'Custom maintenance plans', 'SLA guarantee'],
+      billingCycle: 30 // days
+    }
+  } as const;
+  
+  // Business rule: Calculate next billing date
+  function calculateNextBillingDate(planType: keyof typeof MAINTENANCE_PLAN_CATALOG): Date {
+    const plan = MAINTENANCE_PLAN_CATALOG[planType];
+    const nextBilling = new Date();
+    nextBilling.setDate(nextBilling.getDate() + plan.billingCycle);
+    return nextBilling;
+  }
   
   // SECURITY: Setup automated token cleanup
   const TOKEN_CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
@@ -1042,30 +1076,254 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // SECURITY: Customer-only maintenance plan creation - prevents IDOR vulnerability
-  app.post("/api/maintenance-plans", requireCustomer, async (req, res) => {
+  // SECURITY REMOVED: Legacy endpoint removed to prevent security bypass
+  // All maintenance plan creation now goes through secure /api/portal/maintenance-plans endpoint only
+
+  // SECURITY: Secure portal maintenance plan creation endpoint
+  // Uses requireCustomer + rlSensitive middleware for CSRF protection and rate limiting
+  app.post("/api/portal/maintenance-plans", requireCustomer, rlSensitive, async (req, res) => {
     try {
-      // Extract customer ID from authenticated session - NEVER trust client data
       const { customer } = req as any;
       
-      // Parse request body but override customerId with authenticated customer
-      const planData = insertMaintenancePlanSchema.parse(req.body);
-      const securePlanData = {
-        ...planData,
-        customerId: customer.id // Use authenticated customer ID, not from request body
+      // SECURITY: Use secure schema that only accepts planType (no price tampering)
+      const { planType } = portalCreateMaintenancePlanSchema.parse(req.body);
+      
+      // SECURITY: Get canonical pricing from server-side catalog
+      const planConfig = MAINTENANCE_PLAN_CATALOG[planType];
+      if (!planConfig) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid plan type" 
+        });
+      }
+      
+      // BUSINESS RULE: Check if customer already has an active plan
+      const existingPlans = await storage.getMaintenancePlansByCustomer(customer.id);
+      const activePlans = existingPlans.filter(plan => plan.status === 'active');
+      
+      if (activePlans.length > 0) {
+        return res.status(409).json({ 
+          success: false, 
+          message: "You already have an active maintenance plan. Please cancel your current plan before creating a new one." 
+        });
+      }
+      
+      // SECURITY: Create plan with server-controlled values (never trust client)
+      const securePlanData: InsertMaintenancePlan = {
+        customerId: customer.id, // From authenticated session, not client
+        planType: planConfig.planType,
+        price: planConfig.price, // Server-controlled pricing
+        status: 'active',
+        nextBillingDate: calculateNextBillingDate(planType)
       };
       
-      const plan = await storage.createMaintenancePlan(securePlanData);
-      res.status(201).json(plan);
+      const newPlan = await storage.createMaintenancePlan(securePlanData);
       
-      console.log(`[SECURITY] Customer ${customer.id} created maintenance plan`);
+      // Send confirmation email
+      try {
+        await emailService.sendMaintenancePlanWelcomeEmail({
+          to: customer.email,
+          customerName: `${customer.firstName} ${customer.lastName}`,
+          planType: planConfig.planType,
+          price: planConfig.price,
+          features: planConfig.features
+        });
+      } catch (emailError) {
+        console.error(`[EMAIL] Failed to send maintenance plan welcome email to ${customer.email}:`, emailError);
+        // Don't fail the subscription creation if email fails
+      }
+      
+      res.status(201).json({ 
+        success: true, 
+        message: "Maintenance plan created successfully",
+        plan: newPlan
+      });
+      
+      console.log(`[SECURITY] Customer ${customer.id} (${customer.email}) created ${planType} maintenance plan with server-controlled pricing $${planConfig.price}`);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid maintenance plan data", errors: error.errors });
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid plan data", 
+          errors: error.errors 
+        });
       } else {
-        console.error("Maintenance plan creation error:", error);
-        res.status(500).json({ message: "Failed to create maintenance plan" });
+        console.error("Secure maintenance plan creation error:", error);
+        res.status(500).json({ 
+          success: false, 
+          message: "Failed to create maintenance plan" 
+        });
       }
+    }
+  });
+
+  // Portal maintenance plan cancellation - Customer-only endpoint
+  app.put("/api/portal/maintenance-plans/:id/cancel", requireCustomer, rlSensitive, async (req, res) => {
+    try {
+      const planId = parseInt(req.params.id);
+      const { customer } = req as any;
+      
+      if (isNaN(planId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid plan ID" 
+        });
+      }
+      
+      // Validate request body
+      let validatedData;
+      try {
+        validatedData = cancelMaintenancePlanSchema.parse(req.body);
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Invalid cancellation data", 
+            errors: validationError.errors 
+          });
+        }
+        throw validationError;
+      }
+      
+      const { cancellationType, cancellationReason } = validatedData;
+      
+      // Cancel the maintenance plan
+      const cancelledPlan = await storage.cancelMaintenancePlan(
+        planId, 
+        customer.id, 
+        cancellationType, 
+        cancellationReason
+      );
+      
+      // Send cancellation confirmation email
+      try {
+        await emailService.sendSubscriptionCancellationConfirmation({
+          to: customer.email,
+          customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+          planType: cancelledPlan.planType,
+          cancellationType,
+          endDate: cancelledPlan.endDate,
+          cancellationReason
+        });
+        console.log(`[PORTAL_CANCEL] Cancellation email sent for plan ${planId}`);
+      } catch (emailError) {
+        console.error(`[PORTAL_CANCEL] Failed to send cancellation email for plan ${planId}:`, emailError);
+        // Continue even if email fails
+      }
+      
+      res.json({
+        success: true,
+        message: cancellationType === 'immediate' 
+          ? "Subscription cancelled immediately" 
+          : "Subscription will be cancelled at the end of your current billing period",
+        plan: {
+          id: cancelledPlan.id,
+          status: cancelledPlan.status,
+          endDate: cancelledPlan.endDate,
+          cancellationType: cancelledPlan.cancellationType
+        }
+      });
+      
+      console.log(`[PORTAL_CANCEL] Customer ${customer.id} cancelled plan ${planId} (${cancellationType})`);
+      
+    } catch (error: any) {
+      console.error("Portal plan cancellation error:", error);
+      
+      if (error.message.includes("not found")) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Maintenance plan not found" 
+        });
+      } else if (error.message.includes("Unauthorized")) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "You can only cancel your own maintenance plans" 
+        });
+      } else if (error.message.includes("already cancelled")) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "This maintenance plan is already cancelled" 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to cancel subscription. Please try again." 
+      });
+    }
+  });
+
+  // Portal maintenance plan reactivation - Customer-only endpoint
+  app.put("/api/portal/maintenance-plans/:id/reactivate", requireCustomer, rlSensitive, async (req, res) => {
+    try {
+      const planId = parseInt(req.params.id);
+      const { customer } = req as any;
+      
+      if (isNaN(planId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid plan ID" 
+        });
+      }
+      
+      // Reactivate the maintenance plan
+      const reactivatedPlan = await storage.reactivateMaintenancePlan(planId, customer.id);
+      
+      // Send reactivation confirmation email
+      try {
+        await emailService.sendSubscriptionReactivationConfirmation({
+          to: customer.email,
+          customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
+          planType: reactivatedPlan.planType,
+          nextBillingDate: reactivatedPlan.nextBillingDate
+        });
+        console.log(`[PORTAL_REACTIVATE] Reactivation email sent for plan ${planId}`);
+      } catch (emailError) {
+        console.error(`[PORTAL_REACTIVATE] Failed to send reactivation email for plan ${planId}:`, emailError);
+        // Continue even if email fails
+      }
+      
+      res.json({
+        success: true,
+        message: "Subscription reactivated successfully",
+        plan: {
+          id: reactivatedPlan.id,
+          status: reactivatedPlan.status,
+          nextBillingDate: reactivatedPlan.nextBillingDate
+        }
+      });
+      
+      console.log(`[PORTAL_REACTIVATE] Customer ${customer.id} reactivated plan ${planId}`);
+      
+    } catch (error: any) {
+      console.error("Portal plan reactivation error:", error);
+      
+      if (error.message.includes("not found")) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Maintenance plan not found" 
+        });
+      } else if (error.message.includes("Unauthorized")) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "You can only reactivate your own maintenance plans" 
+        });
+      } else if (error.message.includes("already active")) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "This maintenance plan is already active" 
+        });
+      } else if (error.message.includes("30 days")) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Cannot reactivate plans cancelled more than 30 days ago" 
+        });
+      }
+      
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to reactivate subscription. Please try again." 
+      });
     }
   });
 

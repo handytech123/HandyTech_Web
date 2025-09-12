@@ -24,9 +24,13 @@ export const maintenancePlans = pgTable("maintenance_plans", {
   customerId: integer("customer_id").references(() => customers.id).notNull(),
   planType: text("plan_type").notNull(), // 'basic', 'professional', 'enterprise'
   price: real("price").notNull(),
-  status: text("status").notNull().default("active"), // 'active', 'inactive', 'cancelled'
+  status: text("status").notNull().default("active"), // 'active', 'inactive', 'cancelled', 'pending_cancellation'
   startDate: timestamp("start_date").defaultNow().notNull(),
   nextBillingDate: timestamp("next_billing_date").notNull(),
+  endDate: timestamp("end_date"), // When subscription actually ends (for end-of-period cancellations)
+  cancelledAt: timestamp("cancelled_at"), // When cancellation was requested
+  cancellationReason: text("cancellation_reason"), // Optional reason for cancellation
+  cancellationType: text("cancellation_type"), // 'immediate' or 'end_of_period'
 });
 
 export const reviews = pgTable("reviews", {
@@ -129,6 +133,24 @@ export const updateCustomerProfileSchema = createInsertSchema(customers)
 export const insertMaintenancePlanSchema = createInsertSchema(maintenancePlans).omit({
   id: true,
   startDate: true,
+  cancelledAt: true,
+  endDate: true,
+});
+
+// SECURITY: Secure portal maintenance plan creation schema - only accepts planType
+// All sensitive fields (price, customerId, etc.) are computed server-side
+export const portalCreateMaintenancePlanSchema = z.object({
+  planType: z.enum(['basic', 'professional', 'enterprise'], {
+    errorMap: () => ({ message: "Plan type must be 'basic', 'professional', or 'enterprise'" })
+  }),
+});
+
+// Cancellation request schema
+export const cancelMaintenancePlanSchema = z.object({
+  cancellationType: z.enum(['immediate', 'end_of_period'], {
+    errorMap: () => ({ message: "Cancellation type must be 'immediate' or 'end_of_period'" })
+  }),
+  cancellationReason: z.string().min(1, "Please provide a reason for cancellation").max(500, "Reason must be less than 500 characters").optional(),
 });
 
 export const insertReviewSchema = createInsertSchema(reviews).omit({
@@ -267,6 +289,7 @@ export type InsertCustomer = z.infer<typeof insertCustomerSchema>;
 
 export type MaintenancePlan = typeof maintenancePlans.$inferSelect;
 export type InsertMaintenancePlan = z.infer<typeof insertMaintenancePlanSchema>;
+export type PortalCreateMaintenancePlan = z.infer<typeof portalCreateMaintenancePlanSchema>;
 
 export type Review = typeof reviews.$inferSelect;
 export type InsertReview = z.infer<typeof insertReviewSchema>;
