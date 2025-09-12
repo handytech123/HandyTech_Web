@@ -13,7 +13,7 @@ Database preference: User chose to build own backend rather than use external CR
 Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
 **Deployment Archive Requirements**: Always automatically generate complete deploy.json file when creating deployment archives. Must include all API key specifications (requiredSecrets, optionalSecrets with descriptions, categories, examples) plus all deployment configuration (app details, port, framework, features, etc.) AND explicit deployment type specifications (deploymentType: "dynamic", architecture: "full-stack", siteType: "web-application", requiresServer: true) for deployment automation tools to know exactly what kind of site is being deployed.
 
-## Recent Changes (September 11, 2025)
+## Recent Changes (September 12, 2025)
 
 ✓ **Database Integration Complete**: Fully migrated from memory storage to PostgreSQL
 ✓ **DatabaseStorage Implementation**: All CRUD operations now use persistent database
@@ -47,6 +47,9 @@ Hosting constraint: Existing Ionos WordPress hosting (not Node.js compatible)
 ✓ **Production Security**: Added helmet security headers, rate limiting, input sanitization, and hardened CORS policy
 ✓ **Session Management**: Upgraded to PostgreSQL-backed session storage using connect-pg-simple for production scalability
 ✓ **Environment Security**: Enhanced startup validation requiring secure configuration for production deployments
+✓ **Magic Link Authentication**: Fixed token validation bug in Drizzle ORM query (isNull vs eq null comparison)
+✓ **Customer Portal Login**: Resolved "link expired" errors - passwordless authentication now working with full CSRF protection
+✓ **Enterprise Authentication**: Maintained military-grade security while enabling seamless 30-minute magic link sessions
 
 ## System Architecture
 
