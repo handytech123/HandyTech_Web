@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -23,6 +22,20 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 
 type UpdateProfileFormData = z.infer<typeof updateCustomerProfileSchema>;
+
+// Response interfaces for mutations
+interface MutationResponse {
+  success: boolean;
+  message: string;
+}
+
+interface CancelSubscriptionResponse extends MutationResponse {
+  cancellationType: 'immediate' | 'end_of_period';
+}
+
+interface ReactivateSubscriptionResponse extends MutationResponse {
+  message: string;
+}
 
 interface PortalProfileData {
   success: boolean;
@@ -227,14 +240,14 @@ export default function CustomerPortal() {
   });
 
   // Cancel subscription mutation
-  const cancelSubscriptionMutation = useMutation({
+  const cancelSubscriptionMutation = useMutation<CancelSubscriptionResponse, any, { planId: number; cancellationType: 'immediate' | 'end_of_period' }>({
     mutationFn: async (data: { planId: number; cancellationType: 'immediate' | 'end_of_period' }) => {
       return apiRequest(`/api/portal/maintenance-plans/${data.planId}/cancel`, {
         method: "PUT",
         body: { cancellationType: data.cancellationType },
-      });
+      }) as unknown as Promise<CancelSubscriptionResponse>;
     },
-    onSuccess: (response) => {
+    onSuccess: (response: CancelSubscriptionResponse) => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
       setCancelDialogOpen(false);
       setSelectedPlan(null);
@@ -256,13 +269,13 @@ export default function CustomerPortal() {
   });
 
   // Reactivate subscription mutation
-  const reactivateSubscriptionMutation = useMutation({
+  const reactivateSubscriptionMutation = useMutation<ReactivateSubscriptionResponse, any, number>({
     mutationFn: async (planId: number) => {
       return apiRequest(`/api/portal/maintenance-plans/${planId}/reactivate`, {
         method: "PUT",
-      });
+      }) as unknown as Promise<ReactivateSubscriptionResponse>;
     },
-    onSuccess: (response) => {
+    onSuccess: (response: ReactivateSubscriptionResponse) => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
       setReactivateDialogOpen(false);
       setSelectedPlan(null);
@@ -604,1232 +617,1380 @@ export default function CustomerPortal() {
           <p className="text-gray-600">Manage your maintenance plans and account settings</p>
         </div>
 
-        <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="appointments">Appointments</TabsTrigger>
-            <TabsTrigger value="plans">Maintenance Plans</TabsTrigger>
-            <TabsTrigger value="subscribe">Subscribe</TabsTrigger>
-            <TabsTrigger value="service-history">
-              <FileText className="w-4 h-4 mr-2" />
-              Service History
-            </TabsTrigger>
-            <TabsTrigger value="history">Email History</TabsTrigger>
-          </TabsList>
+        {/* Status Banner */}
+        <div className="mb-8">
+          <StatusBanner 
+            maintenancePlans={maintenancePlans}
+            appointments={appointments}
+          />
+        </div>
 
-          <TabsContent value="overview" className="space-y-6">
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
-                  <CreditCard className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{maintenancePlans.filter(p => p.status === 'active').length}</div>
-                  <p className="text-xs text-muted-foreground">Maintenance subscriptions</p>
-                </CardContent>
-              </Card>
+        {/* Dashboard Grid */}
+        <div className="grid lg:grid-cols-2 gap-6 mb-12">
+          <AppointmentsCard 
+            appointments={appointments}
+            onReschedule={handleReschedule}
+          />
+          <ProfileCard 
+            customer={customer as Customer | undefined}
+            isEditing={isEditing}
+            setIsEditing={setIsEditing}
+            form={form}
+            onProfileSubmit={onProfileSubmit}
+            handleEditCancel={handleEditCancel}
+            updateProfileMutation={updateProfileMutation}
+          />
+          <ServiceHistoryPreviewCard 
+            serviceHistory={serviceHistory}
+            serviceHistorySummary={serviceHistorySummary}
+            isLoading={serviceHistoryLoading}
+          />
+          <SubscribeCard 
+            maintenancePlans={maintenancePlans}
+            hasActivePlan={hasActivePlan}
+            handleSubscribe={handleSubscribe}
+            subscribeToPlan={subscribeToPlan}
+            getUpgradeText={getUpgradeText}
+          />
+        </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Upcoming Appointments</CardTitle>
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {filterAppointments('upcoming').length}
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    {filterAppointments('upcoming').length === 1 ? 'Service scheduled' : 'Services scheduled'}
-                  </p>
-                </CardContent>
-              </Card>
+        {/* Detailed Sections */}
+        <div className="space-y-12">
+          <MaintenancePlansSection 
+            maintenancePlans={maintenancePlans}
+            handleCancelSubscription={handleCancelSubscription}
+            handleReactivateSubscription={handleReactivateSubscription}
+            getStatusBadgeVariant={getStatusBadgeVariant}
+            getStatusIcon={getStatusIcon}
+            getSubscriptionStatusText={getSubscriptionStatusText}
+            canReactivate={canReactivate}
+          />
+          
+          <ServiceHistorySection 
+            serviceHistory={serviceHistory}
+            serviceHistorySummary={serviceHistorySummary}
+            serviceHistoryFilters={serviceHistoryFilters}
+            setServiceHistoryFilters={setServiceHistoryFilters}
+            showServiceHistoryFilters={showServiceHistoryFilters}
+            setShowServiceHistoryFilters={setShowServiceHistoryFilters}
+            serviceHistoryLoading={serviceHistoryLoading}
+            serviceHistoryError={serviceHistoryError}
+          />
+        </div>
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Emails Received</CardTitle>
-                  <Mail className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{emailCampaigns.length}</div>
-                  <p className="text-xs text-muted-foreground">Total communications</p>
-                </CardContent>
-              </Card>
+        {/* All Dialogs */}
+        <RescheduleDialog 
+          rescheduleDialogOpen={rescheduleDialogOpen}
+          setRescheduleDialogOpen={setRescheduleDialogOpen}
+          selectedAppointment={selectedAppointment}
+          setSelectedAppointment={setSelectedAppointment}
+          selectedDate={selectedDate}
+          setSelectedDate={setSelectedDate}
+          selectedTimeSlot={selectedTimeSlot}
+          setSelectedTimeSlot={setSelectedTimeSlot}
+          handleRescheduleSubmit={handleRescheduleSubmit}
+          rescheduleAppointmentMutation={rescheduleAppointmentMutation}
+        />
 
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm font-medium">Member Since</CardTitle>
-                  <CalendarDays className="h-4 w-4 text-muted-foreground" />
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">
-                    {customer?.createdAt ? new Date(customer.createdAt).toLocaleDateString() : 'N/A'}
-                  </div>
-                  <p className="text-xs text-muted-foreground">Customer since</p>
-                </CardContent>
-              </Card>
-            </div>
+        <CancelSubscriptionDialog 
+          cancelDialogOpen={cancelDialogOpen}
+          setCancelDialogOpen={setCancelDialogOpen}
+          selectedPlan={selectedPlan}
+          setSelectedPlan={setSelectedPlan}
+          cancellationType={cancellationType}
+          setCancellationType={setCancellationType}
+          handleCancelConfirm={handleCancelConfirm}
+          cancelSubscriptionMutation={cancelSubscriptionMutation}
+        />
 
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0">
-                <CardTitle>Account Information</CardTitle>
-                <div>
-                  {!isEditing ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setIsEditing(true)}
-                      data-testid="button-edit-profile"
-                      className="flex items-center gap-2"
-                    >
-                      <Edit className="h-4 w-4" />
-                      Edit Profile
-                    </Button>
-                  ) : (
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleEditCancel}
-                        disabled={updateProfileMutation.isPending}
-                        data-testid="button-cancel-edit"
-                        className="flex items-center gap-2"
-                      >
-                        <X className="h-4 w-4" />
-                        Cancel
-                      </Button>
-                      <Button
-                        size="sm"
-                        onClick={form.handleSubmit(onProfileSubmit)}
-                        disabled={updateProfileMutation.isPending}
-                        data-testid="button-save-profile"
-                        className="flex items-center gap-2 bg-brand-red hover:bg-brand-red/90"
-                      >
-                        {updateProfileMutation.isPending ? (
-                          <>
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-                            Saving...
-                          </>
-                        ) : (
-                          <>
-                            <Save className="h-4 w-4" />
-                            Save Changes
-                          </>
-                        )}
-                      </Button>
-                    </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {isEditing ? (
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(onProfileSubmit)} className="space-y-4">
-                      <div className="grid md:grid-cols-2 gap-4">
-                        <FormField
-                          control={form.control}
-                          name="firstName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>First Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} data-testid="input-first-name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                        <FormField
-                          control={form.control}
-                          name="lastName"
-                          render={({ field }) => (
-                            <FormItem>
-                              <FormLabel>Last Name</FormLabel>
-                              <FormControl>
-                                <Input {...field} data-testid="input-last-name" />
-                              </FormControl>
-                              <FormMessage />
-                            </FormItem>
-                          )}
-                        />
-                      </div>
-                      <FormField
-                        control={form.control}
-                        name="email"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Email</FormLabel>
-                            <FormControl>
-                              <Input {...field} type="email" data-testid="input-email" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="phone"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Phone (Optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-phone" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                      <FormField
-                        control={form.control}
-                        name="company"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormLabel>Company (Optional)</FormLabel>
-                            <FormControl>
-                              <Input {...field} data-testid="input-company" />
-                            </FormControl>
-                            <FormMessage />
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                ) : (
-                  <div className="space-y-4">
-                    <div className="grid md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="firstName">First Name</Label>
-                        <Input id="firstName" value={customer?.firstName || ''} readOnly data-testid="text-first-name" />
-                      </div>
-                      <div>
-                        <Label htmlFor="lastName">Last Name</Label>
-                        <Input id="lastName" value={customer?.lastName || ''} readOnly data-testid="text-last-name" />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Email</Label>
-                      <Input id="email" value={customer?.email || ''} readOnly data-testid="text-email" />
-                    </div>
-                    <div>
-                      <Label htmlFor="phone">Phone</Label>
-                      <Input id="phone" value={customer?.phone || "Not specified"} readOnly data-testid="text-phone" />
-                    </div>
-                    <div>
-                      <Label htmlFor="company">Company</Label>
-                      <Input id="company" value={customer?.company || "Not specified"} readOnly data-testid="text-company" />
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          <TabsContent value="appointments" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-charcoal">Your Appointments</h2>
-                <p className="text-gray-600">View and manage your scheduled services</p>
-              </div>
-              
-              <div className="flex items-center gap-2">
-                <Filter className="h-4 w-4 text-gray-500" />
-                <Select value={appointmentFilter} onValueChange={(value: any) => setAppointmentFilter(value)}>
-                  <SelectTrigger className="w-40">
-                    <SelectValue placeholder="Filter appointments" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="all">All Appointments</SelectItem>
-                    <SelectItem value="upcoming">Upcoming</SelectItem>
-                    <SelectItem value="past">Past</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-            {filterAppointments(appointmentFilter).length === 0 ? (
-              <Card>
-                <CardContent className="py-8 text-center">
-                  <CalendarDays className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-charcoal mb-2">
-                    {appointmentFilter === 'upcoming' ? 'No upcoming appointments' : 
-                     appointmentFilter === 'past' ? 'No past appointments' : 'No appointments found'}
-                  </h3>
-                  <p className="text-gray-600 mb-4">
-                    {appointmentFilter === 'upcoming' 
-                      ? "Schedule your next service appointment to get started."
-                      : "Your appointment history will appear here."}
-                  </p>
-                  {appointmentFilter === 'upcoming' && (
-                    <Button 
-                      onClick={() => window.location.href = "/#contact"} 
-                      className="bg-brand-red hover:bg-brand-red/90 text-white"
-                      data-testid="button-schedule-appointment"
-                    >
-                      Schedule Appointment
-                    </Button>
-                  )}
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="grid gap-4">
-                {filterAppointments(appointmentFilter).map((appointment) => (
-                  <Card key={appointment.id} className="hover:shadow-md transition-shadow">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <Badge 
-                              variant={
-                                appointment.status === 'scheduled' || appointment.status === 'confirmed' ? 'default' :
-                                appointment.status === 'completed' ? 'secondary' : 'destructive'
-                              }
-                              className="capitalize"
-                            >
-                              {appointment.status}
-                            </Badge>
-                            <span className="text-sm text-gray-500">#{appointment.id}</span>
-                          </div>
-                          
-                          <h3 className="text-lg font-semibold text-charcoal mb-2" data-testid={`text-service-${appointment.id}`}>
-                            {appointment.serviceType}
-                          </h3>
-                          
-                          <div className="space-y-1 text-sm text-gray-600">
-                            <div className="flex items-center gap-2">
-                              <Calendar className="h-4 w-4" />
-                              <span data-testid={`text-date-${appointment.id}`}>
-                                {formatAppointmentDate(appointment)}
-                              </span>
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Clock className="h-4 w-4" />
-                              <span data-testid={`text-time-${appointment.id}`}>
-                                {formatAppointmentTime(appointment)}
-                              </span>
-                            </div>
-                            {appointment.notes && (
-                              <div className="flex items-start gap-2 mt-2">
-                                <MapPin className="h-4 w-4 mt-0.5" />
-                                <span className="text-xs text-gray-500" data-testid={`text-notes-${appointment.id}`}>
-                                  {appointment.notes}
-                                </span>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row gap-2">
-                          {canReschedule(appointment) && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleReschedule(appointment)}
-                              className="flex items-center gap-2"
-                              data-testid={`button-reschedule-${appointment.id}`}
-                            >
-                              <RefreshCcw className="h-4 w-4" />
-                              Reschedule
-                            </Button>
-                          )}
-                          
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => window.open(`mailto:support@handytech-solutions.com?subject=Appointment ${appointment.id} Question`)}
-                            className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
-                            data-testid={`button-contact-${appointment.id}`}
-                          >
-                            <Mail className="h-4 w-4" />
-                            Contact
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-
-            {/* Reschedule Dialog */}
-            <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Reschedule Appointment</DialogTitle>
-                  <DialogDescription>
-                    Select a new date and time for your {selectedAppointment?.serviceType} appointment.
-                    <br />
-                    <span className="text-xs text-orange-600 mt-1 block">
-                      Appointments must be rescheduled at least 24 hours in advance.
-                    </span>
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label>Select Date</Label>
-                    <Popover>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          className="w-full justify-start text-left font-normal"
-                          data-testid="button-select-date"
-                        >
-                          <Calendar className="mr-2 h-4 w-4" />
-                          {selectedDate ? selectedDate.toLocaleDateString() : "Pick a date"}
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-auto p-0" align="start">
-                        <CalendarComponent
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={setSelectedDate}
-                          disabled={(date) => {
-                            const now = new Date();
-                            const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                            return date < twentyFourHoursFromNow || date.getDay() === 0; // Disable Sundays and dates within 24h
-                          }}
-                          initialFocus
-                        />
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  
-                  <div className="space-y-2">
-                    <Label>Select Time</Label>
-                    <Select value={selectedTimeSlot} onValueChange={setSelectedTimeSlot}>
-                      <SelectTrigger data-testid="select-time-slot">
-                        <SelectValue placeholder="Choose a time slot" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="08:00">8:00 AM</SelectItem>
-                        <SelectItem value="10:00">10:00 AM</SelectItem>
-                        <SelectItem value="12:00">12:00 PM</SelectItem>
-                        <SelectItem value="14:00">2:00 PM</SelectItem>
-                        <SelectItem value="16:00">4:00 PM</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setRescheduleDialogOpen(false);
-                      setSelectedAppointment(null);
-                      setSelectedDate(undefined);
-                      setSelectedTimeSlot('');
-                    }}
-                    className="flex-1"
-                    data-testid="button-cancel-reschedule"
-                  >
-                    Cancel
-                  </Button>
-                  <Button
-                    onClick={handleRescheduleSubmit}
-                    disabled={rescheduleAppointmentMutation.isPending || !selectedDate || !selectedTimeSlot}
-                    className="flex-1 bg-brand-red hover:bg-brand-red/90 text-white"
-                    data-testid="button-confirm-reschedule"
-                  >
-                    {rescheduleAppointmentMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        Rescheduling...
-                      </>
-                    ) : (
-                      'Confirm Reschedule'
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Cancel Subscription Dialog */}
-            <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
-              <DialogContent className="sm:max-w-lg">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-red-600">
-                    <Ban className="h-5 w-5" />
-                    Cancel {selectedPlan?.planType} Plan
-                  </DialogTitle>
-                  <DialogDescription>
-                    We're sorry to see you go! Please review the details below before confirming your cancellation.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-6 py-4">
-                  <Alert>
-                    <AlertTriangle className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>What you'll lose:</strong>
-                      <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                        <li>{selectedPlan?.planType === 'basic' ? 'Monthly' : selectedPlan?.planType === 'professional' ? 'Bi-weekly' : 'Weekly'} system checkups</li>
-                        <li>{selectedPlan?.planType === 'enterprise' ? '24/7 dedicated' : selectedPlan?.planType === 'professional' ? 'Priority phone' : 'Email'} support</li>
-                        <li>Security monitoring and updates</li>
-                        {selectedPlan?.planType !== 'basic' && <li>Monthly reports and insights</li>}
-                        {selectedPlan?.planType === 'enterprise' && <li>Custom integrations and enterprise features</li>}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="space-y-3">
-                    <Label className="text-base font-semibold">Cancellation Type</Label>
-                    <div className="space-y-3">
-                      <div className="flex items-start space-x-3">
-                        <input
-                          type="radio"
-                          id="end-of-period"
-                          name="cancellationType"
-                          value="end_of_period"
-                          checked={cancellationType === 'end_of_period'}
-                          onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
-                          className="mt-1 h-4 w-4 text-brand-red"
-                          data-testid="radio-end-of-period"
-                        />
-                        <div className="flex-1">
-                          <label htmlFor="end-of-period" className="font-medium text-sm cursor-pointer">
-                            Cancel at end of billing period (Recommended)
-                          </label>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Continue using your plan until {selectedPlan?.nextBillingDate ? new Date(selectedPlan.nextBillingDate).toLocaleDateString() : 'your next billing date'}. 
-                            You won't be charged again.
-                          </p>
-                        </div>
-                      </div>
-                      
-                      <div className="flex items-start space-x-3">
-                        <input
-                          type="radio"
-                          id="immediate"
-                          name="cancellationType"
-                          value="immediate"
-                          checked={cancellationType === 'immediate'}
-                          onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
-                          className="mt-1 h-4 w-4 text-brand-red"
-                          data-testid="radio-immediate"
-                        />
-                        <div className="flex-1">
-                          <label htmlFor="immediate" className="font-medium text-sm cursor-pointer">
-                            Cancel immediately
-                          </label>
-                          <p className="text-xs text-gray-600 mt-1">
-                            Your plan access will end right away. No refund for the current billing period.
-                          </p>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                  
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-sm">
-                      <strong>Need help instead?</strong> Our support team can help resolve issues or adjust your plan. 
-                      <Button 
-                        variant="link" 
-                        className="p-0 h-auto text-brand-red"
-                        onClick={() => {
-                          setCancelDialogOpen(false);
-                          window.open(`mailto:support@handytech-solutions.com?subject=Help with ${selectedPlan?.planType} Plan (ID: ${selectedPlan?.id})`);
-                        }}
-                      >
-                        Contact support instead
-                      </Button>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setCancelDialogOpen(false);
-                      setSelectedPlan(null);
-                      setCancellationType('end_of_period');
-                    }}
-                    className="flex-1"
-                    data-testid="button-cancel-dialog-close"
-                  >
-                    Keep My Plan
-                  </Button>
-                  <Button
-                    variant="destructive"
-                    onClick={handleCancelConfirm}
-                    disabled={cancelSubscriptionMutation.isPending}
-                    className="flex-1"
-                    data-testid="button-confirm-cancellation"
-                  >
-                    {cancelSubscriptionMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        Cancelling...
-                      </>
-                    ) : (
-                      cancellationType === 'immediate' ? 'Cancel Now' : 'Cancel at Period End'
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-
-            {/* Reactivate Subscription Dialog */}
-            <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
-              <DialogContent className="sm:max-w-md">
-                <DialogHeader>
-                  <DialogTitle className="flex items-center gap-2 text-green-600">
-                    <CheckCircle2 className="h-5 w-5" />
-                    Welcome Back!
-                  </DialogTitle>
-                  <DialogDescription>
-                    We're excited to have you back! Your {selectedPlan?.planType} plan will be reactivated.
-                  </DialogDescription>
-                </DialogHeader>
-                
-                <div className="space-y-4 py-4">
-                  <Alert>
-                    <CheckCircle2 className="h-4 w-4" />
-                    <AlertDescription>
-                      <strong>What you'll get back:</strong>
-                      <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
-                        <li>{selectedPlan?.planType === 'basic' ? 'Monthly' : selectedPlan?.planType === 'professional' ? 'Bi-weekly' : 'Weekly'} system checkups</li>
-                        <li>{selectedPlan?.planType === 'enterprise' ? '24/7 dedicated' : selectedPlan?.planType === 'professional' ? 'Priority phone' : 'Email'} support</li>
-                        <li>Security monitoring and updates</li>
-                        {selectedPlan?.planType !== 'basic' && <li>Monthly reports and insights</li>}
-                        {selectedPlan?.planType === 'enterprise' && <li>Custom integrations and enterprise features</li>}
-                      </ul>
-                    </AlertDescription>
-                  </Alert>
-                  
-                  <div className="bg-gray-50 p-4 rounded-lg space-y-2">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Plan:</span>
-                      <span className="capitalize">{selectedPlan?.planType} Plan</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Price:</span>
-                      <span className="font-bold">${selectedPlan?.price}/month</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium">Billing resumes:</span>
-                      <span>Immediately</span>
-                    </div>
-                  </div>
-                  
-                  <Alert>
-                    <Info className="h-4 w-4" />
-                    <AlertDescription className="text-sm">
-                      Your first bill will be prorated if reactivated mid-cycle. You can cancel anytime from your account settings.
-                    </AlertDescription>
-                  </Alert>
-                </div>
-                
-                <div className="flex gap-3">
-                  <Button
-                    variant="outline"
-                    onClick={() => {
-                      setReactivateDialogOpen(false);
-                      setSelectedPlan(null);
-                    }}
-                    className="flex-1"
-                    data-testid="button-reactivate-dialog-close"
-                  >
-                    Not Now
-                  </Button>
-                  <Button
-                    onClick={handleReactivateConfirm}
-                    disabled={reactivateSubscriptionMutation.isPending}
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white"
-                    data-testid="button-confirm-reactivation"
-                  >
-                    {reactivateSubscriptionMutation.isPending ? (
-                      <>
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                        Reactivating...
-                      </>
-                    ) : (
-                      'Reactivate Plan'
-                    )}
-                  </Button>
-                </div>
-              </DialogContent>
-            </Dialog>
-          </TabsContent>
-
-          <TabsContent value="plans" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-charcoal">Your Maintenance Plans</h2>
-                <p className="text-gray-600">Manage your active subscriptions and billing</p>
-              </div>
-            </div>
-
-            {maintenancePlans.length === 0 ? (
-              <Card>
-                <CardContent className="flex flex-col items-center justify-center py-12">
-                  <CreditCard className="h-12 w-12 text-gray-400 mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">No Maintenance Plans</h3>
-                  <p className="text-gray-600 text-center max-w-md mb-6">
-                    Subscribe to a maintenance plan to keep your systems running smoothly with regular checkups and priority support.
-                  </p>
-                  <Button 
-                    onClick={() => {/* Navigate to subscribe tab */}}
-                    className="bg-brand-red hover:bg-brand-red/90 text-white"
-                    data-testid="button-browse-plans"
-                  >
-                    Browse Plans
-                  </Button>
-                </CardContent>
-              </Card>
-            ) : (
-              <div className="space-y-6">
-                {maintenancePlans.map((plan) => (
-                  <Card key={plan.id} className="overflow-hidden">
-                    <CardContent className="p-6">
-                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
-                        <div className="flex-1 space-y-4">
-                          <div className="flex items-center gap-3">
-                            {getStatusIcon(plan.status)}
-                            <div>
-                              <h3 className="text-xl font-semibold capitalize flex items-center gap-2">
-                                {plan.planType} Plan
-                                <Badge 
-                                  variant={getStatusBadgeVariant(plan.status)}
-                                  className="text-xs"
-                                  data-testid={`badge-status-${plan.id}`}
-                                >
-                                  {plan.status === 'pending_cancellation' ? 'Ending Soon' : plan.status}
-                                </Badge>
-                              </h3>
-                              <p className="text-sm text-gray-600">
-                                {getSubscriptionStatusText(plan)}
-                              </p>
-                            </div>
-                          </div>
-                          
-                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
-                            <div>
-                              <span className="font-medium text-gray-700">Price</span>
-                              <p className="text-lg font-bold text-charcoal">${plan.price}/month</p>
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-700">Started</span>
-                              <p className="text-charcoal">{new Date(plan.startDate).toLocaleDateString()}</p>
-                            </div>
-                            <div>
-                              <span className="font-medium text-gray-700">
-                                {plan.status === 'active' ? 'Next Billing' : 
-                                 plan.status === 'pending_cancellation' ? 'Active Until' : 'Cancelled'}
-                              </span>
-                              <p className="text-charcoal">
-                                {plan.status === 'pending_cancellation' && plan.endDate 
-                                  ? new Date(plan.endDate).toLocaleDateString()
-                                  : plan.status === 'cancelled' && plan.cancelledAt
-                                  ? new Date(plan.cancelledAt).toLocaleDateString()
-                                  : new Date(plan.nextBillingDate).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-
-                          {plan.cancellationReason && (
-                            <Alert>
-                              <Info className="h-4 w-4" />
-                              <AlertDescription>
-                                <span className="font-medium">Cancellation reason:</span> {plan.cancellationReason}
-                              </AlertDescription>
-                            </Alert>
-                          )}
-                        </div>
-                        
-                        <div className="flex flex-col sm:flex-row gap-3">
-                          {plan.status === 'active' && (
-                            <Button
-                              variant="destructive"
-                              size="sm"
-                              onClick={() => handleCancelSubscription(plan)}
-                              className="flex items-center gap-2"
-                              data-testid={`button-cancel-${plan.id}`}
-                            >
-                              <Ban className="h-4 w-4" />
-                              Cancel Plan
-                            </Button>
-                          )}
-                          
-                          {plan.status === 'cancelled' && canReactivate(plan) && (
-                            <Button
-                              variant="default"
-                              size="sm"
-                              onClick={() => handleReactivateSubscription(plan)}
-                              className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
-                              data-testid={`button-reactivate-${plan.id}`}
-                            >
-                              <Play className="h-4 w-4" />
-                              Reactivate
-                            </Button>
-                          )}
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => window.open(`mailto:support@handytech-solutions.com?subject=Question about ${plan.planType} Plan (ID: ${plan.id})`)}
-                            className="flex items-center gap-2"
-                            data-testid={`button-contact-${plan.id}`}
-                          >
-                            <Phone className="h-4 w-4" />
-                            Contact Support
-                          </Button>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            )}
-          </TabsContent>
-
-          <TabsContent value="subscribe" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-2xl font-bold text-charcoal">Available Plans</h2>
-                <p className="text-gray-600">Choose the right maintenance plan for your needs</p>
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-3 gap-6">
-              <Card className={`relative ${hasActivePlan('basic') ? 'opacity-75' : ''}`}>
-                {hasActivePlan('basic') && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-green-600">Current Plan</Badge>
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle>Basic Plan</CardTitle>
-                  <div className="text-3xl font-bold">$99<span className="text-lg text-muted-foreground">/month</span></div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Monthly system checkup
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Basic security updates
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Email support
-                    </li>
-                  </ul>
-                  <Button 
-                    onClick={() => handleSubscribe('basic', 99)}
-                    className="w-full bg-brand-red hover:bg-brand-red/90"
-                    disabled={subscribeToPlan.isPending || hasActivePlan('basic')}
-                    data-testid="button-subscribe-basic"
-                  >
-                    {hasActivePlan('basic') ? 'Current Plan' : getUpgradeText('Basic', 99)}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className={`relative border-brand-red border-2 ${hasActivePlan('professional') ? 'opacity-75' : ''}`}>
-                {hasActivePlan('professional') ? (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-green-600">Current Plan</Badge>
-                  </div>
-                ) : (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-brand-red">Most Popular</Badge>
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle>Professional Plan</CardTitle>
-                  <div className="text-3xl font-bold">$199<span className="text-lg text-muted-foreground">/month</span></div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Bi-weekly system checkup
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Advanced security monitoring
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Priority phone support
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Monthly reports
-                    </li>
-                  </ul>
-                  <Button 
-                    onClick={() => handleSubscribe('professional', 199)}
-                    className="w-full bg-brand-red hover:bg-brand-red/90"
-                    disabled={subscribeToPlan.isPending || hasActivePlan('professional')}
-                    data-testid="button-subscribe-professional"
-                  >
-                    {hasActivePlan('professional') ? 'Current Plan' : getUpgradeText('Professional', 199)}
-                  </Button>
-                </CardContent>
-              </Card>
-
-              <Card className={`relative ${hasActivePlan('enterprise') ? 'opacity-75' : ''}`}>
-                {hasActivePlan('enterprise') && (
-                  <div className="absolute -top-3 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-green-600">Current Plan</Badge>
-                  </div>
-                )}
-                <CardHeader>
-                  <CardTitle>Enterprise Plan</CardTitle>
-                  <div className="text-3xl font-bold">$399<span className="text-lg text-muted-foreground">/month</span></div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <ul className="space-y-2 text-sm">
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Weekly system checkup
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Enterprise security suite
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      24/7 dedicated support
-                    </li>
-                    <li className="flex items-center">
-                      <Star className="h-4 w-4 text-brand-red mr-2" />
-                      Custom integrations
-                    </li>
-                  </ul>
-                  <Button 
-                    onClick={() => handleSubscribe('enterprise', 399)}
-                    className="w-full bg-brand-red hover:bg-brand-red/90"
-                    disabled={subscribeToPlan.isPending || hasActivePlan('enterprise')}
-                    data-testid="button-subscribe-enterprise"
-                  >
-                    {hasActivePlan('enterprise') ? 'Current Plan' : getUpgradeText('Enterprise', 399)}
-                  </Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {maintenancePlans.some(plan => ['active', 'pending_cancellation'].includes(plan.status)) && (
-              <Alert>
-                <Info className="h-4 w-4" />
-                <AlertDescription>
-                  You can subscribe to multiple plans or upgrade your existing plan. Contact support if you need help choosing the right combination.
-                </AlertDescription>
-              </Alert>
-            )}
-          </TabsContent>
-
-          <TabsContent value="history" className="space-y-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Email Communication History</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {emailCampaigns.length === 0 ? (
-                  <p className="text-muted-foreground">No email communications yet.</p>
-                ) : (
-                  <div className="space-y-4">
-                    {emailCampaigns.map((campaign) => (
-                      <div key={campaign.id} className="border rounded-lg p-4">
-                        <div className="flex justify-between items-start mb-2">
-                          <h3 className="font-semibold">{campaign.subject}</h3>
-                          <Badge variant="outline" className="capitalize">
-                            {campaign.campaignType}
-                          </Badge>
-                        </div>
-                        <p className="text-sm text-muted-foreground mb-2">{campaign.content}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Sent: {new Date(campaign.sentAt).toLocaleString()}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Service History Tab */}
-          <TabsContent value="service-history" className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
-              <div>
-                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Service History</h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                  Complete record of your past services and costs
-                </p>
-              </div>
-              
-              {/* Service History Summary */}
-              {serviceHistorySummary && (
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
-                      {serviceHistorySummary.totalServices}
-                    </div>
-                    <div className="text-xs text-blue-600 dark:text-blue-400">Total Services</div>
-                  </div>
-                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
-                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
-                      ${serviceHistorySummary.totalCost.toFixed(2)}
-                    </div>
-                    <div className="text-xs text-green-600 dark:text-green-400">Total Cost</div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Search and Filter Controls */}
-            <Card className="p-4">
-              <div className="flex flex-col sm:flex-row gap-4">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowServiceHistoryFilters(!showServiceHistoryFilters)}
-                  data-testid="button-toggle-filters"
-                >
-                  <Filter className="w-4 h-4 mr-2" />
-                  Filters
-                </Button>
-                
-                {showServiceHistoryFilters && (
-                  <div className="flex flex-col sm:flex-row gap-3 w-full">
-                    <Input
-                      placeholder="Service type..."
-                      value={serviceHistoryFilters.serviceType}
-                      onChange={(e) => setServiceHistoryFilters(prev => ({ ...prev, serviceType: e.target.value }))}
-                      className="sm:w-48"
-                      data-testid="input-service-type"
-                    />
-                    <Input
-                      type="date"
-                      placeholder="Start date"
-                      value={serviceHistoryFilters.startDate}
-                      onChange={(e) => setServiceHistoryFilters(prev => ({ ...prev, startDate: e.target.value }))}
-                      className="sm:w-40"
-                      data-testid="input-start-date"
-                    />
-                    <Input
-                      type="date"
-                      placeholder="End date"
-                      value={serviceHistoryFilters.endDate}
-                      onChange={(e) => setServiceHistoryFilters(prev => ({ ...prev, endDate: e.target.value }))}
-                      className="sm:w-40"
-                      data-testid="input-end-date"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setServiceHistoryFilters({ startDate: '', endDate: '', serviceType: '', limit: 50, offset: 0 })}
-                      data-testid="button-clear-filters"
-                    >
-                      Clear
-                    </Button>
-                  </div>
-                )}
-              </div>
-            </Card>
-
-            {/* Service History Content */}
-            <div className="space-y-4">
-              {serviceHistoryLoading && (
-                <div className="text-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Loading service history...</p>
-                </div>
-              )}
-
-              {serviceHistoryError && (
-                <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20">
-                  <AlertCircle className="h-4 w-4 text-red-600" />
-                  <AlertDescription className="text-red-700 dark:text-red-400">
-                    Failed to load service history. Please try again later.
-                  </AlertDescription>
-                </Alert>
-              )}
-
-              {!serviceHistoryLoading && !serviceHistoryError && serviceHistory.length === 0 && (
-                <Card className="p-8 text-center">
-                  <div className="mx-auto w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
-                    <FileText className="w-6 h-6 text-gray-400" />
-                  </div>
-                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Service History</h3>
-                  <p className="text-gray-600 dark:text-gray-400 mb-4">
-                    You don't have any completed services yet.
-                  </p>
-                  <Button variant="outline" size="sm">
-                    <Calendar className="w-4 h-4 mr-2" />
-                    Schedule a Service
-                  </Button>
-                </Card>
-              )}
-
-              {!serviceHistoryLoading && !serviceHistoryError && serviceHistory.length > 0 && (
-                <div className="space-y-4">
-                  {serviceHistory.map((service) => (
-                    <Card key={service.id} className="overflow-hidden" data-testid={`card-service-${service.id}`}>
-                      <CardContent className="p-0">
-                        {/* Service Header */}
-                        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b">
-                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                            <div className="flex items-center gap-3">
-                              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
-                                <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                              </div>
-                              <div>
-                                <h4 className="font-semibold text-gray-900 dark:text-white" data-testid={`text-service-name-${service.id}`}>
-                                  {service.serviceName || service.serviceType}
-                                </h4>
-                                <p className="text-sm text-gray-600 dark:text-gray-400">
-                                  {new Date(service.appointmentDate).toLocaleDateString('en-US', {
-                                    weekday: 'long',
-                                    year: 'numeric',
-                                    month: 'long',
-                                    day: 'numeric'
-                                  })}
-                                </p>
-                              </div>
-                            </div>
-                            
-                            <div className="text-right">
-                              {service.calculatedCost && (
-                                <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid={`text-cost-${service.id}`}>
-                                  ${service.calculatedCost.toFixed(2)}
-                                </div>
-                              )}
-                              <div className="text-xs text-gray-500 dark:text-gray-400">
-                                {service.duration ? `${service.duration.toFixed(1)} hours` : 'Duration not recorded'}
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Service Details */}
-                        <div className="px-6 py-4 space-y-4">
-                          {/* Service Description */}
-                          {service.serviceDescription && (
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Description</h5>
-                              <p className="text-sm text-gray-600 dark:text-gray-400">{service.serviceDescription}</p>
-                            </div>
-                          )}
-
-                          {/* Service Times */}
-                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Period</h5>
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <Clock className="w-4 h-4" />
-                                {service.startTimestamptz && service.endTimestamptz ? (
-                                  <>
-                                    {new Date(service.startTimestamptz).toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    })} - {new Date(service.endTimestamptz).toLocaleTimeString('en-US', {
-                                      hour: 'numeric',
-                                      minute: '2-digit',
-                                      hour12: true
-                                    })}
-                                  </>
-                                ) : (
-                                  'Time not recorded'
-                                )}
-                              </div>
-                            </div>
-
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pricing Details</h5>
-                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                                <DollarSign className="w-4 h-4" />
-                                {service.basePrice ? (
-                                  `$${service.basePrice.toFixed(2)} ${service.priceUnit || 'per hour'}`
-                                ) : (
-                                  'Pricing not available'
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Technician Notes */}
-                          {service.notes && (
-                            <div>
-                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Technician Notes</h5>
-                              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
-                                <p className="text-sm text-gray-700 dark:text-gray-300" data-testid={`text-notes-${service.id}`}>
-                                  {service.notes}
-                                </p>
-                              </div>
-                            </div>
-                          )}
-
-                          {/* Service Status Badge */}
-                          <div className="flex items-center justify-between pt-2 border-t">
-                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
-                              <CheckCircle2 className="w-3 h-3 mr-1" />
-                              Completed
-                            </Badge>
-                            
-                            <div className="text-xs text-gray-500 dark:text-gray-400">
-                              Service ID: #{service.id}
-                            </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
-
-                  {/* Pagination Controls */}
-                  {serviceHistoryData?.pagination && serviceHistory.length > 0 && (
-                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t">
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        Showing {serviceHistoryFilters.offset + 1}-{Math.min(serviceHistoryFilters.offset + serviceHistory.length, serviceHistoryFilters.offset + serviceHistoryFilters.limit)} of {serviceHistoryData.summary.totalServices} services
-                      </div>
-                      
-                      <div className="flex items-center gap-2">
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setServiceHistoryFilters(prev => ({ 
-                            ...prev, 
-                            offset: Math.max(0, prev.offset - prev.limit)
-                          }))}
-                          disabled={serviceHistoryFilters.offset === 0}
-                          data-testid="button-previous-page"
-                        >
-                          Previous
-                        </Button>
-                        
-                        <div className="text-sm text-gray-600 dark:text-gray-400">
-                          Page {Math.floor(serviceHistoryFilters.offset / serviceHistoryFilters.limit) + 1}
-                        </div>
-                        
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setServiceHistoryFilters(prev => ({ 
-                            ...prev, 
-                            offset: prev.offset + prev.limit
-                          }))}
-                          disabled={!serviceHistoryData.pagination.hasMore}
-                          data-testid="button-next-page"
-                        >
-                          Next
-                        </Button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          </TabsContent>
-        </Tabs>
+        <ReactivateSubscriptionDialog 
+          reactivateDialogOpen={reactivateDialogOpen}
+          setReactivateDialogOpen={setReactivateDialogOpen}
+          selectedPlan={selectedPlan}
+          setSelectedPlan={setSelectedPlan}
+          handleReactivateConfirm={handleReactivateConfirm}
+          reactivateSubscriptionMutation={reactivateSubscriptionMutation}
+        />
       </div>
     </div>
+  );
+}
+
+// Dashboard Components
+interface StatusBannerProps {
+  maintenancePlans: MaintenancePlan[];
+  appointments: Appointment[];
+}
+
+function StatusBanner({ maintenancePlans, appointments }: StatusBannerProps) {
+  const activePlan = maintenancePlans.find(plan => plan.status === 'active');
+  const upcomingAppointments = appointments.filter(appointment => {
+    const appointmentDate = appointment.startTimestamptz 
+      ? new Date(appointment.startTimestamptz) 
+      : new Date(appointment.appointmentDate);
+    return appointmentDate >= new Date() && ['scheduled', 'confirmed'].includes(appointment.status);
+  });
+
+  if (!activePlan && upcomingAppointments.length === 0) {
+    return (
+      <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+        <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+        <AlertDescription className="text-amber-800 dark:text-amber-200">
+          <strong>No Active Plan</strong> - Consider subscribing to a maintenance plan to keep your systems running smoothly.
+        </AlertDescription>
+      </Alert>
+    );
+  }
+
+  return (
+    <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+      <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+      <AlertDescription className="text-green-800 dark:text-green-200">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+          <div>
+            {activePlan && (
+              <span>
+                <strong>{activePlan.planType} Plan Active</strong> - Next billing: {new Date(activePlan.nextBillingDate).toLocaleDateString()}
+              </span>
+            )}
+            {activePlan && upcomingAppointments.length > 0 && ' • '}
+            {upcomingAppointments.length > 0 && (
+              <span>
+                <strong>{upcomingAppointments.length} upcoming appointment{upcomingAppointments.length === 1 ? '' : 's'}</strong>
+              </span>
+            )}
+          </div>
+          <Badge className="bg-green-600 text-white w-fit">All Systems Operational</Badge>
+        </div>
+      </AlertDescription>
+    </Alert>
+  );
+}
+
+interface AppointmentsCardProps {
+  appointments: Appointment[];
+  onReschedule: (appointment: Appointment) => void;
+}
+
+function AppointmentsCard({ appointments, onReschedule }: AppointmentsCardProps) {
+  const upcomingAppointments = appointments.filter(appointment => {
+    const appointmentDate = appointment.startTimestamptz 
+      ? new Date(appointment.startTimestamptz) 
+      : new Date(appointment.appointmentDate);
+    return appointmentDate >= new Date() && ['scheduled', 'confirmed'].includes(appointment.status);
+  }).sort((a, b) => {
+    const dateA = a.startTimestamptz ? new Date(a.startTimestamptz) : new Date(a.appointmentDate);
+    const dateB = b.startTimestamptz ? new Date(b.startTimestamptz) : new Date(b.appointmentDate);
+    return dateA.getTime() - dateB.getTime();
+  });
+
+  const nextAppointment = upcomingAppointments[0];
+
+  const canReschedule = (appointment: Appointment) => {
+    if (!['scheduled', 'confirmed'].includes(appointment.status)) return false;
+    const appointmentDate = appointment.startTimestamptz 
+      ? new Date(appointment.startTimestamptz) 
+      : new Date(appointment.appointmentDate);
+    const now = new Date();
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    return appointmentDate > twentyFourHoursFromNow;
+  };
+
+  const formatAppointmentDate = (appointment: Appointment) => {
+    const date = appointment.startTimestamptz 
+      ? new Date(appointment.startTimestamptz) 
+      : new Date(appointment.appointmentDate);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const formatAppointmentTime = (appointment: Appointment) => {
+    if (appointment.startTimestamptz) {
+      const startTime = new Date(appointment.startTimestamptz);
+      const endTime = appointment.endTimestamptz ? new Date(appointment.endTimestamptz) : new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    }
+    return appointment.appointmentTime || 'TBD';
+  };
+
+  return (
+    <Card data-testid="card-appointments">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-xl">Next Appointment</CardTitle>
+        <Calendar className="h-5 w-5 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {nextAppointment ? (
+          <div className="space-y-3">
+            <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg space-y-2">
+              <div className="flex items-center justify-between">
+                <Badge variant="default" className="capitalize" data-testid={`badge-status-${nextAppointment.id}`}>
+                  {nextAppointment.status}
+                </Badge>
+                <div className="text-sm text-gray-600 dark:text-gray-400">
+                  Service ID: #{nextAppointment.id}
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 text-sm">
+                  <Calendar className="h-4 w-4 text-gray-500" />
+                  <span className="font-medium">{formatAppointmentDate(nextAppointment)}</span>
+                </div>
+                <div className="flex items-center gap-2 text-sm">
+                  <Clock className="h-4 w-4 text-gray-500" />
+                  <span>{formatAppointmentTime(nextAppointment)}</span>
+                </div>
+                {nextAppointment.address && (
+                  <div className="flex items-center gap-2 text-sm">
+                    <MapPin className="h-4 w-4 text-gray-500" />
+                    <span className="text-gray-600 dark:text-gray-400">{nextAppointment.address}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+            
+            {canReschedule(nextAppointment) && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => onReschedule(nextAppointment)}
+                className="w-full flex items-center gap-2"
+                data-testid={`button-reschedule-${nextAppointment.id}`}
+              >
+                <RefreshCcw className="h-4 w-4" />
+                Reschedule Appointment
+              </Button>
+            )}
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <Calendar className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">No upcoming appointments scheduled</p>
+            <Button variant="outline" size="sm" className="mt-4" data-testid="button-schedule-appointment">
+              Schedule Service
+            </Button>
+          </div>
+        )}
+        
+        {upcomingAppointments.length > 1 && (
+          <div className="pt-3 border-t">
+            <p className="text-sm text-gray-600 dark:text-gray-400">
+              + {upcomingAppointments.length - 1} more appointment{upcomingAppointments.length - 1 === 1 ? '' : 's'}
+            </p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Profile Card Component
+interface ProfileCardProps {
+  customer: Customer | undefined;
+  isEditing: boolean;
+  setIsEditing: (editing: boolean) => void;
+  form: any;
+  onProfileSubmit: (data: any) => void;
+  handleEditCancel: () => void;
+  updateProfileMutation: any;
+}
+
+function ProfileCard({ customer, isEditing, setIsEditing, form, onProfileSubmit, handleEditCancel, updateProfileMutation }: ProfileCardProps) {
+  return (
+    <Card data-testid="card-profile">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-xl">Account Information</CardTitle>
+        <div>
+          {!isEditing ? (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditing(true)}
+              data-testid="button-edit-profile"
+              className="flex items-center gap-2"
+            >
+              <Edit className="h-4 w-4" />
+              Edit Profile
+            </Button>
+          ) : (
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleEditCancel}
+                disabled={updateProfileMutation.isPending}
+                data-testid="button-cancel-edit"
+                className="flex items-center gap-2"
+              >
+                <X className="h-4 w-4" />
+                Cancel
+              </Button>
+              <Button
+                size="sm"
+                onClick={form.handleSubmit(onProfileSubmit)}
+                disabled={updateProfileMutation.isPending}
+                data-testid="button-save-profile"
+                className="flex items-center gap-2 bg-brand-red hover:bg-brand-red/90"
+              >
+                {updateProfileMutation.isPending ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4" />
+                    Save Changes
+                  </>
+                )}
+              </Button>
+            </div>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isEditing ? (
+          <Form {...form}>
+            <form onSubmit={form.handleSubmit(onProfileSubmit)} className="space-y-4">
+              <div className="grid md:grid-cols-2 gap-4">
+                <FormField
+                  control={form.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-first-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={form.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-last-name" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email</FormLabel>
+                    <FormControl>
+                      <Input {...field} type="email" data-testid="input-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="phone"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-phone" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={form.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-company" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </form>
+          </Form>
+        ) : (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700">Name</span>
+                <p className="text-charcoal" data-testid="text-full-name">{customer?.firstName} {customer?.lastName}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Email</span>
+                <p className="text-charcoal" data-testid="text-email">{customer?.email}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Phone</span>
+                <p className="text-charcoal" data-testid="text-phone">{customer?.phone || "Not specified"}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Company</span>
+                <p className="text-charcoal" data-testid="text-company">{customer?.company || "Not specified"}</p>
+              </div>
+            </div>
+            {customer?.createdAt && (
+              <div className="pt-3 border-t">
+                <div className="flex items-center gap-2 text-sm text-gray-600">
+                  <CalendarDays className="h-4 w-4" />
+                  <span>Customer since {new Date(customer.createdAt).toLocaleDateString()}</span>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Service History Preview Card
+interface ServiceHistoryPreviewCardProps {
+  serviceHistory: ServiceHistoryItem[];
+  serviceHistorySummary: any;
+  isLoading: boolean;
+}
+
+function ServiceHistoryPreviewCard({ serviceHistory, serviceHistorySummary, isLoading }: ServiceHistoryPreviewCardProps) {
+  const recentServices = serviceHistory.slice(0, 3);
+
+  return (
+    <Card data-testid="card-service-history">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-xl">Service History</CardTitle>
+        <FileText className="h-5 w-5 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isLoading ? (
+          <div className="space-y-3">
+            <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+            <div className="h-4 bg-gray-200 rounded animate-pulse"></div>
+          </div>
+        ) : serviceHistorySummary ? (
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-medium text-gray-700">Total Services</span>
+                <p className="text-2xl font-bold text-charcoal">{serviceHistorySummary.totalServices}</p>
+              </div>
+              <div>
+                <span className="font-medium text-gray-700">Total Spent</span>
+                <p className="text-2xl font-bold text-charcoal">${serviceHistorySummary.totalCost.toFixed(2)}</p>
+              </div>
+            </div>
+            
+            {recentServices.length > 0 && (
+              <div className="space-y-3">
+                <h4 className="font-medium text-gray-700">Recent Services</h4>
+                {recentServices.map((service, index) => (
+                  <div key={index} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">{service.serviceType}</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {new Date(service.serviceDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="font-bold text-sm">${service.cost.toFixed(2)}</p>
+                      <Badge variant="secondary" className="text-xs">
+                        {service.status}
+                      </Badge>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            <Button variant="outline" size="sm" className="w-full" data-testid="button-view-full-history">
+              View Full History
+            </Button>
+          </div>
+        ) : (
+          <div className="text-center py-8 text-gray-500 dark:text-gray-400">
+            <FileText className="h-12 w-12 mx-auto mb-4 opacity-50" />
+            <p className="text-sm">No service history available</p>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Subscribe Card Component
+interface SubscribeCardProps {
+  maintenancePlans: MaintenancePlan[];
+  hasActivePlan: (planType: string) => boolean;
+  handleSubscribe: (planType: string, price: number) => void;
+  subscribeToPlan: any;
+  getUpgradeText: (planType: string, price: number) => string;
+}
+
+function SubscribeCard({ maintenancePlans, hasActivePlan, handleSubscribe, subscribeToPlan, getUpgradeText }: SubscribeCardProps) {
+  const activePlan = maintenancePlans.find(plan => plan.status === 'active');
+  
+  const plans = [
+    { type: 'basic', name: 'Basic', price: 99, features: ['Monthly checkups', 'Email support', 'Basic updates'] },
+    { type: 'professional', name: 'Professional', price: 199, features: ['Bi-weekly checkups', 'Phone support', 'Advanced monitoring'], popular: true },
+    { type: 'enterprise', name: 'Enterprise', price: 499, features: ['Weekly checkups', '24/7 support', 'Custom integrations'] }
+  ];
+
+  return (
+    <Card data-testid="card-subscribe">
+      <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
+        <CardTitle className="text-xl">Maintenance Plans</CardTitle>
+        <CreditCard className="h-5 w-5 text-muted-foreground" />
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {activePlan ? (
+          <div className="space-y-4">
+            <Alert className="border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-900/20">
+              <CheckCircle2 className="h-4 w-4 text-green-600 dark:text-green-400" />
+              <AlertDescription className="text-green-800 dark:text-green-200">
+                <div className="flex items-center justify-between">
+                  <span><strong>{activePlan.planType} Plan Active</strong></span>
+                  <Badge className="bg-green-600 text-white">${activePlan.price}/mo</Badge>
+                </div>
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-2">
+              <h4 className="font-medium text-gray-700">Available Upgrades</h4>
+              {plans
+                .filter(plan => plan.price > activePlan.price)
+                .map((plan) => (
+                  <div key={plan.type} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                    <div>
+                      <p className="font-medium text-sm">{plan.name} Plan</p>
+                      <p className="text-xs text-gray-600 dark:text-gray-400">
+                        {plan.features.slice(0, 2).join(' • ')}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-sm">${plan.price}/mo</span>
+                      <Button
+                        size="sm"
+                        onClick={() => handleSubscribe(plan.type, plan.price)}
+                        disabled={subscribeToPlan.isPending}
+                        className="bg-brand-red hover:bg-brand-red/90 text-white"
+                        data-testid={`button-upgrade-${plan.type}`}
+                      >
+                        Upgrade
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4">
+            <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-900/20">
+              <AlertTriangle className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+              <AlertDescription className="text-amber-800 dark:text-amber-200">
+                <strong>No Active Plan</strong> - Subscribe to keep your systems running smoothly.
+              </AlertDescription>
+            </Alert>
+            
+            <div className="space-y-3">
+              {plans.map((plan) => (
+                <div key={plan.type} className={`p-4 border rounded-lg ${plan.popular ? 'border-brand-red bg-red-50 dark:bg-red-900/20' : 'border-gray-200'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <div className="flex items-center gap-2">
+                      <h4 className="font-semibold">{plan.name}</h4>
+                      {plan.popular && (
+                        <Badge className="bg-brand-red text-white text-xs">Most Popular</Badge>
+                      )}
+                    </div>
+                    <div className="text-right">
+                      <span className="text-2xl font-bold">${plan.price}</span>
+                      <span className="text-sm text-gray-600">/month</span>
+                    </div>
+                  </div>
+                  <ul className="text-sm text-gray-600 mb-3 space-y-1">
+                    {plan.features.map((feature, index) => (
+                      <li key={index} className="flex items-center gap-2">
+                        <Star className="h-3 w-3 text-brand-red" />
+                        {feature}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    onClick={() => handleSubscribe(plan.type, plan.price)}
+                    disabled={subscribeToPlan.isPending}
+                    className={`w-full ${plan.popular ? 'bg-brand-red hover:bg-brand-red/90 text-white' : 'variant="outline"'}`}
+                    data-testid={`button-subscribe-${plan.type}`}
+                  >
+                    {subscribeToPlan.isPending ? 'Processing...' : getUpgradeText(plan.name, plan.price)}
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+// Section Components
+interface MaintenancePlansSectionProps {
+  maintenancePlans: MaintenancePlan[];
+  handleCancelSubscription: (plan: MaintenancePlan) => void;
+  handleReactivateSubscription: (plan: MaintenancePlan) => void;
+  getStatusBadgeVariant: (status: string) => string;
+  getStatusIcon: (status: string) => JSX.Element;
+  getSubscriptionStatusText: (plan: MaintenancePlan) => string;
+  canReactivate: (plan: MaintenancePlan) => boolean;
+}
+
+function MaintenancePlansSection({ 
+  maintenancePlans, 
+  handleCancelSubscription, 
+  handleReactivateSubscription, 
+  getStatusBadgeVariant, 
+  getStatusIcon, 
+  getSubscriptionStatusText, 
+  canReactivate 
+}: MaintenancePlansSectionProps) {
+  if (maintenancePlans.length === 0) {
+    return null; // Hide section if no plans
+  }
+
+  return (
+    <div id="maintenance-plans" className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-charcoal mb-2">Maintenance Plans</h2>
+        <p className="text-gray-600">Manage your active subscriptions and billing</p>
+      </div>
+
+      <div className="space-y-6">
+        {maintenancePlans.map((plan) => (
+          <Card key={plan.id} className="overflow-hidden">
+            <CardContent className="p-6">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-6">
+                <div className="flex-1 space-y-4">
+                  <div className="flex items-center gap-3">
+                    {getStatusIcon(plan.status)}
+                    <div>
+                      <h3 className="text-xl font-semibold capitalize flex items-center gap-2">
+                        {plan.planType} Plan
+                        <Badge 
+                          variant={getStatusBadgeVariant(plan.status) as "default" | "destructive" | "secondary" | "outline"}
+                          className="text-xs"
+                          data-testid={`badge-status-${plan.id}`}
+                        >
+                          {plan.status === 'pending_cancellation' ? 'Ending Soon' : plan.status}
+                        </Badge>
+                      </h3>
+                      <p className="text-sm text-gray-600">
+                        {getSubscriptionStatusText(plan)}
+                      </p>
+                    </div>
+                  </div>
+                  
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="font-medium text-gray-700">Price</span>
+                      <p className="text-lg font-bold text-charcoal">${plan.price}/month</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">Started</span>
+                      <p className="text-charcoal">{new Date(plan.startDate).toLocaleDateString()}</p>
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">
+                        {plan.status === 'active' ? 'Next Billing' : 
+                         plan.status === 'pending_cancellation' ? 'Active Until' : 'Cancelled'}
+                      </span>
+                      <p className="text-charcoal">
+                        {plan.status === 'pending_cancellation' && plan.endDate 
+                          ? new Date(plan.endDate).toLocaleDateString()
+                          : plan.status === 'cancelled' && plan.cancelledAt
+                          ? new Date(plan.cancelledAt).toLocaleDateString()
+                          : new Date(plan.nextBillingDate).toLocaleDateString()}
+                      </p>
+                    </div>
+                  </div>
+
+                  {plan.cancellationReason && (
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertDescription>
+                        <span className="font-medium">Cancellation reason:</span> {plan.cancellationReason}
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-3">
+                  {plan.status === 'active' && (
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleCancelSubscription(plan)}
+                      className="flex items-center gap-2"
+                      data-testid={`button-cancel-${plan.id}`}
+                    >
+                      <Ban className="h-4 w-4" />
+                      Cancel Plan
+                    </Button>
+                  )}
+                  
+                  {plan.status === 'cancelled' && canReactivate(plan) && (
+                    <Button
+                      variant="default"
+                      size="sm"
+                      onClick={() => handleReactivateSubscription(plan)}
+                      className="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+                      data-testid={`button-reactivate-${plan.id}`}
+                    >
+                      <Play className="h-4 w-4" />
+                      Reactivate
+                    </Button>
+                  )}
+                  
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open(`mailto:support@handytech-solutions.com?subject=Question about ${plan.planType} Plan (ID: ${plan.id})`)}
+                    className="flex items-center gap-2"
+                    data-testid={`button-contact-${plan.id}`}
+                  >
+                    <Phone className="h-4 w-4" />
+                    Contact Support
+                  </Button>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+interface ServiceHistorySectionProps {
+  serviceHistory: ServiceHistoryItem[];
+  serviceHistorySummary: any;
+  serviceHistoryFilters: any;
+  setServiceHistoryFilters: (filters: any) => void;
+  showServiceHistoryFilters: boolean;
+  setShowServiceHistoryFilters: (show: boolean) => void;
+  serviceHistoryLoading: boolean;
+  serviceHistoryError: boolean;
+}
+
+function ServiceHistorySection({
+  serviceHistory,
+  serviceHistorySummary,
+  serviceHistoryFilters,
+  setServiceHistoryFilters,
+  showServiceHistoryFilters,
+  setShowServiceHistoryFilters,
+  serviceHistoryLoading,
+  serviceHistoryError
+}: ServiceHistorySectionProps) {
+  if (serviceHistoryLoading || (!serviceHistory.length && !serviceHistoryError)) {
+    return (
+      <div id="service-history" className="space-y-6">
+        <div>
+          <h2 className="text-2xl font-bold text-charcoal mb-2">Service History</h2>
+          <p className="text-gray-600">View your complete service history and invoices</p>
+        </div>
+        
+        <Card>
+          <CardContent className="py-8 text-center">
+            <div className="space-y-3">
+              <div className="h-4 bg-gray-200 rounded animate-pulse mx-auto w-32"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse mx-auto w-48"></div>
+              <div className="h-4 bg-gray-200 rounded animate-pulse mx-auto w-24"></div>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  return (
+    <div id="service-history" className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-bold text-charcoal mb-2">Service History</h2>
+          <p className="text-gray-600">View your complete service history and invoices</p>
+        </div>
+        
+        <Button
+          variant="outline"
+          onClick={() => setShowServiceHistoryFilters(!showServiceHistoryFilters)}
+          className="flex items-center gap-2"
+          data-testid="button-toggle-filters"
+        >
+          <Filter className="h-4 w-4" />
+          {showServiceHistoryFilters ? 'Hide' : 'Show'} Filters
+        </Button>
+      </div>
+
+      {showServiceHistoryFilters && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Filter Service History</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div>
+                <Label htmlFor="startDate">Start Date</Label>
+                <Input
+                  id="startDate"
+                  type="date"
+                  value={serviceHistoryFilters.startDate}
+                  onChange={(e) => setServiceHistoryFilters((prev: any) => ({ ...prev, startDate: e.target.value }))}
+                  data-testid="input-start-date"
+                />
+              </div>
+              <div>
+                <Label htmlFor="endDate">End Date</Label>
+                <Input
+                  id="endDate"
+                  type="date"
+                  value={serviceHistoryFilters.endDate}
+                  onChange={(e) => setServiceHistoryFilters((prev: any) => ({ ...prev, endDate: e.target.value }))}
+                  data-testid="input-end-date"
+                />
+              </div>
+              <div>
+                <Label htmlFor="serviceType">Service Type</Label>
+                <Input
+                  id="serviceType"
+                  placeholder="Filter by service type"
+                  value={serviceHistoryFilters.serviceType}
+                  onChange={(e) => setServiceHistoryFilters((prev: any) => ({ ...prev, serviceType: e.target.value }))}
+                  data-testid="input-service-type"
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {serviceHistorySummary && (
+        <div className="grid md:grid-cols-4 gap-6">
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <FileText className="h-5 w-5 text-blue-600" />
+                <span className="font-medium text-gray-700">Total Services</span>
+              </div>
+              <p className="text-3xl font-bold text-charcoal">{serviceHistorySummary.totalServices}</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <DollarSign className="h-5 w-5 text-green-600" />
+                <span className="font-medium text-gray-700">Total Spent</span>
+              </div>
+              <p className="text-3xl font-bold text-charcoal">${serviceHistorySummary.totalCost.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <Calendar className="h-5 w-5 text-purple-600" />
+                <span className="font-medium text-gray-700">Average Cost</span>
+              </div>
+              <p className="text-3xl font-bold text-charcoal">${serviceHistorySummary.averageCost.toFixed(2)}</p>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-2">
+                <CalendarDays className="h-5 w-5 text-orange-600" />
+                <span className="font-medium text-gray-700">Date Range</span>
+              </div>
+              <p className="text-sm text-charcoal">
+                {serviceHistorySummary.dateRange.earliest && serviceHistorySummary.dateRange.latest
+                  ? `${new Date(serviceHistorySummary.dateRange.earliest).toLocaleDateString()} - ${new Date(serviceHistorySummary.dateRange.latest).toLocaleDateString()}`
+                  : 'N/A'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {serviceHistory.length > 0 ? (
+        <div className="space-y-4">
+          {serviceHistory.map((service, index) => (
+            <Card key={index} className="hover:shadow-md transition-shadow">
+              <CardContent className="p-6">
+                <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-2">
+                      <Badge variant="secondary" className="capitalize">
+                        {service.status}
+                      </Badge>
+                      <span className="text-sm text-gray-500">
+                        Service #{service.id || index + 1}
+                      </span>
+                    </div>
+                    
+                    <h3 className="text-lg font-semibold text-charcoal mb-2">
+                      {service.serviceType}
+                    </h3>
+                    
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="h-4 w-4" />
+                        <span>{new Date(service.serviceDate).toLocaleDateString()}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <DollarSign className="h-4 w-4" />
+                        <span className="font-medium">${service.cost.toFixed(2)}</span>
+                      </div>
+                      {service.technician && (
+                        <div className="flex items-center gap-2">
+                          <Badge variant="outline" className="text-xs">
+                            {service.technician}
+                          </Badge>
+                        </div>
+                      )}
+                    </div>
+                    
+                    {service.description && (
+                      <p className="text-sm text-gray-600 mt-2">{service.description}</p>
+                    )}
+                  </div>
+                  
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => window.open(`mailto:support@handytech-solutions.com?subject=Service History Question - ${service.serviceType}`)}
+                      className="flex items-center gap-2"
+                      data-testid={`button-contact-service-${index}`}
+                    >
+                      <Mail className="h-4 w-4" />
+                      Contact
+                    </Button>
+                    {service.invoiceUrl && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => window.open(service.invoiceUrl, '_blank')}
+                        className="flex items-center gap-2"
+                        data-testid={`button-download-invoice-${index}`}
+                      >
+                        <Download className="h-4 w-4" />
+                        Invoice
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <FileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-charcoal mb-2">No Service History</h3>
+            <p className="text-gray-600">Your service history will appear here once you start using our services.</p>
+          </CardContent>
+        </Card>
+      )}
+    </div>
+  );
+}
+
+// Dialog Components
+interface RescheduleDialogProps {
+  rescheduleDialogOpen: boolean;
+  setRescheduleDialogOpen: (open: boolean) => void;
+  selectedAppointment: Appointment | null;
+  setSelectedAppointment: (appointment: Appointment | null) => void;
+  selectedDate: Date | undefined;
+  setSelectedDate: (date: Date | undefined) => void;
+  selectedTimeSlot: string;
+  setSelectedTimeSlot: (slot: string) => void;
+  handleRescheduleSubmit: () => void;
+  rescheduleAppointmentMutation: any;
+}
+
+function RescheduleDialog({
+  rescheduleDialogOpen,
+  setRescheduleDialogOpen,
+  selectedAppointment,
+  setSelectedAppointment,
+  selectedDate,
+  setSelectedDate,
+  selectedTimeSlot,
+  setSelectedTimeSlot,
+  handleRescheduleSubmit,
+  rescheduleAppointmentMutation
+}: RescheduleDialogProps) {
+  return (
+    <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Reschedule Appointment</DialogTitle>
+          <DialogDescription>
+            Select a new date and time for your {selectedAppointment?.serviceType} appointment.
+            <br />
+            <span className="text-xs text-orange-600 mt-1 block">
+              Appointments must be rescheduled at least 24 hours in advance.
+            </span>
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <div className="space-y-2">
+            <Label>Select Date</Label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                  data-testid="button-select-date"
+                >
+                  <Calendar className="mr-2 h-4 w-4" />
+                  {selectedDate ? selectedDate.toLocaleDateString() : "Pick a date"}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <CalendarComponent
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={setSelectedDate}
+                  disabled={(date) => {
+                    const now = new Date();
+                    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                    return date < twentyFourHoursFromNow || date.getDay() === 0; // Disable Sundays and dates within 24h
+                  }}
+                  initialFocus
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+          
+          <div className="space-y-2">
+            <Label>Select Time</Label>
+            <Select value={selectedTimeSlot} onValueChange={setSelectedTimeSlot}>
+              <SelectTrigger data-testid="select-time-slot">
+                <SelectValue placeholder="Choose a time slot" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="08:00">8:00 AM</SelectItem>
+                <SelectItem value="10:00">10:00 AM</SelectItem>
+                <SelectItem value="12:00">12:00 PM</SelectItem>
+                <SelectItem value="14:00">2:00 PM</SelectItem>
+                <SelectItem value="16:00">4:00 PM</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setRescheduleDialogOpen(false);
+              setSelectedAppointment(null);
+              setSelectedDate(undefined);
+              setSelectedTimeSlot('');
+            }}
+            className="flex-1"
+            data-testid="button-cancel-reschedule"
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleRescheduleSubmit}
+            disabled={rescheduleAppointmentMutation.isPending || !selectedDate || !selectedTimeSlot}
+            className="flex-1 bg-brand-red hover:bg-brand-red/90 text-white"
+            data-testid="button-confirm-reschedule"
+          >
+            {rescheduleAppointmentMutation.isPending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                Rescheduling...
+              </>
+            ) : (
+              'Confirm Reschedule'
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface CancelSubscriptionDialogProps {
+  cancelDialogOpen: boolean;
+  setCancelDialogOpen: (open: boolean) => void;
+  selectedPlan: MaintenancePlan | null;
+  setSelectedPlan: (plan: MaintenancePlan | null) => void;
+  cancellationType: 'immediate' | 'end_of_period';
+  setCancellationType: (type: 'immediate' | 'end_of_period') => void;
+  handleCancelConfirm: () => void;
+  cancelSubscriptionMutation: any;
+}
+
+function CancelSubscriptionDialog({
+  cancelDialogOpen,
+  setCancelDialogOpen,
+  selectedPlan,
+  setSelectedPlan,
+  cancellationType,
+  setCancellationType,
+  handleCancelConfirm,
+  cancelSubscriptionMutation
+}: CancelSubscriptionDialogProps) {
+  return (
+    <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+      <DialogContent className="sm:max-w-lg">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-red-600">
+            <Ban className="h-5 w-5" />
+            Cancel {selectedPlan?.planType} Plan
+          </DialogTitle>
+          <DialogDescription>
+            We're sorry to see you go! Please review the details below before confirming your cancellation.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-6 py-4">
+          <Alert>
+            <AlertTriangle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>What you'll lose:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                <li>{selectedPlan?.planType === 'basic' ? 'Monthly' : selectedPlan?.planType === 'professional' ? 'Bi-weekly' : 'Weekly'} system checkups</li>
+                <li>{selectedPlan?.planType === 'enterprise' ? '24/7 dedicated' : selectedPlan?.planType === 'professional' ? 'Priority phone' : 'Email'} support</li>
+                <li>Security monitoring and updates</li>
+                {selectedPlan?.planType !== 'basic' && <li>Monthly reports and insights</li>}
+                {selectedPlan?.planType === 'enterprise' && <li>Custom integrations and enterprise features</li>}
+              </ul>
+            </AlertDescription>
+          </Alert>
+          
+          <div className="space-y-3">
+            <Label className="text-base font-semibold">Cancellation Type</Label>
+            <div className="space-y-3">
+              <div className="flex items-start space-x-3">
+                <input
+                  type="radio"
+                  id="end-of-period"
+                  name="cancellationType"
+                  value="end_of_period"
+                  checked={cancellationType === 'end_of_period'}
+                  onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
+                  className="mt-1 h-4 w-4 text-brand-red"
+                  data-testid="radio-end-of-period"
+                />
+                <div className="flex-1">
+                  <label htmlFor="end-of-period" className="font-medium text-sm cursor-pointer">
+                    Cancel at end of billing period (Recommended)
+                  </label>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Continue using your plan until {selectedPlan?.nextBillingDate ? new Date(selectedPlan.nextBillingDate).toLocaleDateString() : 'your next billing date'}. 
+                    You won't be charged again.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex items-start space-x-3">
+                <input
+                  type="radio"
+                  id="immediate"
+                  name="cancellationType"
+                  value="immediate"
+                  checked={cancellationType === 'immediate'}
+                  onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
+                  className="mt-1 h-4 w-4 text-brand-red"
+                  data-testid="radio-immediate"
+                />
+                <div className="flex-1">
+                  <label htmlFor="immediate" className="font-medium text-sm cursor-pointer">
+                    Cancel immediately
+                  </label>
+                  <p className="text-xs text-gray-600 mt-1">
+                    Your plan access will end right away. No refund for the current billing period.
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              <strong>Need help instead?</strong> Our support team can help resolve issues or adjust your plan. 
+              <Button 
+                variant="link" 
+                className="p-0 h-auto text-brand-red"
+                onClick={() => {
+                  setCancelDialogOpen(false);
+                  window.open(`mailto:support@handytech-solutions.com?subject=Help with ${selectedPlan?.planType} Plan (ID: ${selectedPlan?.id})`);
+                }}
+              >
+                Contact support instead
+              </Button>
+            </AlertDescription>
+          </Alert>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setCancelDialogOpen(false);
+              setSelectedPlan(null);
+              setCancellationType('end_of_period');
+            }}
+            className="flex-1"
+            data-testid="button-cancel-dialog-close"
+          >
+            Keep My Plan
+          </Button>
+          <Button
+            variant="destructive"
+            onClick={handleCancelConfirm}
+            disabled={cancelSubscriptionMutation.isPending}
+            className="flex-1"
+            data-testid="button-confirm-cancellation"
+          >
+            {cancelSubscriptionMutation.isPending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                Cancelling...
+              </>
+            ) : (
+              cancellationType === 'immediate' ? 'Cancel Now' : 'Cancel at Period End'
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+interface ReactivateSubscriptionDialogProps {
+  reactivateDialogOpen: boolean;
+  setReactivateDialogOpen: (open: boolean) => void;
+  selectedPlan: MaintenancePlan | null;
+  setSelectedPlan: (plan: MaintenancePlan | null) => void;
+  handleReactivateConfirm: () => void;
+  reactivateSubscriptionMutation: any;
+}
+
+function ReactivateSubscriptionDialog({
+  reactivateDialogOpen,
+  setReactivateDialogOpen,
+  selectedPlan,
+  setSelectedPlan,
+  handleReactivateConfirm,
+  reactivateSubscriptionMutation
+}: ReactivateSubscriptionDialogProps) {
+  return (
+    <Dialog open={reactivateDialogOpen} onOpenChange={setReactivateDialogOpen}>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle className="flex items-center gap-2 text-green-600">
+            <CheckCircle2 className="h-5 w-5" />
+            Welcome Back!
+          </DialogTitle>
+          <DialogDescription>
+            We're excited to have you back! Your {selectedPlan?.planType} plan will be reactivated.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="space-y-4 py-4">
+          <Alert>
+            <CheckCircle2 className="h-4 w-4" />
+            <AlertDescription>
+              <strong>What you'll get back:</strong>
+              <ul className="list-disc list-inside mt-2 space-y-1 text-sm">
+                <li>{selectedPlan?.planType === 'basic' ? 'Monthly' : selectedPlan?.planType === 'professional' ? 'Bi-weekly' : 'Weekly'} system checkups</li>
+                <li>{selectedPlan?.planType === 'enterprise' ? '24/7 dedicated' : selectedPlan?.planType === 'professional' ? 'Priority phone' : 'Email'} support</li>
+                <li>Security monitoring and updates</li>
+                {selectedPlan?.planType !== 'basic' && <li>Monthly reports and insights</li>}
+                {selectedPlan?.planType === 'enterprise' && <li>Custom integrations and enterprise features</li>}
+              </ul>
+            </AlertDescription>
+          </Alert>
+          
+          <div className="bg-gray-50 p-4 rounded-lg space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Plan:</span>
+              <span className="capitalize">{selectedPlan?.planType} Plan</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Price:</span>
+              <span className="font-bold">${selectedPlan?.price}/month</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="font-medium">Billing resumes:</span>
+              <span>Immediately</span>
+            </div>
+          </div>
+          
+          <Alert>
+            <Info className="h-4 w-4" />
+            <AlertDescription className="text-sm">
+              Your first bill will be prorated if reactivated mid-cycle. You can cancel anytime from your account settings.
+            </AlertDescription>
+          </Alert>
+        </div>
+        
+        <div className="flex gap-3">
+          <Button
+            variant="outline"
+            onClick={() => {
+              setReactivateDialogOpen(false);
+              setSelectedPlan(null);
+            }}
+            className="flex-1"
+            data-testid="button-reactivate-dialog-close"
+          >
+            Not Now
+          </Button>
+          <Button
+            onClick={handleReactivateConfirm}
+            disabled={reactivateSubscriptionMutation.isPending}
+            className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+            data-testid="button-confirm-reactivation"
+          >
+            {reactivateSubscriptionMutation.isPending ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                Reactivating...
+              </>
+            ) : (
+              'Reactivate Plan'
+            )}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

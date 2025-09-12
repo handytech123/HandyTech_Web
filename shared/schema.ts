@@ -74,6 +74,7 @@ export const appointments = pgTable("appointments", {
   serviceType: text("service_type").notNull(),
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentTime: text("appointment_time").notNull(),
+  address: text("address"), // Service address
   startTimestamptz: timestamp("start_timestamptz", { withTimezone: true }),
   endTimestamptz: timestamp("end_timestamptz", { withTimezone: true }),
   rescheduleToken: varchar("reschedule_token", { length: 64 }),
@@ -339,6 +340,13 @@ export interface ServiceHistoryItem {
   basePrice: number | null;
   priceUnit: string | null;
   calculatedCost: number | null;
+  
+  // Customer portal specific fields
+  serviceDate: string; // Service completion date
+  cost: number; // Final cost paid by customer
+  technician?: string; // Technician name
+  description?: string; // Service description
+  invoiceUrl?: string; // Link to invoice PDF
   
   // Customer info (for admin views)
   customerName?: string;
