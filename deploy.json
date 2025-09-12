@@ -1,7 +1,7 @@
 {
   "appName": "HandyTech Solutions",
-  "version": "5.0.0",
-  "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, customer portal, AI chatbot, automated email notifications, and IONOS SMTP integration",
+  "version": "6.0.0",
+  "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, redesigned customer portal with magic link authentication, AI chatbot, automated email notifications, and complete subscription management capabilities",
   "type": "nodejs",
   "deploymentType": "dynamic",
   "architecture": "full-stack",
@@ -107,14 +107,6 @@
       "default": "service@handytech-solutions.com"
     },
     {
-      "key": "ADMIN_EMAIL",
-      "description": "Admin email address for notifications",
-      "required": false,
-      "category": "email_services",
-      "example": "admin@handytech-solutions.com",
-      "default": "admin@handytech-solutions.com"
-    },
-    {
       "key": "BUSINESS_NAME",
       "description": "Business name displayed in emails and communications",
       "required": false,
@@ -217,7 +209,12 @@
   
   "features": [
     "Complete Admin Dashboard with Real-time Notifications",
+    "Redesigned Customer Portal with Magic Link Authentication",
     "Appointment Management System with 2h/4h/6h durations",
+    "Customer Self-Service Portal with Profile Management",
+    "Maintenance Plan Subscription and Cancellation System",
+    "Service History Tracking and Viewing",
+    "Appointment Rescheduling with Secure Token System",
     "Customer Relationship Management (CRM)",
     "Quote Request Management with Status Tracking", 
     "Review Management with Approval System",
@@ -273,19 +270,26 @@
   ],
   
   "customerFeatures": [
+    "Secure Magic Link Authentication (30-minute sessions)",
+    "Clean Single-Page Dashboard with Organized Cards",
+    "Profile Management with Real-time Updates",
+    "Service History Viewing with Total Spending Tracking",
+    "Appointment Viewing and Self-Service Rescheduling",
+    "Maintenance Plan Subscription with Multiple Options",
+    "Subscription Cancellation (Immediate or End-of-Period)",
+    "Subscription Reactivation for Cancelled Plans",
     "Appointment booking with duration selection",
     "Quote request submission with service categories",
     "Review and testimonial submission",
-    "Self-service appointment rescheduling",
     "AI-powered customer service chat",
     "Project gallery browsing by category",
     "Service information and pricing display",
     "Contact forms with automated responses",
-    "Mobile-responsive interface"
+    "Mobile-responsive interface with Ohio State Buckeyes branding"
   ],
   
   "security": {
-    "authentication": "Enterprise cookie-based admin authentication with httpOnly sessions",
+    "authentication": "Enterprise cookie-based admin authentication with httpOnly sessions + Customer magic link authentication",
     "sessionManagement": "PostgreSQL-backed session storage using connect-pg-simple",
     "csrfProtection": "CSRF tokens required for all state-changing operations",
     "passwordPolicy": "Strong passwords required for admin accounts",
@@ -297,7 +301,8 @@
     "cookieSecurity": "Secure httpOnly cookies with SameSite protection",
     "emailSecurity": "TLS encryption for SMTP communications",
     "webhookSecurity": "Signature verification for external webhooks",
-    "productionHardening": "Strict security policies enforced in production environment"
+    "productionHardening": "Strict security policies enforced in production environment",
+    "magicLinkSecurity": "Time-limited token authentication with automatic cleanup"
   },
   
   "integrations": {
@@ -310,16 +315,16 @@
       "ionos_smtp": {
         "name": "IONOS SMTP Email System", 
         "description": "Professional email service with IONOS hosting integration",
-        "features": ["appointment_notifications", "admin_alerts", "calendar_invites", "reminder_emails", "branded_templates"],
+        "features": ["appointment_notifications", "admin_alerts", "calendar_invites", "reminder_emails", "branded_templates", "magic_link_delivery"],
         "smtp_host": "smtp.ionos.com",
         "smtp_ports": ["587 (STARTTLS)", "465 (SSL)"],
         "security": "TLS encryption",
-        "notes": "Primary email system for professional communications"
+        "notes": "Primary email system for professional communications and customer portal authentication"
       },
       "smtp_fallback": {
         "name": "Universal SMTP Service", 
         "description": "Configurable SMTP for any email provider",
-        "features": ["gmail_support", "outlook_support", "custom_smtp_providers", "calendar_invites"],
+        "features": ["gmail_support", "outlook_support", "custom_smtp_providers", "calendar_invites", "magic_links"],
         "providers": ["IONOS", "Gmail", "Outlook", "Custom SMTP"]
       },
       "brevo": {
@@ -347,7 +352,7 @@
       "custom": {
         "name": "Built-in Scheduling System",
         "description": "Custom appointment scheduling with availability management", 
-        "features": ["2h_4h_6h_durations", "conflict_detection", "availability_rules", "blocked_times"]
+        "features": ["2h_4h_6h_durations", "conflict_detection", "availability_rules", "blocked_times", "customer_portal_rescheduling"]
       }
     }
   },
