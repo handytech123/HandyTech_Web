@@ -33,7 +33,7 @@ export default function LiveChatAdmin() {
   // Fetch live chat sessions
   const { data: sessions = [], refetch } = useQuery<LiveChatSession[]>({
     queryKey: ['/api/admin/live-chats'],
-    refetchInterval: 2000, // Refresh every 2 seconds
+    refetchInterval: 10000, // Refresh every 10 seconds (reduced from 2 seconds to prevent rate limiting)
   });
 
   // Take over chat mutation

@@ -11,10 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema } from "@shared/schema";
-import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X } from "lucide-react";
+import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 
@@ -60,6 +64,13 @@ export default function CustomerPortal() {
   
   // Profile editing state
   const [isEditing, setIsEditing] = useState(false);
+  
+  // Appointments state
+  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'upcoming' | 'past'>('upcoming');
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   
   // Form setup for profile editing
   const form = useForm<UpdateProfileFormData>({
@@ -127,6 +138,31 @@ export default function CustomerPortal() {
     },
   });
 
+  // Reschedule appointment mutation
+  const rescheduleAppointmentMutation = useMutation({
+    mutationFn: async (data: { appointmentId: number; startISO: string }) => {
+      return apiRequest(`/api/portal/appointments/${data.appointmentId}/reschedule`, {
+        method: "PUT",
+        body: JSON.stringify({ startISO: data.startISO }),
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
+      setRescheduleDialogOpen(false);
+      setSelectedAppointment(null);
+      setSelectedDate(undefined);
+      setSelectedTimeSlot('');
+      toast({ title: "Appointment rescheduled successfully!" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to reschedule appointment", 
+        description: error?.message || "Please try again.",
+        variant: "destructive" 
+      });
+    },
+  });
+
   const handleLogout = async () => {
     setIsLoggingOut(true);
     try {
@@ -157,6 +193,83 @@ export default function CustomerPortal() {
   const handleEditCancel = () => {
     form.reset();
     setIsEditing(false);
+  };
+
+  // Appointment utility functions
+  const filterAppointments = (filter: typeof appointmentFilter) => {
+    const now = new Date();
+    return appointments.filter(appointment => {
+      const appointmentDate = appointment.startTimestamptz 
+        ? new Date(appointment.startTimestamptz) 
+        : new Date(appointment.appointmentDate);
+      
+      switch (filter) {
+        case 'upcoming':
+          return appointmentDate >= now && ['scheduled', 'confirmed'].includes(appointment.status);
+        case 'past':
+          return appointmentDate < now || ['completed', 'cancelled'].includes(appointment.status);
+        case 'all':
+        default:
+          return true;
+      }
+    });
+  };
+
+  const formatAppointmentDate = (appointment: Appointment) => {
+    const date = appointment.startTimestamptz 
+      ? new Date(appointment.startTimestamptz) 
+      : new Date(appointment.appointmentDate);
+    return date.toLocaleDateString('en-US', { 
+      weekday: 'long', 
+      year: 'numeric', 
+      month: 'long', 
+      day: 'numeric' 
+    });
+  };
+
+  const formatAppointmentTime = (appointment: Appointment) => {
+    if (appointment.startTimestamptz) {
+      const startTime = new Date(appointment.startTimestamptz);
+      const endTime = appointment.endTimestamptz ? new Date(appointment.endTimestamptz) : new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+    }
+    return appointment.appointmentTime || 'TBD';
+  };
+
+  const canReschedule = (appointment: Appointment) => {
+    if (!['scheduled', 'confirmed'].includes(appointment.status)) return false;
+    
+    const appointmentDate = appointment.startTimestamptz 
+      ? new Date(appointment.startTimestamptz) 
+      : new Date(appointment.appointmentDate);
+    const now = new Date();
+    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+    
+    return appointmentDate > twentyFourHoursFromNow;
+  };
+
+  const handleReschedule = (appointment: Appointment) => {
+    setSelectedAppointment(appointment);
+    setRescheduleDialogOpen(true);
+  };
+
+  const handleRescheduleSubmit = () => {
+    if (!selectedAppointment || !selectedDate || !selectedTimeSlot) {
+      toast({
+        title: "Please select both a date and time",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
+    const appointmentDateTime = new Date(selectedDate);
+    appointmentDateTime.setHours(hours, minutes, 0, 0);
+
+    rescheduleAppointmentMutation.mutate({
+      appointmentId: selectedAppointment.id,
+      startISO: appointmentDateTime.toISOString()
+    });
   };
 
   // Handle loading states
@@ -274,15 +387,16 @@ export default function CustomerPortal() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="overview">Overview</TabsTrigger>
+            <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="plans">Maintenance Plans</TabsTrigger>
             <TabsTrigger value="subscribe">Subscribe</TabsTrigger>
             <TabsTrigger value="history">Email History</TabsTrigger>
           </TabsList>
 
           <TabsContent value="overview" className="space-y-6">
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <Card>
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                   <CardTitle className="text-sm font-medium">Active Plans</CardTitle>
@@ -291,6 +405,21 @@ export default function CustomerPortal() {
                 <CardContent>
                   <div className="text-2xl font-bold">{maintenancePlans.filter(p => p.status === 'active').length}</div>
                   <p className="text-xs text-muted-foreground">Maintenance subscriptions</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Upcoming Appointments</CardTitle>
+                  <Calendar className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">
+                    {filterAppointments('upcoming').length}
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    {filterAppointments('upcoming').length === 1 ? 'Service scheduled' : 'Services scheduled'}
+                  </p>
                 </CardContent>
               </Card>
 
@@ -471,6 +600,227 @@ export default function CustomerPortal() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          <TabsContent value="appointments" className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h2 className="text-2xl font-bold text-charcoal">Your Appointments</h2>
+                <p className="text-gray-600">View and manage your scheduled services</p>
+              </div>
+              
+              <div className="flex items-center gap-2">
+                <Filter className="h-4 w-4 text-gray-500" />
+                <Select value={appointmentFilter} onValueChange={(value: any) => setAppointmentFilter(value)}>
+                  <SelectTrigger className="w-40">
+                    <SelectValue placeholder="Filter appointments" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All Appointments</SelectItem>
+                    <SelectItem value="upcoming">Upcoming</SelectItem>
+                    <SelectItem value="past">Past</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {filterAppointments(appointmentFilter).length === 0 ? (
+              <Card>
+                <CardContent className="py-8 text-center">
+                  <CalendarDays className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+                  <h3 className="text-lg font-semibold text-charcoal mb-2">
+                    {appointmentFilter === 'upcoming' ? 'No upcoming appointments' : 
+                     appointmentFilter === 'past' ? 'No past appointments' : 'No appointments found'}
+                  </h3>
+                  <p className="text-gray-600 mb-4">
+                    {appointmentFilter === 'upcoming' 
+                      ? "Schedule your next service appointment to get started."
+                      : "Your appointment history will appear here."}
+                  </p>
+                  {appointmentFilter === 'upcoming' && (
+                    <Button 
+                      onClick={() => window.location.href = "/#contact"} 
+                      className="bg-brand-red hover:bg-brand-red/90 text-white"
+                      data-testid="button-schedule-appointment"
+                    >
+                      Schedule Appointment
+                    </Button>
+                  )}
+                </CardContent>
+              </Card>
+            ) : (
+              <div className="grid gap-4">
+                {filterAppointments(appointmentFilter).map((appointment) => (
+                  <Card key={appointment.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-6">
+                      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-2">
+                            <Badge 
+                              variant={
+                                appointment.status === 'scheduled' || appointment.status === 'confirmed' ? 'default' :
+                                appointment.status === 'completed' ? 'secondary' : 'destructive'
+                              }
+                              className="capitalize"
+                            >
+                              {appointment.status}
+                            </Badge>
+                            <span className="text-sm text-gray-500">#{appointment.id}</span>
+                          </div>
+                          
+                          <h3 className="text-lg font-semibold text-charcoal mb-2" data-testid={`text-service-${appointment.id}`}>
+                            {appointment.serviceType}
+                          </h3>
+                          
+                          <div className="space-y-1 text-sm text-gray-600">
+                            <div className="flex items-center gap-2">
+                              <Calendar className="h-4 w-4" />
+                              <span data-testid={`text-date-${appointment.id}`}>
+                                {formatAppointmentDate(appointment)}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Clock className="h-4 w-4" />
+                              <span data-testid={`text-time-${appointment.id}`}>
+                                {formatAppointmentTime(appointment)}
+                              </span>
+                            </div>
+                            {appointment.notes && (
+                              <div className="flex items-start gap-2 mt-2">
+                                <MapPin className="h-4 w-4 mt-0.5" />
+                                <span className="text-xs text-gray-500" data-testid={`text-notes-${appointment.id}`}>
+                                  {appointment.notes}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                        
+                        <div className="flex flex-col sm:flex-row gap-2">
+                          {canReschedule(appointment) && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleReschedule(appointment)}
+                              className="flex items-center gap-2"
+                              data-testid={`button-reschedule-${appointment.id}`}
+                            >
+                              <RefreshCcw className="h-4 w-4" />
+                              Reschedule
+                            </Button>
+                          )}
+                          
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => window.open(`mailto:support@handytech-solutions.com?subject=Appointment ${appointment.id} Question`)}
+                            className="flex items-center gap-2 text-gray-600 hover:text-gray-800"
+                            data-testid={`button-contact-${appointment.id}`}
+                          >
+                            <Mail className="h-4 w-4" />
+                            Contact
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+
+            {/* Reschedule Dialog */}
+            <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
+              <DialogContent className="sm:max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Reschedule Appointment</DialogTitle>
+                  <DialogDescription>
+                    Select a new date and time for your {selectedAppointment?.serviceType} appointment.
+                    <br />
+                    <span className="text-xs text-orange-600 mt-1 block">
+                      Appointments must be rescheduled at least 24 hours in advance.
+                    </span>
+                  </DialogDescription>
+                </DialogHeader>
+                
+                <div className="space-y-4 py-4">
+                  <div className="space-y-2">
+                    <Label>Select Date</Label>
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className="w-full justify-start text-left font-normal"
+                          data-testid="button-select-date"
+                        >
+                          <Calendar className="mr-2 h-4 w-4" />
+                          {selectedDate ? selectedDate.toLocaleDateString() : "Pick a date"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <CalendarComponent
+                          mode="single"
+                          selected={selectedDate}
+                          onSelect={setSelectedDate}
+                          disabled={(date) => {
+                            const now = new Date();
+                            const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
+                            return date < twentyFourHoursFromNow || date.getDay() === 0; // Disable Sundays and dates within 24h
+                          }}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label>Select Time</Label>
+                    <Select value={selectedTimeSlot} onValueChange={setSelectedTimeSlot}>
+                      <SelectTrigger data-testid="select-time-slot">
+                        <SelectValue placeholder="Choose a time slot" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="08:00">8:00 AM</SelectItem>
+                        <SelectItem value="10:00">10:00 AM</SelectItem>
+                        <SelectItem value="12:00">12:00 PM</SelectItem>
+                        <SelectItem value="14:00">2:00 PM</SelectItem>
+                        <SelectItem value="16:00">4:00 PM</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+                
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setRescheduleDialogOpen(false);
+                      setSelectedAppointment(null);
+                      setSelectedDate(undefined);
+                      setSelectedTimeSlot('');
+                    }}
+                    className="flex-1"
+                    data-testid="button-cancel-reschedule"
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    onClick={handleRescheduleSubmit}
+                    disabled={rescheduleAppointmentMutation.isPending || !selectedDate || !selectedTimeSlot}
+                    className="flex-1 bg-brand-red hover:bg-brand-red/90 text-white"
+                    data-testid="button-confirm-reschedule"
+                  >
+                    {rescheduleAppointmentMutation.isPending ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                        Rescheduling...
+                      </>
+                    ) : (
+                      'Confirm Reschedule'
+                    )}
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </TabsContent>
 
           <TabsContent value="plans" className="space-y-6">

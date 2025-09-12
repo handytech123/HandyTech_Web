@@ -159,10 +159,10 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
   next();
 }
 
-// Rate limiting configurations
+// Rate limiting configurations - development vs production
 export const rlPublic = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 300, // 300 requests per window per IP
+  max: process.env.NODE_ENV === 'production' ? 300 : 10000, // Much higher limit for development
   message: {
     error: "RATE_LIMIT_EXCEEDED",
     message: "Too many requests from this IP, please try again later."
@@ -173,7 +173,7 @@ export const rlPublic = rateLimit({
 
 export const rlSensitive = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 60, // 60 requests per window per IP
+  max: process.env.NODE_ENV === 'production' ? 60 : 1000, // Higher limit for development
   message: {
     error: "RATE_LIMIT_EXCEEDED",
     message: "Too many sensitive requests from this IP, please try again later."
@@ -185,7 +185,7 @@ export const rlSensitive = rateLimit({
 // Strict rate limiting for authentication attempts
 export const rlAuth = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10, // Only 10 login attempts per window per IP
+  max: process.env.NODE_ENV === 'production' ? 10 : 100, // More attempts allowed in development
   message: {
     error: "AUTH_RATE_LIMIT_EXCEEDED",
     message: "Too many authentication attempts, please try again later."

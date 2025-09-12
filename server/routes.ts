@@ -584,6 +584,183 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Portal appointment reschedule - Customer reschedule their own appointments
+  app.put("/api/portal/appointments/:id/reschedule", requireCustomer, rlSensitive, async (req, res) => {
+    try {
+      const appointmentId = parseInt(req.params.id);
+      const { customer } = req as any;
+      
+      if (isNaN(appointmentId)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid appointment ID" 
+        });
+      }
+      
+      // Validate request body
+      let validatedData;
+      try {
+        validatedData = rescheduleRequestSchema.parse(req.body);
+      } catch (validationError) {
+        if (validationError instanceof z.ZodError) {
+          return res.status(400).json({ 
+            success: false, 
+            message: "Invalid request data", 
+            errors: validationError.errors 
+          });
+        }
+        throw validationError;
+      }
+      
+      const { startISO } = validatedData;
+      const newStartTime = new Date(startISO);
+      
+      // Get the appointment and verify customer ownership
+      const appointment = await storage.getAppointment(appointmentId);
+      if (!appointment) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Appointment not found" 
+        });
+      }
+      
+      // SECURITY: Verify customer owns this appointment
+      if (appointment.customerId !== customer.id) {
+        return res.status(403).json({ 
+          success: false, 
+          message: "You can only reschedule your own appointments" 
+        });
+      }
+      
+      // Only allow rescheduling of scheduled/confirmed appointments
+      if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Only scheduled or confirmed appointments can be rescheduled" 
+        });
+      }
+      
+      // Enforce 24-hour minimum notice (more strict than the token-based 12-hour)
+      const now = new Date();
+      const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+      
+      if (newStartTime < twentyFourHoursFromNow) {
+        return res.status(409).json({ 
+          success: false, 
+          message: "Appointments must be rescheduled at least 24 hours in advance" 
+        });
+      }
+      
+      // Calculate duration and new end time
+      let durationMs = 2 * 60 * 60 * 1000; // Default 2 hours
+      if (appointment.startTimestamptz && appointment.endTimestamptz) {
+        durationMs = appointment.endTimestamptz.getTime() - appointment.startTimestamptz.getTime();
+      }
+      const newEndTime = new Date(newStartTime.getTime() + durationMs);
+      
+      // Perform conflict check using availability engine
+      const durationMinutes = durationMs / (1000 * 60);
+      const searchStart = new Date(newStartTime.getTime() - (24 * 60 * 60 * 1000)); // Search 1 day before
+      const searchEnd = new Date(newStartTime.getTime() + (24 * 60 * 60 * 1000)); // Search 1 day after
+      
+      try {
+        const availableSlots = await getOpenSlots(
+          storage, 
+          searchStart, 
+          searchEnd, 
+          durationMinutes,
+          30, // 30-minute steps
+          15  // 15-minute buffer
+        );
+        
+        // Check if the requested time slot is available
+        const requestedSlot = newStartTime.toISOString();
+        const slotAvailable = availableSlots.some(slot => {
+          const slotTime = new Date(slot);
+          return slotTime.getTime() === newStartTime.getTime();
+        });
+        
+        if (!slotAvailable) {
+          return res.status(409).json({ 
+            success: false, 
+            message: "The selected time slot is not available. Please choose another time." 
+          });
+        }
+        
+      } catch (availabilityError) {
+        console.error('Availability check failed during customer reschedule:', availabilityError);
+        return res.status(500).json({ 
+          success: false, 
+          message: "Unable to verify appointment availability. Please try again." 
+        });
+      }
+      
+      // Store original appointment times for email notification
+      const originalStart = appointment.startTimestamptz || appointment.appointmentDate;
+      const originalEnd = appointment.endTimestamptz;
+      
+      // Update the appointment
+      await storage.updateAppointmentTime(
+        appointmentId,
+        newStartTime,
+        newEndTime
+      );
+      
+      // Get the updated appointment for response
+      const updatedAppointment = await storage.getAppointment(appointmentId);
+      
+      // Send reschedule confirmation emails
+      if (originalStart && originalEnd && updatedAppointment) {
+        // Send customer confirmation email
+        try {
+          await emailService.sendRescheduleConfirmation(
+            updatedAppointment,
+            new Date(originalStart),
+            new Date(originalEnd)
+          );
+          console.log(`[PORTAL_RESCHEDULE] Confirmation email sent for appointment ${appointmentId}`);
+        } catch (emailError) {
+          console.error(`[PORTAL_RESCHEDULE] Failed to send confirmation email for appointment ${appointmentId}:`, emailError);
+          // Continue even if customer email fails
+        }
+        
+        // Send internal admin notification
+        try {
+          await emailService.sendAdminRescheduleNotification(
+            updatedAppointment,
+            new Date(originalStart),
+            new Date(originalEnd)
+          );
+          console.log(`[PORTAL_RESCHEDULE] Admin notification sent for appointment ${appointmentId}`);
+        } catch (adminEmailError) {
+          console.error(`[PORTAL_RESCHEDULE] Failed to send admin notification for appointment ${appointmentId}:`, adminEmailError);
+          // Continue even if admin email fails
+        }
+      }
+      
+      res.json({
+        success: true,
+        message: "Appointment rescheduled successfully",
+        appointment: {
+          id: updatedAppointment?.id,
+          startTime: newStartTime.toISOString(),
+          endTime: newEndTime.toISOString(),
+          serviceType: updatedAppointment?.serviceType,
+          status: updatedAppointment?.status
+        }
+      });
+      
+      console.log(`[PORTAL_RESCHEDULE] Customer ${customer.id} rescheduled appointment ${appointmentId} to ${newStartTime.toISOString()}`);
+      
+    } catch (error) {
+      console.error("Portal appointment reschedule error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to reschedule appointment. Please try again." 
+      });
+    }
+  });
+
   // Admin schedule endpoint - Get comprehensive schedule view (Protected)
   app.get("/api/admin/schedule", requireAdmin, async (req, res) => {
     try {

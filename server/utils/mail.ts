@@ -428,6 +428,97 @@ export class EmailService {
     }
   }
 
+  async sendAdminRescheduleNotification(appointment: Appointment, oldStart: Date, oldEnd: Date): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping admin reschedule notification');
+      return false;
+    }
+
+    try {
+      const appointmentData: AppointmentEmailData = {
+        id: appointment.id,
+        firstName: appointment.firstName,
+        lastName: appointment.lastName,
+        email: appointment.email,
+        phone: appointment.phone,
+        serviceType: appointment.serviceType,
+        appointmentDate: new Date(appointment.appointmentDate),
+        appointmentTime: appointment.appointmentTime,
+        startTimestamptz: appointment.startTimestamptz,
+        endTimestamptz: appointment.endTimestamptz,
+        notes: appointment.notes,
+        sequence: (appointment.sequence || 0) + 1 // Increment sequence for calendar update
+      };
+
+      const newFormattedDate = this.formatDate(appointmentData.appointmentDate);
+      const newFormattedTime = this.formatTime(appointmentData.appointmentTime);
+      const oldFormattedDateTime = this.formatDateTime(oldStart);
+
+      const subject = `RESCHEDULE ALERT: ${appointmentData.serviceType} — ${appointmentData.firstName} ${appointmentData.lastName}`;
+
+      const content = `
+        <h2 style="color: #FF8800; margin-bottom: 20px;">⚠️ Appointment Rescheduled by Customer</h2>
+        
+        <p>A customer has rescheduled their appointment. Please update your calendar and adjust your schedule accordingly.</p>
+        
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #FF8800; margin: 20px 0; border-radius: 5px;">
+          <h3 style="color: #FF8800; margin-top: 0;">🕒 New Schedule</h3>
+          <p style="margin: 0 0 10px 0;"><strong>Appointment ID:</strong> ${appointmentData.id}</p>
+          <p style="margin: 0 0 10px 0;"><strong>New Date:</strong> ${newFormattedDate}</p>
+          <p style="margin: 0 0 10px 0;"><strong>New Time:</strong> ${newFormattedTime}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${appointmentData.serviceType}</p>
+        </div>
+        
+        <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #999; margin: 20px 0; border-radius: 5px;">
+          <h3 style="color: #666; margin-top: 0;">📅 Previous Schedule</h3>
+          <p style="margin: 0; color: #666; text-decoration: line-through;"><strong>Was:</strong> ${oldFormattedDateTime}</p>
+        </div>
+        
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #007700; margin: 20px 0; border-radius: 5px;">
+          <h3 style="color: #007700; margin-top: 0;">Customer Information</h3>
+          <p style="margin: 0 0 10px 0;"><strong>Name:</strong> ${appointmentData.firstName} ${appointmentData.lastName}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Email:</strong> <a href="mailto:${appointmentData.email}">${appointmentData.email}</a></p>
+          <p style="margin: 0 0 10px 0;"><strong>Phone:</strong> ${appointmentData.phone ? `<a href="tel:${appointmentData.phone}">${appointmentData.phone}</a>` : 'Not provided'}</p>
+          ${appointmentData.notes ? `<p style="margin: 0;"><strong>Notes:</strong> ${appointmentData.notes}</p>` : ''}
+        </div>
+        
+        <div style="background-color: #e8f4fd; padding: 20px; border-left: 4px solid #0066cc; margin: 20px 0; border-radius: 5px;">
+          <h3 style="color: #0066cc; margin-top: 0;">📋 Action Required</h3>
+          <ul style="margin: 10px 0; padding-left: 20px; color: #0066cc;">
+            <li>Update your personal calendar with the new appointment time</li>
+            <li>Adjust your travel schedule if necessary</li>
+            <li>Confirm you can accommodate the new time slot</li>
+            <li>Contact customer if there are any conflicts: <a href="mailto:${appointmentData.email}">${appointmentData.email}</a></li>
+          </ul>
+        </div>
+        
+        <p>An updated calendar invite is attached to help you update your calendar. The customer has also received a confirmation email with the new appointment details.</p>
+      `;
+
+      const htmlContent = this.getEmailTemplate(content);
+      const icsAttachment = this.createIcsAttachment(appointmentData, 'REQUEST');
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: this.adminEmail,
+        subject: subject,
+        html: htmlContent,
+        attachments: [{
+          filename: icsAttachment.filename,
+          content: icsAttachment.content,
+          contentType: icsAttachment.contentType
+        }]
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Admin reschedule notification email sent to ${this.adminEmail}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send admin reschedule notification email:', error);
+      return false;
+    }
+  }
+
   async sendMagicLinkEmail(params: { to: string; customerName: string; magicLink: string }): Promise<boolean> {
     if (!this.isConfigured) {
       console.log('Email service not configured, skipping magic link email');
