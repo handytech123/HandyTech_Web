@@ -215,6 +215,25 @@ export const insertServiceAddonSchema = createInsertSchema(serviceAddons).omit({
   createdAt: true,
 });
 
+// Portal login tokens for magic link authentication
+export const portalLoginTokens = pgTable("portal_login_tokens", {
+  id: serial("id").primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  email: text("email").notNull(),
+  customerId: integer("customer_id").references(() => customers.id),
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertPortalLoginTokenSchema = createInsertSchema(portalLoginTokens).omit({
+  id: true,
+  createdAt: true,
+  usedAt: true,
+}).extend({
+  expiresAt: z.coerce.date(),
+});
+
 // Reschedule validation schema
 export const rescheduleRequestSchema = z.object({
   startISO: z.string().datetime("Invalid ISO datetime format"),
@@ -256,3 +275,6 @@ export type InsertService = z.infer<typeof insertServiceSchema>;
 
 export type ServiceAddon = typeof serviceAddons.$inferSelect;
 export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
+
+export type PortalLoginToken = typeof portalLoginTokens.$inferSelect;
+export type InsertPortalLoginToken = z.infer<typeof insertPortalLoginTokenSchema>;

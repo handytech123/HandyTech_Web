@@ -1,0 +1,159 @@
+Here’s a redetailed walk-through of how login in the customer portal should work, written so both you and Bradley (or whoever codes it) can follow clearly:
+
+
+---
+
+Customer Login Flow (Step by Step)
+
+1. Login request
+
+Customer action: Goes to /portal/login, enters their email, clicks “Send me a sign-in link.”
+
+Server action:
+
+Looks for that email in the customers table (creates one if missing).
+
+Generates a one-time token (random string, expires in ~30 minutes).
+
+Saves token → portal_login_tokens table.
+
+Emails customer a magic link:
+
+https://your-domain.com/portal/callback?token=XYZ
+
+
+
+
+---
+
+2. Email click
+
+Customer action: Opens email, clicks the link.
+
+Server action:
+
+Route /portal/callback checks the token:
+
+Exists?
+
+Not expired?
+
+Not already used?
+
+
+If valid → mark token used.
+
+Sets a secure cookie (ht.sid) with customerId inside session.
+
+httpOnly (JS can’t read it).
+
+SameSite=Lax (not sent cross-site).
+
+Secure (HTTPS only).
+
+
+Redirects browser → /portal (dashboard).
+
+
+
+
+---
+
+3. Authenticated portal session
+
+Customer experience: They’re now “logged in.”
+
+Server behavior: Every /api/portal/* route checks the cookie:
+
+Example: GET /api/portal/me reads session → returns their profile.
+
+Example: GET /api/portal/appointments shows only their appointments.
+
+
+No password or token storage needed in localStorage.
+
+
+
+---
+
+4. While logged in
+
+They can:
+
+See dashboard (next appointment).
+
+See appointments (upcoming/past).
+
+Reschedule (no cancel).
+
+Edit profile info (phone/address).
+
+
+All calls use the cookie, no extra headers.
+
+
+
+---
+
+5. Logout
+
+Customer action: Clicks “Log out.”
+
+Server action:
+
+/api/portal/logout clears cookie + destroys session.
+
+
+Next visit requires a new magic link.
+
+
+
+---
+
+Security Highlights
+
+No passwords → nothing to steal or forget.
+
+Short-lived token → email links expire fast.
+
+Single use → once clicked, token becomes invalid.
+
+httpOnly cookie → protected from JavaScript theft.
+
+SameSite & Secure flags → protected from cross-site tricks.
+
+Rate limiting → stops bots from hammering login.
+
+
+
+---
+
+Example user experience copy (what customers see)
+
+On /portal/login:
+
+> Enter your email and we’ll send you a secure one-time link to sign in.
+No password required. The link expires in 30 minutes. If you don’t see it, check your spam folder or request another link.
+
+
+
+On the email:
+
+Subject: HandyTech — sign in to your customer portal
+Body:
+
+> Click below to sign in securely. This link will expire in 30 minutes.
+[Sign in to HandyTech Portal]
+
+
+
+
+---
+
+👉 This process uses the same building blocks you already have: Express routes, Nodemailer (IONOS SMTP), cookie-based sessions. It fits right alongside your scheduler + reschedule logic.
+
+
+---
+
+Would you like me to now rewrite the actual Express code for /api/portal/login and /api/portal/callback so it exactly matches your cookie-based admin auth setup (instead of mixing tokens and headers)? That way both admin and customer use the same secure session system.
+

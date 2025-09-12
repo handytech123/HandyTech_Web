@@ -5,6 +5,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
 import CustomerPortal from "@/pages/customer-portal";
+import PortalLogin from "@/pages/portal-login";
+import PortalCallback from "@/pages/portal-callback";
 import AdminDashboard from "@/pages/admin";
 import LiveChatAdmin from "@/pages/live-chat-admin";
 import LeaveReview from "@/pages/leave-review";
@@ -17,6 +19,9 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/customer-portal" component={CustomerPortal} />
+      <Route path="/portal/login" component={PortalLogin} />
+      <Route path="/portal/callback" component={PortalCallback} />
+      <Route path="/portal" component={CustomerPortal} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/live-chat" component={LiveChatAdmin} />
       <Route path="/leave-review" component={LeaveReview} />

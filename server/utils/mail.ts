@@ -428,6 +428,71 @@ export class EmailService {
     }
   }
 
+  async sendMagicLinkEmail(params: { to: string; customerName: string; magicLink: string }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping magic link email');
+      return false;
+    }
+
+    try {
+      const { to, customerName, magicLink } = params;
+      const subject = `${this.businessName}: Sign in to your customer portal`;
+
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">Sign in to Your Customer Portal</h2>
+        
+        <p>Dear ${customerName},</p>
+        
+        <p>You requested access to your HandyTech Solutions customer portal. Click the secure link below to sign in:</p>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${magicLink}" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Sign In to Portal</a>
+        </div>
+        
+        <div style="background-color: #f0f0f0; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="color: #BB0000; margin-top: 0; font-size: 16px;">What you can do in your portal:</h3>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>View your upcoming appointments</li>
+            <li>Reschedule appointments when needed</li>
+            <li>Update your contact information</li>
+            <li>Review your service history</li>
+          </ul>
+        </div>
+        
+        <p style="color: #666; font-size: 14px; margin-top: 30px;">
+          <strong>Security Notice:</strong> This link will expire in 30 minutes and can only be used once. 
+          If you didn't request this sign-in link, you can safely ignore this email.
+        </p>
+        
+        <p style="color: #666; font-size: 14px;">
+          Having trouble? You can also copy and paste this link into your browser:<br>
+          <a href="${magicLink}" style="color: #BB0000; word-break: break-all;">${magicLink}</a>
+        </p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: to,
+        subject: subject,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Customer Portal`,
+          'X-Priority': '1',
+          'List-Unsubscribe': `<mailto:${this.fromEmail}?subject=Unsubscribe>`
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Magic link email sent to ${to}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send magic link email:', error);
+      return false;
+    }
+  }
+
   async verifyConnection(): Promise<boolean> {
     if (!this.isConfigured) {
       console.log('Email service not configured');

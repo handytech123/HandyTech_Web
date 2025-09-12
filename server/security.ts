@@ -14,6 +14,7 @@ const tokens = new csrf();
 // Helmet middleware for security headers
 export const useHelmet = helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
+  referrerPolicy: { policy: "strict-origin-when-cross-origin" }, // Prevent token leakage via referrers
   contentSecurityPolicy: {
     directives: {
       defaultSrc: ["'self'"],
@@ -206,6 +207,78 @@ export function requireAdmin(req: Request, res: Response, next: NextFunction) {
   });
 }
 
+// Customer authentication middleware using cookie sessions
+export function requireCustomer(req: Request, res: Response, next: NextFunction) {
+  // Check if session exists and has customer info
+  if (req.session && (req.session as any).customerId && (req.session as any).customerEmail) {
+    // Add customer info to request for easy access in route handlers
+    (req as any).customer = {
+      id: (req.session as any).customerId,
+      email: (req.session as any).customerEmail
+    };
+    return next();
+  }
+
+  return res.status(401).json({ 
+    error: "CUSTOMER_AUTH_REQUIRED",
+    message: "Customer authentication required for this resource."
+  });
+}
+
+// Helper function to set customer session with security hardening
+export function setCustomerSession(req: Request, customerId: number, customerEmail: string): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!req.session) {
+      return reject(new Error('No session available'));
+    }
+    
+    // Regenerate session ID to prevent session fixation attacks
+    req.session.regenerate((err) => {
+      if (err) {
+        console.error('[SECURITY] Session regeneration failed:', err);
+        return reject(err);
+      }
+      
+      // Set customer data in new session
+      (req.session as any).customerId = customerId;
+      (req.session as any).customerEmail = customerEmail;
+      
+      // Ensure CSRF secret is set for the new session
+      (req.session as any).csrfSecret = tokens.secretSync();
+      
+      console.log(`[SECURITY] Session regenerated for customer ${customerId}`);
+      resolve();
+    });
+  });
+}
+
+// Helper function to clear customer session with security cleanup
+export function clearCustomerSession(req: Request): Promise<void> {
+  return new Promise((resolve, reject) => {
+    if (!req.session) {
+      return resolve(); // Already cleared
+    }
+    
+    // Completely destroy the session for security
+    req.session.destroy((err) => {
+      if (err) {
+        console.error('[SECURITY] Session destruction failed:', err);
+        // Still try to clear customer data if destroy failed
+        try {
+          delete (req.session as any).customerId;
+          delete (req.session as any).customerEmail;
+        } catch (e) {
+          // Ignore errors if session is already destroyed
+        }
+        return reject(err);
+      }
+      
+      console.log('[SECURITY] Customer session destroyed');
+      resolve();
+    });
+  });
+}
+
 // Middleware to ensure session has CSRF secret
 export function ensureCSRFSecret(req: Request, res: Response, next: NextFunction) {
   if (!(req.session as any)?.csrfSecret) {
@@ -236,7 +309,7 @@ export function attachCsrfRoute(app: Express) {
   });
 }
 
-// Security headers middleware for API responses
+// Enhanced security headers middleware for API responses
 export function securityHeaders(req: Request, res: Response, next: NextFunction) {
   // Prevent clickjacking
   res.setHeader('X-Frame-Options', 'DENY');
@@ -247,8 +320,21 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // Enable XSS protection
   res.setHeader('X-XSS-Protection', '1; mode=block');
   
-  // Referrer policy
+  // Enhanced referrer policy for better privacy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Content Security Policy for additional XSS protection
+  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;");
+  
+  // Prevent content type sniffing
+  res.setHeader('X-Download-Options', 'noopen');
+  
+  // Cache control for sensitive data
+  if (req.path.startsWith('/api/portal/') || req.path.startsWith('/api/admin/')) {
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
   
   next();
 }
@@ -329,9 +415,15 @@ export interface SecureRequest extends Request {
     username: string;
     isAdmin: true;
   };
+  customer?: {
+    id: number;
+    email: string;
+  };
 }
 
 export interface SecureSession {
   isAdmin?: boolean;
+  customerId?: number;
+  customerEmail?: string;
   csrfSecret?: string;
 }

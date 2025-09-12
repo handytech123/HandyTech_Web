@@ -13,6 +13,7 @@ import {
   insertAvailabilityRuleSchema,
   insertServiceSchema,
   insertServiceAddonSchema,
+  insertPortalLoginTokenSchema,
   rescheduleRequestSchema,
   type InsertCustomer
 } from "@shared/schema";
@@ -24,7 +25,7 @@ import crypto from "crypto";
 import { getOpenSlots } from "./utils/availability";
 import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
-import { requireAdmin, rlAuth } from "./security";
+import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Initialize OpenAI client
@@ -34,6 +35,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Initialize email service
   const emailService = new EmailService();
+  
+  // SECURITY: Setup automated token cleanup
+  const TOKEN_CLEANUP_INTERVAL = 60 * 60 * 1000; // 1 hour
+  setInterval(async () => {
+    try {
+      await storage.deleteExpiredPortalLoginTokens();
+      console.log('[SECURITY] Expired portal login tokens cleaned up');
+    } catch (error) {
+      console.error('[SECURITY] Token cleanup failed:', error);
+    }
+  }, TOKEN_CLEANUP_INTERVAL);
+  
+  // Run initial cleanup on startup
+  setTimeout(async () => {
+    try {
+      await storage.deleteExpiredPortalLoginTokens();
+      console.log('[SECURITY] Initial token cleanup completed');
+    } catch (error) {
+      console.error('[SECURITY] Initial token cleanup failed:', error);
+    }
+  }, 5000); // 5 seconds after startup
 
   // Initialize Calendly API client
   const CALENDLY_PAT = process.env.CALENDLY_PAT;
@@ -181,6 +203,243 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: "Logout failed" 
+      });
+    }
+  });
+
+  // Customer Portal Authentication Routes
+  
+  // Portal login - Generate magic link token and send email
+  app.post("/api/portal/login", rlAuth, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      // Validate input
+      if (!email) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email is required" 
+        });
+      }
+      
+      // Validate email format
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Please enter a valid email address" 
+        });
+      }
+      
+      // Check if customer exists (or create them if not)
+      let customer = await storage.getCustomerByEmail(email);
+      if (!customer) {
+        // For now, only allow existing customers to login
+        // In production, you might want to auto-create or require registration
+        return res.status(404).json({ 
+          success: false, 
+          message: "No account found with this email address" 
+        });
+      }
+      
+      // Generate secure token
+      const token = crypto.randomBytes(32).toString('hex');
+      const expiresAt = new Date(Date.now() + 30 * 60 * 1000); // 30 minutes
+      
+      // Store hashed token in database for security
+      await storage.createPortalLoginToken(
+        token,
+        email,
+        customer.id,
+        expiresAt
+      );
+      
+      // Send magic link email
+      const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || 'http://localhost:5000';
+      const magicLink = `${baseUrl}/portal/callback?token=${token}`;
+      
+      // Use EmailService to send magic link email
+      await emailService.sendMagicLinkEmail({
+        to: email,
+        customerName: `${customer.firstName} ${customer.lastName}`,
+        magicLink
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Magic link sent! Please check your email and click the link to sign in." 
+      });
+      
+      console.log(`[PORTAL_AUTH] Magic link sent to ${email}`);
+      
+      // SECURITY: Opportunistic cleanup of expired tokens
+      setTimeout(async () => {
+        try {
+          await storage.deleteExpiredPortalLoginTokens();
+        } catch (error) {
+          console.error('[SECURITY] Opportunistic token cleanup failed:', error);
+        }
+      }, 1000); // Clean up after 1 second (non-blocking)
+      
+    } catch (error) {
+      console.error("Portal login error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Unable to send login link. Please try again." 
+      });
+    }
+  });
+
+  // Portal callback - Verify token and set session
+  app.get("/api/portal/callback", rlSensitive, async (req, res) => {
+    try {
+      const { token } = req.query;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid login link" 
+        });
+      }
+      
+      // Get and verify hashed token
+      const tokenRecord = await storage.getPortalLoginTokenByHash(token);
+      if (!tokenRecord) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Login link is invalid or has expired" 
+        });
+      }
+      
+      // Check if token has been used
+      if (tokenRecord.usedAt) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Login link has already been used" 
+        });
+      }
+      
+      // Get customer
+      const customer = await storage.getCustomer(tokenRecord.customerId!);
+      if (!customer) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Customer account not found" 
+        });
+      }
+      
+      // Mark token as used
+      await storage.markPortalLoginTokenUsed(token);
+      
+      // Set customer session with security hardening (session regeneration)
+      try {
+        await setCustomerSession(req, customer.id, customer.email);
+      } catch (sessionError) {
+        console.error('[SECURITY] Session setup failed:', sessionError);
+        return res.status(500).json({ 
+          success: false, 
+          message: "Login failed due to session error" 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Login successful",
+        customer: {
+          id: customer.id,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email
+        }
+      });
+      
+      console.log(`[PORTAL_AUTH] Customer ${customer.email} logged in successfully`);
+      
+    } catch (error) {
+      console.error("Portal callback error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Login failed. Please try again." 
+      });
+    }
+  });
+
+  // Portal logout - Clear customer session with security hardening
+  app.post("/api/portal/logout", async (req, res) => {
+    try {
+      // Securely destroy customer session
+      await clearCustomerSession(req);
+      
+      // Clear session cookie
+      res.clearCookie("ht.sid", {
+        httpOnly: true,
+        sameSite: "lax",
+        secure: process.env.NODE_ENV === "production"
+      });
+      
+      res.json({ 
+        success: true, 
+        message: "Logged out successfully" 
+      });
+      
+      console.log("[PORTAL_AUTH] Customer logged out successfully with secure session cleanup");
+      
+    } catch (error) {
+      console.error("Portal logout error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Logout failed" 
+      });
+    }
+  });
+
+  // Portal profile - Get authenticated customer data
+  app.get("/api/portal/profile", requireCustomer, async (req, res) => {
+    try {
+      const { customer } = req as any;
+      
+      // Get full customer data
+      const customerData = await storage.getCustomer(customer.id);
+      if (!customerData) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Customer profile not found" 
+        });
+      }
+
+      // Get customer's maintenance plans
+      const maintenancePlans = await storage.getMaintenancePlansByCustomer(customer.id);
+      
+      // Get customer's email campaigns (communication history)
+      const emailCampaigns = await storage.getEmailCampaignsByCustomer(customer.id);
+      
+      // Get customer's appointments
+      const appointments = await storage.getAppointmentsByCustomer(customer.id);
+
+      res.json({
+        success: true,
+        customer: {
+          id: customerData.id,
+          firstName: customerData.firstName,
+          lastName: customerData.lastName,
+          email: customerData.email,
+          phone: customerData.phone,
+          company: customerData.company,
+          createdAt: customerData.createdAt,
+          lastEmailSent: customerData.lastEmailSent
+        },
+        maintenancePlans,
+        emailCampaigns,
+        appointments
+      });
+      
+      console.log(`[PORTAL_PROFILE] Profile data retrieved for customer ${customer.email}`);
+      
+    } catch (error) {
+      console.error("Portal profile error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Unable to load profile data. Please try again." 
       });
     }
   });
@@ -466,15 +725,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/maintenance-plans", async (req, res) => {
+  // SECURITY: Customer-only maintenance plan creation - prevents IDOR vulnerability
+  app.post("/api/maintenance-plans", requireCustomer, async (req, res) => {
     try {
+      // Extract customer ID from authenticated session - NEVER trust client data
+      const { customer } = req as any;
+      
+      // Parse request body but override customerId with authenticated customer
       const planData = insertMaintenancePlanSchema.parse(req.body);
-      const plan = await storage.createMaintenancePlan(planData);
+      const securePlanData = {
+        ...planData,
+        customerId: customer.id // Use authenticated customer ID, not from request body
+      };
+      
+      const plan = await storage.createMaintenancePlan(securePlanData);
       res.status(201).json(plan);
+      
+      console.log(`[SECURITY] Customer ${customer.id} created maintenance plan`);
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid maintenance plan data", errors: error.errors });
       } else {
+        console.error("Maintenance plan creation error:", error);
         res.status(500).json({ message: "Failed to create maintenance plan" });
       }
     }

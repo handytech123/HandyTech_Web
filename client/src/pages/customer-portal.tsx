@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Helmet } from 'react-helmet';
 import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient } from "@/lib/queryClient";
+import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,49 +9,79 @@ import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { type Customer, type MaintenancePlan, type EmailCampaign } from "@shared/schema";
-import { CalendarDays, Mail, CreditCard, Star } from "lucide-react";
+import { useCustomerAuth } from "@/hooks/useCustomerAuth";
+import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment } from "@shared/schema";
+import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+
+interface PortalProfileData {
+  success: boolean;
+  customer: Customer;
+  maintenancePlans: MaintenancePlan[];
+  emailCampaigns: EmailCampaign[];
+  appointments: Appointment[];
+}
 
 export default function CustomerPortal() {
-  const [customerId, setCustomerId] = useState<number>(1); // In a real app, this would come from auth
   const { toast } = useToast();
+  const { customer: authCustomer, isAuthenticated, isLoading: authLoading, logout: authLogout } = useCustomerAuth();
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  const { data: customer } = useQuery<Customer>({
-    queryKey: ["/api/customers", customerId],
-    queryFn: () => fetch(`/api/customers/${customerId}`).then(res => res.json()),
+  // Fetch full customer profile data when authenticated
+  const { data: profileData, isLoading: profileLoading, isError, error } = useQuery<PortalProfileData>({
+    queryKey: ["/api/portal/profile"],
+    queryFn: async () => {
+      const response = await fetch("/api/portal/profile", {
+        credentials: "include"
+      });
+      
+      if (!response.ok) {
+        throw new Error("Failed to load profile data");
+      }
+      
+      return response.json();
+    },
+    enabled: isAuthenticated, // Only fetch when authenticated
+    retry: false
   });
 
-  const { data: maintenancePlans = [] } = useQuery<MaintenancePlan[]>({
-    queryKey: ["/api/customers", customerId, "maintenance-plans"],
-    queryFn: () => fetch(`/api/customers/${customerId}/maintenance-plans`).then(res => res.json()),
-  });
-
-  const { data: emailCampaigns = [] } = useQuery<EmailCampaign[]>({
-    queryKey: ["/api/customers", customerId, "email-campaigns"],
-    queryFn: () => fetch(`/api/customers/${customerId}/email-campaigns`).then(res => res.json()),
-  });
+  const customer = profileData?.customer || authCustomer;
+  const maintenancePlans = profileData?.maintenancePlans || [];
+  const emailCampaigns = profileData?.emailCampaigns || [];
+  const appointments = profileData?.appointments || [];
+  
+  const isLoading = authLoading || profileLoading;
 
   const subscribeToPlan = useMutation({
     mutationFn: async (planData: { planType: string; price: number; nextBillingDate: string }) => {
-      const response = await fetch("/api/maintenance-plans", {
+      return apiRequest("/api/maintenance-plans", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...planData,
-          customerId,
+          customerId: customer?.id,
         }),
       });
-      if (!response.ok) throw new Error("Failed to subscribe to plan");
-      return response.json();
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/customers", customerId, "maintenance-plans"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
       toast({ title: "Successfully subscribed to maintenance plan!" });
     },
     onError: () => {
       toast({ title: "Failed to subscribe to plan", variant: "destructive" });
     },
   });
+
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await authLogout();
+      toast({ title: "Logged out successfully" });
+    } catch (error) {
+      toast({ title: "Logout failed", variant: "destructive" });
+    } finally {
+      setIsLoggingOut(false);
+    }
+  };
 
   const handleSubscribe = (planType: string, price: number) => {
     const nextBillingDate = new Date();
@@ -64,8 +94,72 @@ export default function CustomerPortal() {
     });
   };
 
-  if (!customer) {
-    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  // Handle loading states
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-light-gray">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-red mr-3"></div>
+            <span className="text-charcoal">Loading your portal...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Handle authentication states  
+  if (!isAuthenticated && !authLoading) {
+    // Redirect happens automatically in useCustomerAuth
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-light-gray">
+        <Card className="w-full max-w-md">
+          <CardContent className="flex items-center justify-center py-8">
+            <span className="text-charcoal">Redirecting to sign in...</span>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  // Handle error states
+  if (isError || (!customer && !authLoading)) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-light-gray">
+        <Card className="w-full max-w-md">
+          <CardHeader>
+            <CardTitle className="flex items-center text-red-600">
+              <AlertCircle className="h-5 w-5 mr-2" />
+              Unable to Load Portal
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <Alert>
+              <AlertDescription>
+                {error?.message || "There was an issue loading your customer portal. Please try signing in again."}
+              </AlertDescription>
+            </Alert>
+            <div className="flex space-x-2">
+              <Button 
+                onClick={() => window.location.href = "/portal/login"} 
+                className="flex-1 bg-brand-red hover:bg-brand-red/90 text-white"
+                data-testid="button-sign-in-again"
+              >
+                Sign In Again
+              </Button>
+              <Button 
+                variant="outline" 
+                onClick={() => window.location.href = "/"} 
+                className="flex-1"
+                data-testid="button-home"
+              >
+                Go Home
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -78,10 +172,30 @@ export default function CustomerPortal() {
       </Helmet>
       
       <div className="bg-charcoal text-white py-4">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-2xl font-bold">
             HandyTech<span className="text-brand-red">Solutions</span> Customer Portal
           </h1>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleLogout}
+            disabled={isLoggingOut}
+            className="border-white text-white hover:bg-white hover:text-charcoal"
+            data-testid="button-logout"
+          >
+            {isLoggingOut ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
+                Signing out...
+              </>
+            ) : (
+              <>
+                <LogOut className="h-4 w-4 mr-2" />
+                Sign Out
+              </>
+            )}
+          </Button>
         </div>
       </div>
 

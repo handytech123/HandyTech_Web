@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -11,10 +11,22 @@ import {
   type BlockedTime, type InsertBlockedTime,
   type AvailabilityRule, type InsertAvailabilityRule,
   type Service, type InsertService,
-  type ServiceAddon, type InsertServiceAddon
+  type ServiceAddon, type InsertServiceAddon,
+  type PortalLoginToken, type InsertPortalLoginToken
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, gte, lte } from "drizzle-orm";
+import crypto from "crypto";
+
+// Security utility functions for token hashing
+function hashToken(token: string): string {
+  return crypto.createHash('sha256').update(token).digest('hex');
+}
+
+function verifyToken(token: string, hashedToken: string): boolean {
+  const tokenHash = hashToken(token);
+  return crypto.timingSafeEqual(Buffer.from(tokenHash), Buffer.from(hashedToken));
+}
 
 export interface IStorage {
   // Users
@@ -107,6 +119,12 @@ export interface IStorage {
   createServiceAddon(addon: InsertServiceAddon): Promise<ServiceAddon>;
   updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void>;
   deleteServiceAddon(id: number): Promise<void>;
+
+  // Portal Login Tokens - Enhanced security with hashed storage
+  createPortalLoginToken(rawToken: string, email: string, customerId: number, expiresAt: Date): Promise<PortalLoginToken>;
+  getPortalLoginTokenByHash(rawToken: string): Promise<PortalLoginToken | undefined>;
+  markPortalLoginTokenUsed(rawToken: string): Promise<void>;
+  deleteExpiredPortalLoginTokens(): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -709,6 +727,23 @@ export class MemStorage implements IStorage {
   async deleteServiceAddon(id: number): Promise<void> {
     throw new Error("MemStorage not implemented for service addons");
   }
+
+  // Portal Login Tokens - Not implemented for MemStorage (use DatabaseStorage in production)
+  async createPortalLoginToken(rawToken: string, email: string, customerId: number, expiresAt: Date): Promise<PortalLoginToken> {
+    throw new Error("MemStorage not implemented for portal login tokens");
+  }
+
+  async getPortalLoginTokenByHash(rawToken: string): Promise<PortalLoginToken | undefined> {
+    throw new Error("MemStorage not implemented for portal login tokens");
+  }
+
+  async markPortalLoginTokenUsed(rawToken: string): Promise<void> {
+    throw new Error("MemStorage not implemented for portal login tokens");
+  }
+
+  async deleteExpiredPortalLoginTokens(): Promise<void> {
+    throw new Error("MemStorage not implemented for portal login tokens");
+  }
 }
 
 export class DatabaseStorage implements IStorage {
@@ -1145,6 +1180,50 @@ export class DatabaseStorage implements IStorage {
 
   async deleteServiceAddon(id: number): Promise<void> {
     await db.delete(serviceAddons).where(eq(serviceAddons.id, id));
+  }
+
+  // Portal Login Tokens - Enhanced security with hashed storage
+  async createPortalLoginToken(rawToken: string, email: string, customerId: number, expiresAt: Date): Promise<PortalLoginToken> {
+    const hashedToken = hashToken(rawToken);
+    const tokenData = {
+      token: hashedToken,
+      email,
+      customerId,
+      expiresAt
+    };
+    const [created] = await db.insert(portalLoginTokens).values(tokenData).returning();
+    return created;
+  }
+
+  async getPortalLoginTokenByHash(rawToken: string): Promise<PortalLoginToken | undefined> {
+    // Get all valid tokens for comparison (we need to hash-compare each one)
+    const validTokens = await db.select().from(portalLoginTokens)
+      .where(and(
+        gte(portalLoginTokens.expiresAt, new Date()),
+        eq(portalLoginTokens.usedAt, null) // Only unused tokens
+      ));
+    
+    // Find matching token using secure hash comparison
+    for (const token of validTokens) {
+      if (verifyToken(rawToken, token.token)) {
+        return token;
+      }
+    }
+    return undefined;
+  }
+
+  async markPortalLoginTokenUsed(rawToken: string): Promise<void> {
+    const tokenRecord = await this.getPortalLoginTokenByHash(rawToken);
+    if (tokenRecord) {
+      await db.update(portalLoginTokens)
+        .set({ usedAt: new Date() })
+        .where(eq(portalLoginTokens.id, tokenRecord.id));
+    }
+  }
+
+  async deleteExpiredPortalLoginTokens(): Promise<void> {
+    await db.delete(portalLoginTokens)
+      .where(lte(portalLoginTokens.expiresAt, new Date()));
   }
 }
 
