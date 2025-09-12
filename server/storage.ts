@@ -15,7 +15,7 @@ import {
   type PortalLoginToken, type InsertPortalLoginToken
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte } from "drizzle-orm";
+import { eq, desc, and, gte, lte, isNull } from "drizzle-orm";
 import crypto from "crypto";
 
 // Security utility functions for token hashing
@@ -1200,7 +1200,7 @@ export class DatabaseStorage implements IStorage {
     const validTokens = await db.select().from(portalLoginTokens)
       .where(and(
         gte(portalLoginTokens.expiresAt, new Date()),
-        eq(portalLoginTokens.usedAt, null) // Only unused tokens
+        isNull(portalLoginTokens.usedAt) // Only unused tokens
       ));
     
     // Find matching token using secure hash comparison
