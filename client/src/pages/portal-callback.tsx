@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Link } from "wouter";
+import { apiRequest } from "@/lib/queryClient";
 
 type CallbackState = "verifying" | "success" | "error";
 
@@ -41,21 +42,11 @@ export default function PortalCallback() {
     try {
       setState("verifying");
       
-      const response = await fetch(`/api/portal/callback?token=${encodeURIComponent(token)}`, {
-        method: "GET",
-        credentials: "include" // Important for session cookies
+      // Use secure CSRF-protected POST endpoint for token verification
+      const response = await apiRequest("/api/portal/verify", {
+        method: "POST",
+        body: { token }
       });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        setState("error");
-        setError({
-          title: "Sign-in Failed",
-          message: errorData.message || "Unable to sign you in. Please try requesting a new login link.",
-          canRetry: true
-        });
-        return;
-      }
 
       const data = await response.json();
       setCustomerName(`${data.customer.firstName} ${data.customer.lastName}`);
@@ -66,12 +57,29 @@ export default function PortalCallback() {
         setLocation("/portal");
       }, 2000);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Token verification error:", error);
       setState("error");
+      
+      // Parse error message from the error thrown by apiRequest
+      let errorMessage = "Unable to sign you in. Please try requesting a new login link.";
+      if (error.message) {
+        // apiRequest throws errors like "401: {message: '...'}"
+        const match = error.message.match(/\d+:\s*(.+)/);
+        if (match) {
+          try {
+            const parsedError = JSON.parse(match[1]);
+            errorMessage = parsedError.message || errorMessage;
+          } catch {
+            // If parsing fails, extract the message after the status code
+            errorMessage = match[1] || errorMessage;
+          }
+        }
+      }
+      
       setError({
-        title: "Connection Error",
-        message: "Unable to connect to the server. Please check your internet connection and try again.",
+        title: "Sign-in Failed",
+        message: errorMessage,
         canRetry: true
       });
     }

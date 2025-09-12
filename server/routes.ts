@@ -369,6 +369,83 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Portal verify - Secure CSRF-protected token verification
+  app.post("/api/portal/verify", rlSensitive, async (req, res) => {
+    try {
+      const { token } = req.body;
+      
+      if (!token || typeof token !== 'string') {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Invalid login link" 
+        });
+      }
+      
+      // Get and verify hashed token
+      console.log(`[DEBUG] Checking token at ${new Date().toISOString()}`);
+      const tokenRecord = await storage.getPortalLoginTokenByHash(token);
+      if (!tokenRecord) {
+        console.log(`[DEBUG] Token not found or expired for token: ${token}`);
+        return res.status(401).json({ 
+          success: false, 
+          message: "Login link is invalid or has expired" 
+        });
+      }
+      console.log(`[DEBUG] Token found, expires at: ${tokenRecord.expiresAt?.toISOString()}, used at: ${tokenRecord.usedAt?.toISOString()}`)
+      
+      // Check if token has been used
+      if (tokenRecord.usedAt) {
+        return res.status(401).json({ 
+          success: false, 
+          message: "Login link has already been used" 
+        });
+      }
+      
+      // Get customer
+      const customer = await storage.getCustomer(tokenRecord.customerId!);
+      if (!customer) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "Customer account not found" 
+        });
+      }
+      
+      // Mark token as used
+      await storage.markPortalLoginTokenUsed(token);
+      
+      // Set customer session with security hardening (session regeneration and CSRF rotation)
+      try {
+        await setCustomerSession(req, customer.id, customer.email);
+      } catch (sessionError) {
+        console.error('[SECURITY] Session setup failed:', sessionError);
+        return res.status(500).json({ 
+          success: false, 
+          message: "Login failed due to session error" 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Login successful",
+        customer: {
+          id: customer.id,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email
+        }
+      });
+      
+      console.log(`[PORTAL_AUTH] Customer ${customer.email} logged in successfully via CSRF-protected flow`);
+      
+    } catch (error) {
+      console.error("Portal verify error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Login failed. Please try again." 
+      });
+    }
+  });
+
   // Portal logout - Clear customer session with security hardening
   app.post("/api/portal/logout", async (req, res) => {
     try {
