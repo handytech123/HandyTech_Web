@@ -55,7 +55,7 @@ export class ReminderScheduler {
           continue;
         }
 
-        const appointmentDateTime = new Date(`${appointment.preferredDate}T${appointment.preferredTime}`);
+        const appointmentDateTime = new Date(appointment.appointmentDate);
         const timeDiff = appointmentDateTime.getTime() - now.getTime();
         
         // Convert to hours
@@ -74,7 +74,7 @@ export class ReminderScheduler {
         }
         
         // Follow-up email (send 24 hours after appointment)
-        else if (hoursUntilAppointment <= -23.5 && hoursUntilAppointment >= -24.5 && appointment.status === 'completed') {
+        else if (hoursUntilAppointment <= -23.5 && hoursUntilAppointment >= -24.5 && appointment.status !== 'scheduled') {
           console.log(`Sending follow-up email for appointment ${appointment.id}`);
           await this.sendFollowUpEmail(appointment);
         }
@@ -93,8 +93,8 @@ export class ReminderScheduler {
       await this.emailService.send24HourReminder({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: appointment.preferredDate,
-        appointmentTime: appointment.preferredTime,
+        appointmentDate: appointment.appointmentDate.toDateString(),
+        appointmentTime: appointment.appointmentTime,
         serviceType: appointment.serviceType,
         description: appointment.description
       });
@@ -114,8 +114,8 @@ export class ReminderScheduler {
       await this.emailService.send2HourReminder({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: appointment.preferredDate,
-        appointmentTime: appointment.preferredTime,
+        appointmentDate: appointment.appointmentDate.toDateString(),
+        appointmentTime: appointment.appointmentTime,
         serviceType: appointment.serviceType,
         description: appointment.description
       });
@@ -135,8 +135,8 @@ export class ReminderScheduler {
       await this.emailService.sendFollowUpEmail({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: appointment.preferredDate,
-        appointmentTime: appointment.preferredTime,
+        appointmentDate: appointment.appointmentDate.toDateString(),
+        appointmentTime: appointment.appointmentTime,
         serviceType: appointment.serviceType,
         description: appointment.description
       });

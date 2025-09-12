@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User, Phone, Mail } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek } from "date-fns";
-import type { Appointment, BlockedDate } from "@shared/schema";
+import type { Appointment, BlockedTime } from "@shared/schema";
 
 export default function CalendarView() {
   const [currentDate, setCurrentDate] = useState(new Date());
@@ -15,7 +15,7 @@ export default function CalendarView() {
     queryKey: ["/api/appointments"]
   });
 
-  const { data: blockedDates = [] } = useQuery<BlockedDate[]>({
+  const { data: blockedDates = [] } = useQuery<BlockedTime[]>({
     queryKey: ["/api/blocked-dates"]
   });
 
@@ -36,14 +36,14 @@ export default function CalendarView() {
   // Check if a day is blocked
   const isDateBlocked = (day: Date) => {
     return blockedDates.some(blockedDate => 
-      isSameDay(new Date(blockedDate.date), day)
+      isSameDay(new Date(blockedDate.startTimestamptz), day)
     );
   };
 
   // Get blocked date for a specific day
   const getBlockedDateForDay = (day: Date) => {
     return blockedDates.find(blockedDate => 
-      isSameDay(new Date(blockedDate.date), day)
+      isSameDay(new Date(blockedDate.startTimestamptz), day)
     );
   };
 
@@ -139,7 +139,7 @@ export default function CalendarView() {
                       <div className="text-xs p-1 rounded bg-red-200 text-red-800 border border-red-300">
                         <div className="font-medium truncate">BLOCKED</div>
                         <div className="truncate">
-                          {blockedDate.allDay ? 'All Day' : `${blockedDate.startTime}-${blockedDate.endTime}`}
+                          {blockedDate.isFullDay ? 'All Day' : `${format(blockedDate.startTimestamptz, 'h:mm a')}-${format(blockedDate.endTimestamptz, 'h:mm a')}`}
                         </div>
                       </div>
                     )}
