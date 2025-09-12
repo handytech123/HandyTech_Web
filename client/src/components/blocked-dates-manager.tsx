@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -16,7 +17,6 @@ import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon, Plus, Trash2, Clock } from "lucide-react";
 import { format } from "date-fns";
 import { insertBlockedTimeSchema } from "@shared/schema";
-import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import type { BlockedTime } from "@shared/schema";
 
@@ -86,23 +86,16 @@ export default function BlockedTimesManager() {
 
   const createBlockedTime = useMutation({
     mutationFn: async (data: BlockedTimeFormData) => {
-      const response = await fetch("/api/blocked-times", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          reason: data.reason,
-          isFullDay: data.isFullDay,
-          startTimestamptz: data.isFullDay 
-            ? data.startDate.toISOString()
-            : createTimestamp(data.startDate, data.startTime!),
-          endTimestamptz: data.isFullDay
-            ? data.endDate.toISOString() 
-            : createTimestamp(data.endDate, data.endTime!),
-        }),
+      const response = await apiRequest("/api/blocked-times", "POST", {
+        reason: data.reason,
+        isFullDay: data.isFullDay,
+        startTimestamptz: data.isFullDay 
+          ? data.startDate.toISOString()
+          : createTimestamp(data.startDate, data.startTime!),
+        endTimestamptz: data.isFullDay
+          ? data.endDate.toISOString() 
+          : createTimestamp(data.endDate, data.endTime!),
       });
-      if (!response.ok) throw new Error("Failed to create blocked time");
       return response.json();
     },
     onSuccess: () => {
@@ -126,10 +119,7 @@ export default function BlockedTimesManager() {
 
   const deleteBlockedTime = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/blocked-times/${id}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) throw new Error("Failed to delete blocked time");
+      const response = await apiRequest(`/api/blocked-times/${id}`, "DELETE");
       return response.json();
     },
     onSuccess: () => {
