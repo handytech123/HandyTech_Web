@@ -215,6 +215,10 @@ export class MemStorage implements IStorage {
       status: "active",
       startDate: new Date("2024-01-20"),
       nextBillingDate: new Date("2024-12-20"),
+      endDate: null,
+      cancelledAt: null,
+      cancellationReason: null,
+      cancellationType: null,
     };
     this.maintenancePlans.set(plan1.id, plan1);
 
@@ -1645,6 +1649,189 @@ export class DatabaseStorage implements IStorage {
 
   async deleteServiceAddon(id: number): Promise<void> {
     await db.delete(serviceAddons).where(eq(serviceAddons.id, id));
+  }
+
+  // Service History
+  async getServiceHistoryByCustomer(customerId: number, filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]> {
+    return this.getAllServiceHistory({
+      ...filters,
+      customerId, // Pass customerId as an internal filter
+    } as any);
+  }
+
+  async getAllServiceHistory(filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number; customerId?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]> {
+    // Build query conditions
+    const conditions = [eq(appointments.status, "completed")];
+    
+    // Add customer filter if provided
+    if ((filters as any)?.customerId) {
+      conditions.push(eq(appointments.customerId, (filters as any).customerId));
+    }
+    
+    // Add date filters
+    if (filters?.startDate && filters.startDate.trim()) {
+      try {
+        const startDate = new Date(filters.startDate);
+        if (!isNaN(startDate.getTime())) {
+          conditions.push(gte(appointments.appointmentDate, startDate));
+        }
+      } catch (error) {
+        console.warn('[STORAGE] Invalid startDate filter:', filters.startDate);
+      }
+    }
+    
+    if (filters?.endDate && filters.endDate.trim()) {
+      try {
+        const endDate = new Date(filters.endDate);
+        if (!isNaN(endDate.getTime())) {
+          conditions.push(lte(appointments.appointmentDate, endDate));
+        }
+      } catch (error) {
+        console.warn('[STORAGE] Invalid endDate filter:', filters.endDate);
+      }
+    }
+    
+    // Add service type filter (we'll filter in JavaScript for now, or could be implemented with SQL ILIKE)
+    const serviceTypeFilter = filters?.serviceType && filters.serviceType.trim() ? filters.serviceType.trim().toLowerCase() : null;
+
+    // Query appointments with customer data
+    const appointmentsData = await db
+      .select({
+        appointment: appointments,
+        customer: customers,
+      })
+      .from(appointments)
+      .leftJoin(customers, eq(appointments.customerId, customers.id))
+      .where(and(...conditions))
+      .orderBy(desc(appointments.appointmentDate))
+      .limit(Math.min(100, Math.max(1, filters?.limit || 50)))
+      .offset(Math.max(0, filters?.offset || 0));
+
+    // Filter by service type in JavaScript if specified
+    let filteredAppointmentsData = appointmentsData;
+    if (serviceTypeFilter) {
+      filteredAppointmentsData = appointmentsData.filter(({ appointment }) => 
+        appointment.serviceType && appointment.serviceType.toLowerCase().includes(serviceTypeFilter)
+      );
+    }
+
+    // Map to service history items
+    const serviceHistoryItems = filteredAppointmentsData.map(({ appointment, customer }) => {
+      // Calculate duration in hours with validation
+      let duration: number | null = null;
+      if (appointment.startTimestamptz && appointment.endTimestamptz) {
+        const durationMs = appointment.endTimestamptz.getTime() - appointment.startTimestamptz.getTime();
+        if (durationMs > 0) {
+          duration = Math.round((durationMs / (1000 * 60 * 60)) * 100) / 100;
+        }
+      }
+
+      // Get service pricing
+      const servicePricing = this.getServicePricing(appointment.serviceType || '');
+      
+      // Robust cost calculation
+      let calculatedCost: number | null = null;
+      try {
+        if (servicePricing.basePrice && servicePricing.basePrice > 0) {
+          if (servicePricing.priceUnit === 'per hour' && duration && duration > 0) {
+            calculatedCost = Math.round(duration * servicePricing.basePrice * 100) / 100;
+          } else if (servicePricing.priceUnit === 'flat rate') {
+            calculatedCost = servicePricing.basePrice;
+          }
+        }
+      } catch (error) {
+        console.warn('[STORAGE] Cost calculation error for appointment:', appointment.id, error);
+      }
+
+      const historyItem: import("@shared/schema").ServiceHistoryItem = {
+        id: appointment.id,
+        appointmentDate: appointment.appointmentDate,
+        serviceType: appointment.serviceType,
+        status: appointment.status,
+        startTimestamptz: appointment.startTimestamptz,
+        endTimestamptz: appointment.endTimestamptz,
+        duration,
+        notes: appointment.notes,
+        createdAt: appointment.createdAt,
+        serviceName: servicePricing.serviceName,
+        serviceDescription: servicePricing.serviceDescription,
+        basePrice: servicePricing.basePrice,
+        priceUnit: servicePricing.priceUnit,
+        calculatedCost,
+        customerName: customer ? `${customer.firstName} ${customer.lastName}` : undefined,
+        customerEmail: customer?.email,
+      };
+
+      return historyItem;
+    });
+
+    return serviceHistoryItems;
+  }
+
+  private getServicePricing(serviceType: string): {
+    serviceName: string | null;
+    serviceDescription: string | null;
+    basePrice: number | null;
+    priceUnit: string | null;
+  } {
+    // Mock service pricing - in real implementation this would query the services table
+    const servicePricingMap: Record<string, any> = {
+      'IT Support': {
+        serviceName: 'IT Support & Troubleshooting',
+        serviceDescription: 'Computer troubleshooting and technical support services',
+        basePrice: 85,
+        priceUnit: 'per hour'
+      },
+      'Network Setup': {
+        serviceName: 'Network Installation & Configuration',
+        serviceDescription: 'Professional network setup and configuration',
+        basePrice: 120,
+        priceUnit: 'per hour'
+      },
+      'Smart Home Installation': {
+        serviceName: 'Smart Home Device Installation',
+        serviceDescription: 'Installation and configuration of smart home devices',
+        basePrice: 95,
+        priceUnit: 'per hour'
+      },
+      'System Maintenance': {
+        serviceName: 'System Maintenance & Updates',
+        serviceDescription: 'Regular system maintenance and software updates',
+        basePrice: 75,
+        priceUnit: 'per hour'
+      },
+      'Security System Setup': {
+        serviceName: 'Security System Installation',
+        serviceDescription: 'Installation and configuration of security systems',
+        basePrice: 110,
+        priceUnit: 'per hour'
+      },
+      'Data Recovery': {
+        serviceName: 'Data Recovery Service',
+        serviceDescription: 'Professional data recovery and backup services',
+        basePrice: 150,
+        priceUnit: 'per hour'
+      }
+    };
+
+    // Try to match service type
+    const exactMatch = servicePricingMap[serviceType];
+    if (exactMatch) return exactMatch;
+
+    // Try partial matching
+    for (const [key, value] of Object.entries(servicePricingMap)) {
+      if (serviceType.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(serviceType.toLowerCase())) {
+        return value;
+      }
+    }
+
+    // Default pricing for unknown services
+    return {
+      serviceName: serviceType,
+      serviceDescription: `Professional ${serviceType} service`,
+      basePrice: 85,
+      priceUnit: 'per hour'
+    };
   }
 
   // Portal Login Tokens - Enhanced security with hashed storage
