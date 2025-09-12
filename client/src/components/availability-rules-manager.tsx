@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,12 +75,7 @@ export default function AvailabilityRulesManager() {
 
   const createRule = useMutation({
     mutationFn: async (data: AvailabilityRuleFormData) => {
-      const response = await fetch("/api/availability-rules", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create availability rule");
+      const response = await apiRequest("/api/availability-rules", "POST", data);
       return response.json();
     },
     onSuccess: () => {
@@ -94,12 +90,7 @@ export default function AvailabilityRulesManager() {
 
   const updateRule = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: AvailabilityRuleFormData }) => {
-      const response = await fetch(`/api/availability-rules/${id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to update availability rule");
+      const response = await apiRequest(`/api/availability-rules/${id}`, "PATCH", data);
       return response.json();
     },
     onSuccess: () => {
@@ -114,8 +105,7 @@ export default function AvailabilityRulesManager() {
 
   const deleteRule = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/availability-rules/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete availability rule");
+      const response = await apiRequest(`/api/availability-rules/${id}`, "DELETE");
       return response.json();
     },
     onSuccess: () => {
@@ -129,12 +119,7 @@ export default function AvailabilityRulesManager() {
 
   const toggleRuleStatus = useMutation({
     mutationFn: async ({ id, active }: { id: number; active: boolean }) => {
-      const response = await fetch(`/api/availability-rules/${id}/toggle`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ active }),
-      });
-      if (!response.ok) throw new Error("Failed to toggle availability rule status");
+      const response = await apiRequest(`/api/availability-rules/${id}/toggle`, "PATCH", { active });
       return response.json();
     },
     onSuccess: () => {
