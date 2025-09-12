@@ -39,6 +39,7 @@ export interface IStorage {
   getCustomerByEmail(email: string): Promise<Customer | undefined>;
   createCustomer(customer: InsertCustomer): Promise<Customer>;
   getAllCustomers(): Promise<Customer[]>;
+  updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<void>;
   updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void>;
 
   // Maintenance Plans
@@ -294,6 +295,14 @@ export class MemStorage implements IStorage {
 
   async getAllCustomers(): Promise<Customer[]> {
     return Array.from(this.customers.values());
+  }
+
+  async updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<void> {
+    const customer = this.customers.get(id);
+    if (customer) {
+      const updatedCustomer = { ...customer, ...updates };
+      this.customers.set(id, updatedCustomer);
+    }
   }
 
   async updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void> {
@@ -781,6 +790,10 @@ export class DatabaseStorage implements IStorage {
 
   async getAllCustomers(): Promise<Customer[]> {
     return await db.select().from(customers).orderBy(desc(customers.createdAt));
+  }
+
+  async updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<void> {
+    await db.update(customers).set(updates).where(eq(customers.id, id));
   }
 
   async updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void> {

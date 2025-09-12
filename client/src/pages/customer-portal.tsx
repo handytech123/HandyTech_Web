@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Helmet } from 'react-helmet';
 import { useQuery, useMutation } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -8,11 +10,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
-import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment } from "@shared/schema";
-import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle } from "lucide-react";
+import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema } from "@shared/schema";
+import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { z } from "zod";
+
+type UpdateProfileFormData = z.infer<typeof updateCustomerProfileSchema>;
 
 interface PortalProfileData {
   success: boolean;
@@ -51,7 +57,57 @@ export default function CustomerPortal() {
   const appointments = profileData?.appointments || [];
   
   const isLoading = authLoading || profileLoading;
+  
+  // Profile editing state
+  const [isEditing, setIsEditing] = useState(false);
+  
+  // Form setup for profile editing
+  const form = useForm<UpdateProfileFormData>({
+    resolver: zodResolver(updateCustomerProfileSchema),
+    defaultValues: {
+      firstName: customer?.firstName || '',
+      lastName: customer?.lastName || '',
+      email: customer?.email || '',
+      phone: customer?.phone || '',
+      company: customer?.company || '',
+    },
+  });
+  
+  // Reset form when customer data changes
+  useEffect(() => {
+    if (customer) {
+      form.reset({
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone || '',
+        company: customer.company || '',
+      });
+    }
+  }, [customer, form]);
 
+  // Profile update mutation
+  const updateProfileMutation = useMutation({
+    mutationFn: async (data: UpdateProfileFormData) => {
+      return apiRequest("/api/portal/profile", {
+        method: "PUT",
+        body: JSON.stringify(data),
+      });
+    },
+    onSuccess: (response) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
+      setIsEditing(false);
+      toast({ title: "Profile updated successfully!" });
+    },
+    onError: (error: any) => {
+      toast({ 
+        title: "Failed to update profile", 
+        description: error?.message || "Please try again later.",
+        variant: "destructive" 
+      });
+    },
+  });
+  
   const subscribeToPlan = useMutation({
     mutationFn: async (planData: { planType: string; price: number; nextBillingDate: string }) => {
       return apiRequest("/api/maintenance-plans", {
@@ -92,6 +148,15 @@ export default function CustomerPortal() {
       price,
       nextBillingDate: nextBillingDate.toISOString(),
     });
+  };
+  
+  const onProfileSubmit = (data: UpdateProfileFormData) => {
+    updateProfileMutation.mutate(data);
+  };
+  
+  const handleEditCancel = () => {
+    form.reset();
+    setIsEditing(false);
   };
 
   // Handle loading states
@@ -255,28 +320,155 @@ export default function CustomerPortal() {
             </div>
 
             <Card>
-              <CardHeader>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0">
                 <CardTitle>Account Information</CardTitle>
+                <div>
+                  {!isEditing ? (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setIsEditing(true)}
+                      data-testid="button-edit-profile"
+                      className="flex items-center gap-2"
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit Profile
+                    </Button>
+                  ) : (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleEditCancel}
+                        disabled={updateProfileMutation.isPending}
+                        data-testid="button-cancel-edit"
+                        className="flex items-center gap-2"
+                      >
+                        <X className="h-4 w-4" />
+                        Cancel
+                      </Button>
+                      <Button
+                        size="sm"
+                        onClick={form.handleSubmit(onProfileSubmit)}
+                        disabled={updateProfileMutation.isPending}
+                        data-testid="button-save-profile"
+                        className="flex items-center gap-2 bg-brand-red hover:bg-brand-red/90"
+                      >
+                        {updateProfileMutation.isPending ? (
+                          <>
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                            Saving...
+                          </>
+                        ) : (
+                          <>
+                            <Save className="h-4 w-4" />
+                            Save Changes
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="firstName">First Name</Label>
-                    <Input id="firstName" value={customer?.firstName || ''} readOnly />
+                {isEditing ? (
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onProfileSubmit)} className="space-y-4">
+                      <div className="grid md:grid-cols-2 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="firstName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>First Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} data-testid="input-first-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="lastName"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>Last Name</FormLabel>
+                              <FormControl>
+                                <Input {...field} data-testid="input-last-name" />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="email" data-testid="input-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone (Optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="company"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Company (Optional)</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-company" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </form>
+                  </Form>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="firstName">First Name</Label>
+                        <Input id="firstName" value={customer?.firstName || ''} readOnly data-testid="text-first-name" />
+                      </div>
+                      <div>
+                        <Label htmlFor="lastName">Last Name</Label>
+                        <Input id="lastName" value={customer?.lastName || ''} readOnly data-testid="text-last-name" />
+                      </div>
+                    </div>
+                    <div>
+                      <Label htmlFor="email">Email</Label>
+                      <Input id="email" value={customer?.email || ''} readOnly data-testid="text-email" />
+                    </div>
+                    <div>
+                      <Label htmlFor="phone">Phone</Label>
+                      <Input id="phone" value={customer?.phone || "Not specified"} readOnly data-testid="text-phone" />
+                    </div>
+                    <div>
+                      <Label htmlFor="company">Company</Label>
+                      <Input id="company" value={customer?.company || "Not specified"} readOnly data-testid="text-company" />
+                    </div>
                   </div>
-                  <div>
-                    <Label htmlFor="lastName">Last Name</Label>
-                    <Input id="lastName" value={customer?.lastName || ''} readOnly />
-                  </div>
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input id="email" value={customer?.email || ''} readOnly />
-                </div>
-                <div>
-                  <Label htmlFor="company">Company</Label>
-                  <Input id="company" value={customer?.company || "Not specified"} readOnly />
-                </div>
+                )}
               </CardContent>
             </Card>
           </TabsContent>

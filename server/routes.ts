@@ -15,6 +15,7 @@ import {
   insertServiceAddonSchema,
   insertPortalLoginTokenSchema,
   rescheduleRequestSchema,
+  updateCustomerProfileSchema,
   type InsertCustomer
 } from "@shared/schema";
 import { z } from "zod";
@@ -514,6 +515,71 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: "Unable to load profile data. Please try again." 
+      });
+    }
+  });
+
+  // Portal profile - Update authenticated customer data
+  app.put("/api/portal/profile", requireCustomer, rlSensitive, async (req, res) => {
+    try {
+      const { customer } = req as any;
+      
+      // Validate the update data
+      const updateData = updateCustomerProfileSchema.parse(req.body);
+      
+      // Check if email is being updated and if it already exists (for other customers)
+      if (updateData.email) {
+        const existingCustomer = await storage.getCustomerByEmail(updateData.email);
+        if (existingCustomer && existingCustomer.id !== customer.id) {
+          return res.status(400).json({
+            success: false,
+            message: "Email address is already registered to another account"
+          });
+        }
+      }
+      
+      // Update the customer profile
+      await storage.updateCustomer(customer.id, updateData);
+      
+      // Fetch the updated customer data to return
+      const updatedCustomer = await storage.getCustomer(customer.id);
+      if (!updatedCustomer) {
+        return res.status(404).json({
+          success: false,
+          message: "Customer not found after update"
+        });
+      }
+      
+      res.json({
+        success: true,
+        message: "Profile updated successfully",
+        customer: {
+          id: updatedCustomer.id,
+          firstName: updatedCustomer.firstName,
+          lastName: updatedCustomer.lastName,
+          email: updatedCustomer.email,
+          phone: updatedCustomer.phone,
+          company: updatedCustomer.company,
+          createdAt: updatedCustomer.createdAt,
+          lastEmailSent: updatedCustomer.lastEmailSent
+        }
+      });
+      
+      console.log(`[PORTAL_PROFILE] Profile updated for customer ${updatedCustomer.email}`);
+      
+    } catch (error) {
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          message: "Invalid profile data",
+          errors: error.errors
+        });
+      }
+      
+      console.error("Portal profile update error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Unable to update profile. Please try again."
       });
     }
   });

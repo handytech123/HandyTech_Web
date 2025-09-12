@@ -107,6 +107,25 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   lastEmailSent: true,
 });
 
+// Customer profile update schema for portal - allows partial updates and validates fields
+export const updateCustomerProfileSchema = createInsertSchema(customers)
+  .omit({
+    id: true,
+    createdAt: true,
+    lastEmailSent: true,
+  })
+  .partial()
+  .extend({
+    email: z.string().email("Please enter a valid email address").optional(),
+    firstName: z.string().min(1, "First name is required").optional(),
+    lastName: z.string().min(1, "Last name is required").optional(),
+    phone: z.string().optional(),
+    company: z.string().optional(),
+  })
+  .refine(data => Object.keys(data).length > 0, {
+    message: "At least one field must be updated"
+  });
+
 export const insertMaintenancePlanSchema = createInsertSchema(maintenancePlans).omit({
   id: true,
   startDate: true,
