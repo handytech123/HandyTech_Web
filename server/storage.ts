@@ -123,6 +123,10 @@ export interface IStorage {
   updateServiceAddon(id: number, updates: Partial<InsertServiceAddon>): Promise<void>;
   deleteServiceAddon(id: number): Promise<void>;
 
+  // Service History
+  getServiceHistoryByCustomer(customerId: number, filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]>;
+  getAllServiceHistory(filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]>;
+
   // Portal Login Tokens - Enhanced security with hashed storage
   createPortalLoginToken(rawToken: string, email: string, customerId: number, expiresAt: Date): Promise<PortalLoginToken>;
   getPortalLoginTokenByHash(rawToken: string): Promise<PortalLoginToken | undefined>;
@@ -256,6 +260,122 @@ export class MemStorage implements IStorage {
       createdAt: new Date("2024-03-05"),
     };
     this.projectGallery.set(project3.id, project3);
+
+    // Create sample completed appointments for service history
+    const completedAppointment1: Appointment = {
+      id: this.currentAppointmentId++,
+      customerId: customer1.id,
+      firstName: customer1.firstName,
+      lastName: customer1.lastName,
+      email: customer1.email,
+      phone: customer1.phone,
+      serviceType: "IT Support",
+      appointmentDate: new Date("2024-02-20"),
+      appointmentTime: "10:00 AM",
+      startTimestamptz: new Date("2024-02-20T10:00:00Z"),
+      endTimestamptz: new Date("2024-02-20T12:30:00Z"), // 2.5 hours
+      rescheduleToken: null,
+      rescheduleExpires: null,
+      sequence: 0,
+      status: "completed",
+      source: "manual",
+      calendlyEventId: null,
+      notes: "Resolved network connectivity issues and updated system security. Installed new antivirus software and configured automatic backups.",
+      createdAt: new Date("2024-02-18"),
+    };
+    this.appointments.set(completedAppointment1.id, completedAppointment1);
+
+    const completedAppointment2: Appointment = {
+      id: this.currentAppointmentId++,
+      customerId: customer1.id,
+      firstName: customer1.firstName,
+      lastName: customer1.lastName,
+      email: customer1.email,
+      phone: customer1.phone,
+      serviceType: "Network Setup",
+      appointmentDate: new Date("2024-01-25"),
+      appointmentTime: "2:00 PM",
+      startTimestamptz: new Date("2024-01-25T14:00:00Z"),
+      endTimestamptz: new Date("2024-01-25T17:00:00Z"), // 3 hours
+      rescheduleToken: null,
+      rescheduleExpires: null,
+      sequence: 0,
+      status: "completed",
+      source: "manual",
+      calendlyEventId: null,
+      notes: "Complete network infrastructure setup including router configuration, Wi-Fi optimization, and cable management.",
+      createdAt: new Date("2024-01-23"),
+    };
+    this.appointments.set(completedAppointment2.id, completedAppointment2);
+
+    const completedAppointment3: Appointment = {
+      id: this.currentAppointmentId++,
+      customerId: customer2.id,
+      firstName: customer2.firstName,
+      lastName: customer2.lastName,
+      email: customer2.email,
+      phone: customer2.phone,
+      serviceType: "Smart Home Installation",
+      appointmentDate: new Date("2024-03-10"),
+      appointmentTime: "9:00 AM",
+      startTimestamptz: new Date("2024-03-10T09:00:00Z"),
+      endTimestamptz: new Date("2024-03-10T13:00:00Z"), // 4 hours
+      rescheduleToken: null,
+      rescheduleExpires: null,
+      sequence: 0,
+      status: "completed",
+      source: "manual",
+      calendlyEventId: null,
+      notes: "Installed smart thermostats, door locks, and lighting system. Set up central control hub and mobile app configuration.",
+      createdAt: new Date("2024-03-08"),
+    };
+    this.appointments.set(completedAppointment3.id, completedAppointment3);
+
+    const completedAppointment4: Appointment = {
+      id: this.currentAppointmentId++,
+      customerId: customer2.id,
+      firstName: customer2.firstName,
+      lastName: customer2.lastName,
+      email: customer2.email,
+      phone: customer2.phone,
+      serviceType: "System Maintenance",
+      appointmentDate: new Date("2024-02-15"),
+      appointmentTime: "11:00 AM",
+      startTimestamptz: new Date("2024-02-15T11:00:00Z"),
+      endTimestamptz: new Date("2024-02-15T13:30:00Z"), // 2.5 hours
+      rescheduleToken: null,
+      rescheduleExpires: null,
+      sequence: 0,
+      status: "completed",
+      source: "manual",
+      calendlyEventId: null,
+      notes: "Performed regular system maintenance including software updates, disk cleanup, and security patches.",
+      createdAt: new Date("2024-02-13"),
+    };
+    this.appointments.set(completedAppointment4.id, completedAppointment4);
+
+    const completedAppointment5: Appointment = {
+      id: this.currentAppointmentId++,
+      customerId: customer1.id,
+      firstName: customer1.firstName,
+      lastName: customer1.lastName,
+      email: customer1.email,
+      phone: customer1.phone,
+      serviceType: "Data Recovery",
+      appointmentDate: new Date("2024-01-12"),
+      appointmentTime: "1:00 PM",
+      startTimestamptz: new Date("2024-01-12T13:00:00Z"),
+      endTimestamptz: new Date("2024-01-12T15:00:00Z"), // 2 hours
+      rescheduleToken: null,
+      rescheduleExpires: null,
+      sequence: 0,
+      status: "completed",
+      source: "manual",
+      calendlyEventId: null,
+      notes: "Successfully recovered data from corrupted hard drive and set up automated backup system.",
+      createdAt: new Date("2024-01-10"),
+    };
+    this.appointments.set(completedAppointment5.id, completedAppointment5);
   }
 
   // Users
@@ -827,6 +947,188 @@ export class MemStorage implements IStorage {
 
   async deleteExpiredPortalLoginTokens(): Promise<void> {
     throw new Error("MemStorage not implemented for portal login tokens");
+  }
+
+  // Service History Implementation
+  async getServiceHistoryByCustomer(customerId: number, filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]> {
+    const appointments = Array.from(this.appointments.values()).filter(apt => 
+      apt.customerId === customerId && apt.status === 'completed'
+    );
+    
+    return this.processServiceHistory(appointments, filters);
+  }
+
+  async getAllServiceHistory(filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]> {
+    const appointments = Array.from(this.appointments.values()).filter(apt => 
+      apt.status === 'completed'
+    );
+    
+    return this.processServiceHistory(appointments, filters);
+  }
+
+  private processServiceHistory(appointments: Appointment[], filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): import("@shared/schema").ServiceHistoryItem[] {
+    let filteredAppointments = appointments;
+
+    // SECURITY: Apply filters with proper validation
+    if (filters?.startDate && filters.startDate.trim()) {
+      try {
+        const startDate = new Date(filters.startDate);
+        // Validate date is not NaN
+        if (!isNaN(startDate.getTime())) {
+          filteredAppointments = filteredAppointments.filter(apt => apt.appointmentDate >= startDate);
+        }
+      } catch (error) {
+        console.warn('[STORAGE] Invalid startDate filter:', filters.startDate);
+      }
+    }
+    
+    if (filters?.endDate && filters.endDate.trim()) {
+      try {
+        const endDate = new Date(filters.endDate);
+        // Validate date is not NaN
+        if (!isNaN(endDate.getTime())) {
+          filteredAppointments = filteredAppointments.filter(apt => apt.appointmentDate <= endDate);
+        }
+      } catch (error) {
+        console.warn('[STORAGE] Invalid endDate filter:', filters.endDate);
+      }
+    }
+    
+    if (filters?.serviceType && filters.serviceType.trim()) {
+      const serviceTypeFilter = filters.serviceType.trim().toLowerCase();
+      filteredAppointments = filteredAppointments.filter(apt => 
+        apt.serviceType && apt.serviceType.toLowerCase().includes(serviceTypeFilter)
+      );
+    }
+
+    // Sort by date (most recent first)
+    filteredAppointments.sort((a, b) => b.appointmentDate.getTime() - a.appointmentDate.getTime());
+
+    // Map to service history items with robust cost calculations
+    const serviceHistoryItems = filteredAppointments.map(apt => {
+      // SECURITY: Safely handle customer lookup
+      const customer = apt.customerId ? this.customers.get(apt.customerId) : undefined;
+      
+      // Calculate duration in hours with validation
+      let duration: number | null = null;
+      if (apt.startTimestamptz && apt.endTimestamptz && 
+          apt.startTimestamptz instanceof Date && apt.endTimestamptz instanceof Date) {
+        const durationMs = apt.endTimestamptz.getTime() - apt.startTimestamptz.getTime();
+        if (durationMs > 0) {
+          duration = Math.round((durationMs / (1000 * 60 * 60)) * 100) / 100; // Round to 2 decimal places
+        }
+      }
+
+      // Get service pricing with error handling
+      const servicePricing = this.getServicePricing(apt.serviceType || '');
+      
+      // Robust cost calculation with validation
+      let calculatedCost: number | null = null;
+      try {
+        if (servicePricing.basePrice && servicePricing.basePrice > 0) {
+          if (servicePricing.priceUnit === 'per hour' && duration && duration > 0) {
+            calculatedCost = Math.round(duration * servicePricing.basePrice * 100) / 100;
+          } else if (servicePricing.priceUnit === 'flat rate') {
+            calculatedCost = servicePricing.basePrice;
+          }
+        }
+      } catch (error) {
+        console.warn('[STORAGE] Cost calculation error for appointment:', apt.id, error);
+      }
+
+      const historyItem: import("@shared/schema").ServiceHistoryItem = {
+        id: apt.id,
+        appointmentDate: apt.appointmentDate,
+        serviceType: apt.serviceType,
+        status: apt.status,
+        startTimestamptz: apt.startTimestamptz,
+        endTimestamptz: apt.endTimestamptz,
+        duration,
+        notes: apt.notes,
+        createdAt: apt.createdAt,
+        serviceName: servicePricing.serviceName,
+        serviceDescription: servicePricing.serviceDescription,
+        basePrice: servicePricing.basePrice,
+        priceUnit: servicePricing.priceUnit,
+        calculatedCost,
+        customerName: customer ? `${customer.firstName} ${customer.lastName}` : undefined,
+        customerEmail: customer?.email,
+      };
+
+      return historyItem;
+    });
+
+    // Apply pagination with proper validation
+    const offset = Math.max(0, filters?.offset || 0);
+    const limit = Math.min(100, Math.max(1, filters?.limit || 50)); // Enforce max 100, min 1
+    
+    return serviceHistoryItems.slice(offset, offset + limit);
+  }
+
+  private getServicePricing(serviceType: string): {
+    serviceName: string | null;
+    serviceDescription: string | null;
+    basePrice: number | null;
+    priceUnit: string | null;
+  } {
+    // Mock service pricing - in real implementation this would query the services table
+    const servicePricingMap: Record<string, any> = {
+      'IT Support': {
+        serviceName: 'IT Support & Troubleshooting',
+        serviceDescription: 'Computer troubleshooting and technical support services',
+        basePrice: 85,
+        priceUnit: 'per hour'
+      },
+      'Network Setup': {
+        serviceName: 'Network Installation & Configuration',
+        serviceDescription: 'Professional network setup and configuration',
+        basePrice: 120,
+        priceUnit: 'per hour'
+      },
+      'Smart Home Installation': {
+        serviceName: 'Smart Home Device Installation',
+        serviceDescription: 'Installation and configuration of smart home devices',
+        basePrice: 95,
+        priceUnit: 'per hour'
+      },
+      'System Maintenance': {
+        serviceName: 'System Maintenance & Updates',
+        serviceDescription: 'Regular system maintenance and software updates',
+        basePrice: 75,
+        priceUnit: 'per hour'
+      },
+      'Security System Setup': {
+        serviceName: 'Security System Installation',
+        serviceDescription: 'Installation and configuration of security systems',
+        basePrice: 110,
+        priceUnit: 'per hour'
+      },
+      'Data Recovery': {
+        serviceName: 'Data Recovery Service',
+        serviceDescription: 'Professional data recovery and backup services',
+        basePrice: 150,
+        priceUnit: 'per hour'
+      }
+    };
+
+    // Try to match service type
+    const exactMatch = servicePricingMap[serviceType];
+    if (exactMatch) return exactMatch;
+
+    // Try partial matching
+    for (const [key, value] of Object.entries(servicePricingMap)) {
+      if (serviceType.toLowerCase().includes(key.toLowerCase()) || key.toLowerCase().includes(serviceType.toLowerCase())) {
+        return value;
+      }
+    }
+
+    // Default pricing for unknown services
+    return {
+      serviceName: serviceType,
+      serviceDescription: `Professional ${serviceType} service`,
+      basePrice: 85,
+      priceUnit: 'per hour'
+    };
   }
 }
 

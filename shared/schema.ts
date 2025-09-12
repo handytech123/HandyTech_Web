@@ -320,3 +320,38 @@ export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
 
 export type PortalLoginToken = typeof portalLoginTokens.$inferSelect;
 export type InsertPortalLoginToken = z.infer<typeof insertPortalLoginTokenSchema>;
+
+// Service History Types - combines appointment data with service pricing
+export interface ServiceHistoryItem {
+  id: number;
+  appointmentDate: Date;
+  serviceType: string;
+  status: string;
+  startTimestamptz: Date | null;
+  endTimestamptz: Date | null;
+  duration: number | null; // in hours
+  notes: string | null;
+  createdAt: Date;
+  
+  // Service pricing information
+  serviceName: string | null;
+  serviceDescription: string | null;
+  basePrice: number | null;
+  priceUnit: string | null;
+  calculatedCost: number | null;
+  
+  // Customer info (for admin views)
+  customerName?: string;
+  customerEmail?: string;
+}
+
+// Service history query filters
+export const serviceHistoryFiltersSchema = z.object({
+  startDate: z.string().optional(),
+  endDate: z.string().optional(),
+  serviceType: z.string().optional(),
+  limit: z.number().min(1).max(100).default(50).optional(),
+  offset: z.number().min(0).default(0).optional(),
+});
+
+export type ServiceHistoryFilters = z.infer<typeof serviceHistoryFiltersSchema>;

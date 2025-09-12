@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { Helmet } from 'react-helmet';
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -17,8 +17,8 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
-import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema } from "@shared/schema";
-import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone } from "lucide-react";
+import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema, type ServiceHistoryItem } from "@shared/schema";
+import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone, FileText, Search, Download, DollarSign } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 
@@ -32,25 +32,63 @@ interface PortalProfileData {
   appointments: Appointment[];
 }
 
+interface ServiceHistoryData {
+  success: boolean;
+  serviceHistory: ServiceHistoryItem[];
+  summary: {
+    totalServices: number;
+    totalCost: number;
+    averageCost: number;
+    dateRange: {
+      earliest: string | null;
+      latest: string | null;
+    };
+  };
+  pagination: {
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
 export default function CustomerPortal() {
   const { toast } = useToast();
   const { customer: authCustomer, isAuthenticated, isLoading: authLoading, logout: authLogout } = useCustomerAuth();
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
+  // Service History state with pagination (moved up before URL construction)
+  const [serviceHistoryFilters, setServiceHistoryFilters] = useState({
+    startDate: '',
+    endDate: '',
+    serviceType: '',
+    limit: 50,
+    offset: 0,
+  });
+  const [showServiceHistoryFilters, setShowServiceHistoryFilters] = useState(false);
+
   // Fetch full customer profile data when authenticated
   const { data: profileData, isLoading: profileLoading, isError, error } = useQuery<PortalProfileData>({
     queryKey: ["/api/portal/profile"],
-    queryFn: async () => {
-      const response = await fetch("/api/portal/profile", {
-        credentials: "include"
-      });
-      
-      if (!response.ok) {
-        throw new Error("Failed to load profile data");
-      }
-      
-      return response.json();
-    },
+    enabled: isAuthenticated, // Only fetch when authenticated
+    retry: false
+  });
+
+  // SECURITY: Use standard TanStack Query fetcher with CSRF protection and proper URL construction  
+  // Construct secure URL with query parameters for default fetcher using useMemo
+  const serviceHistoryUrl = useMemo(() => {
+    const queryParams = new URLSearchParams();
+    if (serviceHistoryFilters.startDate) queryParams.append('startDate', serviceHistoryFilters.startDate);
+    if (serviceHistoryFilters.endDate) queryParams.append('endDate', serviceHistoryFilters.endDate);
+    if (serviceHistoryFilters.serviceType) queryParams.append('serviceType', serviceHistoryFilters.serviceType);
+    if (serviceHistoryFilters.limit) queryParams.append('limit', serviceHistoryFilters.limit.toString());
+    if (serviceHistoryFilters.offset) queryParams.append('offset', serviceHistoryFilters.offset.toString());
+    
+    return `/api/portal/service-history${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+  }, [serviceHistoryFilters]);
+
+  // Fetch service history data with secure default fetcher (no custom queryFn)
+  const { data: serviceHistoryData, isLoading: serviceHistoryLoading, isError: serviceHistoryError } = useQuery<ServiceHistoryData>({
+    queryKey: [serviceHistoryUrl, "service-history", serviceHistoryFilters], // Hierarchical cache structure
     enabled: isAuthenticated, // Only fetch when authenticated
     retry: false
   });
@@ -59,6 +97,8 @@ export default function CustomerPortal() {
   const maintenancePlans = profileData?.maintenancePlans || [];
   const emailCampaigns = profileData?.emailCampaigns || [];
   const appointments = profileData?.appointments || [];
+  const serviceHistory = serviceHistoryData?.serviceHistory || [];
+  const serviceHistorySummary = serviceHistoryData?.summary;
   
   const isLoading = authLoading || profileLoading;
   
@@ -77,6 +117,7 @@ export default function CustomerPortal() {
   const [reactivateDialogOpen, setReactivateDialogOpen] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<MaintenancePlan | null>(null);
   const [cancellationType, setCancellationType] = useState<'immediate' | 'end_of_period'>('end_of_period');
+  
   
   // Form setup for profile editing
   const form = useForm<UpdateProfileFormData>({
@@ -564,11 +605,15 @@ export default function CustomerPortal() {
         </div>
 
         <Tabs defaultValue="overview" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-6">
             <TabsTrigger value="overview">Overview</TabsTrigger>
             <TabsTrigger value="appointments">Appointments</TabsTrigger>
             <TabsTrigger value="plans">Maintenance Plans</TabsTrigger>
             <TabsTrigger value="subscribe">Subscribe</TabsTrigger>
+            <TabsTrigger value="service-history">
+              <FileText className="w-4 h-4 mr-2" />
+              Service History
+            </TabsTrigger>
             <TabsTrigger value="history">Email History</TabsTrigger>
           </TabsList>
 
@@ -1508,6 +1553,280 @@ export default function CustomerPortal() {
                 )}
               </CardContent>
             </Card>
+          </TabsContent>
+
+          {/* Service History Tab */}
+          <TabsContent value="service-history" className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Service History</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                  Complete record of your past services and costs
+                </p>
+              </div>
+              
+              {/* Service History Summary */}
+              {serviceHistorySummary && (
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <div className="text-center p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
+                    <div className="text-lg font-bold text-blue-600 dark:text-blue-400">
+                      {serviceHistorySummary.totalServices}
+                    </div>
+                    <div className="text-xs text-blue-600 dark:text-blue-400">Total Services</div>
+                  </div>
+                  <div className="text-center p-3 bg-green-50 dark:bg-green-900/20 rounded-lg">
+                    <div className="text-lg font-bold text-green-600 dark:text-green-400">
+                      ${serviceHistorySummary.totalCost.toFixed(2)}
+                    </div>
+                    <div className="text-xs text-green-600 dark:text-green-400">Total Cost</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Search and Filter Controls */}
+            <Card className="p-4">
+              <div className="flex flex-col sm:flex-row gap-4">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setShowServiceHistoryFilters(!showServiceHistoryFilters)}
+                  data-testid="button-toggle-filters"
+                >
+                  <Filter className="w-4 h-4 mr-2" />
+                  Filters
+                </Button>
+                
+                {showServiceHistoryFilters && (
+                  <div className="flex flex-col sm:flex-row gap-3 w-full">
+                    <Input
+                      placeholder="Service type..."
+                      value={serviceHistoryFilters.serviceType}
+                      onChange={(e) => setServiceHistoryFilters(prev => ({ ...prev, serviceType: e.target.value }))}
+                      className="sm:w-48"
+                      data-testid="input-service-type"
+                    />
+                    <Input
+                      type="date"
+                      placeholder="Start date"
+                      value={serviceHistoryFilters.startDate}
+                      onChange={(e) => setServiceHistoryFilters(prev => ({ ...prev, startDate: e.target.value }))}
+                      className="sm:w-40"
+                      data-testid="input-start-date"
+                    />
+                    <Input
+                      type="date"
+                      placeholder="End date"
+                      value={serviceHistoryFilters.endDate}
+                      onChange={(e) => setServiceHistoryFilters(prev => ({ ...prev, endDate: e.target.value }))}
+                      className="sm:w-40"
+                      data-testid="input-end-date"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setServiceHistoryFilters({ startDate: '', endDate: '', serviceType: '', limit: 50, offset: 0 })}
+                      data-testid="button-clear-filters"
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* Service History Content */}
+            <div className="space-y-4">
+              {serviceHistoryLoading && (
+                <div className="text-center py-8">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
+                  <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">Loading service history...</p>
+                </div>
+              )}
+
+              {serviceHistoryError && (
+                <Alert className="border-red-200 bg-red-50 dark:bg-red-900/20">
+                  <AlertCircle className="h-4 w-4 text-red-600" />
+                  <AlertDescription className="text-red-700 dark:text-red-400">
+                    Failed to load service history. Please try again later.
+                  </AlertDescription>
+                </Alert>
+              )}
+
+              {!serviceHistoryLoading && !serviceHistoryError && serviceHistory.length === 0 && (
+                <Card className="p-8 text-center">
+                  <div className="mx-auto w-12 h-12 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="w-6 h-6 text-gray-400" />
+                  </div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">No Service History</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    You don't have any completed services yet.
+                  </p>
+                  <Button variant="outline" size="sm">
+                    <Calendar className="w-4 h-4 mr-2" />
+                    Schedule a Service
+                  </Button>
+                </Card>
+              )}
+
+              {!serviceHistoryLoading && !serviceHistoryError && serviceHistory.length > 0 && (
+                <div className="space-y-4">
+                  {serviceHistory.map((service) => (
+                    <Card key={service.id} className="overflow-hidden" data-testid={`card-service-${service.id}`}>
+                      <CardContent className="p-0">
+                        {/* Service Header */}
+                        <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b">
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                            <div className="flex items-center gap-3">
+                              <div className="w-10 h-10 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center">
+                                <CheckCircle2 className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                              </div>
+                              <div>
+                                <h4 className="font-semibold text-gray-900 dark:text-white" data-testid={`text-service-name-${service.id}`}>
+                                  {service.serviceName || service.serviceType}
+                                </h4>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">
+                                  {new Date(service.appointmentDate).toLocaleDateString('en-US', {
+                                    weekday: 'long',
+                                    year: 'numeric',
+                                    month: 'long',
+                                    day: 'numeric'
+                                  })}
+                                </p>
+                              </div>
+                            </div>
+                            
+                            <div className="text-right">
+                              {service.calculatedCost && (
+                                <div className="text-2xl font-bold text-green-600 dark:text-green-400" data-testid={`text-cost-${service.id}`}>
+                                  ${service.calculatedCost.toFixed(2)}
+                                </div>
+                              )}
+                              <div className="text-xs text-gray-500 dark:text-gray-400">
+                                {service.duration ? `${service.duration.toFixed(1)} hours` : 'Duration not recorded'}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Service Details */}
+                        <div className="px-6 py-4 space-y-4">
+                          {/* Service Description */}
+                          {service.serviceDescription && (
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Description</h5>
+                              <p className="text-sm text-gray-600 dark:text-gray-400">{service.serviceDescription}</p>
+                            </div>
+                          )}
+
+                          {/* Service Times */}
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Service Period</h5>
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <Clock className="w-4 h-4" />
+                                {service.startTimestamptz && service.endTimestamptz ? (
+                                  <>
+                                    {new Date(service.startTimestamptz).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })} - {new Date(service.endTimestamptz).toLocaleTimeString('en-US', {
+                                      hour: 'numeric',
+                                      minute: '2-digit',
+                                      hour12: true
+                                    })}
+                                  </>
+                                ) : (
+                                  'Time not recorded'
+                                )}
+                              </div>
+                            </div>
+
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Pricing Details</h5>
+                              <div className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
+                                <DollarSign className="w-4 h-4" />
+                                {service.basePrice ? (
+                                  `$${service.basePrice.toFixed(2)} ${service.priceUnit || 'per hour'}`
+                                ) : (
+                                  'Pricing not available'
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          {/* Technician Notes */}
+                          {service.notes && (
+                            <div>
+                              <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Technician Notes</h5>
+                              <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-3">
+                                <p className="text-sm text-gray-700 dark:text-gray-300" data-testid={`text-notes-${service.id}`}>
+                                  {service.notes}
+                                </p>
+                              </div>
+                            </div>
+                          )}
+
+                          {/* Service Status Badge */}
+                          <div className="flex items-center justify-between pt-2 border-t">
+                            <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200 dark:bg-green-900/20 dark:text-green-400 dark:border-green-800">
+                              <CheckCircle2 className="w-3 h-3 mr-1" />
+                              Completed
+                            </Badge>
+                            
+                            <div className="text-xs text-gray-500 dark:text-gray-400">
+                              Service ID: #{service.id}
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+
+                  {/* Pagination Controls */}
+                  {serviceHistoryData?.pagination && serviceHistory.length > 0 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t">
+                      <div className="text-sm text-gray-600 dark:text-gray-400">
+                        Showing {serviceHistoryFilters.offset + 1}-{Math.min(serviceHistoryFilters.offset + serviceHistory.length, serviceHistoryFilters.offset + serviceHistoryFilters.limit)} of {serviceHistoryData.summary.totalServices} services
+                      </div>
+                      
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setServiceHistoryFilters(prev => ({ 
+                            ...prev, 
+                            offset: Math.max(0, prev.offset - prev.limit)
+                          }))}
+                          disabled={serviceHistoryFilters.offset === 0}
+                          data-testid="button-previous-page"
+                        >
+                          Previous
+                        </Button>
+                        
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          Page {Math.floor(serviceHistoryFilters.offset / serviceHistoryFilters.limit) + 1}
+                        </div>
+                        
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setServiceHistoryFilters(prev => ({ 
+                            ...prev, 
+                            offset: prev.offset + prev.limit
+                          }))}
+                          disabled={!serviceHistoryData.pagination.hasMore}
+                          data-testid="button-next-page"
+                        >
+                          Next
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           </TabsContent>
         </Tabs>
       </div>

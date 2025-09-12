@@ -18,6 +18,7 @@ import {
   updateCustomerProfileSchema,
   cancelMaintenancePlanSchema,
   portalCreateMaintenancePlanSchema,
+  serviceHistoryFiltersSchema,
   type InsertCustomer,
   type InsertMaintenancePlan
 } from "@shared/schema";
@@ -549,6 +550,76 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         message: "Unable to load profile data. Please try again." 
+      });
+    }
+  });
+
+  // Portal service history route - SECURITY: Rate limited and validated
+  app.get("/api/portal/service-history", requireCustomer, rlSensitive, async (req, res) => {
+    try {
+      const { customer } = req as any;
+      
+      // SECURITY: Validate all query parameters with Zod schema
+      const queryParams = {
+        startDate: req.query.startDate,
+        endDate: req.query.endDate,
+        serviceType: req.query.serviceType,
+        limit: req.query.limit ? parseInt(req.query.limit as string, 10) : undefined,
+        offset: req.query.offset ? parseInt(req.query.offset as string, 10) : undefined,
+      };
+
+      // Remove undefined values for validation
+      Object.keys(queryParams).forEach(key => 
+        queryParams[key as keyof typeof queryParams] === undefined && delete queryParams[key as keyof typeof queryParams]
+      );
+
+      // Validate with Zod schema
+      const validatedFilters = serviceHistoryFiltersSchema.parse(queryParams);
+      
+      console.log(`[SERVICE_HISTORY] Request from customer ${customer.email} with filters:`, validatedFilters);
+
+      // Get service history for the authenticated customer using validated filters
+      const serviceHistory = await storage.getServiceHistoryByCustomer(customer.id, validatedFilters);
+
+      // Calculate summary statistics
+      const totalServices = serviceHistory.length;
+      const totalCost = serviceHistory.reduce((sum, item) => sum + (item.calculatedCost || 0), 0);
+      const averageCost = totalServices > 0 ? totalCost / totalServices : 0;
+
+      res.json({
+        success: true,
+        serviceHistory,
+        summary: {
+          totalServices,
+          totalCost: Math.round(totalCost * 100) / 100, // Round to 2 decimal places
+          averageCost: Math.round(averageCost * 100) / 100,
+          dateRange: {
+            earliest: serviceHistory.length > 0 ? serviceHistory[serviceHistory.length - 1].appointmentDate : null,
+            latest: serviceHistory.length > 0 ? serviceHistory[0].appointmentDate : null
+          }
+        },
+        pagination: {
+          limit: validatedFilters.limit || 50,
+          offset: validatedFilters.offset || 0,
+          hasMore: serviceHistory.length === (validatedFilters.limit || 50) // Indicate if there might be more records
+        }
+      });
+
+      console.log(`[PORTAL_SERVICE_HISTORY] Service history retrieved for customer ${customer.email}: ${totalServices} services, $${totalCost.toFixed(2)} total`);
+
+    } catch (error) {
+      console.error("Portal service history error:", error);
+      res.status(500).json({
+        success: false,
+        message: "Unable to load service history. Please try again later.",
+        serviceHistory: [],
+        summary: {
+          totalServices: 0,
+          totalCost: 0,
+          averageCost: 0,
+          dateRange: { earliest: null, latest: null }
+        },
+        pagination: { limit: 50, offset: 0, hasMore: false }
       });
     }
   });
