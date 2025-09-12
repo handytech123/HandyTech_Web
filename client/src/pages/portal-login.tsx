@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Helmet } from 'react-helmet';
 import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,18 +33,10 @@ export default function PortalLogin() {
 
   const loginMutation = useMutation({
     mutationFn: async (data: LoginFormData) => {
-      const response = await fetch("/api/portal/login", {
+      return apiRequest("/api/portal/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to send login link");
-      }
-      
-      return response.json();
     },
     onSuccess: (data, variables) => {
       setSubmittedEmail(variables.email);
