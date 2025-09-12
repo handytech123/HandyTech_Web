@@ -503,6 +503,70 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // DEVELOPMENT ONLY: Direct portal login for testing (bypasses magic link and CSRF)
+  app.post("/api/portal/dev-login", (req, res, next) => {
+    // Skip CSRF check for development login
+    if (process.env.NODE_ENV !== 'development') {
+      return res.status(403).json({ 
+        success: false, 
+        message: "Development login not available in production" 
+      });
+    }
+    next();
+  }, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      // Validate input
+      if (!email) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email is required" 
+        });
+      }
+      
+      // Check if customer exists
+      const customer = await storage.getCustomerByEmail(email);
+      if (!customer) {
+        return res.status(404).json({ 
+          success: false, 
+          message: "No account found with this email address" 
+        });
+      }
+      
+      // Set customer session directly (skip magic link)
+      try {
+        await setCustomerSession(req, customer.id, customer.email);
+      } catch (sessionError) {
+        console.error('[DEV_LOGIN] Session setup failed:', sessionError);
+        return res.status(500).json({ 
+          success: false, 
+          message: "Login failed due to session error" 
+        });
+      }
+      
+      res.json({ 
+        success: true, 
+        message: "Development login successful",
+        customer: {
+          id: customer.id,
+          firstName: customer.firstName,
+          lastName: customer.lastName,
+          email: customer.email
+        }
+      });
+      
+      console.log(`[DEV_LOGIN] Customer ${customer.email} logged in via development bypass`);
+      
+    } catch (error) {
+      console.error("Development login error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Development login failed. Please try again." 
+      });
+    }
+  });
+
   // Portal profile - Get authenticated customer data
   app.get("/api/portal/profile", requireCustomer, async (req, res) => {
     try {

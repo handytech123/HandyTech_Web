@@ -7,6 +7,7 @@ import Home from "@/pages/home";
 import CustomerPortal from "@/pages/customer-portal";
 import PortalLogin from "@/pages/portal-login";
 import PortalCallback from "@/pages/portal-callback";
+import DevLogin from "@/pages/dev-login";
 import AdminDashboard from "@/pages/admin";
 import LiveChatAdmin from "@/pages/live-chat-admin";
 import LeaveReview from "@/pages/leave-review";
@@ -22,6 +23,7 @@ function Router() {
       <Route path="/portal/login" component={PortalLogin} />
       <Route path="/portal/callback" component={PortalCallback} />
       <Route path="/portal" component={CustomerPortal} />
+      <Route path="/dev-login" component={DevLogin} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/live-chat" component={LiveChatAdmin} />
       <Route path="/leave-review" component={LeaveReview} />
