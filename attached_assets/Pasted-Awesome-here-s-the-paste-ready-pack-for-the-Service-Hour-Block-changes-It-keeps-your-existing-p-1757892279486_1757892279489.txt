@@ -1,0 +1,175 @@
+Awesome — here’s the paste-ready pack for the Service → Hour-Block changes. It keeps your existing paths; you’ll add one new file and make small edits in your two existing routes.
+
+
+---
+
+1) New file — service catalog (source of truth)
+
+server/data/services.json (NEW)
+
+[
+  { "id": 1, "name": "Faucet Replacement", "suggestedHours": 2, "description": "Swap faucet; shutoff & test", "active": true, "category": "A" },
+  { "id": 2, "name": "Toilet Swap", "suggestedHours": 2, "description": "Remove/replace toilet; wax ring; leak test", "active": true, "category": "A" },
+  { "id": 3, "name": "Ceiling Fan Install", "suggestedHours": 2, "description": "Replace existing light with fan", "active": true, "category": "A" },
+  { "id": 4, "name": "Light Fixture Replacement", "suggestedHours": 2, "description": "Replace existing ceiling/wall fixture", "active": true, "category": "A" },
+  { "id": 101, "name": "Single-Room Painting", "suggestedHours": 4, "description": "Walls + trim; minor prep", "active": true, "category": "B" },
+  { "id": 102, "name": "Vanity + Sink Replacement", "suggestedHours": 4, "description": "Replace vanity & top; reconnect plumbing", "active": true, "category": "B" },
+  { "id": 201, "name": "Multi-Room Painting", "suggestedHours": 6, "description": "Two+ rooms; more prep", "active": true, "category": "C" },
+  { "id": 202, "name": "Small Bathroom Remodel", "suggestedHours": 6, "description": "Toilet/vanity/light/drywall/paint bundle", "active": true, "category": "C" }
+]
+
+
+---
+
+2) Availability route — infer hours from serviceId
+
+Open your existing availability route file (the one serving GET /api/availability) and paste these helpers at the top (keep your other imports as-is):
+
+// === services.json loader (inline; no new imports needed elsewhere) ===
+const fs = require("fs");
+const path = require("path");
+function loadServicesJSON() {
+  const p = path.join(process.cwd(), "server", "data", "services.json");
+  return JSON.parse(fs.readFileSync(p, "utf-8"));
+}
+function getServiceByIdLocal(id) {
+  if (id === undefined || id === null) return undefined;
+  return loadServicesJSON().find(s => s.id === Number(id));
+}
+
+Now, inside your handler function for /api/availability, replace your current hours logic with this block (leave your getOpenSlots(...) call and response structure intact):
+
+// Expect ISO strings for from/to; support either hours or serviceId
+const from = new Date(String(req.query.from));
+const to   = new Date(String(req.query.to));
+if (isNaN(from) || isNaN(to)) {
+  return res.status(400).json({ error: "INVALID_QUERY" });
+}
+
+let hours;
+// Priority: explicit hours -> infer from serviceId -> default 2
+if (["2","4","6"].includes(String(req.query.hours))) {
+  hours = Number(req.query.hours);
+} else if (req.query.serviceId) {
+  const svc = getServiceByIdLocal(Number(req.query.serviceId));
+  hours = (svc && [2,4,6].includes(Number(svc.suggestedHours))) ? Number(svc.suggestedHours) : 2;
+} else {
+  hours = 2;
+}
+
+// Optional: small travel/setup buffer so back-to-back bookings don't collide
+const BUFFER_MIN = 15;
+
+// Use your existing slot generator (adjust param names if needed)
+const slots = await getOpenSlots({
+  from,
+  to,
+  blockMinutes: hours * 60,
+  stepMinutes: 30,
+  bufferMinutes: BUFFER_MIN  // if your util doesn't accept this, pad busy windows internally
+});
+
+return res.json({ slots, suggestedHours: hours });
+
+
+---
+
+3) Appointments route — infer hours + set title + final overlap check
+
+Open your existing appointments route file (the one serving POST /api/appointments) and add the same helpers at the top if not already present:
+
+const fs = require("fs");
+const path = require("path");
+function loadServicesJSON() {
+  const p = path.join(process.cwd(), "server", "data", "services.json");
+  return JSON.parse(fs.readFileSync(p, "utf-8"));
+}
+function getServiceByIdLocal(id) {
+  if (id === undefined || id === null) return undefined;
+  return loadServicesJSON().find(s => s.id === Number(id));
+}
+
+Inside your POST /api/appointments handler, right after you parse req.body, insert/replace with:
+
+const { customerName, customerEmail, customerPhone, startISO } = req.body || {};
+if (!customerName || !customerEmail || !startISO) {
+  return res.status(400).json({ error: "INVALID_INPUT" });
+}
+
+const serviceId = req.body?.serviceId ? Number(req.body.serviceId) : undefined;
+
+// Choose hours: explicit -> from service -> default 2
+let hours;
+if ([2,4,6].includes(Number(req.body?.hours))) {
+  hours = Number(req.body.hours);
+} else {
+  const svc = getServiceByIdLocal(serviceId);
+  hours = (svc && [2,4,6].includes(Number(svc.suggestedHours))) ? Number(svc.suggestedHours) : 2;
+}
+
+// Compute start/end
+const start = new Date(String(startISO));
+const end   = new Date(start.getTime() + hours * 3600000);
+
+// Final overlap guard (use your existing hasOverlap(...) if you have one)
+if (typeof hasOverlap === "function" && await hasOverlap(start, end)) {
+  return res.status(409).json({ ok:false, error:"TIME_UNAVAILABLE", message:"That time was just taken. Please choose another slot." });
+}
+
+// Build a descriptive title/notes (no schema change required)
+const svc = getServiceByIdLocal(serviceId);
+const title = svc ? `${svc.name} — ${hours}h Block` : `${hours}h Handyman Block`;
+const mergedNotes = svc ? `[Service: ${svc.name} ~${hours}h]\n${req.body.notes || ""}`.trim() : (req.body.notes || "");
+
+// ⬇️ Save using your existing persistence function/SQL
+// Example (replace with your own):
+// const appt = await saveAppointment({ customerName, customerEmail, customerPhone, start, end, title, notes: mergedNotes });
+
+return res.json({ ok: true /*, appointmentId: appt.id */ });
+
+
+---
+
+4) (Nice to have) Public services list for your UI
+
+If you don’t already have one, add a simple public endpoint so your frontend can populate the service dropdown:
+
+// Somewhere in your public routes:
+const fs = require("fs");
+const path = require("path");
+app.get("/api/services", (_req, res) => {
+  const p = path.join(process.cwd(), "server", "data", "services.json");
+  const items = JSON.parse(fs.readFileSync(p, "utf-8"));
+  res.json(items.filter(s => s.active !== false));
+});
+
+
+---
+
+5) Email subject/body — show service + block (optional but helpful)
+
+In your email helper (where you already send confirmations), add:
+
+const hoursBooked = Math.round((+end - +start) / 3600000);
+const subject = `${process.env.BUSINESS_NAME || "HandyTech"}: ${title} — ${new Date(start).toLocaleString()} (${hoursBooked}h)`;
+
+const htmlServiceLine = title.includes("—")
+  ? `<li><strong>Service:</strong> ${title.split("—")[0].trim()} (${hoursBooked}h)</li>`
+  : `<li><strong>Service:</strong> Handyman Block (${hoursBooked}h)</li>`;
+
+// Include htmlServiceLine in your email's details list
+
+
+---
+
+That’s it
+
+One new JSON file (services.json)
+
+Small edits in /api/availability and /api/appointments
+
+Optional /api/services for the UI and email subject tweak
+
+
+If you want me to tailor these to your exact filenames (e.g., if your availability handler lives at server/routes/availability.js vs another path), just tell me the filename and I’ll re-output with that precise path for copy/paste.
+
