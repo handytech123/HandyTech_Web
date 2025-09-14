@@ -1466,25 +1466,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Appointments routes
   app.post("/api/appointments", async (req, res) => {
     try {
+      // Import service utilities
+      const { getServiceById } = await import("./utils/services");
+      
       // Parse and validate appointment data
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
-      // Use provided duration hours or fallback to service-based duration
-      const serviceDurations: Record<string, number> = {
-        "Plumbing": 2,
-        "Electrical": 3,
-        "Carpentry": 4,
-        "Technology Setup": 2,
-        "Appliance Installation": 3,
-        "Appliance Repair": 2,
-        "General Handyman": 2,
-        "Emergency Repair": 1,
-        "Home Security": 3,
-        "Custom Project": 4
-      };
-
-      // Get duration from request (user-selected) or fallback to service type mapping
-      const durationHours = appointmentData.durationHours || serviceDurations[appointmentData.serviceType] || 2;
+      // Determine appointment duration and service information
+      let durationHours: number;
+      let serviceInfo: { id: number; name: string; description: string } | null = null;
+      
+      if (appointmentData.durationHours) {
+        // Explicit duration provided - use it (legacy behavior)
+        durationHours = appointmentData.durationHours;
+      } else if (appointmentData.serviceId) {
+        // Service ID provided - infer duration from catalog
+        const service = getServiceById(appointmentData.serviceId);
+        if (!service) {
+          return res.status(400).json({
+            ok: false,
+            error: "SERVICE_NOT_FOUND",
+            message: "Service not found or not active"
+          });
+        }
+        
+        // Validate that service suggestedHours is in allowed set
+        if (![2, 4, 6].includes(service.suggestedHours)) {
+          return res.status(400).json({ 
+            error: "INVALID_SERVICE_DURATION",
+            message: `Service duration ${service.suggestedHours}h is not supported. Allowed durations: 2, 4, 6 hours`
+          });
+        }
+        
+        durationHours = service.suggestedHours;
+        serviceInfo = {
+          id: service.id,
+          name: service.name,
+          description: service.description
+        };
+      } else {
+        // Fallback to legacy service type mapping
+        const serviceDurations: Record<string, number> = {
+          "Plumbing": 2,
+          "Electrical": 3,
+          "Carpentry": 4,
+          "Technology Setup": 2,
+          "Appliance Installation": 3,
+          "Appliance Repair": 2,
+          "General Handyman": 2,
+          "Emergency Repair": 1,
+          "Home Security": 3,
+          "Custom Project": 4
+        };
+        durationHours = serviceDurations[appointmentData.serviceType] || 2;
+      }
       
       // Compute timestamps from appointmentDate and appointmentTime in Central Time
       const [timeStr, period] = appointmentData.appointmentTime.split(' ');
@@ -1598,7 +1633,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json({
         ...appointment,
         rescheduleToken, // Include reschedule token in response
-        duration: durationHours
+        duration: durationHours,
+        serviceInfo // Include service catalog info if available
       });
       
     } catch (error) {
@@ -2163,42 +2199,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Appointment routes
-  app.get("/api/appointments", async (req, res) => {
-    try {
-      const appointments = await storage.getAllAppointments();
-      res.json(appointments);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to fetch appointments" });
-    }
-  });
-
-  app.post("/api/appointments", async (req, res) => {
-    try {
-      const appointmentData = insertAppointmentSchema.parse(req.body);
-      const appointment = await storage.createAppointment(appointmentData);
-
-      // Auto-create customer if they don't exist
-      const existingCustomer = await storage.getCustomerByEmail(appointment.email);
-      if (!existingCustomer) {
-        await storage.createCustomer({
-          firstName: appointment.firstName,
-          lastName: appointment.lastName,
-          email: appointment.email,
-          phone: appointment.phone,
-          company: null,
-        });
-      }
-
-      res.status(201).json(appointment);
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid appointment data", errors: error.errors });
-      } else {
-        res.status(500).json({ message: "Failed to create appointment" });
-      }
-    }
-  });
 
   app.get("/api/appointments/upcoming", async (req, res) => {
     try {
@@ -2349,35 +2349,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Services Management routes
+  // Public Services catalog endpoint
   app.get("/api/services", async (req, res) => {
     try {
-      const { category, active } = req.query;
+      // Import service utilities
+      const { listActiveServices, getServicesByCategory } = await import("./utils/services");
+      
+      const { category } = req.query;
       let services;
       
       if (category && typeof category === 'string') {
-        services = await storage.getServicesByCategory(category);
-      } else if (active === 'true') {
-        services = await storage.getActiveServices();
+        // Filter active services by category
+        services = getServicesByCategory(category);
       } else {
-        services = await storage.getAllServices();
+        // Return all active services by default for public API
+        services = listActiveServices();
       }
       
+      // Add cache headers for performance
+      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
       res.json(services);
     } catch (error) {
+      console.error('Services endpoint error:', error);
       res.status(500).json({ message: "Failed to fetch services" });
     }
   });
 
   app.get("/api/services/:id", async (req, res) => {
     try {
+      // Import service utilities
+      const { getServiceById } = await import("./utils/services");
+      
       const id = parseInt(req.params.id);
-      const service = await storage.getService(id);
-      if (!service) {
-        return res.status(404).json({ message: "Service not found" });
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid service ID" });
       }
+      
+      const service = getServiceById(id);
+      if (!service) {
+        return res.status(404).json({ message: "Service not found or not active" });
+      }
+      
+      // Add cache headers for performance
+      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
       res.json(service);
     } catch (error) {
+      console.error('Service by ID endpoint error:', error);
       res.status(500).json({ message: "Failed to fetch service" });
     }
   });
@@ -2504,7 +2521,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Availability endpoint for scheduler system
   app.get("/api/availability", async (req, res) => {
     try {
+      // Import service utilities
+      const { getServiceById } = await import("./utils/services");
+      
       // Define validation schema for query parameters
+      // Support both legacy hours parameter and new serviceId parameter
       const querySchema = z.object({
         from: z.string().refine((val) => {
           const date = new Date(val);
@@ -2514,10 +2535,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const date = new Date(val);
           return !isNaN(date.getTime());
         }, { message: "Invalid ISO datetime string for 'to'" }),
+        // Legacy parameter - takes precedence for backward compatibility
         hours: z.enum(["2", "4", "6"], {
           errorMap: () => ({ message: "Hours must be one of: 2, 4, 6" })
-        })
-      });
+        }).optional(),
+        // New parameter - service ID from catalog
+        serviceId: z.string().refine((val) => {
+          const parsed = parseInt(val);
+          return !isNaN(parsed) && parsed > 0;
+        }, { message: "Service ID must be a positive integer" }).optional()
+      }).refine((data) => {
+        // Require either hours OR serviceId
+        return data.hours || data.serviceId;
+      }, { message: "Either 'hours' or 'serviceId' parameter is required" });
 
       // Validate query parameters
       const validatedQuery = querySchema.parse(req.query);
@@ -2532,13 +2562,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Convert hours to minutes
-      const hoursToMinutes = {
-        "2": 120,
-        "4": 240,
-        "6": 360
-      };
-      const blockMinutes = hoursToMinutes[validatedQuery.hours];
+      let blockMinutes: number;
+      let suggestedHours: number;
+      
+      // Determine block duration - hours parameter takes precedence
+      if (validatedQuery.hours) {
+        // Legacy behavior - use explicit hours
+        const hoursToMinutes = {
+          "2": 120,
+          "4": 240,
+          "6": 360
+        };
+        blockMinutes = hoursToMinutes[validatedQuery.hours];
+        suggestedHours = parseInt(validatedQuery.hours);
+      } else if (validatedQuery.serviceId) {
+        // New behavior - infer from service catalog
+        const serviceId = parseInt(validatedQuery.serviceId);
+        const service = getServiceById(serviceId);
+        
+        if (!service) {
+          return res.status(400).json({ 
+            error: "SERVICE_NOT_FOUND",
+            message: "Service not found or not active"
+          });
+        }
+        
+        // Validate that service suggestedHours is in allowed set
+        if (![2, 4, 6].includes(service.suggestedHours)) {
+          return res.status(400).json({ 
+            error: "INVALID_SERVICE_DURATION",
+            message: `Service duration ${service.suggestedHours}h is not supported. Allowed durations: 2, 4, 6 hours`
+          });
+        }
+        
+        blockMinutes = service.suggestedHours * 60;
+        suggestedHours = service.suggestedHours;
+      } else {
+        // This shouldn't happen due to Zod validation, but handle it safely
+        return res.status(400).json({ 
+          error: "MISSING_DURATION",
+          message: "Either 'hours' or 'serviceId' parameter is required"
+        });
+      }
       
       // Use default values as specified
       const stepMinutes = 30;
@@ -2554,7 +2619,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         bufferMinutes
       );
       
-      res.json({ slots });
+      // Enhanced response with service information
+      res.json({ 
+        slots,
+        suggestedHours
+      });
       
     } catch (error) {
       if (error instanceof z.ZodError) {

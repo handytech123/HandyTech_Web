@@ -72,6 +72,7 @@ export const appointments = pgTable("appointments", {
   email: text("email").notNull(),
   phone: text("phone"),
   serviceType: text("service_type").notNull(),
+  serviceId: integer("service_id"), // Optional reference to service catalog
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentTime: text("appointment_time").notNull(),
   address: text("address"), // Service address
@@ -180,6 +181,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   endTimestamptz: z.coerce.date().optional(),
   rescheduleExpires: z.coerce.date().optional(),
   durationHours: z.number().min(1).max(12).optional(),
+  serviceId: z.number().optional(),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
