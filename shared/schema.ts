@@ -81,8 +81,7 @@ export const appointments = pgTable("appointments", {
   rescheduleExpires: timestamp("reschedule_expires", { withTimezone: true }),
   sequence: integer("sequence").default(0),
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'confirmed', 'completed', 'cancelled'
-  source: text("source").notNull().default("manual"), // 'calendly', 'manual', 'chatbot'
-  calendlyEventId: text("calendly_event_id"), // Store Calendly's unique event ID
+  source: text("source").notNull().default("manual"), // 'manual', 'chatbot'
   notes: text("notes"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

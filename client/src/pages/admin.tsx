@@ -76,15 +76,6 @@ function AuthenticatedDashboard() {
     }
   });
 
-  const testCalendlyWebhookMutation = useMutation({
-    mutationFn: async (testData: any) => {
-      return await apiRequest("/api/admin/test-calendly-webhook", "POST", testData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-    }
-  });
 
   // Admin Appointment Management Mutations
   const updateAppointmentStatusMutation = useMutation({
@@ -168,30 +159,6 @@ function AuthenticatedDashboard() {
     }
   });
 
-  // Test Calendly API Integration
-  const testCalendlyAPI = async () => {
-    try {
-      const response = await fetch("/api/calendly/event-types");
-      const data = await response.json();
-      
-      toast({
-        title: "Calendly API Test",
-        description: response.ok 
-          ? `Found ${data.event_types?.length || 0} event types` 
-          : `Error: ${data.error}`,
-        variant: response.ok ? "default" : "destructive"
-      });
-
-      console.log("Calendly API Test Results:", data);
-    } catch (error) {
-      toast({
-        title: "Calendly API Test Failed", 
-        description: "Check console for details",
-        variant: "destructive"
-      });
-      console.error("Calendly API test error:", error);
-    }
-  };
 
   const totalRevenue = maintenancePlans.reduce((sum, plan) => sum + plan.price, 0);
   const pendingQuotes = quotes.filter(q => q.status === "pending").length;
@@ -302,9 +269,6 @@ function AuthenticatedDashboard() {
             <TabsTrigger value="customers" className="flex-1 min-w-[100px] text-sm">
               Customers
             </TabsTrigger>
-            <TabsTrigger value="calendly-test" className="flex-1 min-w-[100px] text-sm">
-              📅 Calendly Test
-            </TabsTrigger>
           </TabsList>
 
           <TabsContent value="calendar">
@@ -392,8 +356,8 @@ function AuthenticatedDashboard() {
                             <h3 className="font-semibold text-lg" data-testid={`text-customer-name-${appointment.id}`}>
                               {appointment.firstName} {appointment.lastName}
                             </h3>
-                            <Badge variant={appointment.source === "calendly" ? "default" : "outline"}>
-                              {appointment.source === "calendly" ? "📅 Calendly" : "📞 Manual"}
+                            <Badge variant={appointment.source === "manual" ? "outline" : "default"}>
+                              {appointment.source === "manual" ? "📞 Manual" : "🤖 System"}
                             </Badge>
                           </div>
                           <p className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-customer-email-${appointment.id}`}>
@@ -657,167 +621,6 @@ function AuthenticatedDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="calendly-test">
-            <Card>
-              <CardHeader>
-                <CardTitle>📅 Calendly Integration Testing</CardTitle>
-                <CardDescription>
-                  Test the Calendly webhook integration by simulating a booking. This will create a test appointment and trigger confirmation emails.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-6">
-                  <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4">
-                    <h3 className="font-semibold text-blue-900 dark:text-blue-100 mb-2">🔧 Integration Status</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span>Webhook endpoint: <code className="bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">/api/webhooks/calendly</code></span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span>Database schema updated with Calendly tracking</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-4 w-4 text-green-500" />
-                        <span>Email confirmation system ready</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <div className="space-y-4">
-                      <h3 className="font-semibold">Test Appointment Details</h3>
-                      <div className="space-y-3">
-                        <div>
-                          <Label htmlFor="test-name">Customer Name</Label>
-                          <Input
-                            id="test-name"
-                            value={testData.name}
-                            onChange={(e) => setTestData(prev => ({ ...prev, name: e.target.value }))}
-                            placeholder="John Doe"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="test-email">Email Address</Label>
-                          <Input
-                            id="test-email"
-                            type="email"
-                            value={testData.email}
-                            onChange={(e) => setTestData(prev => ({ ...prev, email: e.target.value }))}
-                            placeholder="john@example.com"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="test-phone">Phone Number</Label>
-                          <Input
-                            id="test-phone"
-                            value={testData.phone}
-                            onChange={(e) => setTestData(prev => ({ ...prev, phone: e.target.value }))}
-                            placeholder="(555) 123-4567"
-                          />
-                        </div>
-                        <div>
-                          <Label htmlFor="test-service">Service Type</Label>
-                          <Input
-                            id="test-service"
-                            value={testData.serviceType}
-                            onChange={(e) => setTestData(prev => ({ ...prev, serviceType: e.target.value }))}
-                            placeholder="Home Repair Consultation"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="space-y-4">
-                      <h3 className="font-semibold">What This Test Does</h3>
-                      <div className="space-y-3 text-sm">
-                        <div className="flex items-start gap-3">
-                          <Badge variant="outline" className="text-xs">1</Badge>
-                          <span>Simulates a Calendly webhook with your test data</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Badge variant="outline" className="text-xs">2</Badge>
-                          <span>Creates a customer record (or finds existing one by email)</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Badge variant="outline" className="text-xs">3</Badge>
-                          <span>Schedules a test appointment marked as "Calendly" source</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Badge variant="outline" className="text-xs">4</Badge>
-                          <span>Triggers confirmation email via Brevo (if configured)</span>
-                        </div>
-                        <div className="flex items-start gap-3">
-                          <Badge variant="outline" className="text-xs">5</Badge>
-                          <span>Updates your appointment dashboard instantly</span>
-                        </div>
-                      </div>
-
-                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-3 mt-4">
-                        <p className="text-sm text-green-800 dark:text-green-200">
-                          <strong>💡 Pro Tip:</strong> After testing, check the "Appointments" tab to see your test booking with the "📅 Calendly" badge!
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex flex-wrap gap-3">
-                    <Button
-                      onClick={() => testCalendlyWebhookMutation.mutate(testData)}
-                      disabled={testCalendlyWebhookMutation.isPending}
-                      className="bg-brand-red hover:bg-brand-red-dark text-white"
-                    >
-                      {testCalendlyWebhookMutation.isPending ? "Testing..." : "🧪 Test Calendly Integration"}
-                    </Button>
-                    <Button
-                      onClick={testCalendlyAPI}
-                      variant="outline"
-                      className="border-blue-500 text-blue-600 hover:bg-blue-50"
-                    >
-                      <TestTube className="mr-2 h-4 w-4" />
-                      Test API Connection
-                    </Button>
-                    <Button
-                      variant="outline"
-                      onClick={() => setTestData({
-                        name: "Test Customer",
-                        email: "test@example.com",
-                        phone: "(555) 123-4567",
-                        serviceType: "Home Repair Consultation"
-                      })}
-                    >
-                      Reset Form
-                    </Button>
-                  </div>
-
-                  {testCalendlyWebhookMutation.isSuccess && (
-                    <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg p-4">
-                      <div className="flex items-center gap-2">
-                        <CheckCircle className="h-5 w-5 text-green-500" />
-                        <span className="font-semibold text-green-800 dark:text-green-200">Test Successful!</span>
-                      </div>
-                      <p className="text-sm text-green-700 dark:text-green-300 mt-1">
-                        Calendly webhook test completed. Check the Appointments tab to see your test booking.
-                      </p>
-                    </div>
-                  )}
-
-                  {testCalendlyWebhookMutation.isError && (
-                    <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-                      <div className="flex items-center gap-2">
-                        <MessageSquare className="h-5 w-5 text-red-500" />
-                        <span className="font-semibold text-red-800 dark:text-red-200">Test Failed</span>
-                      </div>
-                      <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                        There was an error testing the Calendly integration. Check the server logs for details.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
         </Tabs>
       </div>
     </div>

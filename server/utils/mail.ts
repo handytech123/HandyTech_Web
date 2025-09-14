@@ -404,7 +404,6 @@ export class EmailService {
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
           <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${appointmentData.serviceType}</p>
           <p style="margin: 0 0 10px 0;"><strong>Source:</strong> ${appointment.source || 'manual'}</p>
-          ${appointment.calendlyEventId ? `<p style="margin: 0 0 10px 0;"><strong>Calendly Event ID:</strong> ${appointment.calendlyEventId}</p>` : ''}
         </div>
         
         <div style="background-color: white; padding: 20px; border-left: 4px solid #007700; margin: 20px 0; border-radius: 5px;">

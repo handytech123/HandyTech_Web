@@ -128,7 +128,7 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
   }
 
   // Skip CSRF for API endpoints that don't use sessions (like webhooks)
-  if (req.path.startsWith('/api/webhooks/') || req.path.startsWith('/api/calendly/webhook')) {
+  if (req.path.startsWith('/api/webhooks/')) {
     return next();
   }
 

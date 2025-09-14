@@ -284,7 +284,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       notes: "Resolved network connectivity issues and updated system security. Installed new antivirus software and configured automatic backups.",
       createdAt: new Date("2024-02-18"),
     };
@@ -308,7 +308,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       notes: "Complete network infrastructure setup including router configuration, Wi-Fi optimization, and cable management.",
       createdAt: new Date("2024-01-23"),
     };
@@ -332,7 +332,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       notes: "Installed smart thermostats, door locks, and lighting system. Set up central control hub and mobile app configuration.",
       createdAt: new Date("2024-03-08"),
     };
@@ -356,7 +356,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       notes: "Performed regular system maintenance including software updates, disk cleanup, and security patches.",
       createdAt: new Date("2024-02-13"),
     };
@@ -380,7 +380,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       notes: "Successfully recovered data from corrupted hard drive and set up automated backup system.",
       createdAt: new Date("2024-01-10"),
     };
@@ -695,7 +695,6 @@ export class MemStorage implements IStorage {
       rescheduleToken: insertAppointment.rescheduleToken || null,
       rescheduleExpires: insertAppointment.rescheduleExpires || null,
       sequence: insertAppointment.sequence || 0,
-      calendlyEventId: insertAppointment.calendlyEventId || null,
       source: insertAppointment.source || "manual",
       status: "scheduled",
       createdAt: new Date(),
