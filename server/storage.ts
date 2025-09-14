@@ -1052,14 +1052,14 @@ export class MemStorage implements IStorage {
       const historyItem: import("@shared/schema").ServiceHistoryItem = {
         id: apt.id,
         appointmentDate: apt.appointmentDate,
-        serviceDate: apt.appointmentDate,
+        serviceDate: apt.appointmentDate.toISOString().split('T')[0], // Convert Date to string (YYYY-MM-DD)
         serviceType: apt.serviceType,
         status: apt.status,
         startTimestamptz: apt.startTimestamptz,
         endTimestamptz: apt.endTimestamptz,
         duration,
         notes: apt.notes,
-        cost: calculatedCost,
+        cost: calculatedCost || 0, // Ensure cost is always a number
         createdAt: apt.createdAt,
         serviceName: servicePricing.serviceName,
         serviceDescription: servicePricing.serviceDescription,
@@ -1757,12 +1757,14 @@ export class DatabaseStorage implements IStorage {
       const historyItem: import("@shared/schema").ServiceHistoryItem = {
         id: appointment.id,
         appointmentDate: appointment.appointmentDate,
+        serviceDate: appointment.appointmentDate.toISOString().split('T')[0], // Convert Date to string (YYYY-MM-DD)
         serviceType: appointment.serviceType,
         status: appointment.status,
         startTimestamptz: appointment.startTimestamptz,
         endTimestamptz: appointment.endTimestamptz,
         duration,
         notes: appointment.notes,
+        cost: calculatedCost || 0, // Ensure cost is always a number
         createdAt: appointment.createdAt,
         serviceName: servicePricing.serviceName,
         serviceDescription: servicePricing.serviceDescription,
