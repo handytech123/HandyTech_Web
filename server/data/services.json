@@ -1,0 +1,10 @@
+[
+  { "id": 1, "name": "Faucet Replacement", "suggestedHours": 2, "description": "Swap faucet; shutoff & test", "active": true, "category": "A" },
+  { "id": 2, "name": "Toilet Swap", "suggestedHours": 2, "description": "Remove/replace toilet; wax ring; leak test", "active": true, "category": "A" },
+  { "id": 3, "name": "Ceiling Fan Install", "suggestedHours": 2, "description": "Replace existing light with fan", "active": true, "category": "A" },
+  { "id": 4, "name": "Light Fixture Replacement", "suggestedHours": 2, "description": "Replace existing ceiling/wall fixture", "active": true, "category": "A" },
+  { "id": 101, "name": "Single-Room Painting", "suggestedHours": 4, "description": "Walls + trim; minor prep", "active": true, "category": "B" },
+  { "id": 102, "name": "Vanity + Sink Replacement", "suggestedHours": 4, "description": "Replace vanity & top; reconnect plumbing", "active": true, "category": "B" },
+  { "id": 201, "name": "Multi-Room Painting", "suggestedHours": 6, "description": "Two+ rooms; more prep", "active": true, "category": "C" },
+  { "id": 202, "name": "Small Bathroom Remodel", "suggestedHours": 6, "description": "Toilet/vanity/light/drywall/paint bundle", "active": true, "category": "C" }
+]
