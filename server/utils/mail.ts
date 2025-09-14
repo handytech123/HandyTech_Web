@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import type { Appointment } from '../../shared/schema.js';
+import { getServiceById, type Service } from './services.js';
 
 interface EmailAttachment {
   filename: string;
@@ -20,6 +21,11 @@ interface AppointmentEmailData {
   endTimestamptz: Date | null;
   notes: string | null;
   sequence: number;
+  // Enhanced service details
+  serviceName: string | null;
+  serviceDescription: string | null;
+  suggestedHours: number | null;
+  serviceCategory: string | null;
 }
 
 interface SubscriptionCancellationEmailData {
@@ -55,6 +61,38 @@ export class EmailService {
     this.baseUrl = process.env.PUBLIC_BASE_URL || 'https://handytech-solutions.com';
 
     this.initializeTransporter();
+  }
+
+  private createAppointmentEmailData(appointment: Appointment): AppointmentEmailData {
+    // Look up service details if serviceId is provided
+    let serviceDetails: Service | null = null;
+    if (appointment.serviceId) {
+      try {
+        serviceDetails = getServiceById(appointment.serviceId);
+      } catch (error) {
+        console.warn(`Failed to lookup service details for serviceId ${appointment.serviceId}:`, error);
+      }
+    }
+
+    return {
+      id: appointment.id,
+      firstName: appointment.firstName,
+      lastName: appointment.lastName,
+      email: appointment.email,
+      phone: appointment.phone,
+      serviceType: appointment.serviceType,
+      appointmentDate: new Date(appointment.appointmentDate),
+      appointmentTime: appointment.appointmentTime,
+      startTimestamptz: appointment.startTimestamptz,
+      endTimestamptz: appointment.endTimestamptz,
+      notes: appointment.notes,
+      sequence: appointment.sequence || 0,
+      // Enhanced service details from catalog
+      serviceName: serviceDetails?.name || null,
+      serviceDescription: serviceDetails?.description || null,
+      suggestedHours: serviceDetails?.suggestedHours || null,
+      serviceCategory: serviceDetails?.category || null,
+    };
   }
 
   private initializeTransporter() {
@@ -129,10 +167,42 @@ export class EmailService {
     });
   }
 
+  private createEnhancedSubject(appointmentData: AppointmentEmailData, formattedDate: string, formattedTime: string, prefix: string = ''): string {
+    const serviceName = appointmentData.serviceName || appointmentData.serviceType;
+    const durationText = appointmentData.suggestedHours ? ` (${appointmentData.suggestedHours}h)` : '';
+    
+    return `${prefix}${this.businessName}: ${serviceName} — ${formattedDate} at ${formattedTime}${durationText}`;
+  }
+
+  private getServiceDetailsHtml(appointmentData: AppointmentEmailData): string {
+    const serviceName = appointmentData.serviceName || appointmentData.serviceType;
+    
+    let serviceHtml = `<p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${serviceName}</p>`;
+    
+    if (appointmentData.serviceDescription) {
+      serviceHtml += `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${appointmentData.serviceDescription}</p>`;
+    }
+    
+    if (appointmentData.suggestedHours) {
+      serviceHtml += `<p style="margin: 0 0 10px 0;"><strong>Duration:</strong> ${appointmentData.suggestedHours} hour${appointmentData.suggestedHours > 1 ? 's' : ''}</p>`;
+    }
+    
+    return serviceHtml;
+  }
+
   private generateIcsContent(appointment: AppointmentEmailData, method: 'REQUEST' | 'CANCEL' = 'REQUEST'): string {
     const now = new Date();
     const startDate = appointment.startTimestamptz || new Date(`${appointment.appointmentDate.toISOString().split('T')[0]}T${appointment.appointmentTime}:00`);
-    const endDate = appointment.endTimestamptz || new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours
+    
+    // Calculate end date based on priority: endTimestamptz > suggestedHours > default 2 hours
+    let endDate: Date;
+    if (appointment.endTimestamptz) {
+      endDate = appointment.endTimestamptz;
+    } else if (appointment.suggestedHours && appointment.suggestedHours > 0) {
+      endDate = new Date(startDate.getTime() + (appointment.suggestedHours * 60 * 60 * 1000));
+    } else {
+      endDate = new Date(startDate.getTime() + (2 * 60 * 60 * 1000)); // Default 2 hours fallback
+    }
 
     // Format dates for ICS (YYYYMMDDTHHMMSSZ) - keep proper UTC format with Z suffix
     const formatIcsDateUTC = (date: Date): string => {
@@ -157,8 +227,8 @@ export class EmailService {
       `DTSTAMP:${dtstamp}`,
       `DTSTART:${dtstart}`, // Use proper UTC time with Z suffix
       `DTEND:${dtend}`,     // Use proper UTC time with Z suffix
-      `SUMMARY:${this.businessName} - ${appointment.serviceType}`,
-      `DESCRIPTION:Service: ${appointment.serviceType}\\nCustomer: ${appointment.firstName} ${appointment.lastName}\\nPhone: ${appointment.phone || 'N/A'}\\nEmail: ${appointment.email}${appointment.notes ? `\\nNotes: ${appointment.notes}` : ''}`,
+      `SUMMARY:${this.businessName} - ${appointment.serviceName || appointment.serviceType}`,
+      `DESCRIPTION:Service: ${appointment.serviceName || appointment.serviceType}${appointment.serviceDescription ? `\\nDetails: ${appointment.serviceDescription}` : ''}${appointment.suggestedHours ? `\\nDuration: ${appointment.suggestedHours} hour${appointment.suggestedHours > 1 ? 's' : ''}` : ''}\\nCustomer: ${appointment.firstName} ${appointment.lastName}\\nPhone: ${appointment.phone || 'N/A'}\\nEmail: ${appointment.email}${appointment.notes ? `\\nNotes: ${appointment.notes}` : ''}`,
       `LOCATION:Customer Location`,
       `ORGANIZER;CN=${this.businessName}:mailto:${this.fromEmail}`,
       `ATTENDEE;CN=${appointment.firstName} ${appointment.lastName};RSVP=TRUE:mailto:${appointment.email}`,
@@ -209,26 +279,13 @@ export class EmailService {
     }
 
     try {
-      const appointmentData: AppointmentEmailData = {
-        id: appointment.id,
-        firstName: appointment.firstName,
-        lastName: appointment.lastName,
-        email: appointment.email,
-        phone: appointment.phone,
-        serviceType: appointment.serviceType,
-        appointmentDate: new Date(appointment.appointmentDate),
-        appointmentTime: appointment.appointmentTime,
-        startTimestamptz: appointment.startTimestamptz,
-        endTimestamptz: appointment.endTimestamptz,
-        notes: appointment.notes,
-        sequence: appointment.sequence || 0
-      };
+      const appointmentData = this.createAppointmentEmailData(appointment);
 
       const formattedDate = this.formatDate(appointmentData.appointmentDate);
       const formattedTime = this.formatTime(appointmentData.appointmentTime);
       const rescheduleUrl = `${this.baseUrl}/reschedule/${rescheduleToken}`;
 
-      const subject = `${this.businessName}: ${appointmentData.serviceType} — ${formattedDate} at ${formattedTime}`;
+      const subject = this.createEnhancedSubject(appointmentData, formattedDate, formattedTime);
 
       const content = `
         <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Confirmed!</h2>
@@ -240,7 +297,7 @@ export class EmailService {
         <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
-          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${appointmentData.serviceType}</p>
+          ${this.getServiceDetailsHtml(appointmentData)}
           ${appointmentData.notes ? `<p style="margin: 0;"><strong>Notes:</strong> ${appointmentData.notes}</p>` : ''}
         </div>
         
@@ -291,26 +348,14 @@ export class EmailService {
     }
 
     try {
-      const appointmentData: AppointmentEmailData = {
-        id: appointment.id,
-        firstName: appointment.firstName,
-        lastName: appointment.lastName,
-        email: appointment.email,
-        phone: appointment.phone,
-        serviceType: appointment.serviceType,
-        appointmentDate: new Date(appointment.appointmentDate),
-        appointmentTime: appointment.appointmentTime,
-        startTimestamptz: appointment.startTimestamptz,
-        endTimestamptz: appointment.endTimestamptz,
-        notes: appointment.notes,
-        sequence: (appointment.sequence || 0) + 1 // Increment sequence for calendar update
-      };
+      const appointmentData = this.createAppointmentEmailData(appointment);
+      appointmentData.sequence = (appointmentData.sequence || 0) + 1; // Increment sequence for calendar update
 
       const newFormattedDate = this.formatDate(appointmentData.appointmentDate);
       const newFormattedTime = this.formatTime(appointmentData.appointmentTime);
       const oldFormattedDateTime = this.formatDateTime(oldStart);
 
-      const subject = `${this.businessName}: Appointment Rescheduled — ${newFormattedDate} at ${newFormattedTime}`;
+      const subject = this.createEnhancedSubject(appointmentData, newFormattedDate, newFormattedTime, 'Rescheduled: ');
 
       const content = `
         <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Rescheduled</h2>
@@ -323,7 +368,7 @@ export class EmailService {
           <h3 style="color: #BB0000; margin-top: 0;">New Appointment Details</h3>
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${newFormattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${newFormattedTime}</p>
-          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${appointmentData.serviceType}</p>
+          ${this.getServiceDetailsHtml(appointmentData)}
           ${appointmentData.notes ? `<p style="margin: 0;"><strong>Notes:</strong> ${appointmentData.notes}</p>` : ''}
         </div>
         
@@ -372,25 +417,12 @@ export class EmailService {
     }
 
     try {
-      const appointmentData: AppointmentEmailData = {
-        id: appointment.id,
-        firstName: appointment.firstName,
-        lastName: appointment.lastName,
-        email: appointment.email,
-        phone: appointment.phone,
-        serviceType: appointment.serviceType,
-        appointmentDate: new Date(appointment.appointmentDate),
-        appointmentTime: appointment.appointmentTime,
-        startTimestamptz: appointment.startTimestamptz,
-        endTimestamptz: appointment.endTimestamptz,
-        notes: appointment.notes,
-        sequence: appointment.sequence || 0
-      };
+      const appointmentData = this.createAppointmentEmailData(appointment);
 
       const formattedDate = this.formatDate(appointmentData.appointmentDate);
       const formattedTime = this.formatTime(appointmentData.appointmentTime);
 
-      const subject = `New Appointment: ${appointmentData.serviceType} — ${formattedDate} at ${formattedTime}`;
+      const subject = this.createEnhancedSubject(appointmentData, formattedDate, formattedTime, 'New Appointment: ');
 
       const content = `
         <h2 style="color: #BB0000; margin-bottom: 20px;">New Appointment Scheduled</h2>
@@ -402,7 +434,7 @@ export class EmailService {
           <p style="margin: 0 0 10px 0;"><strong>Appointment ID:</strong> ${appointmentData.id}</p>
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
-          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${appointmentData.serviceType}</p>
+          ${this.getServiceDetailsHtml(appointmentData)}
           <p style="margin: 0 0 10px 0;"><strong>Source:</strong> ${appointment.source || 'manual'}</p>
         </div>
         
@@ -450,26 +482,15 @@ export class EmailService {
     }
 
     try {
-      const appointmentData: AppointmentEmailData = {
-        id: appointment.id,
-        firstName: appointment.firstName,
-        lastName: appointment.lastName,
-        email: appointment.email,
-        phone: appointment.phone,
-        serviceType: appointment.serviceType,
-        appointmentDate: new Date(appointment.appointmentDate),
-        appointmentTime: appointment.appointmentTime,
-        startTimestamptz: appointment.startTimestamptz,
-        endTimestamptz: appointment.endTimestamptz,
-        notes: appointment.notes,
-        sequence: (appointment.sequence || 0) + 1 // Increment sequence for calendar update
-      };
+      const appointmentData = this.createAppointmentEmailData(appointment);
+      appointmentData.sequence = (appointmentData.sequence || 0) + 1; // Increment sequence for calendar update
 
       const newFormattedDate = this.formatDate(appointmentData.appointmentDate);
       const newFormattedTime = this.formatTime(appointmentData.appointmentTime);
       const oldFormattedDateTime = this.formatDateTime(oldStart);
 
-      const subject = `RESCHEDULE ALERT: ${appointmentData.serviceType} — ${appointmentData.firstName} ${appointmentData.lastName}`;
+      const serviceName = appointmentData.serviceName || appointmentData.serviceType;
+      const subject = `RESCHEDULE ALERT: ${serviceName} — ${appointmentData.firstName} ${appointmentData.lastName}`;
 
       const content = `
         <h2 style="color: #FF8800; margin-bottom: 20px;">⚠️ Appointment Rescheduled by Customer</h2>
@@ -481,7 +502,7 @@ export class EmailService {
           <p style="margin: 0 0 10px 0;"><strong>Appointment ID:</strong> ${appointmentData.id}</p>
           <p style="margin: 0 0 10px 0;"><strong>New Date:</strong> ${newFormattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>New Time:</strong> ${newFormattedTime}</p>
-          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${appointmentData.serviceType}</p>
+          ${this.getServiceDetailsHtml(appointmentData)}
         </div>
         
         <div style="background-color: #f9f9f9; padding: 20px; border-left: 4px solid #999; margin: 20px 0; border-radius: 5px;">
