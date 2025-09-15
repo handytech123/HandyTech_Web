@@ -51,9 +51,9 @@ function getProductionCorsOrigins(): string[] {
     ];
     
     console.warn(
-      '[SECURITY WARNING] ALLOWED_ORIGINS not set in production. ' +
-      'Using Replit domain fallbacks. For better security, set ALLOWED_ORIGINS ' +
-      'to a comma-separated list of your specific domains.'
+      '[SECURITY] CORS fallback active - using Replit domain patterns for CORS origins.\n' +
+      'Set ALLOWED_ORIGINS environment variable to lock down origins to your specific domains.\n' +
+      'Example: ALLOWED_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"'
     );
     
     return replitFallbacks as any; // Return regex patterns for fallback
@@ -66,7 +66,7 @@ function getProductionCorsOrigins(): string[] {
   if (hasWildcards) {
     console.error(
       '[SECURITY ERROR] Wildcard origins detected in ALLOWED_ORIGINS. ' +
-      'Using fallback configuration for security.'
+      'Falling back to Replit domain patterns for security.'
     );
     
     // Use fallback instead of crashing
@@ -77,7 +77,7 @@ function getProductionCorsOrigins(): string[] {
     ] as any;
   }
   
-  console.log(`[SECURITY] Using ${origins.length} allowed origins from ALLOWED_ORIGINS`);
+  console.log(`[SECURITY] CORS configured with ${origins.length} specific allowed origins from ALLOWED_ORIGINS`);
   return origins;
 }
 

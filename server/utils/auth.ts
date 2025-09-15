@@ -61,14 +61,7 @@ function validateRequiredEnvVars(): void {
     const allowedOrigins = process.env.ALLOWED_ORIGINS;
     const origins = allowedOrigins.split(',').map(origin => origin.trim());
     
-    // Check for wildcards in production
-    const hasWildcards = origins.some(origin => origin.includes('*'));
-    if (hasWildcards) {
-      throw new Error(
-        'CRITICAL SECURITY ERROR: Wildcard origins are not allowed in production.\n' +
-        'ALLOWED_ORIGINS must contain specific domains only (e.g., "https://yourdomain.com,https://app.yourdomain.com").'
-      );
-    }
+    // Note: Wildcard validation for CORS origins is handled in security.ts
     
     // Validate HTTPS in production
     const hasInsecureOrigins = origins.some(origin => origin.startsWith('http:') && !origin.includes('localhost'));
@@ -78,14 +71,8 @@ function validateRequiredEnvVars(): void {
         'Consider using HTTPS for better security.'
       );
     }
-  } else if (isProduction && !process.env.ALLOWED_ORIGINS) {
-    // Warn when ALLOWED_ORIGINS is not set in production
-    console.warn(
-      'SECURITY WARNING: ALLOWED_ORIGINS not set in production.\n' +
-      'Using fallback CORS configuration. For better security, set ALLOWED_ORIGINS\n' +
-      'to a comma-separated list of your specific domains (e.g., "https://yourdomain.com,https://app.yourdomain.com").'
-    );
   }
+  // Note: ALLOWED_ORIGINS fallback warnings are handled in the CORS configuration
 }
 
 // Validate environment variables on module load
