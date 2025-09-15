@@ -413,7 +413,7 @@ export default function AppointmentScheduler() {
                   <p className="text-gray-600">Select the category that best matches your project needs</p>
                 </div>
                 
-                <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
+                <div className="grid grid-cols-1 gap-8 max-w-4xl mx-auto">
                   {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
                     const categoryKey = key as CategoryKey;
                     const categoryServices = servicesByCategory[categoryKey] || [];
