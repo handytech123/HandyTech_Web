@@ -292,7 +292,8 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      calendlyEventId: null,
+      googleEventId: null,
       notes: "Resolved network connectivity issues and updated system security. Installed new antivirus software and configured automatic backups.",
       reminder24hSent: null,
       reminder2hSent: null,
@@ -320,7 +321,8 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      calendlyEventId: null,
+      googleEventId: null,
       notes: "Complete network infrastructure setup including router configuration, Wi-Fi optimization, and cable management.",
       reminder24hSent: null,
       reminder2hSent: null,
@@ -348,7 +350,8 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      calendlyEventId: null,
+      googleEventId: null,
       notes: "Installed smart thermostats, door locks, and lighting system. Set up central control hub and mobile app configuration.",
       reminder24hSent: null,
       reminder2hSent: null,
@@ -376,7 +379,8 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      calendlyEventId: null,
+      googleEventId: null,
       notes: "Performed regular system maintenance including software updates, disk cleanup, and security patches.",
       reminder24hSent: null,
       reminder2hSent: null,
@@ -404,7 +408,8 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      calendlyEventId: null,
+      googleEventId: null,
       notes: "Successfully recovered data from corrupted hard drive and set up automated backup system.",
       reminder24hSent: null,
       reminder2hSent: null,
@@ -729,6 +734,8 @@ export class MemStorage implements IStorage {
       sequence: insertAppointment.sequence || 0,
       source: insertAppointment.source || "manual",
       status: "scheduled",
+      calendlyEventId: insertAppointment.calendlyEventId || null,
+      googleEventId: insertAppointment.googleEventId || null,
       reminder24hSent: null,
       reminder2hSent: null,
       followUpSent: null,
@@ -1524,6 +1531,10 @@ export class DatabaseStorage implements IStorage {
     }
     
     await db.update(appointments).set(updateData).where(eq(appointments.id, id));
+  }
+
+  async updateAppointmentGoogleEventId(id: number, googleEventId: string | null): Promise<void> {
+    await db.update(appointments).set({ googleEventId }).where(eq(appointments.id, id));
   }
 
   // Admin Appointment Management Methods
