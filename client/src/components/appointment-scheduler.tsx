@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight } from "lucide-react";
+import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -30,12 +30,14 @@ interface Service {
   category: string;
 }
 
-// Service category configuration
+// Service categories configuration
 const SERVICE_CATEGORIES = {
-  A: { label: "2-Hour Services", description: "Quick repairs & installs", color: "blue", hours: 2 },
-  B: { label: "4-Hour Services", description: "Medium projects & multiple tasks", color: "red", hours: 4 },
-  C: { label: "6-Hour Services", description: "Large jobs & deep work", color: "orange", hours: 6 }
+  A: { label: "Category A (2-Hour Services)", description: "Quick fixes and standard replacements", hours: 2 },
+  B: { label: "Category B (4-Hour Services)", description: "Medium projects and room improvements", hours: 4 },
+  C: { label: "Category C (6-Hour Services)", description: "Larger projects and multi-room work", hours: 6 }
 } as const;
+
+type CategoryKey = keyof typeof SERVICE_CATEGORIES;
 
 // Service type options
 const SERVICE_TYPES = [
@@ -74,9 +76,9 @@ interface AvailableSlot {
 
 export default function AppointmentScheduler() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedCategory, setSelectedCategory] = useState<string>("");
   const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | undefined>(undefined);
   const [currentStep, setCurrentStep] = useState<"category" | "contact" | "date" | "time">("category");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
@@ -86,14 +88,20 @@ export default function AppointmentScheduler() {
     queryKey: ["/api/services"],
   });
 
+  // Filter active services only
+  const activeServices = services.filter(service => service.active);
+
   // Group services by category
-  const servicesByCategory = services.reduce((acc, service) => {
-    if (!acc[service.category]) {
-      acc[service.category] = [];
+  const servicesByCategory = activeServices.reduce((acc, service) => {
+    if (!acc[service.category as CategoryKey]) {
+      acc[service.category as CategoryKey] = [];
     }
-    acc[service.category].push(service);
+    acc[service.category as CategoryKey].push(service);
     return acc;
-  }, {} as Record<string, Service[]>);
+  }, {} as Record<CategoryKey, Service[]>);
+
+  // Get services for selected category
+  const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
 
   // Get selected duration from service
   const selectedDuration = selectedService?.suggestedHours.toString() || "";
@@ -212,15 +220,14 @@ export default function AppointmentScheduler() {
   const formattedSlots = formatTimeSlots(availableSlots);
 
   // Handle category selection
-  const handleCategorySelect = (category: string) => {
+  const handleCategorySelect = (category: CategoryKey) => {
     setSelectedCategory(category);
     setCurrentStep("contact");
+    // Clear previous service selection
     setSelectedService(undefined);
-    setSelectedDate(undefined);
-    setSelectedTimeSlot("");
   };
 
-  // Handle service selection (now happens in contact step)
+  // Handle service selection
   const handleServiceSelect = (service: Service) => {
     setSelectedService(service);
     // Update serviceType to match the selected service
@@ -261,7 +268,7 @@ export default function AppointmentScheduler() {
   const resetToStep = (step: "category" | "contact" | "date" | "time") => {
     setCurrentStep(step);
     if (step === "category") {
-      setSelectedCategory("");
+      setSelectedCategory(undefined);
       setSelectedService(undefined);
       setSelectedDate(undefined);
       setSelectedTimeSlot("");
@@ -356,74 +363,50 @@ export default function AppointmentScheduler() {
           {/* Left Column - Selection Steps */}
           <div className="space-y-6">
 
-            {/* Step 1: Service Selection */}
+            {/* Step 1: Category Selection */}
             {currentStep === "category" && (
               <Card data-testid="card-category-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Wrench className="h-5 w-5 text-brand-red" />
+                    <Tag className="h-5 w-5 text-brand-red" />
                     Step 1: Choose Service Category
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-6">
-                  {loadingServices ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
-                      <span className="ml-2 text-gray-600">Loading categories...</span>
-                    </div>
-                  ) : servicesError ? (
-                    <Alert variant="destructive">
-                      <AlertCircle className="h-4 w-4" />
-                      <AlertDescription>
-                        Failed to load categories. Please refresh the page.
-                      </AlertDescription>
-                    </Alert>
-                  ) : (
-                    Object.entries(SERVICE_CATEGORIES).map(([category, categoryInfo]) => {
-                      const categoryServices = servicesByCategory[category] || [];
-                      if (categoryServices.length === 0) return null;
-
+                <CardContent>
+                  <div className="space-y-6">
+                    {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
+                      const categoryKey = key as CategoryKey;
+                      const categoryServices = servicesByCategory[categoryKey] || [];
+                      
                       return (
-                        <div key={category} className="space-y-3">
+                        <div key={categoryKey} className="space-y-3">
                           <Button
-                            onClick={() => handleCategorySelect(category)}
+                            onClick={() => handleCategorySelect(categoryKey)}
                             variant="outline"
-                            className={`w-full p-6 h-auto text-left justify-start ${
-                              categoryInfo.color === "red" ? "border-brand-red hover:bg-brand-red hover:text-white" : 
-                              categoryInfo.color === "blue" ? "border-blue-500 hover:bg-blue-500 hover:text-white" :
-                              "border-orange-500 hover:bg-orange-500 hover:text-white"
-                            }`}
-                            data-testid={`button-category-${category}`}
+                            className="w-full p-6 h-auto text-left hover:bg-brand-red hover:text-white hover:border-brand-red"
+                            data-testid={`button-category-${categoryKey}`}
                           >
-                            <div className="w-full">
-                              <div className="flex items-center gap-3 mb-3">
-                                <div className={`w-4 h-4 rounded-full ${
-                                  categoryInfo.color === "blue" ? "bg-blue-500" :
-                                  categoryInfo.color === "red" ? "bg-brand-red" :
-                                  "bg-orange-500"
-                                }`}></div>
-                                <h3 className="font-bold text-xl">
-                                  Category {category} ({categoryInfo.hours} Hours)
-                                </h3>
-                                <Badge variant="outline" className="text-xs">
-                                  {categoryInfo.description}
-                                </Badge>
-                              </div>
-                              <div className="text-sm text-gray-600 space-y-1">
-                                <p className="font-medium">Available Services:</p>
-                                <ul className="list-disc list-inside space-y-1 ml-2">
-                                  {categoryServices.map((service) => (
-                                    <li key={service.id}>{service.name}</li>
-                                  ))}
-                                </ul>
-                              </div>
+                            <div className="flex flex-col items-start">
+                              <div className="text-lg font-semibold mb-1">{category.label}</div>
+                              <div className="text-sm opacity-75">{category.description}</div>
                             </div>
                           </Button>
-                          {category !== "C" && <Separator className="my-4" />}
+                          
+                          {/* Service previews underneath each category */}
+                          <div className="ml-4 pl-4 border-l-2 border-gray-200">
+                            <p className="text-sm font-medium text-gray-600 mb-2">Services in this category:</p>
+                            <div className="space-y-1">
+                              {categoryServices.map((service) => (
+                                <div key={service.id} className="text-sm text-gray-500">
+                                  <span className="font-medium">{service.name}</span> - {service.description}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
                         </div>
                       );
-                    })
-                  )}
+                    })}
+                  </div>
                 </CardContent>
               </Card>
             )}
@@ -434,7 +417,7 @@ export default function AppointmentScheduler() {
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5 text-brand-red" />
-                    Step 2: Contact Information & Service Details
+                    Step 2: Contact Information & Service Selection
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -448,7 +431,7 @@ export default function AppointmentScheduler() {
                 <CardContent>
                   <div className="mb-4">
                     <Badge variant="outline" className="mb-2">
-                      Selected Category: {selectedCategory} ({SERVICE_CATEGORIES[selectedCategory as keyof typeof SERVICE_CATEGORIES]?.hours}h Services)
+                      Selected: {selectedCategory && SERVICE_CATEGORIES[selectedCategory].label}
                     </Badge>
                   </div>
                   
@@ -514,16 +497,16 @@ export default function AppointmentScheduler() {
                       <FormItem>
                         <FormLabel>Select Specific Service</FormLabel>
                         <Select onValueChange={(value) => {
-                          const service = services.find(s => s.id === parseInt(value));
+                          const service = categoryServices.find(s => s.id === parseInt(value));
                           if (service) handleServiceSelect(service);
                         }} value={selectedService?.id.toString() || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-service">
-                              <SelectValue placeholder="Choose a service from this category" />
+                              <SelectValue placeholder="Choose a service from selected category" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {(servicesByCategory[selectedCategory] || []).map((service) => (
+                            {categoryServices.map((service) => (
                               <SelectItem key={service.id} value={service.id.toString()}>
                                 {service.name} ({service.suggestedHours}h) - {service.description}
                               </SelectItem>
@@ -697,6 +680,18 @@ export default function AppointmentScheduler() {
               </CardHeader>
               <CardContent className="space-y-4">
                 
+                {selectedCategory && (
+                  <div className="flex items-center gap-3">
+                    <Tag className="h-4 w-4 text-gray-500" />
+                    <div>
+                      <span className="font-medium">Category: </span>
+                      <span data-testid="text-selected-category">
+                        {SERVICE_CATEGORIES[selectedCategory].label}
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 {selectedService && (
                   <div className="flex items-center gap-3">
                     <Wrench className="h-4 w-4 text-gray-500" />
@@ -754,14 +749,6 @@ export default function AppointmentScheduler() {
                   </div>
                 </div>
 
-                {currentStep === "category" && (
-                  <Alert>
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertDescription>
-                      Choose from our professional handyman services to get started. All services include travel within 20 miles of Hazelwood, MO.
-                    </AlertDescription>
-                  </Alert>
-                )}
               </CardContent>
             </Card>
           </div>
