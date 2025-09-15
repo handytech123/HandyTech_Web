@@ -42,19 +42,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: ReviewFormData) => {
-      const response = await fetch("/api/reviews/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(data),
-      });
-      
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || "Failed to submit review");
-      }
-      
+      const response = await apiRequest("/api/reviews/submit", "POST", data);
       return response.json();
     },
     onSuccess: () => {
