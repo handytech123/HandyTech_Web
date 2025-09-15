@@ -278,6 +278,18 @@ export default function AppointmentScheduler() {
     }
     form.setValue("appointmentDate", selectedDate!);
     form.setValue("appointmentTime", timeSlot);
+    
+    // Scroll to appointment summary after time selection
+    setTimeout(() => {
+      const summarySection = document.querySelector('[data-testid="card-appointment-summary"]');
+      if (summarySection) {
+        summarySection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest' 
+        });
+      }
+    }, 100);
   };
 
   // Handle form submission
@@ -358,7 +370,7 @@ export default function AppointmentScheduler() {
 
   return (
     <section id="services" className="py-20 bg-white pt-24 md:pt-20">
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
             SCHEDULE SERVICE
@@ -400,9 +412,8 @@ export default function AppointmentScheduler() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
-          {/* Left Column - Selection Steps */}
-          <div className="space-y-6">
+        {/* Main Content - Selection Steps */}
+        <div className="space-y-6">
 
             {/* Step 1: Category Selection */}
             {currentStep === "category" && (
@@ -413,7 +424,7 @@ export default function AppointmentScheduler() {
                   <p className="text-gray-600">Select the category that best matches your project needs</p>
                 </div>
                 
-                <div className="grid grid-cols-1 gap-8 max-w-4xl mx-auto">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
                   {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
                     const categoryKey = key as CategoryKey;
                     const categoryServices = servicesByCategory[categoryKey] || [];
@@ -421,7 +432,7 @@ export default function AppointmentScheduler() {
                     
                     return (
                       <Card key={categoryKey} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl cursor-pointer" onClick={() => handleCategorySelect(categoryKey)} data-testid={`button-category-${categoryKey}`}>
-                        <CardContent className="p-8">
+                        <CardContent className="p-6">
                           <div className="flex items-center mb-4">
                             <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
                               <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
@@ -728,124 +739,156 @@ export default function AppointmentScheduler() {
                 </CardContent>
               </Card>
             )}
-          </div>
+        </div>
 
-          {/* Right Column - Appointment Summary */}
-          <div className="space-y-6">
-            <Card className="sticky top-6" data-testid="card-appointment-summary">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-brand-red" />
-                  Appointment Summary
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                
-                {selectedCategory && (
-                  <div className="flex items-center gap-3">
-                    <Tag className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <span className="font-medium">Category: </span>
-                      <span data-testid="text-selected-category">
-                        {SERVICE_CATEGORIES[selectedCategory].title}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {selectedService && (
-                  <div className="flex items-center gap-3">
-                    <Wrench className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <span className="font-medium">Service: </span>
-                      <span data-testid="text-selected-service">
-                        {selectedService.name} ({selectedService.suggestedHours}h)
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {selectedDate && (
-                  <div className="flex items-center gap-3">
-                    <CalendarDays className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <span className="font-medium">Date: </span>
-                      <span data-testid="text-selected-date">
-                        {format(selectedDate, "EEEE, MMMM do, yyyy")}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                {selectedTimeSlot && (
-                  <div className="flex items-center gap-3">
-                    <Clock className="h-4 w-4 text-gray-500" />
-                    <div>
-                      <span className="font-medium">Time: </span>
-                      <span data-testid="text-selected-time">
-                        {format(parseISO(selectedTimeSlot), "h:mm a")}
-                      </span>
-                    </div>
-                  </div>
-                )}
-
-                <Separator />
-
-                <div className="space-y-2 text-sm text-gray-600">
+        {/* Appointment Summary Section - Full Width at Bottom */}
+        {(selectedCategory || selectedService || selectedDate || selectedTimeSlot) && (
+          <Card className="mt-8" data-testid="card-appointment-summary">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <CheckCircle className="h-5 w-5 text-brand-red" />
+                Appointment Summary
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-gray-500 uppercase tracking-wide">Category</h4>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    {selectedCategory ? (
+                      <>
+                        <Badge variant="outline" className="bg-green-50 border-green-200 text-green-800">
+                          ✅ {SERVICE_CATEGORIES[selectedCategory].subtitle}
+                        </Badge>
+                      </>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Not selected</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-gray-500 uppercase tracking-wide">Service</h4>
+                  <div>
+                    {selectedService ? (
+                      <>
+                        <Badge variant="outline" className="bg-green-50 border-green-200 text-green-800">
+                          ✅ {selectedService.name}
+                        </Badge>
+                        <p className="text-xs text-gray-500 mt-1">
+                          Duration: {selectedService.suggestedHours} hours
+                        </p>
+                      </>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Not selected</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-gray-500 uppercase tracking-wide">Date</h4>
+                  <div>
+                    {selectedDate ? (
+                      <Badge variant="outline" className="bg-green-50 border-green-200 text-green-800">
+                        ✅ {format(selectedDate, "MMM do, yyyy")}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Not selected</span>
+                    )}
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <h4 className="font-semibold text-sm text-gray-500 uppercase tracking-wide">Time</h4>
+                  <div>
+                    {selectedTimeSlot ? (
+                      <Badge variant="outline" className="bg-green-50 border-green-200 text-green-800">
+                        ✅ {format(parseISO(selectedTimeSlot), "h:mm a")}
+                      </Badge>
+                    ) : (
+                      <span className="text-gray-400 text-sm">Not selected</span>
+                    )}
+                  </div>
+                </div>
+              </div>
+              
+              {/* Contact Information Summary */}
+              {(form.watch("firstName") || form.watch("lastName") || form.watch("email")) && (
+                <div className="border-t pt-4 mb-6">
+                  <h4 className="font-semibold text-sm text-gray-500 uppercase tracking-wide mb-3">Contact Information</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
+                    <div>
+                      <span className="text-gray-600">Name:</span>
+                      <p className="font-medium">
+                        {form.watch("firstName")} {form.watch("lastName")}
+                      </p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Email:</span>
+                      <p className="font-medium">{form.watch("email")}</p>
+                    </div>
+                    <div>
+                      <span className="text-gray-600">Phone:</span>
+                      <p className="font-medium">{form.watch("phone") || "Not provided"}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+              
+              {/* Quality Assurance Section */}
+              <div className="border-t pt-4 mb-6">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm text-gray-600">
+                  <div className="flex items-center gap-2">
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                     <span>Family Owned & Operated</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                     <span>Fully Insured</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                     <span>10+ Years Experience</span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
                     <span>Travel Included (20mi radius)</span>
                   </div>
                 </div>
-
-                {/* Submit button - appears when all fields are complete */}
-                {isReadyToSubmit() && (
-                  <>
-                    <Separator />
-                    <div className="space-y-3">
-                      <div className="text-center">
-                        <p className="text-sm text-gray-600 mb-3">
-                          Ready to book your appointment? Review your details above and click submit.
-                        </p>
-                        <Button
-                          onClick={handleManualSubmit}
-                          disabled={bookAppointmentMutation.isPending}
-                          className="w-full bg-brand-red hover:bg-red-700 text-white font-semibold py-3"
-                          data-testid="button-submit-appointment"
-                        >
-                          {bookAppointmentMutation.isPending ? (
-                            <>
-                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                              Booking Appointment...
-                            </>
-                          ) : (
-                            <>
-                              <CheckCircle className="h-4 w-4 mr-2" />
-                              Submit Appointment
-                            </>
-                          )}
-                        </Button>
-                      </div>
-                    </div>
-                  </>
-                )}
-
-              </CardContent>
-            </Card>
-          </div>
-        </div>
+              </div>
+              
+              {/* Book Appointment Button */}
+              <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                <div className="text-sm text-gray-600">
+                  {isReadyToSubmit() ? (
+                    <span className="text-green-600 font-medium">✅ Ready to book your appointment!</span>
+                  ) : (
+                    <span>Complete all steps above to book your appointment.</span>
+                  )}
+                </div>
+                <Button 
+                  onClick={handleManualSubmit}
+                  disabled={!isReadyToSubmit() || bookAppointmentMutation.isPending}
+                  size="lg"
+                  className="bg-brand-red hover:bg-red-700 px-8 py-3 text-lg font-semibold"
+                  data-testid="button-book-appointment"
+                >
+                  {bookAppointmentMutation.isPending ? (
+                    <>
+                      <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+                      Booking Appointment...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle className="mr-2 h-5 w-5" />
+                      Book Appointment
+                    </>
+                  )}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        )}
       </div>
     </section>
   );
