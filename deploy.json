@@ -378,38 +378,6 @@
       "notes": "IONOS supports both 587 (STARTTLS) and 465 (SSL). Recommended: 587 for better compatibility."
     },
     {
-      "key": "CALENDLY_PAT",
-      "description": "Calendly Personal Access Token for API integration",
-      "required": false,
-      "category": "scheduling_services",
-      "example": "your_calendly_personal_access_token",
-      "notes": "Currently not active in production but available for integration"
-    },
-    {
-      "key": "CALENDLY_USER_URI",
-      "description": "Calendly user URI (auto-fetched if not provided)",
-      "required": false,
-      "category": "scheduling_services",
-      "example": "https://api.calendly.com/users/XXXXXX",
-      "notes": "Auto-discovered when CALENDLY_PAT is provided"
-    },
-    {
-      "key": "CALENDLY_ORG_URI",
-      "description": "Calendly organization URI (auto-fetched if not provided)",
-      "required": false,
-      "category": "scheduling_services",
-      "example": "https://api.calendly.com/organizations/XXXXXX",
-      "notes": "Auto-discovered when CALENDLY_PAT is provided"
-    },
-    {
-      "key": "CALENDLY_SIGNING_KEY",
-      "description": "Calendly webhook signing key for signature verification",
-      "required": false,
-      "category": "security",
-      "example": "webhook_signing_key_from_calendly",
-      "notes": "Recommended for webhook security validation"
-    },
-    {
       "key": "ALLOWED_ORIGINS",
       "description": "Comma-separated list of allowed CORS origins for production",
       "required": false,
@@ -477,7 +445,7 @@
     "Comprehensive Security Headers and Rate Limiting",
     "Production-Ready Email Security with TLS Encryption",
     "Maintenance Plans Tracking",
-    "Calendly Webhook Integration (configurable)",
+    "Google Calendar Integration with OAuth 2.0 Authentication",
     "Responsive Design with Ohio State Buckeyes Branding",
     "Database Integration with PostgreSQL",
     "SMTP & Brevo Dual Email Integration",
@@ -503,7 +471,7 @@
     "Email campaign creation and tracking",
     "Customer database management",
     "Project gallery content management",
-    "Calendly integration testing tools",
+    "Google Calendar OAuth authentication and testing tools",
     "System health monitoring"
   ],
   

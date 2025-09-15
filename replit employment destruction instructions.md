@@ -40,4 +40,7 @@ NODE_ENV=production
 2. Copy connection details to `DATABASE_URL`
 3. Run `npm run db:push` to create tables
 
-The application will start on port 5000 and be ready for use.
+## 5. GOOGLE CALENDAR SETUP
+After deployment, visit `/admin` and navigate to the Google Calendar section to complete OAuth authentication for calendar sync functionality.
+
+The application will start on port 5000 and be ready for use with complete Google Calendar integration.
