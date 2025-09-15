@@ -253,24 +253,44 @@ export default function AppointmentScheduler() {
   };
 
   // Handle time slot selection
-  const handleTimeSelect = async (timeSlot: string) => {
+  const handleTimeSelect = (timeSlot: string) => {
     setSelectedTimeSlot(timeSlot);
     
-    // Set form values and submit since contact info is already collected
+    // Set form values but don't auto-submit - user will manually click submit
     if (selectedService) {
       form.setValue("serviceId", selectedService.id);
       form.setValue("durationHours", selectedService.suggestedHours);
     }
     form.setValue("appointmentDate", selectedDate!);
     form.setValue("appointmentTime", timeSlot);
-    
-    // Use proper form submission for validation and auto-submit
-    form.handleSubmit(onSubmit)();
   };
 
   // Handle form submission
   const onSubmit = (data: BookingFormData) => {
     bookAppointmentMutation.mutate(data);
+  };
+
+  // Check if all required fields are complete for submission
+  const isReadyToSubmit = () => {
+    const formData = form.getValues();
+    return (
+      selectedCategory &&
+      selectedService &&
+      selectedDate &&
+      selectedTimeSlot &&
+      formData.firstName &&
+      formData.lastName &&
+      formData.email &&
+      !form.formState.errors.firstName &&
+      !form.formState.errors.lastName &&
+      !form.formState.errors.email
+    );
+  };
+
+  // Handle manual submit button click
+  const handleManualSubmit = () => {
+    // Trigger form validation and submit if valid
+    form.handleSubmit(onSubmit)();
   };
 
   // Reset to step
@@ -755,6 +775,38 @@ export default function AppointmentScheduler() {
                     <span>Travel Included (20mi radius)</span>
                   </div>
                 </div>
+
+                {/* Submit button - appears when all fields are complete */}
+                {isReadyToSubmit() && (
+                  <>
+                    <Separator />
+                    <div className="space-y-3">
+                      <div className="text-center">
+                        <p className="text-sm text-gray-600 mb-3">
+                          Ready to book your appointment? Review your details above and click submit.
+                        </p>
+                        <Button
+                          onClick={handleManualSubmit}
+                          disabled={bookAppointmentMutation.isPending}
+                          className="w-full bg-brand-red hover:bg-red-700 text-white font-semibold py-3"
+                          data-testid="button-submit-appointment"
+                        >
+                          {bookAppointmentMutation.isPending ? (
+                            <>
+                              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                              Booking Appointment...
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle className="h-4 w-4 mr-2" />
+                              Submit Appointment
+                            </>
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+                  </>
+                )}
 
               </CardContent>
             </Card>
