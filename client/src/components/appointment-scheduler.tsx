@@ -76,6 +76,7 @@ const bookingFormSchema = insertAppointmentSchema.pick({
   lastName: true,
   email: true,
   phone: true,
+  address: true,
   serviceType: true,
   notes: true
 }).extend({
@@ -132,6 +133,7 @@ export default function AppointmentScheduler() {
       lastName: "",
       email: "",
       phone: "",
+      address: "",
       serviceType: "General Handyman",
       notes: "",
     }
@@ -185,6 +187,7 @@ export default function AppointmentScheduler() {
         lastName: appointmentData.lastName,
         email: appointmentData.email,
         phone: appointmentData.phone || null,
+        address: appointmentData.address || null,
         serviceType: appointmentData.serviceType,
         notes: appointmentData.notes || null,
         appointmentDate: appointmentDateTime,
@@ -515,6 +518,25 @@ export default function AppointmentScheduler() {
                             <FormLabel>Phone Number (Optional)</FormLabel>
                             <FormControl>
                               <Input type="tel" {...field} value={field.value || ""} data-testid="input-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="address"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Service Address</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                placeholder="Where should we provide the service?" 
+                                data-testid="input-address" 
+                                value={field.value || ""} 
+                              />
                             </FormControl>
                             <FormMessage />
                           </FormItem>

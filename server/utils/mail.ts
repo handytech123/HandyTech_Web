@@ -14,6 +14,7 @@ interface AppointmentEmailData {
   lastName: string;
   email: string;
   phone: string | null;
+  address: string | null;
   serviceType: string;
   appointmentDate: Date;
   appointmentTime: string;
@@ -90,6 +91,7 @@ export class EmailService {
       lastName: appointment.lastName,
       email: appointment.email,
       phone: appointment.phone,
+      address: appointment.address,
       serviceType: appointment.serviceType,
       appointmentDate: new Date(appointment.appointmentDate),
       appointmentTime: appointment.appointmentTime,
@@ -307,6 +309,7 @@ export class EmailService {
         <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
+          ${appointmentData.address ? `<p style="margin: 0 0 10px 0;"><strong>Service Address:</strong> ${appointmentData.address}</p>` : ''}
           ${this.getServiceDetailsHtml(appointmentData)}
           ${appointmentData.notes ? `<p style="margin: 0;"><strong>Notes:</strong> ${appointmentData.notes}</p>` : ''}
         </div>
@@ -453,6 +456,7 @@ export class EmailService {
           <p style="margin: 0 0 10px 0;"><strong>Name:</strong> ${appointmentData.firstName} ${appointmentData.lastName}</p>
           <p style="margin: 0 0 10px 0;"><strong>Email:</strong> <a href="mailto:${appointmentData.email}">${appointmentData.email}</a></p>
           <p style="margin: 0 0 10px 0;"><strong>Phone:</strong> ${appointmentData.phone ? `<a href="tel:${appointmentData.phone}">${appointmentData.phone}</a>` : 'Not provided'}</p>
+          ${appointmentData.address ? `<p style="margin: 0 0 10px 0;"><strong>Service Address:</strong> ${appointmentData.address}</p>` : ''}
           ${appointmentData.notes ? `<p style="margin: 0;"><strong>Notes:</strong> ${appointmentData.notes}</p>` : ''}
         </div>
         
@@ -525,6 +529,7 @@ export class EmailService {
           <p style="margin: 0 0 10px 0;"><strong>Name:</strong> ${appointmentData.firstName} ${appointmentData.lastName}</p>
           <p style="margin: 0 0 10px 0;"><strong>Email:</strong> <a href="mailto:${appointmentData.email}">${appointmentData.email}</a></p>
           <p style="margin: 0 0 10px 0;"><strong>Phone:</strong> ${appointmentData.phone ? `<a href="tel:${appointmentData.phone}">${appointmentData.phone}</a>` : 'Not provided'}</p>
+          ${appointmentData.address ? `<p style="margin: 0 0 10px 0;"><strong>Service Address:</strong> ${appointmentData.address}</p>` : ''}
           ${appointmentData.notes ? `<p style="margin: 0;"><strong>Notes:</strong> ${appointmentData.notes}</p>` : ''}
         </div>
         
