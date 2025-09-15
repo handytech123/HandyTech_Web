@@ -20,12 +20,22 @@ import { insertAppointmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { format, parseISO, isAfter, addHours } from "date-fns";
 
-// Duration options for appointment booking
-const DURATION_OPTIONS = [
-  { value: "2", label: "2-Hour Block", description: "Quick repairs & installs", price: "Best for small fixes", color: "blue" },
-  { value: "4", label: "4-Hour Half Day", description: "Medium projects & multiple tasks", price: "Most Popular", color: "red" },
-  { value: "6", label: "6-Hour Full Day", description: "Large jobs & deep work", price: "Complex projects", color: "orange" }
-] as const;
+// Service interface
+interface Service {
+  id: number;
+  name: string;
+  suggestedHours: number;
+  description: string;
+  active: boolean;
+  category: string;
+}
+
+// Service category configuration
+const SERVICE_CATEGORIES = {
+  A: { label: "2-Hour Services", description: "Quick repairs & installs", color: "blue", hours: 2 },
+  B: { label: "4-Hour Services", description: "Medium projects & multiple tasks", color: "red", hours: 4 },
+  C: { label: "6-Hour Services", description: "Large jobs & deep work", color: "orange", hours: 6 }
+} as const;
 
 // Service type options
 const SERVICE_TYPES = [
@@ -51,7 +61,8 @@ const bookingFormSchema = insertAppointmentSchema.pick({
 }).extend({
   appointmentDate: z.date({ required_error: "Please select a date" }),
   appointmentTime: z.string().min(1, "Please select a time slot"),
-  duration: z.enum(["2", "4", "6"], { required_error: "Please select a duration" })
+  serviceId: z.number({ required_error: "Please select a service" }),
+  durationHours: z.number().min(1).max(12)
 });
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;
@@ -63,11 +74,28 @@ interface AvailableSlot {
 
 export default function AppointmentScheduler() {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedDuration, setSelectedDuration] = useState<string>("");
+  const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
-  const [currentStep, setCurrentStep] = useState<"duration" | "date" | "time" | "details">("duration");
+  const [currentStep, setCurrentStep] = useState<"service" | "date" | "time" | "details">("service");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
+
+  // Fetch services from API
+  const { data: services = [], isLoading: loadingServices, error: servicesError } = useQuery<Service[]>({
+    queryKey: ["/api/services"],
+  });
+
+  // Group services by category
+  const servicesByCategory = services.reduce((acc, service) => {
+    if (!acc[service.category]) {
+      acc[service.category] = [];
+    }
+    acc[service.category].push(service);
+    return acc;
+  }, {} as Record<string, Service[]>);
+
+  // Get selected duration from service
+  const selectedDuration = selectedService?.suggestedHours.toString() || "";
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
@@ -81,16 +109,16 @@ export default function AppointmentScheduler() {
     }
   });
 
-  // Fetch available time slots for selected date and duration
+  // Fetch available time slots for selected date and service
   const {
     data: availableSlots = [],
     isLoading: loadingSlots,
     error: slotsError,
     refetch: refetchSlots
   } = useQuery<string[]>({
-    queryKey: ["/api/availability", selectedDate, selectedDuration],
+    queryKey: ["/api/availability", selectedDate, selectedService?.id],
     queryFn: async () => {
-      if (!selectedDate || !selectedDuration) return [];
+      if (!selectedDate || !selectedService) return [];
       
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
@@ -101,7 +129,8 @@ export default function AppointmentScheduler() {
       const queryParams = new URLSearchParams({
         from: startOfDay.toISOString(),
         to: endOfDay.toISOString(),
-        hours: selectedDuration
+        hours: selectedService.suggestedHours.toString(),
+        serviceId: selectedService.id.toString()
       });
       
       const response = await fetch(`/api/availability?${queryParams}`);
@@ -113,7 +142,7 @@ export default function AppointmentScheduler() {
       const data = await response.json();
       return data.slots || [];
     },
-    enabled: !!selectedDate && !!selectedDuration,
+    enabled: !!selectedDate && !!selectedService,
   });
 
   // Book appointment mutation
@@ -132,7 +161,8 @@ export default function AppointmentScheduler() {
         notes: appointmentData.notes || null,
         appointmentDate: appointmentDateTime,
         appointmentTime: appointmentTimeString,
-        durationHours: Number(appointmentData.duration),
+        durationHours: appointmentData.durationHours,
+        serviceId: appointmentData.serviceId,
         source: "website"
       };
       
@@ -179,9 +209,9 @@ export default function AppointmentScheduler() {
 
   const formattedSlots = formatTimeSlots(availableSlots);
 
-  // Handle duration selection
-  const handleDurationSelect = (duration: string) => {
-    setSelectedDuration(duration);
+  // Handle service selection
+  const handleServiceSelect = (service: Service) => {
+    setSelectedService(service);
     setCurrentStep("date");
     setSelectedDate(undefined);
     setSelectedTimeSlot("");
@@ -202,7 +232,10 @@ export default function AppointmentScheduler() {
     setCurrentStep("details");
     
     // Set form values
-    form.setValue("duration", selectedDuration as "2" | "4" | "6");
+    if (selectedService) {
+      form.setValue("serviceId", selectedService.id);
+      form.setValue("durationHours", selectedService.suggestedHours);
+    }
     form.setValue("appointmentDate", selectedDate!);
     form.setValue("appointmentTime", timeSlot);
   };
@@ -213,10 +246,10 @@ export default function AppointmentScheduler() {
   };
 
   // Reset to step
-  const resetToStep = (step: "duration" | "date" | "time" | "details") => {
+  const resetToStep = (step: "service" | "date" | "time" | "details") => {
     setCurrentStep(step);
-    if (step === "duration") {
-      setSelectedDuration("");
+    if (step === "service") {
+      setSelectedService(undefined);
       setSelectedDate(undefined);
       setSelectedTimeSlot("");
     } else if (step === "date") {
@@ -242,7 +275,7 @@ export default function AppointmentScheduler() {
               <Button 
                 onClick={() => {
                   setIsSubmitted(false);
-                  resetToStep("duration");
+                  resetToStep("service");
                 }}
                 data-testid="button-book-another"
               >
@@ -277,7 +310,7 @@ export default function AppointmentScheduler() {
         <div className="flex justify-center mb-8">
           <div className="flex space-x-4">
             {[
-              { id: "duration", label: "Duration" },
+              { id: "service", label: "Service" },
               { id: "date", label: "Date" },
               { id: "time", label: "Time" },
               { id: "details", label: "Details" }
@@ -287,7 +320,7 @@ export default function AppointmentScheduler() {
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                     currentStep === step.id 
                       ? "bg-brand-red text-white" 
-                      : (index < ["duration", "date", "time", "details"].indexOf(currentStep))
+                      : (index < ["service", "date", "time", "details"].indexOf(currentStep))
                         ? "bg-green-500 text-white"
                         : "bg-gray-200 text-gray-600"
                   }`}
@@ -306,40 +339,79 @@ export default function AppointmentScheduler() {
           {/* Left Column - Selection Steps */}
           <div className="space-y-6">
 
-            {/* Step 1: Duration Selection */}
-            {currentStep === "duration" && (
-              <Card data-testid="card-duration-selection">
+            {/* Step 1: Service Selection */}
+            {currentStep === "service" && (
+              <Card data-testid="card-service-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-brand-red" />
-                    Step 1: Choose Appointment Duration
+                    <Wrench className="h-5 w-5 text-brand-red" />
+                    Step 1: Choose Service
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  {DURATION_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      onClick={() => handleDurationSelect(option.value)}
-                      variant="outline"
-                      className={`w-full p-6 h-auto text-left ${
-                        option.color === "red" ? "border-brand-red hover:bg-brand-red hover:text-white" : 
-                        option.color === "blue" ? "border-blue-500 hover:bg-blue-500 hover:text-white" :
-                        "border-orange-500 hover:bg-orange-500 hover:text-white"
-                      }`}
-                      data-testid={`button-duration-${option.value}`}
-                    >
-                      <div className="flex items-center justify-between w-full">
-                        <div>
-                          <div className="font-semibold text-lg">{option.label}</div>
-                          <div className="text-sm opacity-75">{option.description}</div>
-                          {option.price === "Most Popular" && (
-                            <Badge className="mt-1 bg-brand-red text-white">{option.price}</Badge>
-                          )}
+                <CardContent className="space-y-6">
+                  {loadingServices ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
+                      <span className="ml-2 text-gray-600">Loading services...</span>
+                    </div>
+                  ) : servicesError ? (
+                    <Alert variant="destructive">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription>
+                        Failed to load services. Please refresh the page.
+                      </AlertDescription>
+                    </Alert>
+                  ) : (
+                    Object.entries(SERVICE_CATEGORIES).map(([category, categoryInfo]) => {
+                      const categoryServices = servicesByCategory[category] || [];
+                      if (categoryServices.length === 0) return null;
+
+                      return (
+                        <div key={category} className="space-y-3">
+                          <div className="flex items-center gap-2">
+                            <div className={`w-3 h-3 rounded-full ${
+                              categoryInfo.color === "blue" ? "bg-blue-500" :
+                              categoryInfo.color === "red" ? "bg-brand-red" :
+                              "bg-orange-500"
+                            }`}></div>
+                            <h3 className="font-semibold text-lg text-gray-800">
+                              {categoryInfo.label} ({categoryInfo.hours}h)
+                            </h3>
+                            <Badge variant="outline" className="text-xs">
+                              {categoryInfo.description}
+                            </Badge>
+                          </div>
+                          <div className="grid gap-2">
+                            {categoryServices.map((service) => (
+                              <Button
+                                key={service.id}
+                                onClick={() => handleServiceSelect(service)}
+                                variant="outline"
+                                className={`w-full p-4 h-auto text-left justify-start ${
+                                  categoryInfo.color === "red" ? "border-brand-red hover:bg-brand-red hover:text-white" : 
+                                  categoryInfo.color === "blue" ? "border-blue-500 hover:bg-blue-500 hover:text-white" :
+                                  "border-orange-500 hover:bg-orange-500 hover:text-white"
+                                }`}
+                                data-testid={`button-service-${service.id}`}
+                              >
+                                <div className="flex items-center justify-between w-full">
+                                  <div className="text-left">
+                                    <div className="font-semibold">{service.name}</div>
+                                    <div className="text-sm opacity-75">{service.description}</div>
+                                  </div>
+                                  <div className="flex items-center gap-1 text-sm font-medium opacity-75">
+                                    <Clock className="h-4 w-4" />
+                                    {service.suggestedHours}h
+                                  </div>
+                                </div>
+                              </Button>
+                            ))}
+                          </div>
+                          {category !== "C" && <Separator className="my-4" />}
                         </div>
-                        <Clock className="h-8 w-8 opacity-60" />
-                      </div>
-                    </Button>
-                  ))}
+                      );
+                    })
+                  )}
                 </CardContent>
               </Card>
             )}
@@ -354,17 +426,17 @@ export default function AppointmentScheduler() {
                     <Button 
                       variant="outline" 
                       size="sm" 
-                      onClick={() => resetToStep("duration")}
-                      data-testid="button-change-duration"
+                      onClick={() => resetToStep("service")}
+                      data-testid="button-change-service"
                     >
-                      Change Duration
+                      Change Service
                     </Button>
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="mb-4">
                     <Badge variant="outline" className="mb-2">
-                      Selected: {DURATION_OPTIONS.find(d => d.value === selectedDuration)?.label}
+                      Selected: {selectedService?.name} ({selectedService?.suggestedHours}h)
                     </Badge>
                   </div>
                   <Calendar
@@ -405,7 +477,7 @@ export default function AppointmentScheduler() {
                 <CardContent>
                   <div className="mb-4 space-y-2">
                     <Badge variant="outline">
-                      Duration: {DURATION_OPTIONS.find(d => d.value === selectedDuration)?.label}
+                      Service: {selectedService?.name} ({selectedService?.suggestedHours}h)
                     </Badge>
                     <Badge variant="outline">
                       Date: {selectedDate && format(selectedDate, "EEEE, MMMM do, yyyy")}
@@ -607,13 +679,13 @@ export default function AppointmentScheduler() {
               </CardHeader>
               <CardContent className="space-y-4">
                 
-                {selectedDuration && (
+                {selectedService && (
                   <div className="flex items-center gap-3">
-                    <Clock className="h-4 w-4 text-gray-500" />
+                    <Wrench className="h-4 w-4 text-gray-500" />
                     <div>
-                      <span className="font-medium">Duration: </span>
-                      <span data-testid="text-selected-duration">
-                        {DURATION_OPTIONS.find(d => d.value === selectedDuration)?.label}
+                      <span className="font-medium">Service: </span>
+                      <span data-testid="text-selected-service">
+                        {selectedService.name} ({selectedService.suggestedHours}h)
                       </span>
                     </div>
                   </div>
@@ -664,11 +736,11 @@ export default function AppointmentScheduler() {
                   </div>
                 </div>
 
-                {currentStep === "duration" && (
+                {currentStep === "service" && (
                   <Alert>
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
-                      Select your appointment duration to get started. All time blocks include travel within 20 miles of Hazelwood, MO.
+                      Choose from our professional handyman services to get started. All services include travel within 20 miles of Hazelwood, MO.
                     </AlertDescription>
                   </Alert>
                 )}
