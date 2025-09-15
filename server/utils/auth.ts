@@ -20,7 +20,8 @@ function validateRequiredEnvVars(): void {
   
   // Additional requirements for production
   if (isProduction) {
-    required.push('SESSION_SECRET', 'ALLOWED_ORIGINS');
+    required.push('SESSION_SECRET');
+    // Note: ALLOWED_ORIGINS is optional - fallback CORS configuration will be used if not set
   }
   
   const missing = required.filter(key => !process.env[key] || process.env[key]!.trim() === '');
@@ -34,8 +35,7 @@ function validateRequiredEnvVars(): void {
       '- ADMIN_USERNAME: The admin username for accessing the admin panel\n' +
       '- ADMIN_PASSWORD: A strong password for admin authentication\n' +
       (isProduction ? '\nProduction-specific requirements:\n' +
-        '- SESSION_SECRET: A strong random secret for session encryption (at least 32 characters)\n' +
-        '- ALLOWED_ORIGINS: Comma-separated list of allowed CORS origins (no wildcards)\n' : '') +
+        '- SESSION_SECRET: A strong random secret for session encryption (at least 32 characters)\n' : '') +
       '\nPlease set these environment variables and restart the application.'
     );
   }
@@ -56,9 +56,9 @@ function validateRequiredEnvVars(): void {
     );
   }
   
-  // Validate ALLOWED_ORIGINS in production
-  if (isProduction) {
-    const allowedOrigins = process.env.ALLOWED_ORIGINS!;
+  // Validate ALLOWED_ORIGINS in production (if set)
+  if (isProduction && process.env.ALLOWED_ORIGINS) {
+    const allowedOrigins = process.env.ALLOWED_ORIGINS;
     const origins = allowedOrigins.split(',').map(origin => origin.trim());
     
     // Check for wildcards in production
@@ -78,6 +78,13 @@ function validateRequiredEnvVars(): void {
         'Consider using HTTPS for better security.'
       );
     }
+  } else if (isProduction && !process.env.ALLOWED_ORIGINS) {
+    // Warn when ALLOWED_ORIGINS is not set in production
+    console.warn(
+      'SECURITY WARNING: ALLOWED_ORIGINS not set in production.\n' +
+      'Using fallback CORS configuration. For better security, set ALLOWED_ORIGINS\n' +
+      'to a comma-separated list of your specific domains (e.g., "https://yourdomain.com,https://app.yourdomain.com").'
+    );
   }
 }
 
