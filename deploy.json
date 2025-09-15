@@ -1,4 +1,195 @@
 {
+  "START_HERE": {
+    "title": "REPLIT DEPLOYMENT APP - BEGIN DEPLOYMENT",
+    "instructions": "Follow these steps in EXACT order. Do not skip steps. Validate each step before proceeding.",
+    "automation_ready": true,
+    "deployment_order": [
+      "1. Verify required files exist",
+      "2. Install Node.js 20.x",
+      "3. Create PostgreSQL database", 
+      "4. Set environment variables",
+      "5. Install dependencies with npm ci",
+      "6. Run database push",
+      "7. Build application",
+      "8. Start application",
+      "9. Validate deployment"
+    ],
+    "critical_note": "STOP after each step and verify it worked before proceeding to next step"
+  },
+
+  "automationInstructions": {
+    "preDeploymentChecks": [
+      {
+        "check": "Node.js version",
+        "command": "node --version",
+        "expectedOutput": "v20",
+        "required": true
+      },
+      {
+        "check": "PostgreSQL available",
+        "command": "which psql || echo 'Need PostgreSQL'",
+        "required": true
+      },
+      {
+        "check": "Required files exist",
+        "files": ["package.json", "server/index.ts", "shared/schema.ts"],
+        "required": true
+      }
+    ],
+
+    "deploymentSteps": [
+      {
+        "step": 1,
+        "title": "Database Setup",
+        "action": "Create PostgreSQL database and get connection string",
+        "commands": [
+          "# Create database (use Replit database creation tool)",
+          "# Save DATABASE_URL to environment"
+        ],
+        "validation": {
+          "command": "echo $DATABASE_URL | grep postgresql",
+          "expectedOutput": "postgresql://",
+          "stopIfFail": true
+        },
+        "notes": "DATABASE_URL must be set before proceeding"
+      },
+      {
+        "step": 2,
+        "title": "Environment Variables Setup",
+        "action": "Set all required environment variables from requiredSecrets section",
+        "commands": [
+          "# Set DATABASE_URL (from step 1)",
+          "# Set SESSION_SECRET (generate 32+ char string)",
+          "# Set ADMIN_PASS (strong password)",
+          "# Set ADMIN_EMAIL",
+          "# Set SMTP_* variables for email",
+          "# Set GOOGLE_* variables for calendar"
+        ],
+        "validation": {
+          "commands": [
+            "echo $DATABASE_URL | grep postgresql",
+            "echo $SESSION_SECRET | wc -c | grep -E '[3-9][0-9]|[0-9]{3,}'",
+            "echo $ADMIN_PASS",
+            "echo $ADMIN_EMAIL"
+          ],
+          "stopIfFail": true
+        },
+        "required_variables": [
+          "DATABASE_URL",
+          "SESSION_SECRET", 
+          "ADMIN_PASS",
+          "ADMIN_EMAIL",
+          "SMTP_HOST",
+          "SMTP_USER", 
+          "SMTP_PASS",
+          "GOOGLE_CLIENT_ID",
+          "GOOGLE_CLIENT_SECRET",
+          "GOOGLE_REDIRECT_URI"
+        ]
+      },
+      {
+        "step": 3,
+        "title": "Dependencies Installation",
+        "action": "Install Node.js dependencies",
+        "commands": [
+          "npm ci"
+        ],
+        "validation": {
+          "command": "ls node_modules && npm list --depth=0",
+          "expectedFiles": ["node_modules/express", "node_modules/drizzle-orm"],
+          "stopIfFail": true
+        }
+      },
+      {
+        "step": 4,
+        "title": "Database Schema Setup",
+        "action": "Push database schema to PostgreSQL",
+        "commands": [
+          "npm run db:push"
+        ],
+        "validation": {
+          "command": "npm run db:push --dry-run || echo 'Schema check'",
+          "notes": "Verify no critical errors in schema push",
+          "stopIfFail": true
+        }
+      },
+      {
+        "step": 5,
+        "title": "Application Build", 
+        "action": "Build React frontend and prepare for production",
+        "commands": [
+          "npm run build"
+        ],
+        "validation": {
+          "command": "ls dist && ls dist/public",
+          "expectedFiles": ["dist/public/index.html", "dist/public/assets"],
+          "stopIfFail": true
+        }
+      },
+      {
+        "step": 6,
+        "title": "Application Start",
+        "action": "Start the application server",
+        "commands": [
+          "npm start"
+        ],
+        "validation": {
+          "command": "curl -f http://localhost:5000/api/health || wget -q --spider http://localhost:5000/api/health",
+          "expectedOutput": "healthy",
+          "timeout": 30,
+          "stopIfFail": true
+        },
+        "notes": "Application should be accessible on port 5000"
+      }
+    ],
+
+    "postDeploymentValidation": [
+      {
+        "test": "Health Check",
+        "command": "curl -f http://localhost:5000/api/health",
+        "expectedOutput": "healthy",
+        "critical": true
+      },
+      {
+        "test": "Admin Portal Access",
+        "command": "curl -f http://localhost:5000/admin",
+        "expectedOutput": "200",
+        "critical": true
+      },
+      {
+        "test": "Database Connection",
+        "command": "curl -f http://localhost:5000/api/customers",
+        "expectedOutput": "[]",
+        "critical": true
+      },
+      {
+        "test": "Environment Variables",
+        "validation": "All required environment variables must be set",
+        "critical": true
+      }
+    ],
+
+    "troubleshooting": {
+      "common_issues": [
+        {
+          "issue": "Database connection failed",
+          "solution": "Verify DATABASE_URL format: postgresql://username:password@hostname:port/database",
+          "check_command": "echo $DATABASE_URL"
+        },
+        {
+          "issue": "Build failed",
+          "solution": "Ensure Node.js 20.x is installed and dependencies are installed",
+          "check_command": "node --version && ls node_modules"
+        },
+        {
+          "issue": "Health check fails",
+          "solution": "Check application logs and ensure all environment variables are set",
+          "check_command": "npm run logs || journalctl -u handytech"
+        }
+      ]
+    }
+  },
+
   "appName": "HandyTech Solutions",
   "version": "6.0.0",
   "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, redesigned customer portal with magic link authentication, AI chatbot, automated email notifications, and complete subscription management capabilities",
