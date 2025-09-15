@@ -237,6 +237,18 @@ export default function AppointmentScheduler() {
     setCurrentStep("contact");
     // Clear previous service selection
     setSelectedService(undefined);
+    
+    // Add smooth scroll to ensure Step 2 contact form is visible
+    setTimeout(() => {
+      const contactSection = document.querySelector('[data-testid="card-contact-details"]');
+      if (contactSection) {
+        contactSection.scrollIntoView({ 
+          behavior: 'smooth', 
+          block: 'start',
+          inline: 'nearest' 
+        });
+      }
+    }, 100);
   };
 
   // Handle service selection
