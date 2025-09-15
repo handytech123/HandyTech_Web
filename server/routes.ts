@@ -1372,6 +1372,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin reviews endpoint - shows all reviews (pending and approved)
+  app.get("/api/admin/reviews", requireAdmin, async (req, res) => {
+    try {
+      const reviews = await storage.getAllReviews();
+      res.json(reviews);
+    } catch (error) {
+      console.error("Admin reviews fetch error:", error);
+      res.status(500).json({ message: "Failed to fetch admin reviews" });
+    }
+  });
+
   // Customer review submission endpoint
   app.post("/api/reviews/submit", async (req, res) => {
     try {

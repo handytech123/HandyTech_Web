@@ -44,7 +44,7 @@ function AuthenticatedDashboard() {
   });
 
   const { data: reviews = [] } = useQuery<Review[]>({
-    queryKey: ["/api/reviews"]
+    queryKey: ["/api/admin/reviews"]
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -64,7 +64,7 @@ function AuthenticatedDashboard() {
       await apiRequest(`/api/reviews/${reviewId}/approve`, "PATCH");
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/reviews"] });
     }
   });
 

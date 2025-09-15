@@ -53,6 +53,7 @@ export interface IStorage {
 
   // Reviews
   getReview(id: number): Promise<Review | undefined>;
+  getAllReviews(): Promise<Review[]>;
   getApprovedReviews(): Promise<Review[]>;
   getReviewsByCustomer(customerId: number): Promise<Review[]>;
   createReview(review: InsertReview): Promise<Review>;
@@ -275,6 +276,7 @@ export class MemStorage implements IStorage {
       phone: customer1.phone,
       address: "123 Main St",
       serviceType: "IT Support",
+      serviceId: null,
       appointmentDate: new Date("2024-02-20"),
       appointmentTime: "10:00 AM",
       startTimestamptz: new Date("2024-02-20T10:00:00Z"),
@@ -299,6 +301,7 @@ export class MemStorage implements IStorage {
       phone: customer1.phone,
       address: "123 Main St",
       serviceType: "Network Setup",
+      serviceId: null,
       appointmentDate: new Date("2024-01-25"),
       appointmentTime: "2:00 PM",
       startTimestamptz: new Date("2024-01-25T14:00:00Z"),
@@ -323,6 +326,7 @@ export class MemStorage implements IStorage {
       phone: customer2.phone,
       address: "456 Oak Ave",
       serviceType: "Smart Home Installation",
+      serviceId: null,
       appointmentDate: new Date("2024-03-10"),
       appointmentTime: "9:00 AM",
       startTimestamptz: new Date("2024-03-10T09:00:00Z"),
@@ -347,6 +351,7 @@ export class MemStorage implements IStorage {
       phone: customer2.phone,
       address: "456 Oak Ave",
       serviceType: "System Maintenance",
+      serviceId: null,
       appointmentDate: new Date("2024-02-15"),
       appointmentTime: "11:00 AM",
       startTimestamptz: new Date("2024-02-15T11:00:00Z"),
@@ -371,6 +376,7 @@ export class MemStorage implements IStorage {
       phone: customer1.phone,
       address: "123 Main St",
       serviceType: "Data Recovery",
+      serviceId: null,
       appointmentDate: new Date("2024-01-12"),
       appointmentTime: "1:00 PM",
       startTimestamptz: new Date("2024-01-12T13:00:00Z"),
@@ -558,6 +564,10 @@ export class MemStorage implements IStorage {
     return this.reviews.get(id);
   }
 
+  async getAllReviews(): Promise<Review[]> {
+    return Array.from(this.reviews.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
   async getApprovedReviews(): Promise<Review[]> {
     return Array.from(this.reviews.values()).filter(review => review.isApproved);
   }
@@ -690,6 +700,7 @@ export class MemStorage implements IStorage {
       phone: insertAppointment.phone || null,
       address: insertAppointment.address || null,
       notes: insertAppointment.notes || null,
+      serviceId: insertAppointment.serviceId || null,
       startTimestamptz: startTimestamp || null,
       endTimestamptz: endTimestamp || null,
       rescheduleToken: insertAppointment.rescheduleToken || null,
@@ -1294,6 +1305,10 @@ export class DatabaseStorage implements IStorage {
   async getReview(id: number): Promise<Review | undefined> {
     const [review] = await db.select().from(reviews).where(eq(reviews.id, id));
     return review;
+  }
+
+  async getAllReviews(): Promise<Review[]> {
+    return await db.select().from(reviews).orderBy(desc(reviews.createdAt));
   }
 
   async getApprovedReviews(): Promise<Review[]> {
