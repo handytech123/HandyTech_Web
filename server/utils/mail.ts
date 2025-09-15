@@ -64,7 +64,7 @@ export class EmailService {
   private isConfigured: boolean = false;
 
   constructor() {
-    this.fromEmail = process.env.FROM_EMAIL || 'service@handytech-solutions.com';
+    this.fromEmail = process.env.FROM_EMAIL || 'contact@handytech-solutions.com';
     this.adminEmail = process.env.ADMIN_EMAIL || 'admin@handytech-solutions.com';
     this.businessName = process.env.BUSINESS_NAME || 'HandyTech Solutions';
     this.businessPhone = process.env.BUSINESS_PHONE || '(314) 325-4575';
@@ -894,6 +894,171 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to send test email:', error);
+      return false;
+    }
+  }
+
+  async send24HourReminder(data: { customerName: string; customerEmail: string; appointmentDate: string; appointmentTime: string; serviceType: string; description?: string }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping 24-hour reminder');
+      return false;
+    }
+
+    try {
+      const formattedDate = this.formatDate(new Date(data.appointmentDate));
+      const formattedTime = this.formatTime(data.appointmentTime);
+      
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Reminder</h2>
+        
+        <p>Hi ${data.customerName},</p>
+        
+        <p>Just a friendly reminder that your HandyTech appointment is scheduled for <strong>tomorrow</strong>!</p>
+        
+        <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Tomorrow:</strong> ${formattedDate}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
+          ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${data.description}</p>` : ''}
+        </div>
+        
+        <p>Our technician will arrive within a 30-minute window of your scheduled time. Please ensure someone is available to provide access to the work area.</p>
+        
+        <p>If you need to reschedule, please call us at <strong>${this.businessPhone}</strong> as soon as possible.</p>
+        
+        <p>We're looking forward to helping you tomorrow!</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: data.customerEmail,
+        subject: `Reminder: Your HandyTech Appointment is Tomorrow`,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Reminder System`,
+          'X-Reminder-Type': '24-hour'
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`24-hour reminder email sent successfully to ${data.customerEmail}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send 24-hour reminder:', error);
+      return false;
+    }
+  }
+
+  async send2HourReminder(data: { customerName: string; customerEmail: string; appointmentDate: string; appointmentTime: string; serviceType: string; description?: string }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping 2-hour reminder');
+      return false;
+    }
+
+    try {
+      const formattedTime = this.formatTime(data.appointmentTime);
+      
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">We're On Our Way!</h2>
+        
+        <p>Hi ${data.customerName},</p>
+        
+        <p>Our technician will arrive for your appointment in approximately <strong>2 hours</strong>!</p>
+        
+        <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+          <p style="margin: 0 0 10px 0;"><strong>Expected Arrival:</strong> ${formattedTime} (within 30 minutes)</p>
+          <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
+          ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${data.description}</p>` : ''}
+        </div>
+        
+        <p>Please ensure:</p>
+        <ul>
+          <li>Someone is available to provide access</li>
+          <li>The work area is accessible</li>
+          <li>Any pets are secured</li>
+        </ul>
+        
+        <p>Our technician will call if there are any delays. For urgent matters, call us at <strong>${this.businessPhone}</strong>.</p>
+        
+        <p>Thank you for choosing ${this.businessName}!</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: data.customerEmail,
+        subject: `We'll See You Soon! - HandyTech Arriving in 2 Hours`,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Reminder System`,
+          'X-Reminder-Type': '2-hour'
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`2-hour reminder email sent successfully to ${data.customerEmail}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send 2-hour reminder:', error);
+      return false;
+    }
+  }
+
+  async sendFollowUpEmail(data: { customerName: string; customerEmail: string; appointmentDate: string; appointmentTime: string; serviceType: string; description?: string }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping follow-up email');
+      return false;
+    }
+
+    try {
+      const reviewUrl = `${this.baseUrl}/leave-review`;
+      
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">How Was Your HandyTech Service?</h2>
+        
+        <p>Hi ${data.customerName},</p>
+        
+        <p>We hope you're satisfied with the <strong>${data.serviceType}</strong> service we completed for you. Your feedback is important to us!</p>
+        
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #333;">Please take a moment to:</h3>
+          <ul style="margin: 10px 0; padding-left: 20px;">
+            <li>Rate your experience</li>
+            <li>Leave a review of our service</li>
+            <li>Let us know how we can improve</li>
+          </ul>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${reviewUrl}" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Leave a Review</a>
+        </div>
+        
+        <p>If you need any additional work or have questions about our service, please don't hesitate to call us at <strong>${this.businessPhone}</strong>.</p>
+        
+        <p>Thank you for choosing ${this.businessName}! We appreciate your business.</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: data.customerEmail,
+        subject: `How Was Your HandyTech Service?`,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Follow-up System`,
+          'X-Email-Type': 'follow-up'
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Follow-up email sent successfully to ${data.customerEmail}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send follow-up email:', error);
       return false;
     }
   }

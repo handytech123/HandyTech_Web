@@ -1,13 +1,13 @@
 import { storage } from './storage';
-import { BrevoEmailService } from './brevo-service';
+import { EmailService } from './utils/mail';
 
 export class ReminderScheduler {
-  private emailService: BrevoEmailService;
+  private emailService: EmailService;
   private isRunning: boolean = false;
   private intervalId?: NodeJS.Timeout;
 
   constructor() {
-    this.emailService = new BrevoEmailService();
+    this.emailService = new EmailService();
   }
 
   start() {
