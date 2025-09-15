@@ -3,8 +3,15 @@
   { "id": 2, "name": "Toilet Swap", "suggestedHours": 2, "description": "Remove/replace toilet; wax ring; leak test", "active": true, "category": "A" },
   { "id": 3, "name": "Ceiling Fan Install", "suggestedHours": 2, "description": "Replace existing light with fan", "active": true, "category": "A" },
   { "id": 4, "name": "Light Fixture Replacement", "suggestedHours": 2, "description": "Replace existing ceiling/wall fixture", "active": true, "category": "A" },
+  { "id": 5, "name": "TV Wall Mount", "suggestedHours": 2, "description": "Mount TV to wall; hide cables", "active": true, "category": "A" },
+  { "id": 6, "name": "Drywall Patch (small)", "suggestedHours": 2, "description": "Patch small holes; sand & prime", "active": true, "category": "A" },
+  { "id": 7, "name": "Furniture Assembly (small/medium item)", "suggestedHours": 2, "description": "Assemble furniture using provided instructions", "active": true, "category": "A" },
+  { "id": 8, "name": "Grab Bar Installation", "suggestedHours": 2, "description": "Install grab bar; wall anchors", "active": true, "category": "A" },
+  { "id": 9, "name": "Garbage Disposal Install", "suggestedHours": 2, "description": "Install/replace disposal; electrical & plumbing", "active": true, "category": "A" },
   { "id": 101, "name": "Single-Room Painting", "suggestedHours": 4, "description": "Walls + trim; minor prep", "active": true, "category": "B" },
   { "id": 102, "name": "Vanity + Sink Replacement", "suggestedHours": 4, "description": "Replace vanity & top; reconnect plumbing", "active": true, "category": "B" },
+  { "id": 103, "name": "Dishwasher Install/Replace", "suggestedHours": 4, "description": "Install/replace dishwasher; plumbing & electrical", "active": true, "category": "B" },
+  { "id": 104, "name": "Over-the-Range Microwave Install", "suggestedHours": 4, "description": "Mount microwave; electrical connection", "active": true, "category": "B" },
   { "id": 201, "name": "Multi-Room Painting", "suggestedHours": 6, "description": "Two+ rooms; more prep", "active": true, "category": "C" },
   { "id": 202, "name": "Small Bathroom Remodel", "suggestedHours": 6, "description": "Toilet/vanity/light/drywall/paint bundle", "active": true, "category": "C" }
 ]
