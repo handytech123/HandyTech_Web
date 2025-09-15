@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare, TestTube, Edit, Trash2, RefreshCw, User, MoreVertical } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare, TestTube, Edit, Trash2, RefreshCw, User, MoreVertical, Home } from "lucide-react";
+import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -180,6 +181,14 @@ function AuthenticatedDashboard() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <Link 
+                href="/" 
+                className="text-brand-red hover:underline inline-flex items-center gap-1 text-sm"
+                data-testid="link-back-to-main-site"
+              >
+                <Home className="h-4 w-4" />
+                Main Site
+              </Link>
               <Button 
                 variant="outline"
                 onClick={() => window.location.href = '/live-chat'}

@@ -6,7 +6,8 @@ import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Clock, User, MessageSquare, AlertCircle } from 'lucide-react';
+import { Clock, User, MessageSquare, AlertCircle, Home } from 'lucide-react';
+import { Link } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 
 interface ChatMessage {
@@ -101,8 +102,20 @@ export default function LiveChatAdmin() {
   return (
     <div className="container mx-auto p-6">
       <div className="mb-6">
-        <h1 className="text-3xl font-bold text-gray-900">Live Chat Management</h1>
-        <p className="text-gray-600">Monitor and respond to customer chat requests</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-gray-900">Live Chat Management</h1>
+            <p className="text-gray-600">Monitor and respond to customer chat requests</p>
+          </div>
+          <Link 
+            href="/" 
+            className="text-brand-red hover:underline inline-flex items-center gap-1 text-sm"
+            data-testid="link-back-to-main-site"
+          >
+            <Home className="h-4 w-4" />
+            Main Site
+          </Link>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

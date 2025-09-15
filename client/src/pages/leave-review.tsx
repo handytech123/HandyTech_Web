@@ -1,4 +1,6 @@
 import { Helmet } from 'react-helmet';
+import { Link } from "wouter";
+import { ArrowLeft } from "lucide-react";
 import CustomerReviewForm from "@/components/customer-review-form";
 
 export default function LeaveReview() {
@@ -14,6 +16,18 @@ export default function LeaveReview() {
         <meta name="robots" content="noindex, follow" />
       </Helmet>
       <div className="max-w-4xl mx-auto">
+        {/* Navigation back to main site */}
+        <div className="mb-6">
+          <Link 
+            href="/" 
+            className="text-brand-red hover:underline inline-flex items-center gap-2 text-sm font-medium"
+            data-testid="link-back-to-homepage"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Back to HandyTech Solutions
+          </Link>
+        </div>
+        
         <div className="text-center mb-12">
           <h1 className="text-4xl font-bold text-charcoal mb-4">
             Leave a Review

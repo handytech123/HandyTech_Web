@@ -17,7 +17,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
 import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema, type ServiceHistoryItem } from "@shared/schema";
-import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone, FileText, Search, Download, DollarSign } from "lucide-react";
+import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone, FileText, Search, Download, DollarSign, Home } from "lucide-react";
+import { Link } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
 
@@ -583,9 +584,19 @@ export default function CustomerPortal() {
       
       <div className="bg-charcoal text-white py-4">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
-          <h1 className="text-2xl font-bold">
-            HandyTech<span className="text-brand-red">Solutions</span> Customer Portal
-          </h1>
+          <div className="flex items-center gap-4">
+            <h1 className="text-2xl font-bold">
+              HandyTech<span className="text-brand-red">Solutions</span> Customer Portal
+            </h1>
+            <Link 
+              href="/" 
+              className="text-white hover:text-brand-red inline-flex items-center gap-1 text-sm"
+              data-testid="link-back-to-main-site"
+            >
+              <Home className="h-4 w-4" />
+              Main Site
+            </Link>
+          </div>
           <Button
             variant="outline"
             size="sm"

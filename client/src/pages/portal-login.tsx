@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { Mail, ArrowLeft } from "lucide-react";
+import { Mail, ArrowLeft, Home } from "lucide-react";
 import { Link } from "wouter";
 
 const loginSchema = z.object({

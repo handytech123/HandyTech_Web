@@ -19,8 +19,10 @@ import {
   CheckCircle, 
   AlertCircle, 
   Loader2,
-  ArrowRight
+  ArrowRight,
+  Home
 } from "lucide-react";
+import { Link } from "wouter";
 import { format, parseISO, isAfter, addHours } from "date-fns";
 
 interface AppointmentDetails {
@@ -235,10 +237,18 @@ export default function ReschedulePage() {
       </Helmet>
 
       <div className="bg-charcoal text-white py-6">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-2xl font-bold">
             HandyTech<span className="text-brand-red">Solutions</span> - Reschedule Appointment
           </h1>
+          <Link 
+            href="/" 
+            className="text-white hover:text-brand-red inline-flex items-center gap-1 text-sm"
+            data-testid="link-back-to-main-site"
+          >
+            <Home className="h-4 w-4" />
+            Main Site
+          </Link>
         </div>
       </div>
 
