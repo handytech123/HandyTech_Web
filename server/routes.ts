@@ -1352,6 +1352,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const reviewData = insertReviewSchema.parse(req.body);
       const review = await storage.createReview(reviewData);
+      
+      // Send admin notification email for new review
+      try {
+        const customer = await storage.getCustomer(reviewData.customerId);
+        if (customer) {
+          await emailService.sendReviewNotification({
+            customerName: `${customer.firstName} ${customer.lastName}`,
+            customerEmail: customer.email,
+            serviceType: undefined, // serviceType not available in regular review schema
+            rating: reviewData.rating,
+            title: reviewData.title,
+            content: reviewData.content,
+            submittedAt: new Date()
+          });
+          console.log(`Review notification email sent for new review from ${customer.firstName} ${customer.lastName} (${reviewData.rating} stars)`);
+        }
+      } catch (emailError) {
+        console.error('Failed to send review notification email:', emailError);
+        // Don't fail the request if email fails
+      }
+      
       res.status(201).json(review);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1430,10 +1451,86 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       const review = await storage.createReview(reviewData);
+      
+      // Send admin notification email for new review
+      try {
+        await emailService.sendReviewNotification({
+          customerName: `${customer.firstName} ${customer.lastName}`,
+          customerEmail: customer.email,
+          serviceType: serviceType || undefined,
+          rating: parseInt(rating),
+          title,
+          content,
+          submittedAt: new Date()
+        });
+        console.log(`Review notification email sent for new review from ${customer.firstName} ${customer.lastName} (${rating} stars)`);
+      } catch (emailError) {
+        console.error('Failed to send review notification email:', emailError);
+        // Don't fail the request if email fails
+      }
+      
       res.status(201).json(review);
     } catch (error) {
       console.error("Error creating customer review:", error);
       res.status(500).json({ message: "Failed to submit review" });
+    }
+  });
+
+  // Email debugging and testing routes (admin only)
+  app.get("/api/admin/email/config", requireAdmin, async (req, res) => {
+    try {
+      const config = emailService.getEmailConfig();
+      res.json({
+        success: true,
+        config
+      });
+    } catch (error) {
+      console.error("Email config fetch error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to fetch email configuration" 
+      });
+    }
+  });
+
+  app.post("/api/admin/email/test", requireAdmin, async (req, res) => {
+    try {
+      const { email } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ 
+          success: false, 
+          message: "Email address is required" 
+        });
+      }
+      
+      const result = await emailService.sendTestEmail(email);
+      res.json({
+        success: result,
+        message: result ? "Test email sent successfully" : "Failed to send test email"
+      });
+    } catch (error) {
+      console.error("Test email error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to send test email" 
+      });
+    }
+  });
+
+  app.post("/api/admin/email/verify", requireAdmin, async (req, res) => {
+    try {
+      const result = await emailService.verifyConnection();
+      res.json({
+        success: result,
+        message: result ? "Email service connection verified" : "Email service connection failed"
+      });
+    } catch (error) {
+      console.error("Email verification error:", error);
+      res.status(500).json({ 
+        success: false, 
+        message: "Failed to verify email connection" 
+      });
     }
   });
 

@@ -44,6 +44,16 @@ interface SubscriptionReactivationEmailData {
   nextBillingDate: Date;
 }
 
+interface ReviewNotificationEmailData {
+  customerName: string;
+  customerEmail: string;
+  serviceType?: string;
+  rating: number;
+  title: string;
+  content: string;
+  submittedAt: Date;
+}
+
 export class EmailService {
   private transporter!: nodemailer.Transporter;
   private fromEmail: string;
@@ -778,6 +788,131 @@ export class EmailService {
       console.error('Email service connection failed:', error);
       return false;
     }
+  }
+
+  async sendReviewNotification(reviewData: ReviewNotificationEmailData): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping review notification');
+      return false;
+    }
+
+    try {
+      const ratingStars = '★'.repeat(reviewData.rating) + '☆'.repeat(5 - reviewData.rating);
+      const formattedDate = this.formatDateTime(reviewData.submittedAt);
+
+      const subject = `New Review Requires Approval - ${reviewData.rating} Star${reviewData.rating !== 1 ? 's' : ''} from ${reviewData.customerName}`;
+
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">New Customer Review Submitted</h2>
+        
+        <p>A new customer review has been submitted and requires your approval.</p>
+        
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #333;">Review Details</h3>
+          <p style="margin: 0 0 10px 0;"><strong>Customer:</strong> ${reviewData.customerName}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Email:</strong> ${reviewData.customerEmail}</p>
+          ${reviewData.serviceType ? `<p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${reviewData.serviceType}</p>` : ''}
+          <p style="margin: 0 0 10px 0;"><strong>Rating:</strong> ${ratingStars} (${reviewData.rating}/5)</p>
+          <p style="margin: 0 0 10px 0;"><strong>Title:</strong> ${reviewData.title}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Submitted:</strong> ${formattedDate}</p>
+        </div>
+        
+        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #333;">Review Content:</h4>
+          <p style="margin: 0; font-style: italic;">"${reviewData.content}"</p>
+        </div>
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${this.baseUrl}/admin#reviews" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Review & Approve</a>
+        </div>
+        
+        <p>Please review this submission and approve or reject it through the admin panel.</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName} Reviews" <${this.fromEmail}>`,
+        to: this.adminEmail,
+        subject: subject,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Review System`,
+          'X-Priority': '3', // Normal priority
+          'X-Review-Rating': reviewData.rating.toString(),
+          'X-Customer-Email': reviewData.customerEmail
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Review notification email sent to admin for customer ${reviewData.customerName} (${reviewData.rating} stars)`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send review notification email:', error);
+      return false;
+    }
+  }
+
+  async sendTestEmail(toEmail: string): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, cannot send test email');
+      return false;
+    }
+
+    try {
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">Email Service Test</h2>
+        
+        <p>This is a test email to verify that the email service is working correctly.</p>
+        
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #333;">Configuration Details</h3>
+          <p style="margin: 0 0 10px 0;"><strong>From Email:</strong> ${this.fromEmail}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Admin Email:</strong> ${this.adminEmail}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Business Name:</strong> ${this.businessName}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Sent At:</strong> ${new Date().toISOString()}</p>
+        </div>
+        
+        <p>If you received this email, the email service is functioning properly!</p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName} Test" <${this.fromEmail}>`,
+        to: toEmail,
+        subject: `${this.businessName} - Email Service Test`,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Email Test`,
+          'X-Test-Email': 'true'
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Test email sent successfully to ${toEmail}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send test email:', error);
+      return false;
+    }
+  }
+
+  getEmailConfig(): object {
+    return {
+      fromEmail: this.fromEmail,
+      adminEmail: this.adminEmail,
+      businessName: this.businessName,
+      businessPhone: this.businessPhone,
+      baseUrl: this.baseUrl,
+      isConfigured: this.isConfigured,
+      smtpConfigured: {
+        host: !!process.env.SMTP_HOST,
+        port: !!process.env.SMTP_PORT,
+        user: !!process.env.SMTP_USER,
+        pass: !!process.env.SMTP_PASS
+      }
+    };
   }
 }
 
