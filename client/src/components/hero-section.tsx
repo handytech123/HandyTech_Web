@@ -29,13 +29,6 @@ export default function HeroSection() {
               >
                 Get Free Estimate
               </Button>
-              <Button 
-                onClick={() => scrollToSection('scheduler')}
-                variant="outline"
-                className="border-2 border-charcoal text-charcoal hover:bg-charcoal hover:text-white px-8 py-4 rounded-lg text-lg font-semibold"
-              >
-                Schedule Service
-              </Button>
             </div>
             <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
               <div className="flex items-center gap-2">
