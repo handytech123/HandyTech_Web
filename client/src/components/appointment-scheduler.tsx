@@ -10,7 +10,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag } from "lucide-react";
+import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "@/lib/queryClient";
@@ -32,9 +32,27 @@ interface Service {
 
 // Service categories configuration
 const SERVICE_CATEGORIES = {
-  A: { label: "Category A (2-Hour Services)", description: "Quick fixes and standard replacements", hours: 2 },
-  B: { label: "Category B (4-Hour Services)", description: "Medium projects and room improvements", hours: 4 },
-  C: { label: "Category C (6-Hour Services)", description: "Larger projects and multi-room work", hours: 6 }
+  A: { 
+    icon: Wrench,
+    title: "Essential Repairs & Maintenance",
+    subtitle: "🛠️ Service A",
+    description: "Quick fixes and routine maintenance to keep your home in top shape.",
+    hours: 2 
+  },
+  B: { 
+    icon: Shield,
+    title: "Home Improvement & Remodeling", 
+    subtitle: "🏡 Service B",
+    description: "Enhance and modernize your living spaces with our remodeling services.",
+    hours: 4 
+  },
+  C: { 
+    icon: Network,
+    title: "Specialized Installations & Custom Projects",
+    subtitle: "🧰 Service C", 
+    description: "Tailored solutions for unique home projects and installations.",
+    hours: 6 
+  }
 } as const;
 
 type CategoryKey = keyof typeof SERVICE_CATEGORIES;
@@ -313,20 +331,17 @@ export default function AppointmentScheduler() {
   }
 
   return (
-    <section id="scheduler" className="py-20 bg-white">
+    <section id="services" className="py-20 bg-white">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-12">
+        <div className="text-center mb-16">
           <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
             SCHEDULE SERVICE
           </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
             Book Your <span className="text-brand-red">HandyTech Appointment</span>
           </h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-2">
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Choose a time block that fits your project. Materials billed separately. Travel included within 20 miles of Hazelwood, MO.
-          </p>
-          <p className="text-lg text-gray-500">
-            Follow the steps below to schedule your professional handyman service.
           </p>
         </div>
 
@@ -365,50 +380,51 @@ export default function AppointmentScheduler() {
 
             {/* Step 1: Category Selection */}
             {currentStep === "category" && (
-              <Card data-testid="card-category-selection">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Tag className="h-5 w-5 text-brand-red" />
-                    Step 1: Choose Service Category
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <div className="space-y-6">
-                    {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
-                      const categoryKey = key as CategoryKey;
-                      const categoryServices = servicesByCategory[categoryKey] || [];
-                      
-                      return (
-                        <div key={categoryKey} className="space-y-3">
-                          <Button
-                            onClick={() => handleCategorySelect(categoryKey)}
-                            variant="outline"
-                            className="w-full p-6 h-auto text-left hover:bg-brand-red hover:text-white hover:border-brand-red"
-                            data-testid={`button-category-${categoryKey}`}
-                          >
-                            <div className="flex flex-col items-start">
-                              <div className="text-lg font-semibold mb-1">{category.label}</div>
-                              <div className="text-sm opacity-75">{category.description}</div>
+              <div className="space-y-6">
+                <div className="text-center mb-8">
+                  <Tag className="h-8 w-8 text-brand-red mx-auto mb-4" />
+                  <h3 className="text-2xl font-bold text-charcoal mb-2">Step 1: Choose Your Service Category</h3>
+                  <p className="text-gray-600">Select the category that best matches your project needs</p>
+                </div>
+                
+                <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
+                  {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
+                    const categoryKey = key as CategoryKey;
+                    const categoryServices = servicesByCategory[categoryKey] || [];
+                    const IconComponent = category.icon;
+                    
+                    return (
+                      <Card key={categoryKey} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl cursor-pointer" onClick={() => handleCategorySelect(categoryKey)} data-testid={`button-category-${categoryKey}`}>
+                        <CardContent className="p-8">
+                          <div className="flex items-center mb-4">
+                            <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
+                              <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
                             </div>
-                          </Button>
-                          
-                          {/* Service previews underneath each category */}
-                          <div className="ml-4 pl-4 border-l-2 border-gray-200">
-                            <p className="text-sm font-medium text-gray-600 mb-2">Services in this category:</p>
-                            <div className="space-y-1">
-                              {categoryServices.map((service) => (
-                                <div key={service.id} className="text-sm text-gray-500">
-                                  <span className="font-medium">{service.name}</span> - {service.description}
-                                </div>
-                              ))}
+                            <div>
+                              <div className="text-sm font-semibold text-brand-red mb-1">{category.subtitle}</div>
+                              <h3 className="text-lg font-bold text-charcoal">{category.title}</h3>
                             </div>
                           </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </CardContent>
-              </Card>
+                          <p className="text-gray-600 mb-6 leading-relaxed">{category.description}</p>
+                          <ul className="text-sm text-gray-600 space-y-2">
+                            {categoryServices.map((service, serviceIndex) => (
+                              <li key={serviceIndex} className="flex items-start">
+                                <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                                <span className="leading-relaxed">{service.name}</span>
+                              </li>
+                            ))}
+                          </ul>
+                          <div className="mt-6 pt-6 border-t border-gray-100">
+                            <div className="w-full text-center">
+                              <span className="text-sm font-medium text-brand-red group-hover:text-white transition-colors">Click to Select This Category</span>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    );
+                  })}
+                </div>
+              </div>
             )}
 
             {/* Step 2: Contact Information & Service Selection */}
@@ -431,7 +447,7 @@ export default function AppointmentScheduler() {
                 <CardContent>
                   <div className="mb-4">
                     <Badge variant="outline" className="mb-2">
-                      Selected: {selectedCategory && SERVICE_CATEGORIES[selectedCategory].label}
+                      Selected: {selectedCategory && SERVICE_CATEGORIES[selectedCategory].title}
                     </Badge>
                   </div>
                   
@@ -686,7 +702,7 @@ export default function AppointmentScheduler() {
                     <div>
                       <span className="font-medium">Category: </span>
                       <span data-testid="text-selected-category">
-                        {SERVICE_CATEGORIES[selectedCategory].label}
+                        {SERVICE_CATEGORIES[selectedCategory].title}
                       </span>
                     </div>
                   </div>
