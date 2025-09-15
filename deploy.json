@@ -78,10 +78,57 @@
       "category": "email_services",
       "example": "your-email-password",
       "notes": "For security, use app-specific passwords when available. IONOS: use your email account password."
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID",
+      "description": "Google OAuth 2.0 Client ID from Google Cloud Console for calendar integration",
+      "required": true,
+      "category": "google_calendar",
+      "example": "123456789-abc123def456.apps.googleusercontent.com",
+      "validation": "Valid Google OAuth Client ID format",
+      "notes": "Required for Google Calendar sync functionality. Obtain from Google Cloud Console APIs & Services > Credentials."
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET",
+      "description": "Google OAuth 2.0 Client Secret from Google Cloud Console for secure calendar API access",
+      "required": true,
+      "category": "google_calendar",
+      "example": "GOCSPX-abc123def456789012345",
+      "validation": "Valid Google OAuth Client Secret format",
+      "notes": "Required for Google Calendar sync functionality. Keep this secret secure and never expose in client-side code."
+    },
+    {
+      "key": "GOOGLE_REDIRECT_URI",
+      "description": "OAuth callback URL for Google Calendar authentication (must match Google Cloud Console configuration)",
+      "required": true,
+      "category": "google_calendar",
+      "example": "https://handytech-solutions.com/api/admin/google/callback",
+      "validation": "Must be HTTPS URL matching Google Cloud Console redirect URI configuration",
+      "notes": "Must be exactly configured in Google Cloud Console. Format: https://yourdomain.com/api/admin/google/callback"
     }
   ],
   
   "optionalSecrets": [
+    {
+      "key": "GOOGLE_CALENDAR_ID",
+      "description": "Target Google Calendar ID or email for syncing appointments (defaults to primary calendar)",
+      "required": false,
+      "category": "google_calendar",
+      "example": "contact@handytech-solutions.com",
+      "default": "primary",
+      "validation": "Valid email address or 'primary' for default calendar",
+      "notes": "Specify which calendar to sync appointments to. Use 'primary' for main calendar or email address for specific calendar."
+    },
+    {
+      "key": "TZ",
+      "description": "Timezone for appointment scheduling and Google Calendar events",
+      "required": false,
+      "category": "google_calendar",
+      "example": "America/Chicago",
+      "default": "America/Chicago",
+      "validation": "Valid IANA timezone identifier",
+      "notes": "Used for calendar event timezone. Missouri business should use 'America/Chicago'."
+    },
     {
       "key": "OPENAI_API_KEY",
       "description": "OpenAI API key for AI-powered customer service chatbot",
