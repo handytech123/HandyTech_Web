@@ -30,8 +30,12 @@ import { getOpenSlots } from "./utils/availability";
 import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
+import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Mount Google Calendar admin routes
+  const { default: googleAdminRoutes } = await import("./routes/google-admin.js");
+  app.use("/api/admin/google", requireAdmin, googleAdminRoutes);
   // Initialize OpenAI client
   const openai = process.env.OPENAI_API_KEY ? new OpenAI({
     apiKey: process.env.OPENAI_API_KEY
@@ -755,6 +759,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newStartTime,
         newEndTime
       );
+
+      // Google Calendar integration - Update calendar event
+      if (appointment.googleEventId) {
+        try {
+          await updateEvent(appointment.googleEventId, {
+            summary: `${appointment.serviceType} — ${Math.round(durationMs / (1000 * 60 * 60))}h Block`,
+            description: [
+              `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
+              appointment.notes ? `Notes: ${appointment.notes}` : null
+            ].filter(Boolean).join("\n"),
+            start: newStartTime,
+            end: newEndTime,
+            attendees: [appointment.email]
+          });
+          console.log(`Google Calendar event updated for appointment ${appointmentId}: ${appointment.googleEventId}`);
+        } catch (googleError) {
+          console.error("Google Calendar sync (update) failed:", googleError.message || googleError);
+          // Do NOT fail the reschedule; log only
+        }
+      }
       
       // Get the updated appointment for response
       const updatedAppointment = await storage.getAppointment(appointmentId);
@@ -944,6 +968,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Perform the reschedule
       await storage.adminRescheduleAppointment(appointmentId, startTimestamp, endTimestamp);
 
+      // Google Calendar integration - Update calendar event
+      if (appointment.googleEventId) {
+        try {
+          const durationMs = endTimestamp.getTime() - startTimestamp.getTime();
+          await updateEvent(appointment.googleEventId, {
+            summary: `${appointment.serviceType} — ${Math.round(durationMs / (1000 * 60 * 60))}h Block`,
+            description: [
+              `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
+              appointment.notes ? `Notes: ${appointment.notes}` : null
+            ].filter(Boolean).join("\n"),
+            start: startTimestamp,
+            end: endTimestamp,
+            attendees: [appointment.email]
+          });
+          console.log(`Google Calendar event updated for appointment ${appointmentId}: ${appointment.googleEventId}`);
+        } catch (googleError) {
+          console.error("Google Calendar sync (update) failed:", googleError.message || googleError);
+          // Do NOT fail the reschedule; log only
+        }
+      }
+
       res.json({ 
         success: true, 
         message: "Appointment rescheduled successfully" 
@@ -964,6 +1009,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const appointment = await storage.getAppointment(appointmentId);
       if (!appointment) {
         return res.status(404).json({ message: "Appointment not found" });
+      }
+
+      // Google Calendar integration - Delete calendar event for both cancel and delete
+      if (appointment.googleEventId) {
+        try {
+          await deleteEvent(appointment.googleEventId);
+          console.log(`Google Calendar event deleted for appointment ${appointmentId}: ${appointment.googleEventId}`);
+        } catch (googleError) {
+          console.error("Google Calendar sync (delete) failed:", googleError.message || googleError);
+          // Do NOT fail the cancellation; log only
+        }
       }
 
       if (action === "delete") {
@@ -1724,6 +1780,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Google Calendar integration - Create calendar event
+      try {
+        const event = await createEvent({
+          summary: `${appointmentData.serviceType} — ${durationHours}h Block`,
+          description: [
+            `Customer: ${appointmentData.firstName} ${appointmentData.lastName} (${appointmentData.email}${appointmentData.phone ? ", " + appointmentData.phone : ""})`,
+            appointmentData.notes ? `Notes: ${appointmentData.notes}` : null
+          ].filter(Boolean).join("\n"),
+          start: new Date(startTimestamptz),
+          end: new Date(endTimestamptz),
+          attendees: [appointmentData.email]
+        });
+
+        // Update appointment with Google event ID
+        await storage.updateAppointmentGoogleEventId(appointment.id, event.id);
+        console.log(`Google Calendar event created for appointment ${appointment.id}: ${event.id}`);
+      } catch (googleError) {
+        console.error("Google Calendar sync (create) failed:", googleError.message || googleError);
+        // Do NOT fail the booking; log only
+      }
+
       // Send emails with proper integration
       try {
         // Send customer confirmation email with ICS attachment and reschedule link
@@ -1914,6 +1991,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         newRescheduleToken,
         newRescheduleExpires
       );
+
+      // Google Calendar integration - Update calendar event
+      if (appointment.googleEventId) {
+        try {
+          const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+          await updateEvent(appointment.googleEventId, {
+            summary: `${appointment.serviceType} — ${durationHours}h Block`,
+            description: [
+              `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
+              appointment.notes ? `Notes: ${appointment.notes}` : null
+            ].filter(Boolean).join("\n"),
+            start: newStartTime,
+            end: newEndTime,
+            attendees: [appointment.email]
+          });
+          console.log(`Google Calendar event updated for appointment ${appointment.id}: ${appointment.googleEventId}`);
+        } catch (googleError) {
+          console.error("Google Calendar sync (update) failed:", googleError.message || googleError);
+          // Do NOT fail the reschedule; log only
+        }
+      }
       
       // Enhanced response with updated appointment details
       res.json({

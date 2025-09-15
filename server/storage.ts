@@ -78,6 +78,7 @@ export interface IStorage {
   createAppointment(appointment: InsertAppointment): Promise<Appointment>;
   updateAppointmentStatus(id: number, status: string): Promise<void>;
   updateAppointmentTime(id: number, startTimestamptz: Date, endTimestamptz: Date, rescheduleToken?: string, rescheduleExpires?: Date): Promise<void>;
+  updateAppointmentGoogleEventId(id: number, googleEventId: string | null): Promise<void>;
   getUpcomingAppointments(): Promise<Appointment[]>;
   
   // Admin Appointment Management
@@ -795,6 +796,14 @@ export class MemStorage implements IStorage {
         appointment.rescheduleExpires = rescheduleExpires;
       }
       
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async updateAppointmentGoogleEventId(id: number, googleEventId: string | null): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      appointment.googleEventId = googleEventId;
       this.appointments.set(id, appointment);
     }
   }
