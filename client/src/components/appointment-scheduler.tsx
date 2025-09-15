@@ -424,38 +424,45 @@ export default function AppointmentScheduler() {
                   <p className="text-gray-600">Select the category that best matches your project needs</p>
                 </div>
                 
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
                     const categoryKey = key as CategoryKey;
                     const categoryServices = servicesByCategory[categoryKey] || [];
                     const IconComponent = category.icon;
+                    const isSelected = selectedCategory === categoryKey;
                     
                     return (
-                      <Card key={categoryKey} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl cursor-pointer" onClick={() => handleCategorySelect(categoryKey)} data-testid={`button-category-${categoryKey}`}>
-                        <CardContent className="p-6">
-                          <div className="flex items-center mb-4">
-                            <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
-                              <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
+                      <Card 
+                        key={categoryKey} 
+                        className={`relative hover:shadow-lg transition-shadow ${
+                          isSelected ? 'bg-white shadow-xl border-2 border-brand-red' : 'bg-light-gray'
+                        }`}
+                        data-testid={`card-category-${categoryKey}`}
+                      >
+                        <CardContent className="p-8">
+                          <div className="text-center mb-8">
+                            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
+                              <IconComponent className="text-brand-red" size={24} />
                             </div>
-                            <div>
-                              <div className="text-sm font-semibold text-brand-red mb-1">{category.subtitle}</div>
-                              <h3 className="text-lg font-bold text-charcoal">{category.title}</h3>
-                            </div>
+                            <div className="text-sm font-semibold text-brand-red mb-1">{category.subtitle}</div>
+                            <h3 className="text-xl font-bold text-charcoal mb-2">{category.title}</h3>
+                            <p className="text-gray-600">{category.description}</p>
                           </div>
-                          <p className="text-gray-600 mb-6 leading-relaxed">{category.description}</p>
-                          <ul className="text-sm text-gray-600 space-y-2">
+                          <ul className="space-y-3 mb-6">
                             {categoryServices.map((service, serviceIndex) => (
                               <li key={serviceIndex} className="flex items-start">
                                 <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
-                                <span className="leading-relaxed">{service.name}</span>
+                                <span className="text-sm text-gray-700 leading-relaxed">{service.name}</span>
                               </li>
                             ))}
                           </ul>
-                          <div className="mt-6 pt-6 border-t border-gray-100">
-                            <div className="w-full text-center">
-                              <span className="text-sm font-medium text-brand-red group-hover:text-white transition-colors">Click to Select This Category</span>
-                            </div>
-                          </div>
+                          <Button 
+                            onClick={() => handleCategorySelect(categoryKey)}
+                            className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
+                            data-testid={`button-category-${categoryKey}`}
+                          >
+                            Select {category.title}
+                          </Button>
                         </CardContent>
                       </Card>
                     );
