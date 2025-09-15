@@ -34,23 +34,23 @@ interface Service {
 const SERVICE_CATEGORIES = {
   A: { 
     icon: Wrench,
-    title: "Essential Repairs & Maintenance",
+    title: "2-Hour Tech & Quick Jobs",
     subtitle: "🛠️ Service A",
-    description: "Quick fixes and routine maintenance to keep your home in top shape.",
+    description: "Smart installs, swaps, setups — same size as faucet/light jobs",
     hours: 2 
   },
   B: { 
     icon: Shield,
-    title: "Home Improvement & Remodeling", 
+    title: "4-Hour Medium Jobs", 
     subtitle: "🏡 Service B",
-    description: "Enhance and modernize your living spaces with our remodeling services.",
+    description: "Half-day projects or multi-device tech setups",
     hours: 4 
   },
   C: { 
     icon: Network,
-    title: "Specialized Installations & Custom Projects",
+    title: "6-Hour Large Jobs",
     subtitle: "🧰 Service C", 
-    description: "Tailored solutions for unique home projects and installations.",
+    description: "Full-day jobs, remodel bundles, or heavy tech wiring",
     hours: 6 
   }
 } as const;
