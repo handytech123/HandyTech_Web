@@ -48,11 +48,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4">Services</h4>
             <ul className="space-y-2 text-gray-400">
-              <li><a href="#" className="hover:text-white transition-colors">IT Support</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Cybersecurity</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Cloud Services</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Network Infrastructure</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Data Management</a></li>
+              <li><a href="#services" className="hover:text-white transition-colors">General Handyman</a></li>
+              <li><a href="#services" className="hover:text-white transition-colors">Electrical Work</a></li>
+              <li><a href="#services" className="hover:text-white transition-colors">Plumbing Services</a></li>
+              <li><a href="#services" className="hover:text-white transition-colors">Smart Home Technology</a></li>
+              <li><a href="#services" className="hover:text-white transition-colors">Carpentry & Repairs</a></li>
             </ul>
           </div>
 
