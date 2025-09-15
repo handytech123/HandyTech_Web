@@ -210,7 +210,7 @@
   "packageManager": "npm",
   "requiredServices": ["nodejs", "npm", "postgresql"],
   
-  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET", "ADMIN_PASS", "ALLOWED_ORIGINS"],
+  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET", "ADMIN_PASS"],
   
   "requiredSecrets": [
     {
