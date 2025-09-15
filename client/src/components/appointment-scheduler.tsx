@@ -434,8 +434,8 @@ export default function AppointmentScheduler() {
                     return (
                       <Card 
                         key={categoryKey} 
-                        className={`relative hover:shadow-lg transition-shadow ${
-                          isSelected ? 'bg-white shadow-xl border-2 border-brand-red' : 'bg-light-gray'
+                        className={`relative hover:shadow-lg transition-shadow bg-white ${
+                          isSelected ? 'shadow-xl border-2 border-brand-red' : 'border-2 border-gray-100'
                         }`}
                         data-testid={`card-category-${categoryKey}`}
                       >
