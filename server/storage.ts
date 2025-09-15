@@ -87,6 +87,11 @@ export interface IStorage {
   adminUpdateAppointmentCustomer(id: number, customerData: Partial<InsertCustomer>): Promise<void>;
   deleteAppointment(id: number): Promise<void>;
 
+  // Reminder tracking methods
+  markReminder24hSent(id: number): Promise<void>;
+  markReminder2hSent(id: number): Promise<void>;
+  markFollowUpSent(id: number): Promise<void>;
+
   // Project Gallery
   getProjectGalleryItem(id: number): Promise<ProjectGallery | undefined>;
   getAllProjectGalleryItems(): Promise<ProjectGallery[]>;
@@ -288,6 +293,9 @@ export class MemStorage implements IStorage {
       source: "manual",
 
       notes: "Resolved network connectivity issues and updated system security. Installed new antivirus software and configured automatic backups.",
+      reminder24hSent: null,
+      reminder2hSent: null,
+      followUpSent: null,
       createdAt: new Date("2024-02-18"),
     };
     this.appointments.set(completedAppointment1.id, completedAppointment1);
@@ -313,6 +321,9 @@ export class MemStorage implements IStorage {
       source: "manual",
 
       notes: "Complete network infrastructure setup including router configuration, Wi-Fi optimization, and cable management.",
+      reminder24hSent: null,
+      reminder2hSent: null,
+      followUpSent: null,
       createdAt: new Date("2024-01-23"),
     };
     this.appointments.set(completedAppointment2.id, completedAppointment2);
@@ -338,6 +349,9 @@ export class MemStorage implements IStorage {
       source: "manual",
 
       notes: "Installed smart thermostats, door locks, and lighting system. Set up central control hub and mobile app configuration.",
+      reminder24hSent: null,
+      reminder2hSent: null,
+      followUpSent: null,
       createdAt: new Date("2024-03-08"),
     };
     this.appointments.set(completedAppointment3.id, completedAppointment3);
@@ -363,6 +377,9 @@ export class MemStorage implements IStorage {
       source: "manual",
 
       notes: "Performed regular system maintenance including software updates, disk cleanup, and security patches.",
+      reminder24hSent: null,
+      reminder2hSent: null,
+      followUpSent: null,
       createdAt: new Date("2024-02-13"),
     };
     this.appointments.set(completedAppointment4.id, completedAppointment4);
@@ -388,6 +405,9 @@ export class MemStorage implements IStorage {
       source: "manual",
 
       notes: "Successfully recovered data from corrupted hard drive and set up automated backup system.",
+      reminder24hSent: null,
+      reminder2hSent: null,
+      followUpSent: null,
       createdAt: new Date("2024-01-10"),
     };
     this.appointments.set(completedAppointment5.id, completedAppointment5);
@@ -708,6 +728,9 @@ export class MemStorage implements IStorage {
       sequence: insertAppointment.sequence || 0,
       source: insertAppointment.source || "manual",
       status: "scheduled",
+      reminder24hSent: null,
+      reminder2hSent: null,
+      followUpSent: null,
       createdAt: new Date(),
     };
     this.appointments.set(appointment.id, appointment);
@@ -718,6 +741,30 @@ export class MemStorage implements IStorage {
     const appointment = this.appointments.get(id);
     if (appointment) {
       appointment.status = status;
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async markReminder24hSent(id: number): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      (appointment as any).reminder24hSent = new Date();
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async markReminder2hSent(id: number): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      (appointment as any).reminder2hSent = new Date();
+      this.appointments.set(id, appointment);
+    }
+  }
+
+  async markFollowUpSent(id: number): Promise<void> {
+    const appointment = this.appointments.get(id);
+    if (appointment) {
+      (appointment as any).followUpSent = new Date();
       this.appointments.set(id, appointment);
     }
   }
@@ -1416,6 +1463,18 @@ export class DatabaseStorage implements IStorage {
 
   async updateAppointmentStatus(id: number, status: string): Promise<void> {
     await db.update(appointments).set({ status }).where(eq(appointments.id, id));
+  }
+
+  async markReminder24hSent(id: number): Promise<void> {
+    await db.update(appointments).set({ reminder24hSent: new Date() }).where(eq(appointments.id, id));
+  }
+
+  async markReminder2hSent(id: number): Promise<void> {
+    await db.update(appointments).set({ reminder2hSent: new Date() }).where(eq(appointments.id, id));
+  }
+
+  async markFollowUpSent(id: number): Promise<void> {
+    await db.update(appointments).set({ followUpSent: new Date() }).where(eq(appointments.id, id));
   }
 
   async getUpcomingAppointments(): Promise<Appointment[]> {

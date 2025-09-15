@@ -84,6 +84,10 @@ export const appointments = pgTable("appointments", {
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'confirmed', 'completed', 'cancelled'
   source: text("source").notNull().default("manual"), // 'manual', 'chatbot'
   notes: text("notes"),
+  // Reminder tracking fields to prevent duplicates
+  reminder24hSent: timestamp("reminder_24h_sent"),
+  reminder2hSent: timestamp("reminder_2h_sent"), 
+  followUpSent: timestamp("follow_up_sent"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
