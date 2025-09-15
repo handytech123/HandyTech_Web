@@ -1,0 +1,142 @@
+Perfect — you don’t want Replit (or a dev there) to “interpret” and drift from what you actually want. Here’s a clear instruction set you can paste into Replit’s task description so they know exactly what to do:
+
+
+---
+
+📌 Task: Service → Hour-Block Mapping for HandyTech Scheduler
+
+We need to align our service list with our 2, 4, and 6 hour time blocks. The code changes are straightforward:
+
+
+---
+
+1. Add a new file
+
+Create server/data/services.json.
+
+This file is the source of truth for all services. Each service entry should include:
+
+id (unique number)
+
+name (string)
+
+suggestedHours (2, 4, or 6)
+
+description (string)
+
+active (boolean)
+
+category (A, B, or C)
+
+
+
+Example entry:
+
+{ "id": 1, "name": "Faucet Replacement", "suggestedHours": 2, "description": "Swap faucet; shutoff & test", "active": true, "category": "A" }
+
+
+---
+
+2. Update availability route (GET /api/availability)
+
+Accept serviceId (in query string).
+
+Logic for hours:
+
+1. If hours query param is explicitly 2, 4, or 6 → use that.
+
+
+2. Else if serviceId is provided → look up the service in services.json and use its suggestedHours.
+
+
+3. Else default to 2 hours.
+
+
+
+Return the normal slots plus the suggestedHours in the JSON response.
+
+
+
+---
+
+3. Update appointments route (POST /api/appointments)
+
+Accept serviceId in body.
+
+Logic for hours:
+
+1. If hours is explicitly 2, 4, or 6 → use it.
+
+
+2. Else if serviceId is provided → use the service’s suggestedHours.
+
+
+3. Else default to 2 hours.
+
+
+
+Compute end time as start + (hours * 60min).
+
+Run a final overlap check before saving. If conflict → return 409 TIME_UNAVAILABLE.
+
+Set title to:
+
+"ServiceName — Xh Block" if service found,
+
+or "Xh Handyman Block" otherwise.
+
+
+Include [Service: Name ~Xh] in notes for clarity.
+
+
+
+---
+
+4. (Optional) Add a new route for service listing
+
+GET /api/services → return all active services from services.json for the frontend dropdown.
+
+
+
+---
+
+5. Update email subject/body (confirmation emails)
+
+Subject: HandyTech: ServiceName — Date (Xh)
+
+Body: include a line like:
+
+<li><strong>Service:</strong> Faucet Replacement (2h)</li>
+
+
+
+---
+
+✅ Important:
+
+Do not rename or move my existing files — just add/extend as above.
+
+All business logic must use services.json for mapping.
+
+Keep my existing admin page working — if needed, add admin routes to manage services.json later.
+
+
+
+---
+
+👉 Paste this to your Replit request. It makes it 100% clear you want:
+
+One new file (services.json)
+
+Two routes updated (availability + appointments)
+
+One optional new route (/api/services)
+
+Small email subject tweak
+
+
+
+---
+
+Would you like me to rewrite this into a very short bullet list version too, so you can send it to them as “summary at the top / details below”? That often helps contractors not skim past the important bits.
+
