@@ -735,7 +735,7 @@ export default function AppointmentScheduler() {
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        No available times for this date. Please select a different date.
+                        No available times for this date. Please try a weekday (Monday-Friday) between now and next month. If you continue to see this message, please contact us directly.
                       </AlertDescription>
                     </Alert>
                   ) : (

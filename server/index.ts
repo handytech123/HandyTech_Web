@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupSecurity, rlPublic, useCSRF, sanitizeInput } from "./security";
 import { reminderScheduler } from "./reminder-scheduler";
+import { seedEssentialData } from "./utils/seed-data";
 
 /**
  * Validates critical environment variables on startup
@@ -72,6 +73,9 @@ app.use((req, res, next) => {
 (async () => {
   // Validate environment variables before starting server
   await validateStartupEnvironment();
+  
+  // Seed essential data (availability rules, etc.)
+  await seedEssentialData();
   
   // Register all application routes (includes CSRF route from setupSecurity)
   const server = await registerRoutes(app);
