@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
@@ -72,12 +73,7 @@ export default function Chatbot() {
 
   const sendMessage = useMutation({
     mutationFn: async (message: string) => {
-      const response = await fetch("/api/chatbot", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message }),
-      });
-      if (!response.ok) throw new Error("Failed to send message");
+      const response = await apiRequest("/api/chatbot", "POST", { message });
       return response.json();
     },
     onSuccess: (data) => {
