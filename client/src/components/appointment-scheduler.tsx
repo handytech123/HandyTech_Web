@@ -146,9 +146,11 @@ export default function AppointmentScheduler() {
     error: slotsError,
     refetch: refetchSlots
   } = useQuery<string[]>({
-    queryKey: ["/api/availability", selectedDate, selectedService?.id],
-    queryFn: async () => {
-      if (!selectedDate || !selectedService) return [];
+    queryKey: ["/api/availability", selectedDate?.toISOString(), selectedService?.id, selectedService?.suggestedHours],
+    queryFn: async () => {      
+      if (!selectedDate || !selectedService) {
+        throw new Error("Missing date or service selection");
+      }
       
       const startOfDay = new Date(selectedDate);
       startOfDay.setHours(0, 0, 0, 0);
@@ -166,13 +168,16 @@ export default function AppointmentScheduler() {
       const response = await fetch(`/api/availability?${queryParams}`);
       
       if (!response.ok) {
-        throw new Error("Failed to fetch available slots");
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch slots: ${response.status} ${errorText}`);
       }
       
       const data = await response.json();
       return data.slots || [];
     },
-    enabled: !!selectedDate && !!selectedService,
+    enabled: !!selectedDate && !!selectedService && selectedService.suggestedHours > 0,
+    retry: 2,
+    staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
   // Book appointment mutation
@@ -220,24 +225,18 @@ export default function AppointmentScheduler() {
 
   // Format time slots for display
   const formatTimeSlots = (slots: string[]): AvailableSlot[] => {
-    console.log("Debug formatTimeSlots - input slots:", slots);
-    const formatted = slots.map(slot => {
+    return slots.map(slot => {
       try {
         const date = parseISO(slot);
-        const displayTime = format(date, "h:mm a");
-        console.log("Debug formatTimeSlots - slot:", slot, "-> date:", date, "-> displayTime:", displayTime);
         return {
           time: slot,
-          displayTime: displayTime,
+          displayTime: format(date, "h:mm a"),
         };
       } catch (error) {
         console.error("Error formatting time slot:", slot, error);
         return null;
       }
     }).filter(slot => slot !== null) as AvailableSlot[];
-    
-    console.log("Debug formatTimeSlots - output formatted:", formatted);
-    return formatted;
   };
 
   const formattedSlots = formatTimeSlots(availableSlots);
