@@ -220,13 +220,24 @@ export default function AppointmentScheduler() {
 
   // Format time slots for display
   const formatTimeSlots = (slots: string[]): AvailableSlot[] => {
-    return slots.map(slot => {
-      const date = parseISO(slot);
-      return {
-        time: slot,
-        displayTime: format(date, "h:mm a"),
-      };
-    });
+    console.log("Debug formatTimeSlots - input slots:", slots);
+    const formatted = slots.map(slot => {
+      try {
+        const date = parseISO(slot);
+        const displayTime = format(date, "h:mm a");
+        console.log("Debug formatTimeSlots - slot:", slot, "-> date:", date, "-> displayTime:", displayTime);
+        return {
+          time: slot,
+          displayTime: displayTime,
+        };
+      } catch (error) {
+        console.error("Error formatting time slot:", slot, error);
+        return null;
+      }
+    }).filter(slot => slot !== null) as AvailableSlot[];
+    
+    console.log("Debug formatTimeSlots - output formatted:", formatted);
+    return formatted;
   };
 
   const formattedSlots = formatTimeSlots(availableSlots);
