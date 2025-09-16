@@ -37,9 +37,19 @@ export async function apiRequest(
 
   // Add CSRF token for non-GET requests with retry logic
   let headers = baseHeaders;
+  let modifiedBody = body;
+  
   if (method !== "GET") {
     try {
       headers = await createCsrfHeaders(baseHeaders);
+      
+      // Also include CSRF token in body for robust production compatibility
+      if (body && typeof body === 'object') {
+        const csrfToken = headers['x-csrf-token'];
+        if (csrfToken) {
+          modifiedBody = { ...body, _csrf: csrfToken };
+        }
+      }
     } catch (error) {
       console.error("[API] Failed to get CSRF token:", error);
       // Don't continue without CSRF token for security
@@ -51,7 +61,7 @@ export async function apiRequest(
   let res = await fetch(url, {
     method,
     headers,
-    body: body ? JSON.stringify(body) : undefined,
+    body: modifiedBody ? JSON.stringify(modifiedBody) : undefined,
     credentials: "include", // Always include cookies for session-based auth
   });
 
@@ -65,11 +75,19 @@ export async function apiRequest(
         // Get fresh CSRF token and retry
         headers = await createCsrfHeaders(baseHeaders, false); // Don't retry in createCsrfHeaders since we're doing it here
         
+        // Update modifiedBody with new CSRF token for retry
+        if (body && typeof body === 'object') {
+          const csrfToken = headers['x-csrf-token'];
+          if (csrfToken) {
+            modifiedBody = { ...body, _csrf: csrfToken };
+          }
+        }
+        
         // Reset the response and retry
         res = await fetch(url, {
           method,
           headers,
-          body: body ? JSON.stringify(body) : undefined,
+          body: modifiedBody ? JSON.stringify(modifiedBody) : undefined,
           credentials: "include",
         });
         
