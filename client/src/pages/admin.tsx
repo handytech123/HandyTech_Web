@@ -39,6 +39,17 @@ function AuthenticatedDashboard() {
     serviceType: "Home Repair Consultation"
   });
 
+  // Helper function to get display time from appointment data
+  const getDisplayTime = (appointment: any) => {
+    if (appointment.appointmentTime) {
+      return appointment.appointmentTime;
+    }
+    if (appointment.startTimestamptz) {
+      return new Date(appointment.startTimestamptz).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+    }
+    return "TBD";
+  };
+
   const { data: quotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/quotes"]
   });
@@ -508,10 +519,7 @@ function AuthenticatedDashboard() {
                         <div>
                           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Date & Time</p>
                           <p className="text-sm" data-testid={`text-datetime-${appointment.id}`}>
-                            {appointment.startTimestamptz 
-                              ? `${new Date(appointment.startTimestamptz).toLocaleDateString()} at ${new Date(appointment.startTimestamptz).toLocaleTimeString()}`
-                              : `${new Date(appointment.appointmentDate).toLocaleDateString()} at ${appointment.appointmentTime || 'TBD'}`
-                            }
+                            {new Date(appointment.appointmentDate).toLocaleDateString()} at {getDisplayTime(appointment)}
                           </p>
                         </div>
                         <div>
