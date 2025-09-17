@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User, Phone, Mail } from "lucide-react";
 import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, parseISO } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 import type { Appointment, BlockedTime } from "@shared/schema";
 
 interface CalendarViewProps {
@@ -150,15 +151,15 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
                       <div className="text-xs p-1 rounded bg-red-200 text-red-800 border border-red-300">
                         <div className="font-medium truncate">BLOCKED</div>
                         <div className="truncate">
-                          {blockedDate.isFullDay ? 'All Day' : `${format(blockedDate.startTimestamptz, 'h:mm a')}-${format(blockedDate.endTimestamptz, 'h:mm a')}`}
+                          {blockedDate.isFullDay ? 'All Day' : `${format(toZonedTime(blockedDate.startTimestamptz, 'America/Chicago'), 'h:mm a')}-${format(toZonedTime(blockedDate.endTimestamptz, 'America/Chicago'), 'h:mm a')}`}
                         </div>
                       </div>
                     )}
                     
                     {!isBlocked && dayAppointments.slice(0, 2).map(appointment => {
-                      // Format time from startTimestamptz or fallback to appointmentTime
+                      // Format time from startTimestamptz in Central Time or fallback to appointmentTime
                       const displayTime = appointment.startTimestamptz 
-                        ? format(new Date(appointment.startTimestamptz), 'h:mm a')
+                        ? format(toZonedTime(new Date(appointment.startTimestamptz), 'America/Chicago'), 'h:mm a')
                         : appointment.appointmentTime;
                       
                       return (
@@ -231,8 +232,8 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
                         <div className="text-right">
                           <div className="text-lg font-medium">
                             {appointment.startTimestamptz 
-                              ? format(new Date(appointment.startTimestamptz), 'h:mm a')
-                              : appointment.appointmentTime}
+                              ? format(toZonedTime(new Date(appointment.startTimestamptz), 'America/Chicago'), 'h:mm a')
+                              : appointment.appointmentTime} CT
                           </div>
                           <Badge className={getStatusColor(appointment.status)}>
                             {appointment.status}

@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Clock, Calendar as CalendarIcon, User, AlertCircle, Loader2 } from "lucide-react";
 import { format, parseISO, addHours } from "date-fns";
+import { toZonedTime, fromZonedTime, format as formatTz } from "date-fns-tz";
 import { useToast } from "@/hooks/use-toast";
 import { queryClient, apiRequest } from "@/lib/queryClient";
 import type { Appointment } from "@shared/schema";
@@ -56,11 +57,19 @@ export default function RescheduleAppointmentDialog({
         throw new Error("Missing date selection");
       }
       
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      // Use Central Time for all scheduling operations
+      const centralTz = 'America/Chicago';
       
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Create start and end of day in Central Time, then convert to UTC for API
+      const startOfDay = fromZonedTime(
+        new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0),
+        centralTz
+      );
+      
+      const endOfDay = fromZonedTime(
+        new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999),
+        centralTz
+      );
       
       const queryParams = new URLSearchParams({
         from: startOfDay.toISOString(),
@@ -120,14 +129,16 @@ export default function RescheduleAppointmentDialog({
     }
   });
 
-  // Format time slots for display
+  // Format time slots for display in Central Time
   const formatTimeSlots = (slots: string[]): AvailableSlot[] => {
+    const centralTz = 'America/Chicago';
     return slots.map(slot => {
       try {
-        const date = parseISO(slot);
+        const utcDate = parseISO(slot);
+        const centralDate = toZonedTime(utcDate, centralTz);
         return {
           time: slot,
-          displayTime: format(date, "h:mm a"),
+          displayTime: format(centralDate, "h:mm a"),
         };
       } catch (error) {
         console.error("Error formatting time slot:", slot, error);
@@ -311,7 +322,7 @@ export default function RescheduleAppointmentDialog({
               <CalendarIcon className="h-4 w-4" />
               <AlertDescription>
                 <strong>New appointment time:</strong> {format(selectedDate, 'EEEE, MMMM d, yyyy')} at{' '}
-                {format(parseISO(selectedTimeSlot), 'h:mm a')}
+                {format(toZonedTime(parseISO(selectedTimeSlot), 'America/Chicago'), 'h:mm a')} Central Time
               </AlertDescription>
             </Alert>
           )}
