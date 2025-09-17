@@ -39,25 +39,14 @@ function AuthenticatedDashboard() {
     serviceType: "Home Repair Consultation"
   });
 
-  // Helper function to get display time from appointment data
+  // Helper function to get display time from appointment data - COPIED FROM WORKING CUSTOMER PORTAL
   const getDisplayTime = (appointment: any) => {
-    console.log("DEBUG - Appointment data:", { 
-      id: appointment.id, 
-      appointmentTime: appointment.appointmentTime, 
-      startTimestamptz: appointment.startTimestamptz 
-    });
-    
-    if (appointment.appointmentTime) {
-      console.log("Using appointmentTime:", appointment.appointmentTime);
-      return appointment.appointmentTime;
-    }
     if (appointment.startTimestamptz) {
-      const time = new Date(appointment.startTimestamptz).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
-      console.log("Using startTimestamptz formatted:", time);
-      return time;
+      const startTime = new Date(appointment.startTimestamptz);
+      const endTime = appointment.endTimestamptz ? new Date(appointment.endTimestamptz) : new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
+      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
     }
-    console.log("No time data available, returning TBD");
-    return "TBD";
+    return appointment.appointmentTime || 'TBD';
   };
 
   const { data: quotes = [] } = useQuery<Quote[]>({
