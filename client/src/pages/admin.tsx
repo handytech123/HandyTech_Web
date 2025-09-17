@@ -7,7 +7,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare, TestTube, Edit, Trash2, RefreshCw, User, MoreVertical, Home } from "lucide-react";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import { Separator } from "@/components/ui/separator";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare, TestTube, Edit, Trash2, RefreshCw, User, MoreVertical, Home, CalendarDays, AlertCircle, Loader2 } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,6 +19,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Textarea } from "@/components/ui/textarea";
+import { format, parseISO, addHours } from "date-fns";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
 import BlockedDatesManager from "@/components/blocked-dates-manager";
@@ -638,28 +642,107 @@ function AuthenticatedDashboard() {
 
 // Reschedule Dialog Component
 function RescheduleDialog({ appointment, onReschedule }: { appointment: any; onReschedule: any }) {
-  const [startDateTime, setStartDateTime] = useState("");
-  const [endDateTime, setEndDateTime] = useState("");
+  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [checkAvailability, setCheckAvailability] = useState(true);
   const [open, setOpen] = useState(false);
 
+  // Calculate appointment duration from existing appointment
+  const getAppointmentDuration = () => {
+    if (appointment.startTimestamptz && appointment.endTimestamptz) {
+      const start = new Date(appointment.startTimestamptz);
+      const end = new Date(appointment.endTimestamptz);
+      return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)); // hours
+    }
+    return 2; // default 2 hours
+  };
+
+  const appointmentHours = getAppointmentDuration();
+
+  // Fetch available time slots for selected date
+  const { 
+    data: availableSlots = [], 
+    isLoading: loadingSlots,
+    error: slotsError 
+  } = useQuery<string[]>({
+    queryKey: ["/api/availability", selectedDate, appointmentHours],
+    queryFn: async () => {
+      if (!selectedDate) return [];
+      
+      // API expects from/to as ISO datetime strings and hours as "2", "4", or "6"
+      const startOfDay = new Date(selectedDate);
+      startOfDay.setHours(0, 0, 0, 0);
+      
+      const endOfDay = new Date(selectedDate);
+      endOfDay.setHours(23, 59, 59, 999);
+      
+      // Convert hours to the format expected by API ("2", "4", or "6")
+      const hours = Math.round(appointmentHours);
+      let hoursStr = hours.toString();
+      
+      // Validate that hours is one of the accepted values
+      if (!["2", "4", "6"].includes(hoursStr)) {
+        console.warn(`Unsupported appointment duration: ${hours} hours, defaulting to 2`);
+        hoursStr = "2";
+      }
+      
+      const queryParams = new URLSearchParams({
+        from: startOfDay.toISOString(),
+        to: endOfDay.toISOString(),
+        hours: hoursStr
+      });
+      
+      const response = await fetch(`/api/availability?${queryParams}`);
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch available slots");
+      }
+      
+      const data = await response.json();
+      return data.slots || [];
+    },
+    enabled: !!selectedDate && open,
+  });
+
+  // Format time slots for display
+  const formatTimeSlots = (slots: string[]) => {
+    return slots.map(slot => {
+      try {
+        const date = parseISO(slot);
+        return {
+          time: slot,
+          displayTime: format(date, "h:mm a"),
+        };
+      } catch (error) {
+        console.error("Error formatting time slot:", slot, error);
+        return null;
+      }
+    }).filter(slot => slot !== null);
+  };
+
+  const formattedSlots = formatTimeSlots(availableSlots);
+
   const handleReschedule = () => {
-    if (!startDateTime || !endDateTime) {
+    if (!selectedDate || !selectedTimeSlot) {
       return;
     }
+
+    // Calculate end time based on selected start time and duration
+    const startTime = selectedTimeSlot;
+    const endTime = format(addHours(parseISO(selectedTimeSlot), appointmentHours), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
 
     onReschedule.mutate(
       { 
         id: appointment.id, 
-        startTime: startDateTime, 
-        endTime: endDateTime, 
+        startTime, 
+        endTime, 
         checkAvailability 
       },
       {
         onSuccess: () => {
           setOpen(false);
-          setStartDateTime("");
-          setEndDateTime("");
+          setSelectedDate(undefined);
+          setSelectedTimeSlot("");
         }
       }
     );
@@ -668,57 +751,107 @@ function RescheduleDialog({ appointment, onReschedule }: { appointment: any; onR
   // Set default values when dialog opens
   const handleOpenChange = (isOpen: boolean) => {
     setOpen(isOpen);
-    if (isOpen && appointment.startTimestamptz) {
-      const start = new Date(appointment.startTimestamptz);
-      const end = new Date(appointment.endTimestamptz || start.getTime() + (2 * 60 * 60 * 1000));
-      
-      // Format for datetime-local input
-      const formatForInput = (date: Date) => {
-        const year = date.getFullYear();
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
-        const hours = date.getHours().toString().padStart(2, '0');
-        const minutes = date.getMinutes().toString().padStart(2, '0');
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
-      };
-
-      setStartDateTime(formatForInput(start));
-      setEndDateTime(formatForInput(end));
+    if (isOpen) {
+      // Reset form when opening
+      setSelectedDate(undefined);
+      setSelectedTimeSlot("");
     }
   };
 
   return (
-    <DialogContent>
+    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
       <DialogHeader>
-        <DialogTitle>Reschedule Appointment</DialogTitle>
+        <DialogTitle className="flex items-center gap-2">
+          <CalendarDays className="h-5 w-5 text-brand-red" />
+          Reschedule Appointment
+        </DialogTitle>
         <DialogDescription>
           Update the appointment time for {appointment.firstName} {appointment.lastName}
         </DialogDescription>
       </DialogHeader>
       
-      <div className="space-y-4">
-        <div>
-          <Label htmlFor="start-time">Start Date & Time</Label>
-          <Input
-            id="start-time"
-            type="datetime-local"
-            value={startDateTime}
-            onChange={(e) => setStartDateTime(e.target.value)}
-            data-testid="input-reschedule-start"
+      <div className="space-y-6">
+        {/* Current Appointment Info */}
+        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
+          <h4 className="font-medium mb-2">Current Appointment</h4>
+          <div className="text-sm space-y-1">
+            <p><strong>Date:</strong> {appointment.startTimestamptz ? format(new Date(appointment.startTimestamptz), "EEEE, MMMM do, yyyy") : "N/A"}</p>
+            <p><strong>Time:</strong> {appointment.startTimestamptz ? format(new Date(appointment.startTimestamptz), "h:mm a") : "N/A"}</p>
+            <p><strong>Duration:</strong> {appointmentHours} hour{appointmentHours !== 1 ? 's' : ''}</p>
+          </div>
+        </div>
+
+        {/* Date Picker */}
+        <div className="space-y-2">
+          <Label>Select New Date</Label>
+          <CalendarComponent
+            mode="single"
+            selected={selectedDate}
+            onSelect={setSelectedDate}
+            disabled={(date) => 
+              date < addHours(new Date(), 12) || 
+              date.getDay() === 0 // Disable Sundays
+            }
+            className="rounded-md border"
+            data-testid="calendar-reschedule-date-picker"
           />
         </div>
-        
-        <div>
-          <Label htmlFor="end-time">End Date & Time</Label>
-          <Input
-            id="end-time"
-            type="datetime-local"
-            value={endDateTime}
-            onChange={(e) => setEndDateTime(e.target.value)}
-            data-testid="input-reschedule-end"
-          />
+
+        <Separator />
+
+        {/* Time Slot Selection */}
+        <div className="space-y-4">
+          <Label>
+            {selectedDate 
+              ? `Available Times for ${format(selectedDate, "MMMM do")}`
+              : "Select a date to see available times"
+            }
+          </Label>
+          
+          {selectedDate && (
+            <>
+              {loadingSlots ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
+                  <span className="ml-2 text-muted-foreground">Loading available times...</span>
+                </div>
+              ) : slotsError ? (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    Failed to load available times. Please try selecting a different date.
+                  </AlertDescription>
+                </Alert>
+              ) : formattedSlots.length === 0 ? (
+                <Alert>
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>
+                    No available times for this date. Please select a different date.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {formattedSlots.map((slot) => (
+                    <Button
+                      key={slot.time}
+                      variant={selectedTimeSlot === slot.time ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setSelectedTimeSlot(slot.time)}
+                      className={selectedTimeSlot === slot.time ? "bg-brand-red hover:bg-brand-red-dark" : ""}
+                      data-testid={`button-admin-time-slot-${slot.displayTime.replace(/[^a-zA-Z0-9]/g, '-')}`}
+                    >
+                      {slot.displayTime}
+                    </Button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
         
+        <Separator />
+        
+        {/* Options */}
         <div className="flex items-center space-x-2">
           <input
             type="checkbox"
@@ -739,7 +872,7 @@ function RescheduleDialog({ appointment, onReschedule }: { appointment: any; onR
         </Button>
         <Button 
           onClick={handleReschedule}
-          disabled={!startDateTime || !endDateTime || onReschedule.isPending}
+          disabled={!selectedDate || !selectedTimeSlot || onReschedule.isPending}
           className="bg-[#BB0000] hover:bg-[#A00000]"
           data-testid="button-reschedule-confirm"
         >
