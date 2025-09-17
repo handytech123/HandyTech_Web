@@ -509,7 +509,7 @@ function AuthenticatedDashboard() {
                           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Date & Time</p>
                           <p className="text-sm" data-testid={`text-datetime-${appointment.id}`}>
                             {appointment.startTimestamptz 
-                              ? format(new Date(appointment.startTimestamptz), "EEEE, MMM do, yyyy 'at' h:mm a")
+                              ? `${new Date(appointment.startTimestamptz).toLocaleDateString()} at ${new Date(appointment.startTimestamptz).toLocaleTimeString()}`
                               : `${new Date(appointment.appointmentDate).toLocaleDateString()} at ${appointment.appointmentTime || 'TBD'}`
                             }
                           </p>
