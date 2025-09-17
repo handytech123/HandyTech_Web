@@ -39,7 +39,7 @@ function AuthenticatedDashboard() {
     serviceType: "Home Repair Consultation"
   });
 
-  // Helper function to get display time from appointment data - COPIED FROM WORKING CUSTOMER PORTAL
+  // Helper functions for appointment display
   const getDisplayTime = (appointment: any) => {
     if (appointment.startTimestamptz) {
       const startTime = new Date(appointment.startTimestamptz);
@@ -47,6 +47,13 @@ function AuthenticatedDashboard() {
       return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
     }
     return appointment.appointmentTime || 'TBD';
+  };
+
+  const getDisplayDate = (appointment: any) => {
+    const src = appointment.startTimestamptz || appointment.appointmentDate;
+    if (!src) return 'TBD';
+    const d = new Date(src);
+    return isNaN(d.getTime()) ? 'TBD' : d.toLocaleDateString();
   };
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -518,7 +525,7 @@ function AuthenticatedDashboard() {
                         <div>
                           <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Date & Time</p>
                           <p className="text-sm" data-testid={`text-datetime-${appointment.id}`}>
-                            {new Date(appointment.appointmentDate).toLocaleDateString()} at {getDisplayTime(appointment)}
+                            {getDisplayDate(appointment)}{getDisplayTime(appointment) ? ` at ${getDisplayTime(appointment)}` : ''}
                           </p>
                         </div>
                         <div>
