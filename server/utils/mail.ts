@@ -1068,6 +1068,79 @@ export class EmailService {
     }
   }
 
+  async sendQuoteNotification(quoteData: { 
+    customerName: string; 
+    customerEmail: string; 
+    serviceNeeded: string; 
+    message?: string; 
+    company?: string;
+    submittedAt: Date;
+  }): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping quote notification');
+      return false;
+    }
+
+    try {
+      const formattedDate = this.formatDateTime(quoteData.submittedAt);
+      const isMaintenancePlan = quoteData.serviceNeeded.toLowerCase().includes('maintenance');
+
+      const subject = `New ${isMaintenancePlan ? 'Maintenance Plan' : 'Service'} Request from ${quoteData.customerName}`;
+
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">New ${isMaintenancePlan ? 'Maintenance Plan' : 'Service'} Quote Request</h2>
+        
+        <p>A new ${isMaintenancePlan ? 'maintenance plan' : 'service'} request has been submitted and requires your attention.</p>
+        
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <h3 style="margin-top: 0; color: #333;">Customer Details</h3>
+          <p style="margin: 0 0 10px 0;"><strong>Name:</strong> ${quoteData.customerName}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Email:</strong> <a href="mailto:${quoteData.customerEmail}">${quoteData.customerEmail}</a></p>
+          ${quoteData.company ? `<p style="margin: 0 0 10px 0;"><strong>Phone:</strong> ${quoteData.company}</p>` : ''}
+          <p style="margin: 0 0 10px 0;"><strong>Service Requested:</strong> ${quoteData.serviceNeeded}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Submitted:</strong> ${formattedDate}</p>
+        </div>
+        
+        ${quoteData.message ? `
+        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+          <h4 style="margin-top: 0; color: #333;">Additional Details:</h4>
+          <p style="margin: 0; font-style: italic;">"${quoteData.message}"</p>
+        </div>
+        ` : ''}
+        
+        <div style="text-align: center; margin: 30px 0;">
+          <a href="${this.baseUrl}/admin#quotes" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Quote Request</a>
+        </div>
+        
+        <p>${isMaintenancePlan ? 'Please review this maintenance plan request and contact the customer within 24 hours.' : 'Please prepare a quote and respond to the customer promptly.'}</p>
+        
+        <p>You can contact the customer directly at: <a href="mailto:${quoteData.customerEmail}">${quoteData.customerEmail}</a></p>
+      `;
+
+      const htmlEmail = this.getEmailTemplate(content);
+
+      const mailOptions = {
+        from: `"${this.businessName} Quotes" <${this.fromEmail}>`,
+        to: this.adminEmail,
+        subject: subject,
+        html: htmlEmail,
+        headers: {
+          'X-Mailer': `${this.businessName} Quote System`,
+          'X-Priority': isMaintenancePlan ? '2' : '3', // Higher priority for maintenance plans
+          'X-Quote-Type': isMaintenancePlan ? 'maintenance-plan' : 'service-quote',
+          'X-Customer-Email': quoteData.customerEmail
+        }
+      };
+
+      await this.transporter.sendMail(mailOptions);
+      console.log(`Quote notification email sent to admin for ${quoteData.customerName} (${quoteData.serviceNeeded})`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send quote notification email:', error);
+      return false;
+    }
+  }
+
   getEmailConfig(): object {
     return {
       fromEmail: this.fromEmail,

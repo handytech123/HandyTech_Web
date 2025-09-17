@@ -1617,6 +1617,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Send email notification for quote request
+      try {
+        await emailService.sendQuoteNotification({
+          customerName: `${quote.firstName} ${quote.lastName}`,
+          customerEmail: quote.email,
+          serviceNeeded: quote.serviceNeeded,
+          message: quote.message || undefined,
+          company: quote.company || undefined,
+          submittedAt: new Date()
+        });
+        console.log(`Quote notification email sent for ${quote.firstName} ${quote.lastName} (${quote.serviceNeeded})`);
+      } catch (emailError) {
+        console.error('Failed to send quote notification email:', emailError);
+        // Don't fail the request if email fails
+      }
+
       res.status(201).json(quote);
     } catch (error) {
       if (error instanceof z.ZodError) {

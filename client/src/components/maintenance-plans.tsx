@@ -170,7 +170,7 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
             <FormItem>
               <FormLabel>Phone Number</FormLabel>
               <FormControl>
-                <Input data-testid="input-phone" placeholder="(555) 123-4567" {...field} />
+                <Input data-testid="input-phone" placeholder="(555) 123-4567" {...field} value={field.value || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -187,7 +187,8 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
                 <Textarea 
                   data-testid="textarea-message"
                   placeholder="Tell us about your specific needs or any questions you have..."
-                  {...field} 
+                  {...field}
+                  value={field.value || ""}
                 />
               </FormControl>
               <FormMessage />
