@@ -33,6 +33,26 @@ import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health check endpoint - responds immediately for deployment readiness checks
+  app.get("/health", (req, res) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      port: process.env.PORT || 5000
+    });
+  });
+
+  // Additional health check endpoints for deployment systems
+  app.get("/api/health", (req, res) => {
+    res.status(200).json({ 
+      status: "healthy", 
+      timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      port: process.env.PORT || 5000
+    });
+  });
+
   // Mount Google Calendar admin routes
   const { default: googleAdminRoutes } = await import("./routes/google-admin.js");
   app.use("/api/admin/google", requireAdmin, googleAdminRoutes);
