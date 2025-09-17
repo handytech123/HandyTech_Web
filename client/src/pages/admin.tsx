@@ -692,13 +692,7 @@ function RescheduleDialog({ appointment, onReschedule }: { appointment: any; onR
         hours: hoursStr
       });
       
-      const response = await fetch(`/api/availability?${queryParams}`);
-      
-      if (!response.ok) {
-        throw new Error("Failed to fetch available slots");
-      }
-      
-      const data = await response.json();
+      const data = await apiRequest(`/api/availability?${queryParams}`);
       return data.slots || [];
     },
     enabled: !!selectedDate && open,
