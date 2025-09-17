@@ -851,8 +851,8 @@ export class MemStorage implements IStorage {
       appointment.appointmentTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
       
       // Generate new reschedule token for customer self-service
-      const crypto = require('crypto');
-      appointment.rescheduleToken = crypto.randomBytes(24).toString('hex');
+      const { randomBytes } = await import('crypto');
+      appointment.rescheduleToken = randomBytes(24).toString('hex');
       appointment.rescheduleExpires = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // 30 days
       
       this.appointments.set(id, appointment);
