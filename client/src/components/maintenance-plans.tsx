@@ -90,10 +90,7 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
 
   const submitContact = useMutation({
     mutationFn: async (data: MaintenancePlanContactData) => {
-      return apiRequest("/api/quotes", {
-        method: "POST",
-        body: JSON.stringify(data),
-      });
+      return apiRequest("/api/quotes", "POST", data);
     },
     onSuccess: () => {
       toast({ 
