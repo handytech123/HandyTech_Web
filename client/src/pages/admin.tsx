@@ -5,64 +5,27 @@ import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import { Separator } from "@/components/ui/separator";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { CheckCircle, Clock, DollarSign, Users, Calendar, Star, LogOut, MessageSquare, TestTube, Edit, Trash2, RefreshCw, User, MoreVertical, Home, CalendarDays, AlertCircle, Loader2 } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
-import { Textarea } from "@/components/ui/textarea";
-import { format, parseISO, addHours } from "date-fns";
 import AdminLogin from "@/components/admin-login";
 import CalendarView from "@/components/calendar-view";
 import BlockedDatesManager from "@/components/blocked-dates-manager";
 import ServicesManager from "@/components/services-manager";
 import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import type { Quote, Appointment, Review, Customer, MaintenancePlan } from "@shared/schema";
+import type { Quote, Review, Customer, MaintenancePlan } from "@shared/schema";
 
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
-  const { toast } = useToast();
-  const [testData, setTestData] = useState({
-    name: "Test Customer",
-    email: "test@example.com", 
-    phone: "(555) 123-4567",
-    serviceType: "Home Repair Consultation"
-  });
 
-  // Helper functions for appointment display
-  const getDisplayTime = (appointment: any) => {
-    if (appointment.startTimestamptz) {
-      const startTime = new Date(appointment.startTimestamptz);
-      const endTime = appointment.endTimestamptz ? new Date(appointment.endTimestamptz) : new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
-      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-    }
-    return appointment.appointmentTime || 'TBD';
-  };
-
-  const getDisplayDate = (appointment: any) => {
-    const src = appointment.startTimestamptz || appointment.appointmentDate;
-    if (!src) return 'TBD';
-    const d = new Date(src);
-    return isNaN(d.getTime()) ? 'TBD' : d.toLocaleDateString();
-  };
 
   const { data: quotes = [] } = useQuery<Quote[]>({
     queryKey: ["/api/quotes"]
   });
 
-  const { data: appointments = [] } = useQuery<Appointment[]>({
-    queryKey: ["/api/appointments"]
-  });
 
   const { data: reviews = [] } = useQuery<Review[]>({
     queryKey: ["/api/admin/reviews"]
@@ -99,94 +62,10 @@ function AuthenticatedDashboard() {
   });
 
 
-  // Admin Appointment Management Mutations
-  const updateAppointmentStatusMutation = useMutation({
-    mutationFn: async ({ id, status, notes }: { id: number; status: string; notes?: string }) => {
-      await apiRequest(`/api/admin/appointments/${id}/status`, "PUT", { status, notes });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      toast({
-        title: "Status Updated",
-        description: "Appointment status has been updated successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Update Failed",
-        description: error.response?.data?.message || "Failed to update appointment status.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const rescheduleAppointmentMutation = useMutation({
-    mutationFn: async ({ id, startTime, endTime, checkAvailability }: { id: number; startTime: string; endTime: string; checkAvailability?: boolean }) => {
-      await apiRequest(`/api/admin/appointments/${id}/reschedule`, "PUT", { startTime, endTime, checkAvailability });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      toast({
-        title: "Rescheduled Successfully",
-        description: "Appointment has been rescheduled successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Reschedule Failed",
-        description: error.response?.data?.message || "Failed to reschedule appointment.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const cancelAppointmentMutation = useMutation({
-    mutationFn: async ({ id, action }: { id: number; action: "cancel" | "delete" }) => {
-      await apiRequest(`/api/admin/appointments/${id}`, "DELETE", { action });
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      toast({
-        title: "Action Completed",
-        description: "Appointment has been updated successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Action Failed",
-        description: error.response?.data?.message || "Failed to perform action.",
-        variant: "destructive",
-      });
-    }
-  });
-
-  const updateCustomerMutation = useMutation({
-    mutationFn: async ({ appointmentId, customerData }: { appointmentId: number; customerData: any }) => {
-      await apiRequest(`/api/admin/appointments/${appointmentId}/customer`, "PUT", customerData);
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-      toast({
-        title: "Customer Updated",
-        description: "Customer details have been updated successfully.",
-      });
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Update Failed",
-        description: error.response?.data?.message || "Failed to update customer details.",
-        variant: "destructive",
-      });
-    }
-  });
 
 
   const totalRevenue = maintenancePlans.reduce((sum, plan) => sum + plan.price, 0);
   const pendingQuotes = quotes.filter(q => q.status === "pending").length;
-  const todayAppointments = appointments.filter(
-    a => new Date(a.appointmentDate).toDateString() === new Date().toDateString()
-  ).length;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
@@ -231,7 +110,7 @@ function AuthenticatedDashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
@@ -262,19 +141,10 @@ function AuthenticatedDashboard() {
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Today's Appointments</CardTitle>
-              <Calendar className="h-4 w-4 text-muted-foreground" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{todayAppointments}</div>
-            </CardContent>
-          </Card>
         </div>
 
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-9 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-7 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
               Services
             </TabsTrigger>
@@ -289,9 +159,6 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex-1 min-w-[100px] text-sm">
-              Appointments
             </TabsTrigger>
             <TabsTrigger value="reviews" className="flex-1 min-w-[100px] text-sm">
               Reviews
@@ -370,204 +237,6 @@ function AuthenticatedDashboard() {
             </Card>
           </TabsContent>
 
-          <TabsContent value="appointments">
-            <Card>
-              <CardHeader>
-                <CardTitle>Appointments Management</CardTitle>
-                <CardDescription>View and manage scheduled appointments with full admin controls</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {appointments.map((appointment) => (
-                    <div key={appointment.id} className="border rounded-lg p-4 bg-white dark:bg-gray-800 hover:shadow-md transition-shadow">
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-lg" data-testid={`text-customer-name-${appointment.id}`}>
-                              {appointment.firstName} {appointment.lastName}
-                            </h3>
-                            <Badge variant={appointment.source === "manual" ? "outline" : "default"}>
-                              {appointment.source === "manual" ? "📞 Manual" : "🤖 System"}
-                            </Badge>
-                          </div>
-                          <p className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-customer-email-${appointment.id}`}>
-                            {appointment.email}
-                          </p>
-                          {appointment.phone && (
-                            <p className="text-sm text-gray-500" data-testid={`text-customer-phone-${appointment.id}`}>
-                              {appointment.phone}
-                            </p>
-                          )}
-                        </div>
-                        
-                        {/* Status and Actions */}
-                        <div className="flex items-center gap-3">
-                          <div className="flex flex-col items-end gap-2">
-                            <Select
-                              value={appointment.status}
-                              onValueChange={(status) => 
-                                updateAppointmentStatusMutation.mutate({ id: appointment.id, status })
-                              }
-                              disabled={updateAppointmentStatusMutation.isPending}
-                            >
-                              <SelectTrigger 
-                                className="w-32" 
-                                data-testid={`select-status-${appointment.id}`}
-                              >
-                                <SelectValue />
-                              </SelectTrigger>
-                              <SelectContent>
-                                <SelectItem value="scheduled">Scheduled</SelectItem>
-                                <SelectItem value="in-progress">In Progress</SelectItem>
-                                <SelectItem value="completed">Completed</SelectItem>
-                                <SelectItem value="cancelled">Cancelled</SelectItem>
-                                <SelectItem value="no-show">No Show</SelectItem>
-                              </SelectContent>
-                            </Select>
-                            
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button 
-                                  variant="outline" 
-                                  size="sm" 
-                                  className="border-[#BB0000] text-[#BB0000] hover:bg-[#BB0000] hover:text-white"
-                                  data-testid={`button-actions-${appointment.id}`}
-                                >
-                                  <MoreVertical className="h-4 w-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent>
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <RefreshCw className="h-4 w-4 mr-2" />
-                                      Reschedule
-                                    </DropdownMenuItem>
-                                  </DialogTrigger>
-                                  <RescheduleDialog appointment={appointment} onReschedule={rescheduleAppointmentMutation} />
-                                </Dialog>
-                                
-                                <Dialog>
-                                  <DialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <User className="h-4 w-4 mr-2" />
-                                      Edit Customer
-                                    </DropdownMenuItem>
-                                  </DialogTrigger>
-                                  <EditCustomerDialog appointment={appointment} onUpdate={updateCustomerMutation} />
-                                </Dialog>
-                                
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()}>
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Cancel
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Cancel Appointment</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to cancel this appointment? This action can be undone by changing the status back to "scheduled".
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Keep Appointment</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => cancelAppointmentMutation.mutate({ id: appointment.id, action: "cancel" })}
-                                        className="bg-[#BB0000] hover:bg-[#A00000]"
-                                        data-testid={`button-cancel-confirm-${appointment.id}`}
-                                      >
-                                        Cancel Appointment
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                                
-                                <AlertDialog>
-                                  <AlertDialogTrigger asChild>
-                                    <DropdownMenuItem onSelect={(e) => e.preventDefault()} className="text-red-600">
-                                      <Trash2 className="h-4 w-4 mr-2" />
-                                      Delete Permanently
-                                    </DropdownMenuItem>
-                                  </AlertDialogTrigger>
-                                  <AlertDialogContent>
-                                    <AlertDialogHeader>
-                                      <AlertDialogTitle>Delete Appointment</AlertDialogTitle>
-                                      <AlertDialogDescription>
-                                        Are you sure you want to permanently delete this appointment? This action cannot be undone.
-                                      </AlertDialogDescription>
-                                    </AlertDialogHeader>
-                                    <AlertDialogFooter>
-                                      <AlertDialogCancel>Keep Appointment</AlertDialogCancel>
-                                      <AlertDialogAction
-                                        onClick={() => cancelAppointmentMutation.mutate({ id: appointment.id, action: "delete" })}
-                                        className="bg-red-600 hover:bg-red-700"
-                                        data-testid={`button-delete-confirm-${appointment.id}`}
-                                      >
-                                        Delete Permanently
-                                      </AlertDialogAction>
-                                    </AlertDialogFooter>
-                                  </AlertDialogContent>
-                                </AlertDialog>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div>
-                        </div>
-                      </div>
-                      
-                      {/* Appointment Details */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-3 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Service</p>
-                          <p className="text-sm" data-testid={`text-service-${appointment.id}`}>{appointment.serviceType}</p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Date & Time</p>
-                          <p className="text-sm" data-testid={`text-datetime-${appointment.id}`}>
-                            {getDisplayDate(appointment)}{getDisplayTime(appointment) ? ` at ${getDisplayTime(appointment)}` : ''}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">ID</p>
-                          <p className="text-sm font-mono" data-testid={`text-appointment-id-${appointment.id}`}>#{appointment.id}</p>
-                        </div>
-                      </div>
-                      
-                      {appointment.notes && (
-                        <div className="mt-3 p-3 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                          <p className="text-sm font-medium text-blue-900 dark:text-blue-100 mb-1">Notes</p>
-                          <p className="text-sm text-blue-800 dark:text-blue-200" data-testid={`text-notes-${appointment.id}`}>
-                            {appointment.notes}
-                          </p>
-                        </div>
-                      )}
-                      
-                      {/* Loading States */}
-                      {(updateAppointmentStatusMutation.isPending || 
-                        rescheduleAppointmentMutation.isPending || 
-                        cancelAppointmentMutation.isPending || 
-                        updateCustomerMutation.isPending) && (
-                        <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-lg flex items-center justify-center">
-                          <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-[#BB0000]"></div>
-                            <span className="text-sm">Processing...</span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                  {appointments.length === 0 && (
-                    <div className="text-center py-12">
-                      <Calendar className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                      <p className="text-gray-500 text-lg">No appointments scheduled</p>
-                      <p className="text-gray-400 text-sm">Appointments will appear here when customers book services</p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
 
           <TabsContent value="reviews">
             <Card>
@@ -657,374 +326,6 @@ function AuthenticatedDashboard() {
   );
 }
 
-// Reschedule Dialog Component
-function RescheduleDialog({ appointment, onReschedule }: { appointment: any; onReschedule: any }) {
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
-  const [checkAvailability, setCheckAvailability] = useState(true);
-  const [open, setOpen] = useState(false);
-
-  // Calculate appointment duration from existing appointment
-  const getAppointmentDuration = () => {
-    if (appointment.startTimestamptz && appointment.endTimestamptz) {
-      const start = new Date(appointment.startTimestamptz);
-      const end = new Date(appointment.endTimestamptz);
-      return Math.round((end.getTime() - start.getTime()) / (1000 * 60 * 60)); // hours
-    }
-    return 2; // default 2 hours
-  };
-
-  const appointmentHours = getAppointmentDuration();
-
-  // Fetch available time slots for selected date
-  const { 
-    data: availableSlots = [], 
-    isLoading: loadingSlots,
-    error: slotsError 
-  } = useQuery<string[]>({
-    queryKey: ["/api/availability", selectedDate, appointmentHours],
-    queryFn: async () => {
-      if (!selectedDate) return [];
-      
-      // API expects from/to as ISO datetime strings and hours as "2", "4", or "6"
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
-      
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      // Convert hours to the format expected by API ("2", "4", or "6")
-      const hours = Math.round(appointmentHours);
-      let hoursStr = hours.toString();
-      
-      // Validate that hours is one of the accepted values
-      if (!["2", "4", "6"].includes(hoursStr)) {
-        console.warn(`Unsupported appointment duration: ${hours} hours, defaulting to 2`);
-        hoursStr = "2";
-      }
-      
-      const queryParams = new URLSearchParams({
-        from: startOfDay.toISOString(),
-        to: endOfDay.toISOString(),
-        hours: hoursStr
-      });
-      
-      const data = await apiRequest(`/api/availability?${queryParams}`);
-      return data.slots || [];
-    },
-    enabled: !!selectedDate && open,
-  });
-
-  // Format time slots for display
-  const formatTimeSlots = (slots: string[]) => {
-    return slots.map(slot => {
-      try {
-        const date = parseISO(slot);
-        return {
-          time: slot,
-          displayTime: format(date, "h:mm a"),
-        };
-      } catch (error) {
-        console.error("Error formatting time slot:", slot, error);
-        return null;
-      }
-    }).filter(slot => slot !== null);
-  };
-
-  const formattedSlots = formatTimeSlots(availableSlots);
-
-  const handleReschedule = () => {
-    if (!selectedDate || !selectedTimeSlot) {
-      return;
-    }
-
-    // Calculate end time based on selected start time and duration
-    const startTime = selectedTimeSlot;
-    const endTime = format(addHours(parseISO(selectedTimeSlot), appointmentHours), "yyyy-MM-dd'T'HH:mm:ss.SSSxxx");
-
-    onReschedule.mutate(
-      { 
-        id: appointment.id, 
-        startTime, 
-        endTime, 
-        checkAvailability 
-      },
-      {
-        onSuccess: () => {
-          setOpen(false);
-          setSelectedDate(undefined);
-          setSelectedTimeSlot("");
-        }
-      }
-    );
-  };
-
-  // Set default values when dialog opens
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (isOpen) {
-      // Reset form when opening
-      setSelectedDate(undefined);
-      setSelectedTimeSlot("");
-    }
-  };
-
-  return (
-    <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-      <DialogHeader>
-        <DialogTitle className="flex items-center gap-2">
-          <CalendarDays className="h-5 w-5 text-brand-red" />
-          Reschedule Appointment
-        </DialogTitle>
-        <DialogDescription>
-          Update the appointment time for {appointment.firstName} {appointment.lastName}
-        </DialogDescription>
-      </DialogHeader>
-      
-      <div className="space-y-6">
-        {/* Current Appointment Info */}
-        <div className="bg-gray-50 dark:bg-gray-800 p-4 rounded-lg">
-          <h4 className="font-medium mb-2">Current Appointment</h4>
-          <div className="text-sm space-y-1">
-            <p><strong>Date:</strong> {appointment.startTimestamptz ? format(new Date(appointment.startTimestamptz), "EEEE, MMMM do, yyyy") : "N/A"}</p>
-            <p><strong>Time:</strong> {appointment.startTimestamptz ? format(new Date(appointment.startTimestamptz), "h:mm a") : "N/A"}</p>
-            <p><strong>Duration:</strong> {appointmentHours} hour{appointmentHours !== 1 ? 's' : ''}</p>
-          </div>
-        </div>
-
-        {/* Date Picker */}
-        <div className="space-y-2">
-          <Label>Select New Date</Label>
-          <CalendarComponent
-            mode="single"
-            selected={selectedDate}
-            onSelect={setSelectedDate}
-            disabled={(date) => 
-              date < addHours(new Date(), 12) || 
-              date.getDay() === 0 // Disable Sundays
-            }
-            className="rounded-md border"
-            data-testid="calendar-reschedule-date-picker"
-          />
-        </div>
-
-        <Separator />
-
-        {/* Time Slot Selection */}
-        <div className="space-y-4">
-          <Label>
-            {selectedDate 
-              ? `Available Times for ${format(selectedDate, "MMMM do")}`
-              : "Select a date to see available times"
-            }
-          </Label>
-          
-          {selectedDate && (
-            <>
-              {loadingSlots ? (
-                <div className="flex items-center justify-center py-8">
-                  <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
-                  <span className="ml-2 text-muted-foreground">Loading available times...</span>
-                </div>
-              ) : slotsError ? (
-                <Alert variant="destructive">
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    Failed to load available times. Please try selecting a different date.
-                  </AlertDescription>
-                </Alert>
-              ) : formattedSlots.length === 0 ? (
-                <Alert>
-                  <AlertCircle className="h-4 w-4" />
-                  <AlertDescription>
-                    No available times for this date. Please select a different date.
-                  </AlertDescription>
-                </Alert>
-              ) : (
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                  {formattedSlots.map((slot) => (
-                    <Button
-                      key={slot.time}
-                      variant={selectedTimeSlot === slot.time ? "default" : "outline"}
-                      size="sm"
-                      onClick={() => setSelectedTimeSlot(slot.time)}
-                      className={selectedTimeSlot === slot.time ? "bg-brand-red hover:bg-brand-red-dark" : ""}
-                      data-testid={`button-admin-time-slot-${slot.displayTime.replace(/[^a-zA-Z0-9]/g, '-')}`}
-                    >
-                      {slot.displayTime}
-                    </Button>
-                  ))}
-                </div>
-              )}
-            </>
-          )}
-        </div>
-        
-        <Separator />
-        
-        {/* Options */}
-        <div className="flex items-center space-x-2">
-          <input
-            type="checkbox"
-            id="check-availability"
-            checked={checkAvailability}
-            onChange={(e) => setCheckAvailability(e.target.checked)}
-            data-testid="checkbox-check-availability"
-          />
-          <Label htmlFor="check-availability" className="text-sm">
-            Check availability (uncheck to force reschedule)
-          </Label>
-        </div>
-      </div>
-      
-      <DialogFooter>
-        <Button variant="outline" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleReschedule}
-          disabled={!selectedDate || !selectedTimeSlot || onReschedule.isPending}
-          className="bg-[#BB0000] hover:bg-[#A00000]"
-          data-testid="button-reschedule-confirm"
-        >
-          {onReschedule.isPending ? "Rescheduling..." : "Reschedule Appointment"}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
-
-// Edit Customer Dialog Component
-function EditCustomerDialog({ appointment, onUpdate }: { appointment: any; onUpdate: any }) {
-  const [firstName, setFirstName] = useState(appointment.firstName || "");
-  const [lastName, setLastName] = useState(appointment.lastName || "");
-  const [email, setEmail] = useState(appointment.email || "");
-  const [phone, setPhone] = useState(appointment.phone || "");
-  const [company, setCompany] = useState(appointment.company || "");
-  const [open, setOpen] = useState(false);
-
-  const handleUpdate = () => {
-    const customerData = {
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      email: email.trim(),
-      phone: phone.trim(),
-      company: company.trim()
-    };
-
-    // Remove empty fields
-    Object.keys(customerData).forEach(key => {
-      if (!customerData[key as keyof typeof customerData]) {
-        delete customerData[key as keyof typeof customerData];
-      }
-    });
-
-    onUpdate.mutate(
-      { appointmentId: appointment.id, customerData },
-      {
-        onSuccess: () => {
-          setOpen(false);
-        }
-      }
-    );
-  };
-
-  const handleOpenChange = (isOpen: boolean) => {
-    setOpen(isOpen);
-    if (isOpen) {
-      // Reset form when opening
-      setFirstName(appointment.firstName || "");
-      setLastName(appointment.lastName || "");
-      setEmail(appointment.email || "");
-      setPhone(appointment.phone || "");
-      setCompany(appointment.company || "");
-    }
-  };
-
-  return (
-    <DialogContent>
-      <DialogHeader>
-        <DialogTitle>Edit Customer Details</DialogTitle>
-        <DialogDescription>
-          Update customer information for this appointment
-        </DialogDescription>
-      </DialogHeader>
-      
-      <div className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label htmlFor="first-name">First Name</Label>
-            <Input
-              id="first-name"
-              value={firstName}
-              onChange={(e) => setFirstName(e.target.value)}
-              placeholder="First name"
-              data-testid="input-edit-firstname"
-            />
-          </div>
-          <div>
-            <Label htmlFor="last-name">Last Name</Label>
-            <Input
-              id="last-name"
-              value={lastName}
-              onChange={(e) => setLastName(e.target.value)}
-              placeholder="Last name"
-              data-testid="input-edit-lastname"
-            />
-          </div>
-        </div>
-        
-        <div>
-          <Label htmlFor="email">Email Address</Label>
-          <Input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="customer@example.com"
-            data-testid="input-edit-email"
-          />
-        </div>
-        
-        <div>
-          <Label htmlFor="phone">Phone Number</Label>
-          <Input
-            id="phone"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="(555) 123-4567"
-            data-testid="input-edit-phone"
-          />
-        </div>
-        
-        <div>
-          <Label htmlFor="company">Company (Optional)</Label>
-          <Input
-            id="company"
-            value={company}
-            onChange={(e) => setCompany(e.target.value)}
-            placeholder="Company name"
-            data-testid="input-edit-company"
-          />
-        </div>
-      </div>
-      
-      <DialogFooter>
-        <Button variant="outline" onClick={() => setOpen(false)}>
-          Cancel
-        </Button>
-        <Button 
-          onClick={handleUpdate}
-          disabled={!firstName.trim() || !lastName.trim() || !email.trim() || onUpdate.isPending}
-          className="bg-[#BB0000] hover:bg-[#A00000]"
-          data-testid="button-update-customer-confirm"
-        >
-          {onUpdate.isPending ? "Updating..." : "Update Customer"}
-        </Button>
-      </DialogFooter>
-    </DialogContent>
-  );
-}
 
 export default function AdminDashboard() {
   const { isAuthenticated, isLoading: authLoading, login } = useAdminAuth();
@@ -1079,7 +380,7 @@ export default function AdminDashboard() {
     <>
       <Helmet>
         <title>Admin Dashboard | HandyTech Solutions Business Management</title>
-        <meta name="description" content="Manage reviews, quotes, appointments, and customers for HandyTech Solutions handyman services." />
+        <meta name="description" content="Manage reviews, quotes, and customers for HandyTech Solutions handyman services." />
         <meta name="robots" content="noindex, nofollow" />
       </Helmet>
       <AuthenticatedDashboard />
