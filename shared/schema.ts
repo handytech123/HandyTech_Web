@@ -84,7 +84,6 @@ export const appointments = pgTable("appointments", {
   status: text("status").notNull().default("scheduled"), // 'scheduled', 'confirmed', 'completed', 'cancelled'
   source: text("source").notNull().default("manual"), // 'manual', 'chatbot'
   notes: text("notes"),
-  calendlyEventId: text("calendly_event_id"), // Calendly event ID for existing integration
   googleEventId: text("google_event_id"), // Google Calendar event ID for sync functionality
   // Reminder tracking fields to prevent duplicates
   reminder24hSent: timestamp("reminder_24h_sent"),
