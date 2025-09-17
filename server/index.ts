@@ -24,6 +24,28 @@ async function validateStartupEnvironment(): Promise<void> {
 
 const app = express();
 
+// CRITICAL: Health check endpoints MUST be first to bypass all middleware and work in all environments
+app.get(['/health', '/healthz'], (req, res) => {
+  res.set('Cache-Control', 'no-store').type('text/plain').send('OK');
+});
+
+app.head(['/health', '/healthz'], (req, res) => {
+  res.set('Cache-Control', 'no-store').type('text/plain').send('');
+});
+
+app.get(['/api/health', '/readyz'], (req, res) => {
+  res.set('Cache-Control', 'no-store').json({ 
+    status: "healthy", 
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    port: process.env.PORT || 5000
+  });
+});
+
+app.head(['/api/health', '/readyz'], (req, res) => {
+  res.set('Cache-Control', 'no-store').type('text/plain').send('');
+});
+
 // Apply comprehensive security middleware first
 setupSecurity(app);
 

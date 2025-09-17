@@ -33,36 +33,26 @@ import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Health check endpoint - responds immediately for deployment readiness checks
-  app.get("/health", (req, res) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      port: process.env.PORT || 5000
-    });
-  });
-
-  // Additional health check endpoints for deployment systems
-  app.get("/api/health", (req, res) => {
-    res.status(200).json({ 
-      status: "healthy", 
-      timestamp: new Date().toISOString(),
-      uptime: process.uptime(),
-      port: process.env.PORT || 5000
-    });
-  });
-
   // Mount Google Calendar admin routes
   const { default: googleAdminRoutes } = await import("./routes/google-admin.js");
   app.use("/api/admin/google", requireAdmin, googleAdminRoutes);
-  // Initialize OpenAI client
-  const openai = process.env.OPENAI_API_KEY ? new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY
-  }) : null;
+  // Lazy-loaded OpenAI client - only initialize when needed
+  let openai: OpenAI | null = null;
+  const getOpenAI = () => {
+    if (!openai && process.env.OPENAI_API_KEY) {
+      openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    }
+    return openai;
+  };
 
-  // Initialize email service
-  const emailService = new EmailService();
+  // Lazy-loaded email service - only initialize when needed
+  let emailService: EmailService | null = null;
+  const getEmailService = () => {
+    if (!emailService) {
+      emailService = new EmailService();
+    }
+    return emailService;
+  };
   
   // SECURITY: Server-side maintenance plan catalog with canonical pricing
   // This prevents price tampering by enforcing server-controlled pricing
@@ -106,7 +96,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   }, TOKEN_CLEANUP_INTERVAL);
   
-  // Run initial cleanup on startup
+  // Delay initial cleanup to improve startup performance
   setTimeout(async () => {
     try {
       await storage.deleteExpiredPortalLoginTokens();
@@ -114,7 +104,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('[SECURITY] Initial token cleanup failed:', error);
     }
-  }, 5000); // 5 seconds after startup
+  }, 15000); // 15 seconds after startup to allow deployment readiness
 
 
   // Admin authentication routes with session-based auth
@@ -263,7 +253,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const magicLink = `${baseUrl}/portal/callback?token=${token}`;
       
       // Use EmailService to send magic link email
-      await emailService.sendMagicLinkEmail({
+      await getEmailService().sendMagicLinkEmail({
         to: email,
         customerName: `${customer.firstName} ${customer.lastName}`,
         magicLink
@@ -807,7 +797,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (originalStart && originalEnd && updatedAppointment) {
         // Send customer confirmation email
         try {
-          await emailService.sendRescheduleConfirmation(
+          await getEmailService().sendRescheduleConfirmation(
             updatedAppointment,
             new Date(originalStart),
             new Date(originalEnd)
@@ -820,7 +810,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Send internal admin notification
         try {
-          await emailService.sendAdminRescheduleNotification(
+          await getEmailService().sendAdminRescheduleNotification(
             updatedAppointment,
             new Date(originalStart),
             new Date(originalEnd)
@@ -1284,7 +1274,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send cancellation confirmation email
       try {
-        await emailService.sendSubscriptionCancellationConfirmation({
+        await getEmailService().sendSubscriptionCancellationConfirmation({
           to: customer.email,
           customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
           planType: cancelledPlan.planType,
@@ -1358,7 +1348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send reactivation confirmation email
       try {
-        await emailService.sendSubscriptionReactivationConfirmation({
+        await getEmailService().sendSubscriptionReactivationConfirmation({
           to: customer.email,
           customerName: `${customer.firstName || ''} ${customer.lastName || ''}`.trim(),
           planType: reactivatedPlan.planType,
@@ -1433,7 +1423,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       try {
         const customer = await storage.getCustomer(reviewData.customerId);
         if (customer) {
-          await emailService.sendReviewNotification({
+          await getEmailService().sendReviewNotification({
             customerName: `${customer.firstName} ${customer.lastName}`,
             customerEmail: customer.email,
             serviceType: undefined, // serviceType not available in regular review schema
@@ -1530,7 +1520,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Send admin notification email for new review
       try {
-        await emailService.sendReviewNotification({
+        await getEmailService().sendReviewNotification({
           customerName: `${customer.firstName} ${customer.lastName}`,
           customerEmail: customer.email,
           serviceType: serviceType || undefined,
@@ -1555,7 +1545,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Email debugging and testing routes (admin only)
   app.get("/api/admin/email/config", requireAdmin, async (req, res) => {
     try {
-      const config = emailService.getEmailConfig();
+      const config = getEmailService().getEmailConfig();
       res.json({
         success: true,
         config
@@ -1580,7 +1570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      const result = await emailService.sendTestEmail(email);
+      const result = await getEmailService().sendTestEmail(email);
       res.json({
         success: result,
         message: result ? "Test email sent successfully" : "Failed to send test email"
@@ -1596,7 +1586,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/email/verify", requireAdmin, async (req, res) => {
     try {
-      const result = await emailService.verifyConnection();
+      const result = await getEmailService().verifyConnection();
       res.json({
         success: result,
         message: result ? "Email service connection verified" : "Email service connection failed"
@@ -1639,7 +1629,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Send email notification for quote request
       try {
-        await emailService.sendQuoteNotification({
+        await getEmailService().sendQuoteNotification({
           customerName: `${quote.firstName} ${quote.lastName}`,
           customerEmail: quote.email,
           serviceNeeded: quote.serviceNeeded,
@@ -1840,10 +1830,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Send emails with proper integration
       try {
         // Send customer confirmation email with ICS attachment and reschedule link
-        await emailService.sendAppointmentConfirmation(appointment, rescheduleToken);
+        await getEmailService().sendAppointmentConfirmation(appointment, rescheduleToken);
         
         // Send admin notification with appointment details
-        await emailService.sendAdminNotification(appointment);
+        await getEmailService().sendAdminNotification(appointment);
         
         console.log(`Appointment ${appointment.id} created successfully with emails sent`);
       } catch (emailError) {
@@ -2253,11 +2243,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Try OpenAI first, then fallback
-      if (openai) {
+      const openaiClient = getOpenAI();
+      if (openaiClient) {
         try {
           console.log("Using OpenAI for message:", message);
           // the newest OpenAI model is "gpt-5" which was released August 7, 2025. do not change this unless explicitly requested by the user
-          const response = await openai.chat.completions.create({
+          const openaiClient = getOpenAI();
+          if (!openaiClient) {
+            throw new Error('OpenAI client not available - API key not configured');
+          }
+          const response = await openaiClient.chat.completions.create({
             model: "gpt-5",
             messages: [
               {
