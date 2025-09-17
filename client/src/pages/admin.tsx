@@ -41,12 +41,22 @@ function AuthenticatedDashboard() {
 
   // Helper function to get display time from appointment data
   const getDisplayTime = (appointment: any) => {
+    console.log("DEBUG - Appointment data:", { 
+      id: appointment.id, 
+      appointmentTime: appointment.appointmentTime, 
+      startTimestamptz: appointment.startTimestamptz 
+    });
+    
     if (appointment.appointmentTime) {
+      console.log("Using appointmentTime:", appointment.appointmentTime);
       return appointment.appointmentTime;
     }
     if (appointment.startTimestamptz) {
-      return new Date(appointment.startTimestamptz).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+      const time = new Date(appointment.startTimestamptz).toLocaleTimeString([], {hour:"numeric", minute:"2-digit"});
+      console.log("Using startTimestamptz formatted:", time);
+      return time;
     }
+    console.log("No time data available, returning TBD");
     return "TBD";
   };
 
