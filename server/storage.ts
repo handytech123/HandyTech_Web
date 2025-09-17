@@ -1592,8 +1592,8 @@ export class DatabaseStorage implements IStorage {
     const appointmentTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
     
     // Generate new reschedule token for customer self-service
-    const crypto = require('crypto');
-    const rescheduleToken = crypto.randomBytes(24).toString('hex');
+    const { randomBytes } = await import('crypto');
+    const rescheduleToken = randomBytes(24).toString('hex');
     const rescheduleExpires = new Date(Date.now() + (30 * 24 * 60 * 60 * 1000)); // 30 days
     
     const updateData = {
