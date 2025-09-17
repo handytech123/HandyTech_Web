@@ -4,16 +4,17 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, Clock, User, Phone, Mail } from "lucide-react";
-import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek } from "date-fns";
+import { format, startOfMonth, endOfMonth, eachDayOfInterval, isSameDay, isToday, startOfWeek, endOfWeek, parseISO } from "date-fns";
 import type { Appointment, BlockedTime } from "@shared/schema";
 
-export default function CalendarView() {
+interface CalendarViewProps {
+  appointments?: Appointment[];
+  onEventClick?: (appointment: Appointment) => void;
+}
+
+export default function CalendarView({ appointments = [], onEventClick }: CalendarViewProps) {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
-
-  const { data: appointments = [] } = useQuery<Appointment[]>({
-    queryKey: ["/api/appointments"]
-  });
 
   const { data: blockedDates = [] } = useQuery<BlockedTime[]>({
     queryKey: ["/api/blocked-dates"]
@@ -26,11 +27,21 @@ export default function CalendarView() {
   const calendarEnd = endOfWeek(monthEnd);
   const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
 
-  // Get appointments for a specific day
+  // Get appointments for a specific day using timezone-aware timestamps
   const getAppointmentsForDay = (day: Date) => {
-    return appointments.filter(appointment => 
-      isSameDay(new Date(appointment.appointmentDate), day)
-    );
+    return appointments.filter(appointment => {
+      // Use startTimestamptz if available, fallback to appointmentDate
+      let appointmentDay: Date;
+      
+      if (appointment.startTimestamptz) {
+        appointmentDay = new Date(appointment.startTimestamptz);
+      } else {
+        // Fallback to legacy appointmentDate
+        appointmentDay = new Date(appointment.appointmentDate);
+      }
+      
+      return isSameDay(appointmentDay, day);
+    });
   };
 
   // Check if a day is blocked
@@ -144,19 +155,33 @@ export default function CalendarView() {
                       </div>
                     )}
                     
-                    {!isBlocked && dayAppointments.slice(0, 2).map(appointment => (
-                      <div
-                        key={appointment.id}
-                        className={`text-xs p-1 rounded border ${getStatusColor(appointment.status)}`}
-                      >
-                        <div className="font-medium truncate">
-                          {appointment.appointmentTime}
+                    {!isBlocked && dayAppointments.slice(0, 2).map(appointment => {
+                      // Format time from startTimestamptz or fallback to appointmentTime
+                      const displayTime = appointment.startTimestamptz 
+                        ? format(new Date(appointment.startTimestamptz), 'h:mm a')
+                        : appointment.appointmentTime;
+                      
+                      return (
+                        <div
+                          key={appointment.id}
+                          className={`text-xs p-1 rounded border cursor-pointer hover:opacity-80 ${getStatusColor(appointment.status)}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (onEventClick) {
+                              onEventClick(appointment);
+                            }
+                          }}
+                          data-testid={`calendar-event-${appointment.id}`}
+                        >
+                          <div className="font-medium truncate">
+                            {displayTime}
+                          </div>
+                          <div className="truncate">
+                            {appointment.firstName} {appointment.lastName}
+                          </div>
                         </div>
-                        <div className="truncate">
-                          {appointment.firstName} {appointment.lastName}
-                        </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                     
                     {!isBlocked && dayAppointments.length > 2 && (
                       <div className="text-xs text-gray-500 text-center">
@@ -184,7 +209,16 @@ export default function CalendarView() {
             {selectedDateAppointments.length > 0 ? (
               <div className="space-y-4">
                 {selectedDateAppointments
-                  .sort((a, b) => a.appointmentTime.localeCompare(b.appointmentTime))
+                  .sort((a, b) => {
+                    // Sort by startTimestamptz if available, fallback to appointmentTime
+                    const timeA = a.startTimestamptz 
+                      ? new Date(a.startTimestamptz).getTime()
+                      : new Date(`1970-01-01 ${a.appointmentTime}`).getTime();
+                    const timeB = b.startTimestamptz 
+                      ? new Date(b.startTimestamptz).getTime()
+                      : new Date(`1970-01-01 ${b.appointmentTime}`).getTime();
+                    return timeA - timeB;
+                  })
                   .map(appointment => (
                     <div key={appointment.id} className="border rounded-lg p-4 bg-white">
                       <div className="flex justify-between items-start mb-3">
@@ -195,7 +229,11 @@ export default function CalendarView() {
                           <p className="text-sm text-gray-600">{appointment.serviceType}</p>
                         </div>
                         <div className="text-right">
-                          <div className="text-lg font-medium">{appointment.appointmentTime}</div>
+                          <div className="text-lg font-medium">
+                            {appointment.startTimestamptz 
+                              ? format(new Date(appointment.startTimestamptz), 'h:mm a')
+                              : appointment.appointmentTime}
+                          </div>
                           <Badge className={getStatusColor(appointment.status)}>
                             {appointment.status}
                           </Badge>

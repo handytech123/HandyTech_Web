@@ -292,7 +292,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       googleEventId: null,
       notes: "Resolved network connectivity issues and updated system security. Installed new antivirus software and configured automatic backups.",
       reminder24hSent: null,
@@ -321,7 +321,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       googleEventId: null,
       notes: "Complete network infrastructure setup including router configuration, Wi-Fi optimization, and cable management.",
       reminder24hSent: null,
@@ -350,7 +350,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       googleEventId: null,
       notes: "Installed smart thermostats, door locks, and lighting system. Set up central control hub and mobile app configuration.",
       reminder24hSent: null,
@@ -379,7 +379,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       googleEventId: null,
       notes: "Performed regular system maintenance including software updates, disk cleanup, and security patches.",
       reminder24hSent: null,
@@ -408,7 +408,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-      calendlyEventId: null,
+
       googleEventId: null,
       notes: "Successfully recovered data from corrupted hard drive and set up automated backup system.",
       reminder24hSent: null,
@@ -734,7 +734,6 @@ export class MemStorage implements IStorage {
       sequence: insertAppointment.sequence || 0,
       source: insertAppointment.source || "manual",
       status: "scheduled",
-      calendlyEventId: insertAppointment.calendlyEventId || null,
       googleEventId: insertAppointment.googleEventId || null,
       reminder24hSent: null,
       reminder2hSent: null,
@@ -1221,6 +1220,34 @@ export class MemStorage implements IStorage {
   }
 }
 
+// Reusable appointment column selection to avoid calendly_event_id errors
+const appointmentColumns = {
+  id: appointments.id,
+  customerId: appointments.customerId,
+  firstName: appointments.firstName,
+  lastName: appointments.lastName,
+  email: appointments.email,
+  phone: appointments.phone,
+  serviceType: appointments.serviceType,
+  serviceId: appointments.serviceId,
+  appointmentDate: appointments.appointmentDate,
+  appointmentTime: appointments.appointmentTime,
+  address: appointments.address,
+  startTimestamptz: appointments.startTimestamptz,
+  endTimestamptz: appointments.endTimestamptz,
+  rescheduleToken: appointments.rescheduleToken,
+  rescheduleExpires: appointments.rescheduleExpires,
+  sequence: appointments.sequence,
+  status: appointments.status,
+  source: appointments.source,
+  notes: appointments.notes,
+  googleEventId: appointments.googleEventId,
+  reminder24hSent: appointments.reminder24hSent,
+  reminder2hSent: appointments.reminder2hSent,
+  followUpSent: appointments.followUpSent,
+  createdAt: appointments.createdAt,
+};
+
 export class DatabaseStorage implements IStorage {
   // Users
   async getUser(id: number): Promise<User | undefined> {
@@ -1426,16 +1453,16 @@ export class DatabaseStorage implements IStorage {
 
   // Appointments
   async getAppointment(id: number): Promise<Appointment | undefined> {
-    const [appointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    const [appointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
     return appointment;
   }
 
   async getAllAppointments(): Promise<Appointment[]> {
-    return await db.select().from(appointments).orderBy(desc(appointments.createdAt));
+    return await db.select(appointmentColumns).from(appointments).orderBy(desc(appointments.createdAt));
   }
 
   async getAppointmentsByCustomer(customerId: number): Promise<Appointment[]> {
-    return await db.select().from(appointments).where(eq(appointments.customerId, customerId));
+    return await db.select(appointmentColumns).from(appointments).where(eq(appointments.customerId, customerId));
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
@@ -1495,13 +1522,13 @@ export class DatabaseStorage implements IStorage {
 
   async getUpcomingAppointments(): Promise<Appointment[]> {
     const now = new Date();
-    return await db.select().from(appointments)
+    return await db.select(appointmentColumns).from(appointments)
       .where(and(gte(appointments.appointmentDate, now), eq(appointments.status, "scheduled")))
       .orderBy(appointments.appointmentDate);
   }
 
   async getAppointmentByRescheduleToken(token: string): Promise<Appointment | undefined> {
-    const [appointment] = await db.select().from(appointments).where(eq(appointments.rescheduleToken, token));
+    const [appointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.rescheduleToken, token));
     return appointment;
   }
 
@@ -1518,7 +1545,7 @@ export class DatabaseStorage implements IStorage {
     };
 
     // Get current appointment to increment sequence
-    const [currentAppointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    const [currentAppointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
     if (currentAppointment) {
       updateData.sequence = (currentAppointment.sequence || 0) + 1;
     }
@@ -1543,7 +1570,7 @@ export class DatabaseStorage implements IStorage {
     
     if (notes) {
       // Get current appointment to append admin notes
-      const [currentAppointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+      const [currentAppointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
       if (currentAppointment) {
         const existingNotes = currentAppointment.notes || "";
         updateData.notes = existingNotes ? `${existingNotes}\n\nAdmin Update: ${notes}` : `Admin Update: ${notes}`;
@@ -1555,7 +1582,7 @@ export class DatabaseStorage implements IStorage {
 
   async adminRescheduleAppointment(id: number, startTimestamptz: Date, endTimestamptz: Date): Promise<void> {
     // Get current appointment to increment sequence
-    const [currentAppointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    const [currentAppointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
     
     // Format time in 12-hour format for appointmentTime
     const hours = startTimestamptz.getHours();
@@ -1599,7 +1626,7 @@ export class DatabaseStorage implements IStorage {
     }
     
     // Also update the customer record if one exists
-    const [appointment] = await db.select().from(appointments).where(eq(appointments.id, id));
+    const [appointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
     if (appointment?.customerId) {
       const customerUpdates: any = {};
       if (customerData.firstName) customerUpdates.firstName = customerData.firstName;
