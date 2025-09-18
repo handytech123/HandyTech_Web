@@ -5,23 +5,7 @@ import { setupSecurity, rlPublic, useCSRF, sanitizeInput } from "./security";
 import { reminderScheduler } from "./reminder-scheduler";
 import { seedEssentialData } from "./utils/seed-data";
 import { validateDatabaseConnection } from "./utils/database-validation";
-
-/**
- * Validates critical environment variables on startup
- * Ensures the application doesn't start with missing security configuration
- */
-async function validateStartupEnvironment(): Promise<void> {
-  try {
-    // Import auth module which will validate auth-related env vars
-    await import('./utils/auth.js');
-    log('✓ Environment variables validated successfully');
-  } catch (error) {
-    console.error('\n🚨 STARTUP FAILED - ENVIRONMENT CONFIGURATION ERROR 🚨\n');
-    console.error((error as Error).message);
-    console.error('\nApplication startup aborted for security reasons.\n');
-    process.exit(1);
-  }
-}
+import { validateEnvironmentVariables } from "./utils/environment-validation";
 
 const app = express();
 
@@ -104,11 +88,11 @@ app.use((req, res, next) => {
 
 (async () => {
   try {
-    // Validate database connection and schema before anything else
-    await validateDatabaseConnection();
+    // Validate all environment variables first (including DATABASE_URL)
+    await validateEnvironmentVariables();
     
-    // Validate environment variables before starting server
-    await validateStartupEnvironment();
+    // Validate database connection and schema
+    await validateDatabaseConnection();
   } catch (error) {
     console.error('\n🚨 APPLICATION STARTUP FAILED 🚨\n');
     console.error('Startup validation error:', error instanceof Error ? error.message : error);
