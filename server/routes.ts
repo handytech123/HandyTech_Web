@@ -1142,6 +1142,47 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.put("/api/customers/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+
+      // Check if customer exists
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Validate request body
+      const customerData = insertCustomerSchema.parse(req.body);
+      
+      // Check if email is being updated and if it already exists (for other customers)
+      if (customerData.email !== customer.email) {
+        const existingCustomer = await storage.getCustomerByEmail(customerData.email);
+        if (existingCustomer && existingCustomer.id !== id) {
+          return res.status(400).json({ message: "Another customer with this email already exists" });
+        }
+      }
+
+      // Update the customer
+      await storage.updateCustomer(id, customerData);
+      
+      // Return updated customer data
+      const updatedCustomer = await storage.getCustomer(id);
+      res.json(updatedCustomer);
+    } catch (error) {
+      console.error("Update customer error:", error);
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+      } else {
+        res.status(500).json({ message: "Failed to update customer" });
+      }
+    }
+  });
+
   app.delete("/api/customers/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);

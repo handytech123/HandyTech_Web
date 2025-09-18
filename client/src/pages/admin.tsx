@@ -11,7 +11,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -243,11 +243,28 @@ function AppointmentsTab({
 // CustomersTab component
 function CustomersTab({ customers }: { customers: Customer[] }) {
   const [addCustomerDialogOpen, setAddCustomerDialogOpen] = useState(false);
+  const [editCustomerDialogOpen, setEditCustomerDialogOpen] = useState(false);
+  const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deleteCustomerId, setDeleteCustomerId] = useState<number | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
   
   const form = useForm<InsertCustomer>({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      company: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
+    },
+  });
+
+  const editForm = useForm<InsertCustomer>({
     resolver: zodResolver(insertCustomerSchema),
     defaultValues: {
       firstName: "",
@@ -284,6 +301,29 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
     },
   });
 
+  const editCustomerMutation = useMutation({
+    mutationFn: async ({ id, customerData }: { id: number; customerData: InsertCustomer }) => {
+      return apiRequest(`/api/customers/${id}`, "PUT", customerData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      setEditCustomerDialogOpen(false);
+      setEditingCustomer(null);
+      editForm.reset();
+      toast({
+        title: "Success",
+        description: "Customer updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update customer",
+        variant: "destructive",
+      });
+    },
+  });
+
   const deleteCustomerMutation = useMutation({
     mutationFn: async (customerId: number) => {
       return apiRequest(`/api/customers/${customerId}`, "DELETE");
@@ -307,6 +347,28 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
 
   const onSubmit = (data: InsertCustomer) => {
     createCustomerMutation.mutate(data);
+  };
+
+  const onEditSubmit = (data: InsertCustomer) => {
+    if (editingCustomer) {
+      editCustomerMutation.mutate({ id: editingCustomer.id, customerData: data });
+    }
+  };
+
+  const handleEditCustomer = (customer: Customer) => {
+    setEditingCustomer(customer);
+    editForm.reset({
+      firstName: customer.firstName,
+      lastName: customer.lastName,
+      email: customer.email,
+      phone: customer.phone || "",
+      company: customer.company || "",
+      street: customer.street || "",
+      city: customer.city || "",
+      state: customer.state || "",
+      zip: customer.zip || "",
+    });
+    setEditCustomerDialogOpen(true);
   };
 
   return (
@@ -545,40 +607,53 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
                     </div>
                   </div>
                   
-                  <AlertDialog open={deleteCustomerId === customer.id} onOpenChange={(open) => !open && setDeleteCustomerId(null)}>
-                    <AlertDialogTrigger asChild>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setDeleteCustomerId(customer.id)}
-                        className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        data-testid={`button-delete-${customer.id}`}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        Delete
-                      </Button>
-                    </AlertDialogTrigger>
-                    <AlertDialogContent data-testid={`dialog-delete-customer-${customer.id}`}>
-                      <AlertDialogHeader>
-                        <AlertDialogTitle>Delete Customer</AlertDialogTitle>
-                        <AlertDialogDescription>
-                          Are you sure you want to delete {customer.firstName} {customer.lastName}? 
-                          This action cannot be undone and will remove all customer data.
-                        </AlertDialogDescription>
-                      </AlertDialogHeader>
-                      <AlertDialogFooter>
-                        <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
-                        <AlertDialogAction
-                          onClick={() => deleteCustomerMutation.mutate(customer.id)}
-                          disabled={deleteCustomerMutation.isPending}
-                          className="bg-red-600 hover:bg-red-700"
-                          data-testid="button-confirm-delete"
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditCustomer(customer)}
+                      className="flex items-center gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                      data-testid={`button-edit-${customer.id}`}
+                    >
+                      <Edit className="h-4 w-4" />
+                      Edit
+                    </Button>
+                    
+                    <AlertDialog open={deleteCustomerId === customer.id} onOpenChange={(open) => !open && setDeleteCustomerId(null)}>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => setDeleteCustomerId(customer.id)}
+                          className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                          data-testid={`button-delete-${customer.id}`}
                         >
-                          {deleteCustomerMutation.isPending ? "Deleting..." : "Delete Customer"}
-                        </AlertDialogAction>
-                      </AlertDialogFooter>
-                    </AlertDialogContent>
-                  </AlertDialog>
+                          <Trash2 className="h-4 w-4" />
+                          Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent data-testid={`dialog-delete-customer-${customer.id}`}>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            Are you sure you want to delete {customer.firstName} {customer.lastName}? 
+                            This action cannot be undone and will remove all customer data.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                          <AlertDialogAction
+                            onClick={() => deleteCustomerMutation.mutate(customer.id)}
+                            disabled={deleteCustomerMutation.isPending}
+                            className="bg-red-600 hover:bg-red-700"
+                            data-testid="button-confirm-delete"
+                          >
+                            {deleteCustomerMutation.isPending ? "Deleting..." : "Delete Customer"}
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </div>
             ))}
@@ -592,6 +667,167 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
           </div>
         </CardContent>
       </Card>
+      
+      {/* Edit Customer Dialog */}
+      <Dialog open={editCustomerDialogOpen} onOpenChange={setEditCustomerDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Customer</DialogTitle>
+            <DialogDescription>
+              Update customer information and contact details.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4" data-testid="form-edit-customer">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-firstName" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-lastName" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="email" data-testid="input-edit-email" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input {...field} type="tel" data-testid="input-edit-phone" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="company"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Company (Optional)</FormLabel>
+                    <FormControl>
+                      <Input {...field} value={field.value || ""} data-testid="input-edit-company" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="street"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Street Address</FormLabel>
+                    <FormControl>
+                      <Input {...field} data-testid="input-edit-street" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-3 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="city"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>City</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-city" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="state"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>State</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-state" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="zip"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>ZIP Code</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-zip" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditCustomerDialogOpen(false)}
+                  data-testid="button-cancel-edit-customer"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editCustomerMutation.isPending}
+                  data-testid="button-submit-edit-customer"
+                >
+                  {editCustomerMutation.isPending ? "Updating..." : "Update Customer"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
