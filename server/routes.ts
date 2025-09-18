@@ -2351,7 +2351,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
             model: "gpt-5",
             messages: messages,
             max_completion_tokens: 150,
-            temperature: 0.7,
           });
           
           botResponse = response.choices[0].message.content || "";
