@@ -22,12 +22,13 @@ import { z } from "zod";
 import type { BlockedTime } from "@shared/schema";
 
 const blockedTimeFormSchema = insertBlockedTimeSchema.extend({
-  startDate: z.date({
-    required_error: "Please select a start date",
-  }),
-  endDate: z.date({
-    required_error: "Please select an end date",
-  }),
+  dateSelection: z.enum(["single", "range", "multiple"]),
+  singleDate: z.date().optional(),
+  dateRange: z.object({
+    from: z.date().optional(),
+    to: z.date().optional(),
+  }).optional(),
+  multipleDates: z.array(z.date()).optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
 }).omit({
@@ -37,10 +38,21 @@ const blockedTimeFormSchema = insertBlockedTimeSchema.extend({
 
 type BlockedTimeFormData = z.infer<typeof blockedTimeFormSchema>;
 
-const timeSlots = [
-  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
-  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
-];
+// Generate time slots in 30-minute intervals from 6:00 AM to 8:00 PM
+const generateTimeSlots = () => {
+  const slots = [];
+  for (let hour = 6; hour <= 20; hour++) {
+    for (let minute = 0; minute < 60; minute += 30) {
+      const displayHour = hour > 12 ? hour - 12 : hour === 0 ? 12 : hour;
+      const period = hour >= 12 ? 'PM' : 'AM';
+      const timeString = `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`;
+      slots.push(timeString);
+    }
+  }
+  return slots;
+};
+
+const timeSlots = generateTimeSlots();
 
 // Helper function to safely parse time strings and create timestamps in Central Time
 function createTimestamp(date: Date, timeString: string): string {
@@ -70,7 +82,8 @@ function createTimestamp(date: Date, timeString: string): string {
 
 export default function BlockedTimesManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [selectedDate, setSelectedDate] = useState<Date>();
+  const [selectedDates, setSelectedDates] = useState<Date[]>([]);
+  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -83,8 +96,12 @@ export default function BlockedTimesManager() {
     defaultValues: {
       reason: "",
       isFullDay: true,
+      dateSelection: "single",
       startTime: "",
       endTime: "",
+      singleDate: undefined,
+      dateRange: { from: undefined, to: undefined },
+      multipleDates: [],
     },
   });
 
