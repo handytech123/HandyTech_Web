@@ -19,6 +19,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { insertAppointmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { format, parseISO, isAfter, addHours } from "date-fns";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 // Service interface
 interface Service {
@@ -152,11 +153,19 @@ export default function AppointmentScheduler() {
         throw new Error("Missing date or service selection");
       }
       
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      // Use Central Time for all scheduling operations
+      const centralTz = 'America/Chicago';
       
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
+      // Create start and end of day in Central Time, then convert to UTC for API
+      const startOfDay = fromZonedTime(
+        new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0),
+        centralTz
+      );
+      
+      const endOfDay = fromZonedTime(
+        new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999),
+        centralTz
+      );
       
       const queryParams = new URLSearchParams({
         from: startOfDay.toISOString(),
@@ -225,12 +234,14 @@ export default function AppointmentScheduler() {
 
   // Format time slots for display
   const formatTimeSlots = (slots: string[]): AvailableSlot[] => {
+    const centralTz = 'America/Chicago';
     return slots.map(slot => {
       try {
-        const date = parseISO(slot);
+        const utcDate = parseISO(slot);
+        const centralDate = toZonedTime(utcDate, centralTz);
         return {
           time: slot,
-          displayTime: format(date, "h:mm a"),
+          displayTime: format(centralDate, "h:mm a"),
         };
       } catch (error) {
         console.error("Error formatting time slot:", slot, error);
@@ -820,7 +831,7 @@ export default function AppointmentScheduler() {
                   <div>
                     {selectedTimeSlot ? (
                       <Badge variant="outline" className="bg-green-50 border-green-200 text-green-800">
-                        ✅ {format(parseISO(selectedTimeSlot), "h:mm a")}
+                        ✅ {format(toZonedTime(parseISO(selectedTimeSlot), 'America/Chicago'), "h:mm a")} CT
                       </Badge>
                     ) : (
                       <span className="text-gray-400 text-sm">Not selected</span>

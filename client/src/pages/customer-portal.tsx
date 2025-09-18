@@ -21,6 +21,7 @@ import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, 
 import { Link } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { z } from "zod";
+import { fromZonedTime } from "date-fns-tz";
 
 type UpdateProfileFormData = z.infer<typeof updateCustomerProfileSchema>;
 
@@ -390,12 +391,18 @@ export default function CustomerPortal() {
     }
 
     const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
-    const appointmentDateTime = new Date(selectedDate);
-    appointmentDateTime.setHours(hours, minutes, 0, 0);
+    
+    // Create appointment date/time in Central Time, then convert to UTC for API
+    const year = selectedDate.getFullYear();
+    const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
+    const day = selectedDate.getDate().toString().padStart(2, '0');
+    const dateTimeString = `${year}-${month}-${day}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+    
+    const centralDateTime = fromZonedTime(dateTimeString, 'America/Chicago');
 
     rescheduleAppointmentMutation.mutate({
       appointmentId: selectedAppointment.id,
-      startISO: appointmentDateTime.toISOString()
+      startISO: centralDateTime.toISOString()
     });
   };
 

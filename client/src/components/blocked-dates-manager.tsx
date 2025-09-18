@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { Calendar as CalendarIcon, Plus, Trash2, Clock } from "lucide-react";
 import { format } from "date-fns";
+import { fromZonedTime } from "date-fns-tz";
 import { insertBlockedTimeSchema } from "@shared/schema";
 import { z } from "zod";
 import type { BlockedTime } from "@shared/schema";
@@ -41,10 +42,8 @@ const timeSlots = [
   "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM", "5:00 PM"
 ];
 
-// Helper function to safely parse time strings and create timestamps
+// Helper function to safely parse time strings and create timestamps in Central Time
 function createTimestamp(date: Date, timeString: string): string {
-  const safeDate = new Date(date);
-  
   // Parse time string like "9:00 AM" or "2:00 PM"
   const [time, period] = timeString.split(' ');
   const [hoursStr, minutesStr] = time.split(':');
@@ -58,10 +57,15 @@ function createTimestamp(date: Date, timeString: string): string {
     hours = 0;
   }
   
-  // Set the time safely using setHours/setMinutes
-  safeDate.setHours(hours, minutes, 0, 0);
+  // Create date string in Central Time format then convert to UTC
+  const year = date.getFullYear();
+  const month = (date.getMonth() + 1).toString().padStart(2, '0');
+  const day = date.getDate().toString().padStart(2, '0');
+  const dateTimeString = `${year}-${month}-${day}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
   
-  return safeDate.toISOString();
+  // Convert Central Time to UTC for storage
+  const centralDateTime = fromZonedTime(dateTimeString, 'America/Chicago');
+  return centralDateTime.toISOString();
 }
 
 export default function BlockedTimesManager() {
@@ -90,10 +94,10 @@ export default function BlockedTimesManager() {
         reason: data.reason,
         isFullDay: data.isFullDay,
         startTimestamptz: data.isFullDay 
-          ? data.startDate.toISOString()
+          ? fromZonedTime(data.startDate, 'America/Chicago').toISOString()
           : createTimestamp(data.startDate, data.startTime!),
         endTimestamptz: data.isFullDay
-          ? data.endDate.toISOString() 
+          ? fromZonedTime(data.endDate, 'America/Chicago').toISOString()
           : createTimestamp(data.endDate, data.endTime!),
       });
       return response.json();

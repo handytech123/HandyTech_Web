@@ -17,6 +17,7 @@ import {
 import { db } from "./db";
 import { eq, desc, and, gte, lte, isNull } from "drizzle-orm";
 import crypto from "crypto";
+import { fromZonedTime } from "date-fns-tz";
 
 // Security utility functions for token hashing
 function hashToken(token: string): string {
@@ -684,10 +685,8 @@ export class MemStorage implements IStorage {
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
-    // Helper function to create timezone-aware timestamp from legacy date/time
+    // Helper function to create timezone-aware timestamp from legacy date/time in Central Time
     const createTimestampFromLegacy = (date: Date, timeString: string): Date => {
-      const safeDate = new Date(date);
-      
       // Parse time string like "9:00 AM" or "2:00 PM"
       const [time, period] = timeString.split(' ');
       const [hoursStr, minutesStr] = time.split(':');
@@ -701,9 +700,14 @@ export class MemStorage implements IStorage {
         hours = 0;
       }
       
-      // Set the time safely using setHours/setMinutes
-      safeDate.setHours(hours, minutes, 0, 0);
-      return safeDate;
+      // Create date string in Central Time format then convert to UTC
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const dateTimeString = `${year}-${month}-${day}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      
+      // Convert Central Time to UTC for storage
+      return fromZonedTime(dateTimeString, 'America/Chicago');
     };
 
     // Auto-populate timezone-aware fields if not provided but legacy fields exist
@@ -1466,10 +1470,8 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createAppointment(insertAppointment: InsertAppointment): Promise<Appointment> {
-    // Helper function to create timezone-aware timestamp from legacy date/time
+    // Helper function to create timezone-aware timestamp from legacy date/time in Central Time
     const createTimestampFromLegacy = (date: Date, timeString: string): Date => {
-      const safeDate = new Date(date);
-      
       // Parse time string like "9:00 AM" or "2:00 PM"
       const [time, period] = timeString.split(' ');
       const [hoursStr, minutesStr] = time.split(':');
@@ -1483,9 +1485,14 @@ export class DatabaseStorage implements IStorage {
         hours = 0;
       }
       
-      // Set the time safely using setHours/setMinutes
-      safeDate.setHours(hours, minutes, 0, 0);
-      return safeDate;
+      // Create date string in Central Time format then convert to UTC
+      const year = date.getFullYear();
+      const month = (date.getMonth() + 1).toString().padStart(2, '0');
+      const day = date.getDate().toString().padStart(2, '0');
+      const dateTimeString = `${year}-${month}-${day}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
+      
+      // Convert Central Time to UTC for storage
+      return fromZonedTime(dateTimeString, 'America/Chicago');
     };
 
     // Auto-populate timezone-aware fields if not provided but legacy fields exist
