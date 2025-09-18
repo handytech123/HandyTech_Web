@@ -58,14 +58,23 @@ function AppointmentsTab({
   };
 
   const formatAppointmentDateTime = (appointment: Appointment) => {
-    const date = new Date(appointment.appointmentDate);
-    const formattedDate = date.toLocaleDateString('en-US', { 
-      weekday: 'short', 
-      month: 'short', 
-      day: 'numeric', 
-      year: 'numeric' 
-    });
-    return `${formattedDate} at ${appointment.appointmentTime}`;
+    // Use timezone-aware timestamp if available, fallback to legacy fields
+    if (appointment.startTimestamptz) {
+      const centralTime = toZonedTime(new Date(appointment.startTimestamptz), 'America/Chicago');
+      const formattedDate = format(centralTime, 'EEE, MMM d, yyyy');
+      const formattedTime = format(centralTime, 'h:mm a');
+      return `${formattedDate} at ${formattedTime} CT`;
+    } else {
+      // Legacy format - assume appointmentTime is already in Central Time
+      const date = new Date(appointment.appointmentDate);
+      const formattedDate = date.toLocaleDateString('en-US', { 
+        weekday: 'short', 
+        month: 'short', 
+        day: 'numeric', 
+        year: 'numeric' 
+      });
+      return `${formattedDate} at ${appointment.appointmentTime} CT`;
+    }
   };
 
   return (
