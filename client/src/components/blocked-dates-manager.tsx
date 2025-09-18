@@ -192,7 +192,7 @@ export default function BlockedTimesManager() {
       }
       
       // Check for appointment conflicts
-      const conflicts = checkAppointmentConflicts(datesToBlock, data.isFullDay, data.startTime, data.endTime);
+      const conflicts = checkAppointmentConflicts(datesToBlock, data.isFullDay ?? true, data.startTime, data.endTime);
       
       if (conflicts.length > 0) {
         throw new Error(`Cannot block the following dates due to existing appointments:\n\n${conflicts.join('\n')}\n\nPlease choose different dates or reschedule the existing appointments first.`);
