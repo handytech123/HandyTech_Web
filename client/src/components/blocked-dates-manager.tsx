@@ -22,12 +22,8 @@ import { z } from "zod";
 import type { BlockedTime } from "@shared/schema";
 
 const blockedTimeFormSchema = insertBlockedTimeSchema.extend({
-  dateSelection: z.enum(["single", "range", "multiple"]),
+  dateSelection: z.enum(["single", "multiple"]),
   singleDate: z.date().optional(),
-  dateRange: z.object({
-    from: z.date().optional(),
-    to: z.date().optional(),
-  }).optional(),
   multipleDates: z.array(z.date()).optional(),
   startTime: z.string().optional(),
   endTime: z.string().optional(),
@@ -83,7 +79,6 @@ function createTimestamp(date: Date, timeString: string): string {
 export default function BlockedTimesManager() {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const [selectedDates, setSelectedDates] = useState<Date[]>([]);
-  const [dateRange, setDateRange] = useState<{ from?: Date; to?: Date }>({});
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -100,7 +95,6 @@ export default function BlockedTimesManager() {
       startTime: "",
       endTime: "",
       singleDate: undefined,
-      dateRange: { from: undefined, to: undefined },
       multipleDates: [],
     },
   });
@@ -112,14 +106,6 @@ export default function BlockedTimesManager() {
       // Determine which dates to block based on selection type
       if (data.dateSelection === "single" && data.singleDate) {
         datesToBlock.push(data.singleDate);
-      } else if (data.dateSelection === "range" && data.dateRange?.from && data.dateRange?.to) {
-        // Generate all dates in range
-        const currentDate = new Date(data.dateRange.from);
-        const endDate = new Date(data.dateRange.to);
-        while (currentDate <= endDate) {
-          datesToBlock.push(new Date(currentDate));
-          currentDate.setDate(currentDate.getDate() + 1);
-        }
       } else if (data.dateSelection === "multiple" && data.multipleDates) {
         datesToBlock.push(...data.multipleDates);
       }
@@ -150,7 +136,6 @@ export default function BlockedTimesManager() {
       setIsDialogOpen(false);
       form.reset();
       setSelectedDates([]);
-      setDateRange({});
     },
     onError: () => {
       toast({
@@ -218,9 +203,7 @@ export default function BlockedTimesManager() {
                         form.setValue("dateSelection", value);
                         // Reset date selections when changing type
                         setSelectedDates([]);
-                        setDateRange({});
                         form.setValue("singleDate", undefined);
-                        form.setValue("dateRange", { from: undefined, to: undefined });
                         form.setValue("multipleDates", []);
                       }}
                     >
@@ -229,14 +212,13 @@ export default function BlockedTimesManager() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="single">Single Date</SelectItem>
-                        <SelectItem value="range">Date Range</SelectItem>
                         <SelectItem value="multiple">Multiple Dates</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
 
                   <div className="space-y-2">
-                    <Label>{dateSelection === "single" ? "Select Date" : dateSelection === "range" ? "Select Date Range" : "Select Multiple Dates"}</Label>
+                    <Label>{dateSelection === "single" ? "Select Date" : "Select Multiple Dates"}</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -246,8 +228,6 @@ export default function BlockedTimesManager() {
                           <CalendarIcon className="mr-2 h-4 w-4" />
                           {dateSelection === "single" && form.watch("singleDate") 
                             ? format(form.watch("singleDate")!, "PPP")
-                            : dateSelection === "range" && dateRange.from
-                            ? `${format(dateRange.from, "LLL dd")} - ${dateRange.to ? format(dateRange.to, "LLL dd") : "..."}`
                             : dateSelection === "multiple" && selectedDates.length > 0
                             ? `${selectedDates.length} dates selected`
                             : "Pick dates"}
@@ -260,19 +240,6 @@ export default function BlockedTimesManager() {
                             selected={form.watch("singleDate")}
                             onSelect={(date) => {
                               form.setValue("singleDate", date);
-                            }}
-                            initialFocus
-                          />
-                        )}
-                        {dateSelection === "range" && (
-                          <Calendar
-                            mode="range"
-                            selected={dateRange.from && dateRange.to ? dateRange as { from: Date; to: Date } : undefined}
-                            onSelect={(range) => {
-                              if (range) {
-                                setDateRange(range);
-                                form.setValue("dateRange", range);
-                              }
                             }}
                             initialFocus
                           />
