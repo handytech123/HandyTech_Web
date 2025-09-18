@@ -107,17 +107,39 @@ export default function BlockedTimesManager() {
 
   const createBlockedTime = useMutation({
     mutationFn: async (data: BlockedTimeFormData) => {
-      const response = await apiRequest("/api/blocked-times", "POST", {
-        reason: data.reason,
-        isFullDay: data.isFullDay,
-        startTimestamptz: data.isFullDay 
-          ? fromZonedTime(data.startDate, 'America/Chicago').toISOString()
-          : createTimestamp(data.startDate, data.startTime!),
-        endTimestamptz: data.isFullDay
-          ? fromZonedTime(data.endDate, 'America/Chicago').toISOString()
-          : createTimestamp(data.endDate, data.endTime!),
+      const datesToBlock: Date[] = [];
+      
+      // Determine which dates to block based on selection type
+      if (data.dateSelection === "single" && data.singleDate) {
+        datesToBlock.push(data.singleDate);
+      } else if (data.dateSelection === "range" && data.dateRange?.from && data.dateRange?.to) {
+        // Generate all dates in range
+        const currentDate = new Date(data.dateRange.from);
+        const endDate = new Date(data.dateRange.to);
+        while (currentDate <= endDate) {
+          datesToBlock.push(new Date(currentDate));
+          currentDate.setDate(currentDate.getDate() + 1);
+        }
+      } else if (data.dateSelection === "multiple" && data.multipleDates) {
+        datesToBlock.push(...data.multipleDates);
+      }
+      
+      // Create blocked time entries for each date
+      const promises = datesToBlock.map(date => {
+        return apiRequest("/api/blocked-times", "POST", {
+          reason: data.reason,
+          isFullDay: data.isFullDay,
+          startTimestamptz: data.isFullDay 
+            ? fromZonedTime(date, 'America/Chicago').toISOString()
+            : createTimestamp(date, data.startTime!),
+          endTimestamptz: data.isFullDay
+            ? fromZonedTime(date, 'America/Chicago').toISOString()
+            : createTimestamp(date, data.endTime!),
+        });
       });
-      return response.json();
+      
+      await Promise.all(promises);
+      return { success: true };
     },
     onSuccess: () => {
       toast({
@@ -127,7 +149,8 @@ export default function BlockedTimesManager() {
       queryClient.invalidateQueries({ queryKey: ["/api/blocked-times"] });
       setIsDialogOpen(false);
       form.reset();
-      setSelectedDate(undefined);
+      setSelectedDates([]);
+      setDateRange({});
     },
     onError: () => {
       toast({
@@ -164,6 +187,7 @@ export default function BlockedTimesManager() {
   };
 
   const isFullDay = form.watch("isFullDay");
+  const dateSelection = form.watch("dateSelection");
 
   return (
     <div className="space-y-6">
@@ -187,7 +211,32 @@ export default function BlockedTimesManager() {
                 </DialogHeader>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
                   <div className="space-y-2">
-                    <Label htmlFor="startDate">Start Date</Label>
+                    <Label>Date Selection Type</Label>
+                    <Select
+                      value={dateSelection}
+                      onValueChange={(value: "single" | "range" | "multiple") => {
+                        form.setValue("dateSelection", value);
+                        // Reset date selections when changing type
+                        setSelectedDates([]);
+                        setDateRange({});
+                        form.setValue("singleDate", undefined);
+                        form.setValue("dateRange", { from: undefined, to: undefined });
+                        form.setValue("multipleDates", []);
+                      }}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="single">Single Date</SelectItem>
+                        <SelectItem value="range">Date Range</SelectItem>
+                        <SelectItem value="multiple">Multiple Dates</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label>{dateSelection === "single" ? "Select Date" : dateSelection === "range" ? "Select Date Range" : "Select Multiple Dates"}</Label>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -195,20 +244,52 @@ export default function BlockedTimesManager() {
                           className="w-full justify-start text-left font-normal"
                         >
                           <CalendarIcon className="mr-2 h-4 w-4" />
-                          {selectedDate ? format(selectedDate, "PPP") : "Pick a date"}
+                          {dateSelection === "single" && form.watch("singleDate") 
+                            ? format(form.watch("singleDate")!, "PPP")
+                            : dateSelection === "range" && dateRange.from
+                            ? `${format(dateRange.from, "LLL dd")} - ${dateRange.to ? format(dateRange.to, "LLL dd") : "..."}`
+                            : dateSelection === "multiple" && selectedDates.length > 0
+                            ? `${selectedDates.length} dates selected`
+                            : "Pick dates"}
                         </Button>
                       </PopoverTrigger>
                       <PopoverContent className="w-auto p-0">
-                        <Calendar
-                          mode="single"
-                          selected={selectedDate}
-                          onSelect={(date) => {
-                            setSelectedDate(date);
-                            form.setValue("startDate", date || new Date());
-                            form.setValue("endDate", date || new Date());
-                          }}
-                          initialFocus
-                        />
+                        {dateSelection === "single" && (
+                          <Calendar
+                            mode="single"
+                            selected={form.watch("singleDate")}
+                            onSelect={(date) => {
+                              form.setValue("singleDate", date);
+                            }}
+                            initialFocus
+                          />
+                        )}
+                        {dateSelection === "range" && (
+                          <Calendar
+                            mode="range"
+                            selected={dateRange.from && dateRange.to ? dateRange as { from: Date; to: Date } : undefined}
+                            onSelect={(range) => {
+                              if (range) {
+                                setDateRange(range);
+                                form.setValue("dateRange", range);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        )}
+                        {dateSelection === "multiple" && (
+                          <Calendar
+                            mode="multiple"
+                            selected={selectedDates}
+                            onSelect={(dates) => {
+                              if (dates) {
+                                setSelectedDates(dates);
+                                form.setValue("multipleDates", dates);
+                              }
+                            }}
+                            initialFocus
+                          />
+                        )}
                       </PopoverContent>
                     </Popover>
                   </div>
