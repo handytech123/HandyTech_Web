@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupSecurity, rlPublic, useCSRF, sanitizeInput } from "./security";
 import { reminderScheduler } from "./reminder-scheduler";
 import { seedEssentialData } from "./utils/seed-data";
+import { validateDatabaseConnection } from "./utils/database-validation";
 
 /**
  * Validates critical environment variables on startup
@@ -102,8 +103,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
-  // Validate environment variables before starting server
-  await validateStartupEnvironment();
+  try {
+    // Validate database connection and schema before anything else
+    await validateDatabaseConnection();
+    
+    // Validate environment variables before starting server
+    await validateStartupEnvironment();
+  } catch (error) {
+    console.error('\n🚨 APPLICATION STARTUP FAILED 🚨\n');
+    console.error('Startup validation error:', error instanceof Error ? error.message : error);
+    console.error('\nApplication startup aborted.\n');
+    process.exit(1);
+  }
   
   // Seed essential data (availability rules, etc.)
   await seedEssentialData();
