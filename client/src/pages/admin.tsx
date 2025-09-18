@@ -1,11 +1,17 @@
 import { useState } from "react";
 import { Helmet } from 'react-helmet';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -16,7 +22,8 @@ import ServicesManager from "@/components/services-manager";
 import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import type { Quote, Review, Customer, MaintenancePlan, Appointment } from "@shared/schema";
+import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer } from "@shared/schema";
+import { insertCustomerSchema } from "@shared/schema";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
@@ -229,6 +236,362 @@ function AppointmentsTab({
         open={rescheduleDialogOpen}
         onOpenChange={setRescheduleDialogOpen}
       />
+    </>
+  );
+}
+
+// CustomersTab component
+function CustomersTab({ customers }: { customers: Customer[] }) {
+  const [addCustomerDialogOpen, setAddCustomerDialogOpen] = useState(false);
+  const [deleteCustomerId, setDeleteCustomerId] = useState<number | null>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  const form = useForm<InsertCustomer>({
+    resolver: zodResolver(insertCustomerSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      phone: "",
+      company: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
+    },
+  });
+
+  const createCustomerMutation = useMutation({
+    mutationFn: async (customerData: InsertCustomer) => {
+      return apiRequest("/api/customers", "POST", customerData);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      setAddCustomerDialogOpen(false);
+      form.reset();
+      toast({
+        title: "Success",
+        description: "Customer added successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to add customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const deleteCustomerMutation = useMutation({
+    mutationFn: async (customerId: number) => {
+      return apiRequest(`/api/customers/${customerId}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      setDeleteCustomerId(null);
+      toast({
+        title: "Success",
+        description: "Customer deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete customer",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: InsertCustomer) => {
+    createCustomerMutation.mutate(data);
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="h-5 w-5" />
+                Customer Database
+              </CardTitle>
+              <CardDescription>View and manage customer information</CardDescription>
+            </div>
+            <Dialog open={addCustomerDialogOpen} onOpenChange={setAddCustomerDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2" data-testid="button-add-customer">
+                  <UserPlus className="h-4 w-4" />
+                  Add Customer
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[500px]">
+                <DialogHeader>
+                  <DialogTitle>Add New Customer</DialogTitle>
+                  <DialogDescription>
+                    Create a new customer record with their contact information.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...form}>
+                  <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" data-testid="form-add-customer">
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="firstName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>First Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-firstName" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="lastName"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Last Name</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-lastName" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="email" data-testid="input-email" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="phone"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone</FormLabel>
+                            <FormControl>
+                              <Input {...field} type="tel" data-testid="input-phone" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={form.control}
+                      name="company"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Company (Optional)</FormLabel>
+                          <FormControl>
+                            <Input {...field} value={field.value || ""} data-testid="input-company" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <FormField
+                      control={form.control}
+                      name="street"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Street Address</FormLabel>
+                          <FormControl>
+                            <Input {...field} data-testid="input-street" />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-3 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="city"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>City</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-city" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="state"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>State</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-state" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="zip"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>ZIP Code</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-zip" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setAddCustomerDialogOpen(false)}
+                        data-testid="button-cancel-add-customer"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={createCustomerMutation.isPending}
+                        data-testid="button-submit-add-customer"
+                      >
+                        {createCustomerMutation.isPending ? "Adding..." : "Add Customer"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4" data-testid="customers-list">
+            {customers.map((customer) => (
+              <div 
+                key={customer.id} 
+                className="border rounded-lg p-4 bg-white dark:bg-gray-800"
+                data-testid={`card-customer-${customer.id}`}
+              >
+                <div className="flex justify-between items-start">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
+                    <div>
+                      <h3 className="font-semibold text-lg" data-testid={`text-customer-name-${customer.id}`}>
+                        {customer.firstName} {customer.lastName}
+                      </h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        <Mail className="h-4 w-4 text-gray-400" />
+                        <span className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-email-${customer.id}`}>
+                          {customer.email}
+                        </span>
+                      </div>
+                      {customer.phone && (
+                        <div className="flex items-center gap-2 mt-1">
+                          <Phone className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-500" data-testid={`text-phone-${customer.id}`}>
+                            {customer.phone}
+                          </span>
+                        </div>
+                      )}
+                      {customer.company && (
+                        <p className="text-sm text-gray-500 mt-1" data-testid={`text-company-${customer.id}`}>
+                          {customer.company}
+                        </p>
+                      )}
+                    </div>
+                    
+                    <div>
+                      {(customer.city || customer.state) && (
+                        <div className="flex items-center gap-2">
+                          <MapPin className="h-4 w-4 text-gray-400" />
+                          <span className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-location-${customer.id}`}>
+                            {[customer.city, customer.state].filter(Boolean).join(", ")}
+                          </span>
+                        </div>
+                      )}
+                      <div className="text-sm text-gray-500 mt-2">
+                        <p data-testid={`text-joined-${customer.id}`}>
+                          Joined: {new Date(customer.createdAt).toLocaleDateString()}
+                        </p>
+                        {customer.lastEmailSent && (
+                          <p data-testid={`text-last-email-${customer.id}`}>
+                            Last Email: {new Date(customer.lastEmailSent).toLocaleDateString()}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                  
+                  <AlertDialog open={deleteCustomerId === customer.id} onOpenChange={(open) => !open && setDeleteCustomerId(null)}>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setDeleteCustomerId(customer.id)}
+                        className="flex items-center gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
+                        data-testid={`button-delete-${customer.id}`}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        Delete
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent data-testid={`dialog-delete-customer-${customer.id}`}>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Delete Customer</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          Are you sure you want to delete {customer.firstName} {customer.lastName}? 
+                          This action cannot be undone and will remove all customer data.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel data-testid="button-cancel-delete">Cancel</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={() => deleteCustomerMutation.mutate(customer.id)}
+                          disabled={deleteCustomerMutation.isPending}
+                          className="bg-red-600 hover:bg-red-700"
+                          data-testid="button-confirm-delete"
+                        >
+                          {deleteCustomerMutation.isPending ? "Deleting..." : "Delete Customer"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+              </div>
+            ))}
+            {customers.length === 0 && (
+              <div className="text-center py-12">
+                <Users className="h-12 w-12 text-gray-300 mx-auto mb-4" />
+                <p className="text-gray-500 text-lg" data-testid="text-no-customers">No customers yet</p>
+                <p className="text-gray-400 text-sm">Get started by adding your first customer</p>
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </>
   );
 }
@@ -540,37 +903,7 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="customers">
-            <Card>
-              <CardHeader>
-                <CardTitle>Customer Database</CardTitle>
-                <CardDescription>View and manage customer information</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {customers.map((customer) => (
-                    <div key={customer.id} className="border rounded-lg p-4 bg-white dark:bg-gray-800">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">{customer.firstName} {customer.lastName}</h3>
-                          <p className="text-sm text-gray-600 dark:text-gray-300">{customer.email}</p>
-                          {customer.phone && <p className="text-sm text-gray-500">{customer.phone}</p>}
-                          {customer.company && <p className="text-sm text-gray-500">{customer.company}</p>}
-                        </div>
-                        <div className="text-right text-sm text-gray-500">
-                          <p>Joined: {new Date(customer.createdAt).toLocaleDateString()}</p>
-                          {customer.lastEmailSent && (
-                            <p>Last Email: {new Date(customer.lastEmailSent).toLocaleDateString()}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                  {customers.length === 0 && (
-                    <p className="text-center text-gray-500 py-8">No customers yet</p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
+            <CustomersTab customers={customers} />
           </TabsContent>
 
         </Tabs>

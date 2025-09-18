@@ -43,6 +43,7 @@ export interface IStorage {
   getAllCustomers(): Promise<Customer[]>;
   updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<void>;
   updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void>;
+  deleteCustomer(id: number): Promise<void>;
 
   // Maintenance Plans
   getMaintenancePlan(id: number): Promise<MaintenancePlan | undefined>;
@@ -175,6 +176,10 @@ export class MemStorage implements IStorage {
       email: "david.wilson@techstart.com",
       phone: "(555) 123-4567",
       company: "TechStart Inc.",
+      street: "123 Main Street",
+      city: "Springfield",
+      state: "IL",
+      zip: "62701",
       createdAt: new Date("2024-01-15"),
       lastEmailSent: null,
     };
@@ -187,6 +192,10 @@ export class MemStorage implements IStorage {
       email: "lisa@creativeagency.com",
       phone: "(555) 987-6543",
       company: "Creative Agency",
+      street: "456 Oak Avenue",
+      city: "Chicago",
+      state: "IL",
+      zip: "60601",
       createdAt: new Date("2024-02-10"),
       lastEmailSent: null,
     };
@@ -199,6 +208,8 @@ export class MemStorage implements IStorage {
       rating: 5,
       title: "Outstanding IT Support",
       content: "HandyTech transformed our entire IT infrastructure. Their maintenance plan has saved us countless hours and prevented major issues.",
+      city: "Springfield",
+      state: "IL",
       isApproved: true,
       createdAt: new Date("2024-03-01"),
     };
@@ -210,6 +221,8 @@ export class MemStorage implements IStorage {
       rating: 5,
       title: "Exceptional Service",
       content: "Exceptional service and support. The team is knowledgeable, responsive, and always goes above and beyond.",
+      city: "Chicago",
+      state: "IL",
       isApproved: true,
       createdAt: new Date("2024-03-15"),
     };
@@ -282,7 +295,11 @@ export class MemStorage implements IStorage {
       lastName: customer1.lastName,
       email: customer1.email,
       phone: customer1.phone,
-      address: "123 Main St",
+      address: "123 Main Street",
+      street: "123 Main Street",
+      city: "Springfield",
+      state: "IL",
+      zip: "62701",
       serviceType: "IT Support",
       serviceId: null,
       appointmentDate: new Date("2024-02-20"),
@@ -311,7 +328,11 @@ export class MemStorage implements IStorage {
       lastName: customer1.lastName,
       email: customer1.email,
       phone: customer1.phone,
-      address: "123 Main St",
+      address: "123 Main Street",
+      street: "123 Main Street",
+      city: "Springfield",
+      state: "IL",
+      zip: "62701",
       serviceType: "Network Setup",
       serviceId: null,
       appointmentDate: new Date("2024-01-25"),
@@ -340,7 +361,11 @@ export class MemStorage implements IStorage {
       lastName: customer2.lastName,
       email: customer2.email,
       phone: customer2.phone,
-      address: "456 Oak Ave",
+      address: "456 Oak Avenue",
+      street: "456 Oak Avenue",
+      city: "Chicago",
+      state: "IL",
+      zip: "60601",
       serviceType: "Smart Home Installation",
       serviceId: null,
       appointmentDate: new Date("2024-03-10"),
@@ -369,7 +394,11 @@ export class MemStorage implements IStorage {
       lastName: customer2.lastName,
       email: customer2.email,
       phone: customer2.phone,
-      address: "456 Oak Ave",
+      address: "456 Oak Avenue",
+      street: "456 Oak Avenue",
+      city: "Chicago",
+      state: "IL",
+      zip: "60601",
       serviceType: "System Maintenance",
       serviceId: null,
       appointmentDate: new Date("2024-02-15"),
@@ -398,7 +427,11 @@ export class MemStorage implements IStorage {
       lastName: customer1.lastName,
       email: customer1.email,
       phone: customer1.phone,
-      address: "123 Main St",
+      address: "123 Main Street",
+      street: "123 Main Street",
+      city: "Springfield",
+      state: "IL",
+      zip: "62701",
       serviceType: "Data Recovery",
       serviceId: null,
       appointmentDate: new Date("2024-01-12"),
@@ -476,6 +509,10 @@ export class MemStorage implements IStorage {
       customer.lastEmailSent = lastEmailSent;
       this.customers.set(id, customer);
     }
+  }
+
+  async deleteCustomer(id: number): Promise<void> {
+    this.customers.delete(id);
   }
 
   // Maintenance Plans
@@ -1238,6 +1275,10 @@ const appointmentColumns = {
   appointmentDate: appointments.appointmentDate,
   appointmentTime: appointments.appointmentTime,
   address: appointments.address,
+  street: appointments.street,
+  city: appointments.city,
+  state: appointments.state,
+  zip: appointments.zip,
   startTimestamptz: appointments.startTimestamptz,
   endTimestamptz: appointments.endTimestamptz,
   rescheduleToken: appointments.rescheduleToken,
@@ -1321,6 +1362,10 @@ export class DatabaseStorage implements IStorage {
 
   async updateCustomerLastEmail(id: number, lastEmailSent: Date): Promise<void> {
     await db.update(customers).set({ lastEmailSent }).where(eq(customers.id, id));
+  }
+
+  async deleteCustomer(id: number): Promise<void> {
+    await db.delete(customers).where(eq(customers.id, id));
   }
 
   // Maintenance Plans

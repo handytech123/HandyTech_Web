@@ -1098,8 +1098,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Customer routes
-  app.get("/api/customers", async (req, res) => {
+  // Customer routes with admin authentication
+  app.get("/api/customers", requireAdmin, async (req, res) => {
     try {
       const customers = await storage.getAllCustomers();
       res.json(customers);
@@ -1108,7 +1108,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/customers/:id", async (req, res) => {
+  app.get("/api/customers/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const customer = await storage.getCustomer(id);
@@ -1121,7 +1121,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/customers", async (req, res) => {
+  app.post("/api/customers", requireAdmin, async (req, res) => {
     try {
       const customerData = insertCustomerSchema.parse(req.body);
       
@@ -1139,6 +1139,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         res.status(500).json({ message: "Failed to create customer" });
       }
+    }
+  });
+
+  app.delete("/api/customers/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({ message: "Invalid customer ID" });
+      }
+
+      // Check if customer exists
+      const customer = await storage.getCustomer(id);
+      if (!customer) {
+        return res.status(404).json({ message: "Customer not found" });
+      }
+
+      // Delete the customer
+      await storage.deleteCustomer(id);
+      res.json({ message: "Customer deleted successfully" });
+    } catch (error) {
+      console.error("Delete customer error:", error);
+      res.status(500).json({ message: "Failed to delete customer" });
     }
   });
 
@@ -1507,8 +1530,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName,
           lastName,
           email,
-          phone: phone || null,
-          company: null,
+          phone: phone || "",
+          company: "",
+          street: "",
+          city: "",
+          state: "",
+          zip: "",
         });
       }
 
@@ -1518,6 +1545,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rating: parseInt(rating),
         title,
         content,
+        city: "",
+        state: "",
       };
 
       const review = await storage.createReview(reviewData);
@@ -1626,8 +1655,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: quote.firstName,
           lastName: quote.lastName,
           email: quote.email,
-          phone: null,
-          company: quote.company || null,
+          phone: quote.phone || "",
+          company: quote.company || "",
+          street: quote.street || "",
+          city: quote.city || "",
+          state: quote.state || "",
+          zip: quote.zip || "",
         });
       }
 
@@ -1803,8 +1836,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           firstName: appointmentData.firstName,
           lastName: appointmentData.lastName,
           email: appointmentData.email,
-          phone: appointmentData.phone || null,
-          company: null,
+          phone: appointmentData.phone || "",
+          company: "",
+          street: appointmentData.street || "",
+          city: appointmentData.city || "",
+          state: appointmentData.state || "",
+          zip: appointmentData.zip || "",
         });
       }
 
