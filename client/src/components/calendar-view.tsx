@@ -138,7 +138,7 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
                     ${isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-100 text-gray-400'}
                     ${isSelected ? 'ring-2 ring-brand-red bg-brand-red/5' : ''}
                     ${isTodayDate ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}
-                    ${isBlocked ? 'bg-red-50 border-red-300' : ''}
+                    ${isBlocked ? 'bg-red-200 border-red-500' : ''}
                   `}
                   onClick={() => setSelectedDate(day)}
                 >
