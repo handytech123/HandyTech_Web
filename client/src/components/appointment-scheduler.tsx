@@ -856,7 +856,7 @@ export default function AppointmentScheduler() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
                 <div className="space-y-2">
                   <h4 className="font-semibold text-sm text-gray-500 uppercase tracking-wide">Category</h4>
                   <div className="flex items-center gap-2">
