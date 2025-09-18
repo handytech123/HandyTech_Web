@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -44,8 +44,22 @@ export default function RescheduleAppointmentDialog({
     onOpenChange(isOpen);
   };
 
-  // Get appointment duration (estimate 2 hours if not available)
-  const appointmentDuration = appointment?.serviceId ? 2 : 2; // Default to 2 hours for reschedule
+  // Get appointment duration from actual appointment data
+  const appointmentDuration = useMemo(() => {
+    if (!appointment) return 2; // Default fallback
+    
+    // Calculate duration from timestamps if available
+    if (appointment.startTimestamptz && appointment.endTimestamptz) {
+      const startTime = new Date(appointment.startTimestamptz);
+      const endTime = new Date(appointment.endTimestamptz);
+      const durationMs = endTime.getTime() - startTime.getTime();
+      const durationHours = Math.round(durationMs / (1000 * 60 * 60));
+      return durationHours;
+    }
+    
+    // Default to 2 hours if no timestamp data
+    return 2;
+  }, [appointment]);
 
   // Fetch available time slots for selected date
   const {
