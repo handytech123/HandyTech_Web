@@ -47,16 +47,20 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
 
   // Check if a day is blocked
   const isDateBlocked = (day: Date) => {
-    return blockedDates.some(blockedDate => 
-      isSameDay(new Date(blockedDate.startTimestamptz), day)
-    );
+    return blockedDates.some(blockedDate => {
+      // Convert the blocked date to Central Time for comparison
+      const blockedDay = toZonedTime(new Date(blockedDate.startTimestamptz), 'America/Chicago');
+      return isSameDay(blockedDay, day);
+    });
   };
 
   // Get blocked date for a specific day
   const getBlockedDateForDay = (day: Date) => {
-    return blockedDates.find(blockedDate => 
-      isSameDay(new Date(blockedDate.startTimestamptz), day)
-    );
+    return blockedDates.find(blockedDate => {
+      // Convert the blocked date to Central Time for comparison  
+      const blockedDay = toZonedTime(new Date(blockedDate.startTimestamptz), 'America/Chicago');
+      return isSameDay(blockedDay, day);
+    });
   };
 
   // Get appointments for selected date
