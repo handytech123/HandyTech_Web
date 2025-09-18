@@ -126,24 +126,38 @@ async function testDatabaseConnection(databaseUrl: string, retries: number = 3):
 }
 
 /**
- * Tests if required database tables exist
+ * Tests if required database tables exist and validates critical schema structure
  */
 async function validateDatabaseSchema(databaseUrl: string): Promise<void> {
   let schemaPool: Pool | null = null;
   
   try {
-    console.log('Validating database schema...');
+    console.log('🔍 Validating database schema and structure...');
     
     schemaPool = new Pool({ connectionString: databaseUrl });
     const client = await schemaPool.connect();
     
-    // Check for core tables that the app depends on
-    const requiredTables = [
-      'availability_rules',
-      'appointments', 
-      'customers',
-      'blocked_times'
+    // Check for all essential tables that the application depends on
+    const criticalTables = [
+      'availability_rules',  // Core for appointment booking
+      'appointments',        // Core business logic
+      'customers',          // Core business logic 
+      'blocked_times'       // Important for scheduling
     ];
+    
+    const additionalTables = [
+      'users',              // Authentication
+      'services',           // Service management
+      'service_addons',     // Service options
+      'reviews',            // Customer feedback
+      'quotes',             // Quote management
+      'maintenance_plans',  // Customer plans
+      'email_campaigns',    // Marketing
+      'project_gallery',    // Portfolio
+      'portal_login_tokens' // Customer portal
+    ];
+    
+    const allRequiredTables = [...criticalTables, ...additionalTables];
     
     const tableQuery = `
       SELECT table_name 
@@ -153,39 +167,39 @@ async function validateDatabaseSchema(databaseUrl: string): Promise<void> {
       AND table_name = ANY($1)
     `;
     
-    const result = await client.query(tableQuery, [requiredTables]);
+    const result = await client.query(tableQuery, [allRequiredTables]);
     const existingTables = result.rows.map(row => row.table_name);
-    const missingTables = requiredTables.filter(table => !existingTables.includes(table));
     
-    if (missingTables.length > 0) {
-      console.warn(`⚠ Missing database tables: ${missingTables.join(', ')}`);
-      console.warn('  This may indicate schema migration is needed');
-      console.warn('  Run: npm run db:push');
+    const missingCriticalTables = criticalTables.filter(table => !existingTables.includes(table));
+    const missingAdditionalTables = additionalTables.filter(table => !existingTables.includes(table));
+    
+    // Handle missing critical tables as fatal errors
+    if (missingCriticalTables.length > 0) {
+      console.error(`🚨 Critical database tables are missing: ${missingCriticalTables.join(', ')}`);
+      console.error('❌ Application cannot start without these core tables');
+      console.error('\n🔧 Required migration steps:');
+      console.error('1. Run database migration: npm run db:push');
+      console.error('2. If that fails, try: npm run db:push --force');
+      console.error('3. Verify schema matches shared/schema.ts');
+      console.error('4. Check database permissions for CREATE TABLE');
+      
+      throw new Error(
+        `Database schema migration required. Missing critical tables: ${missingCriticalTables.join(', ')}. ` +
+        'Run "npm run db:push" to create required database structure.'
+      );
+    }
+    
+    // Log missing additional tables as warnings (non-fatal)
+    if (missingAdditionalTables.length > 0) {
+      console.warn(`⚠️  Some optional database tables are missing: ${missingAdditionalTables.join(', ')}`);
+      console.warn('   These features may not work fully until schema is updated');
+      console.warn('   Run: npm run db:push to create all tables');
     } else {
-      console.log(`✓ All required database tables exist`);
+      console.log(`✅ All application database tables exist (${existingTables.length} tables found)`);
     }
     
-    // Check availability_rules table structure specifically since it's critical for the app
-    if (existingTables.includes('availability_rules')) {
-      const columnQuery = `
-        SELECT column_name, data_type, is_nullable 
-        FROM information_schema.columns 
-        WHERE table_schema = 'public' 
-        AND table_name = 'availability_rules'
-        ORDER BY ordinal_position
-      `;
-      
-      const columnResult = await client.query(columnQuery);
-      const columns = columnResult.rows.map(row => row.column_name);
-      const requiredColumns = ['id', 'weekday', 'start_time', 'end_time', 'active'];
-      const missingColumns = requiredColumns.filter(col => !columns.includes(col));
-      
-      if (missingColumns.length > 0) {
-        throw new Error(`availability_rules table missing required columns: ${missingColumns.join(', ')}`);
-      }
-      
-      console.log(`✓ availability_rules table structure validated`);
-    }
+    // Validate critical table structures
+    await validateTableStructures(client, existingTables);
     
     client.release();
     
@@ -202,6 +216,85 @@ async function validateDatabaseSchema(databaseUrl: string): Promise<void> {
       }
     }
   }
+}
+
+/**
+ * Validates the structure of critical database tables
+ */
+async function validateTableStructures(client: any, existingTables: string[]): Promise<void> {
+  console.log('🔍 Validating critical table structures...');
+  
+  // Define expected column structures for critical tables
+  const tableStructures = {
+    'availability_rules': {
+      required: ['id', 'weekday', 'start_time', 'end_time', 'active'],
+      critical: true,
+      description: 'Appointment scheduling availability'
+    },
+    'appointments': {
+      required: ['id', 'customer_id', 'service_id', 'appointment_date'],
+      critical: true,
+      description: 'Customer appointment bookings'
+    },
+    'customers': {
+      required: ['id', 'first_name', 'last_name', 'email'],
+      critical: true,
+      description: 'Customer information'
+    },
+    'blocked_times': {
+      required: ['id', 'start_timestamptz', 'end_timestamptz'],
+      critical: false,
+      description: 'Schedule blocking'
+    }
+  };
+  
+  for (const [tableName, tableInfo] of Object.entries(tableStructures)) {
+    if (!existingTables.includes(tableName)) {
+      if (tableInfo.critical) {
+        console.error(`🚨 Critical table missing: ${tableName}`);
+      }
+      continue;
+    }
+    
+    try {
+      const columnQuery = `
+        SELECT column_name, data_type, is_nullable, column_default 
+        FROM information_schema.columns 
+        WHERE table_schema = 'public' 
+        AND table_name = $1
+        ORDER BY ordinal_position
+      `;
+      
+      const columnResult = await client.query(columnQuery, [tableName]);
+      const existingColumns = columnResult.rows.map(row => row.column_name);
+      const missingColumns = tableInfo.required.filter(col => !existingColumns.includes(col));
+      
+      if (missingColumns.length > 0) {
+        const errorMsg = `${tableName} table missing required columns: ${missingColumns.join(', ')}`;
+        
+        if (tableInfo.critical) {
+          console.error(`🚨 Critical schema error in ${tableName}:`, errorMsg);
+          throw new Error(`Critical table structure invalid: ${errorMsg}`);
+        } else {
+          console.warn(`⚠️  Schema warning in ${tableName}:`, errorMsg);
+        }
+      } else {
+        console.log(`  ✅ ${tableName} structure validated (${tableInfo.description})`);
+      }
+      
+    } catch (error) {
+      const errorMessage = `Failed to validate ${tableName} structure: ${error instanceof Error ? error.message : 'Unknown error'}`;
+      
+      if (tableInfo.critical) {
+        console.error(`🚨 Critical validation error:`, errorMessage);
+        throw new Error(errorMessage);
+      } else {
+        console.warn(`⚠️  Structure validation warning:`, errorMessage);
+      }
+    }
+  }
+  
+  console.log('✅ Database table structure validation completed');
 }
 
 /**
