@@ -425,7 +425,7 @@ export default function AppointmentScheduler() {
 
         {/* Step Indicator */}
         <div className="flex justify-center mb-8">
-          <div className="flex space-x-4">
+          <div className="flex space-x-2 sm:space-x-4">
             {[
               { id: "category", label: "Category" },
               { id: "contact", label: "Contact" },
@@ -445,8 +445,8 @@ export default function AppointmentScheduler() {
                 >
                   {index + 1}
                 </div>
-                <span className="ml-2 text-sm font-medium text-gray-600">{step.label}</span>
-                {index < 3 && <ArrowRight className="ml-4 h-4 w-4 text-gray-400" />}
+                <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600 hidden xs:inline">{step.label}</span>
+                {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
               </div>
             ))}
           </div>
