@@ -19,7 +19,7 @@ import { format } from "date-fns";
 import { fromZonedTime } from "date-fns-tz";
 import { insertBlockedTimeSchema } from "@shared/schema";
 import { z } from "zod";
-import type { BlockedTime } from "@shared/schema";
+import type { BlockedTime, Appointment } from "@shared/schema";
 
 const blockedTimeFormSchema = insertBlockedTimeSchema.extend({
   dateSelection: z.enum(["single", "multiple"]),
@@ -86,6 +86,10 @@ export default function BlockedTimesManager() {
     queryKey: ["/api/blocked-times"]
   });
 
+  const { data: appointments = [] } = useQuery<Appointment[]>({
+    queryKey: ["/api/appointments"]
+  });
+
   const form = useForm<BlockedTimeFormData>({
     resolver: zodResolver(blockedTimeFormSchema),
     defaultValues: {
@@ -99,6 +103,83 @@ export default function BlockedTimesManager() {
     },
   });
 
+  // Helper function to check for appointment conflicts
+  const checkAppointmentConflicts = (datesToBlock: Date[], isFullDay: boolean, startTime?: string, endTime?: string): string[] => {
+    const conflicts: string[] = [];
+    
+    for (const date of datesToBlock) {
+      const dayStart = new Date(date);
+      dayStart.setHours(0, 0, 0, 0);
+      const dayEnd = new Date(date);
+      dayEnd.setHours(23, 59, 59, 999);
+      
+      const conflictingAppointments = appointments.filter(appointment => {
+        // Skip cancelled appointments
+        if (appointment.status === 'cancelled') return false;
+        
+        let appointmentStart: Date;
+        let appointmentEnd: Date;
+        
+        if (appointment.startTimestamptz && appointment.endTimestamptz) {
+          appointmentStart = new Date(appointment.startTimestamptz);
+          appointmentEnd = new Date(appointment.endTimestamptz);
+        } else if (appointment.appointmentDate && appointment.appointmentTime) {
+          appointmentStart = new Date(appointment.appointmentDate);
+          const [time, period] = appointment.appointmentTime.split(' ');
+          const [hours, minutes] = time.split(':');
+          let hour = parseInt(hours);
+          if (period === 'PM' && hour !== 12) hour += 12;
+          if (period === 'AM' && hour === 12) hour = 0;
+          appointmentStart.setHours(hour, parseInt(minutes), 0, 0);
+          appointmentEnd = new Date(appointmentStart.getTime() + (2 * 60 * 60 * 1000)); // Assume 2 hours
+        } else {
+          return false;
+        }
+        
+        // Check if appointment is on this date
+        const appointmentDate = new Date(appointmentStart);
+        appointmentDate.setHours(0, 0, 0, 0);
+        
+        if (appointmentDate.getTime() !== dayStart.getTime()) {
+          return false;
+        }
+        
+        // If blocking full day, any appointment on this date conflicts
+        if (isFullDay) {
+          return true;
+        }
+        
+        // If blocking specific hours, check for time overlap
+        if (startTime && endTime) {
+          const blockStart = createTimestamp(date, startTime);
+          const blockEnd = createTimestamp(date, endTime);
+          const blockStartTime = new Date(blockStart);
+          const blockEndTime = new Date(blockEnd);
+          
+          // Check for overlap
+          return appointmentStart < blockEndTime && appointmentEnd > blockStartTime;
+        }
+        
+        return false;
+      });
+      
+      if (conflictingAppointments.length > 0) {
+        const dateStr = format(date, "MMMM d, yyyy");
+        const appointmentDetails = conflictingAppointments.map(apt => {
+          if (apt.startTimestamptz) {
+            return format(new Date(apt.startTimestamptz), "h:mm a");
+          } else if (apt.appointmentTime) {
+            return apt.appointmentTime;
+          }
+          return "Unknown time";
+        }).join(", ");
+        conflicts.push(`${dateStr} (appointments at: ${appointmentDetails})`);
+      }
+    }
+    
+    return conflicts;
+  };
+
   const createBlockedTime = useMutation({
     mutationFn: async (data: BlockedTimeFormData) => {
       const datesToBlock: Date[] = [];
@@ -108,6 +189,13 @@ export default function BlockedTimesManager() {
         datesToBlock.push(data.singleDate);
       } else if (data.dateSelection === "multiple" && data.multipleDates) {
         datesToBlock.push(...data.multipleDates);
+      }
+      
+      // Check for appointment conflicts
+      const conflicts = checkAppointmentConflicts(datesToBlock, data.isFullDay, data.startTime, data.endTime);
+      
+      if (conflicts.length > 0) {
+        throw new Error(`Cannot block the following dates due to existing appointments:\n\n${conflicts.join('\n')}\n\nPlease choose different dates or reschedule the existing appointments first.`);
       }
       
       // Create blocked time entries for each date
@@ -137,10 +225,10 @@ export default function BlockedTimesManager() {
       form.reset();
       setSelectedDates([]);
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
-        title: "Error",
-        description: "Failed to create blocked time",
+        title: "Cannot Block These Dates",
+        description: error.message,
         variant: "destructive",
       });
     },
@@ -174,6 +262,33 @@ export default function BlockedTimesManager() {
   const isFullDay = form.watch("isFullDay");
   const dateSelection = form.watch("dateSelection");
 
+  // Get dates that have appointments (to show as disabled in calendar)
+  const getDatesWithAppointments = (): Date[] => {
+    const datesWithAppointments: Date[] = [];
+    
+    appointments.forEach(appointment => {
+      if (appointment.status === 'cancelled') return;
+      
+      let appointmentDate: Date;
+      
+      if (appointment.startTimestamptz) {
+        appointmentDate = new Date(appointment.startTimestamptz);
+      } else if (appointment.appointmentDate) {
+        appointmentDate = new Date(appointment.appointmentDate);
+      } else {
+        return;
+      }
+      
+      // Reset time to start of day for comparison
+      appointmentDate.setHours(0, 0, 0, 0);
+      datesWithAppointments.push(appointmentDate);
+    });
+    
+    return datesWithAppointments;
+  };
+  
+  const datesWithAppointments = getDatesWithAppointments();
+
   return (
     <div className="space-y-6">
       <Card>
@@ -199,7 +314,7 @@ export default function BlockedTimesManager() {
                     <Label>Date Selection Type</Label>
                     <Select
                       value={dateSelection}
-                      onValueChange={(value: "single" | "range" | "multiple") => {
+                      onValueChange={(value: "single" | "multiple") => {
                         form.setValue("dateSelection", value);
                         // Reset date selections when changing type
                         setSelectedDates([]);
@@ -219,6 +334,10 @@ export default function BlockedTimesManager() {
 
                   <div className="space-y-2">
                     <Label>{dateSelection === "single" ? "Select Date" : "Select Multiple Dates"}</Label>
+                    <p className="text-sm text-gray-600">
+                      <strong>Note:</strong> Dates with existing appointments appear in yellow and cannot be blocked. 
+                      You'll need to reschedule or cancel those appointments first.
+                    </p>
                     <Popover>
                       <PopoverTrigger asChild>
                         <Button
@@ -241,6 +360,24 @@ export default function BlockedTimesManager() {
                             onSelect={(date) => {
                               form.setValue("singleDate", date);
                             }}
+                            disabled={(date) => {
+                              // Disable dates that have appointments
+                              const dateOnly = new Date(date);
+                              dateOnly.setHours(0, 0, 0, 0);
+                              return datesWithAppointments.some(appDate => 
+                                appDate.getTime() === dateOnly.getTime()
+                              );
+                            }}
+                            modifiers={{
+                              hasAppointment: datesWithAppointments
+                            }}
+                            modifiersStyles={{
+                              hasAppointment: { 
+                                backgroundColor: '#fef3c7', 
+                                color: '#92400e',
+                                fontWeight: 'bold'
+                              }
+                            }}
                             initialFocus
                           />
                         )}
@@ -252,6 +389,24 @@ export default function BlockedTimesManager() {
                               if (dates) {
                                 setSelectedDates(dates);
                                 form.setValue("multipleDates", dates);
+                              }
+                            }}
+                            disabled={(date) => {
+                              // Disable dates that have appointments
+                              const dateOnly = new Date(date);
+                              dateOnly.setHours(0, 0, 0, 0);
+                              return datesWithAppointments.some(appDate => 
+                                appDate.getTime() === dateOnly.getTime()
+                              );
+                            }}
+                            modifiers={{
+                              hasAppointment: datesWithAppointments
+                            }}
+                            modifiersStyles={{
+                              hasAppointment: { 
+                                backgroundColor: '#fef3c7', 
+                                color: '#92400e',
+                                fontWeight: 'bold'
                               }
                             }}
                             initialFocus
