@@ -17,6 +17,8 @@ import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Review, Customer, MaintenancePlan, Appointment } from "@shared/schema";
+import { format } from "date-fns";
+import { toZonedTime } from "date-fns-tz";
 
 // AppointmentsTab component
 function AppointmentsTab({ 
