@@ -1792,12 +1792,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
         source: appointmentData.source || "manual" as const
       };
       
-      const appointment = await storage.createAppointment(enhancedAppointmentData);
-
-      // Auto-create customer if they don't exist
-      const existingCustomer = await storage.getCustomerByEmail(appointmentData.email);
-      if (!existingCustomer) {
-        await storage.createCustomer({
+      // Auto-create customer if they don't exist (BEFORE creating appointment)
+      let customer = await storage.getCustomerByEmail(appointmentData.email);
+      if (!customer) {
+        customer = await storage.createCustomer({
           firstName: appointmentData.firstName,
           lastName: appointmentData.lastName,
           email: appointmentData.email,
@@ -1805,6 +1803,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           company: null,
         });
       }
+
+      // Add customer ID to appointment data
+      enhancedAppointmentData.customerId = customer.id;
+
+      const appointment = await storage.createAppointment(enhancedAppointmentData);
 
       // Google Calendar integration - Create calendar event
       try {
