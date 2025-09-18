@@ -56,6 +56,15 @@ app.use(express.urlencoded({ extended: false }));
 // Apply input sanitization after body parsing so it can sanitize req.body
 app.use(sanitizeInput);
 
+// Ensure CSRF secret exists before CSRF protection
+app.use((req, res, next) => {
+  if (!(req.session as any)?.csrfSecret) {
+    const tokens = require('csrf')();
+    (req.session as any).csrfSecret = tokens.secretSync();
+  }
+  next();
+});
+
 // Apply CSRF protection after body parsing but before routes
 app.use(useCSRF);
 
