@@ -157,6 +157,9 @@ export default function RescheduleAppointmentDialog({
 
   // Handle time slot selection
   const handleTimeSelect = (timeSlot: string) => {
+    console.log('=== TIME SLOT SELECTION DEBUG ===');
+    console.log('Selected UTC timeSlot:', timeSlot);
+    console.log('Converted to Central Time:', format(toZonedTime(parseISO(timeSlot), 'America/Chicago'), 'h:mm a'));
     setSelectedTimeSlot(timeSlot);
   };
 
@@ -166,8 +169,17 @@ export default function RescheduleAppointmentDialog({
       return;
     }
 
+    console.log('=== RESCHEDULE SUBMISSION DEBUG ===');
+    console.log('Selected timeSlot (UTC):', selectedTimeSlot);
+    console.log('Selected time in Central Time:', format(toZonedTime(parseISO(selectedTimeSlot), 'America/Chicago'), 'h:mm a'));
+    
+    // The selectedTimeSlot is already in UTC format from the availability API
+    // This represents the correct time the user selected in Central Time
     const startTime = selectedTimeSlot;
     const endTime = addHours(parseISO(selectedTimeSlot), appointmentDuration).toISOString();
+
+    console.log('Sending to API - startTime (UTC):', startTime);
+    console.log('Sending to API - endTime (UTC):', endTime);
 
     rescheduleAppointmentMutation.mutate({
       appointmentId: appointment.id,
