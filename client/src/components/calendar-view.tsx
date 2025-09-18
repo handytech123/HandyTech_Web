@@ -18,7 +18,7 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
 
   const { data: blockedDates = [] } = useQuery<BlockedTime[]>({
-    queryKey: ["/api/blocked-dates"]
+    queryKey: ["/api/blocked-times"]
   });
 
   // Get calendar days for the current month
