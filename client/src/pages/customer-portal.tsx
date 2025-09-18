@@ -215,21 +215,29 @@ export default function CustomerPortal() {
     },
   });
 
-  // Customer-specific reschedule appointment mutation using the admin dialog
+  // Customer-specific reschedule appointment mutation using customer portal API
   const rescheduleAppointmentMutation = useMutation({
     mutationFn: async ({ appointmentId, startTime, endTime }: { 
       appointmentId: number; 
       startTime: string; 
       endTime: string; 
     }) => {
-      // Convert to the format expected by customer portal API
-      return apiRequest(`/api/portal/appointments/${appointmentId}/reschedule`, {
+      // Use customer portal API with proper authentication
+      const response = await apiRequest(`/api/portal/appointments/${appointmentId}/reschedule`, {
         method: "PUT",
         body: { startISO: startTime },
       });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || "Failed to reschedule appointment");
+      }
+      
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
       setRescheduleDialogOpen(false);
       setSelectedAppointment(null);
       toast({ 
