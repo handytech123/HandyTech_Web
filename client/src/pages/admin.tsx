@@ -255,9 +255,14 @@ function AuthenticatedDashboard() {
     queryKey: ["/api/maintenance-plans"]
   });
 
-  const { data: appointments = [] } = useQuery<Appointment[]>({
-    queryKey: ["/api/appointments"]
+  const { data: scheduleData } = useQuery<{
+    appointments: Appointment[];
+    blockedTimes: any[];
+  }>({
+    queryKey: ["/api/admin/schedule"]
   });
+  
+  const appointments = scheduleData?.appointments || [];
 
   const handleLogout = () => {
     logout();
@@ -286,7 +291,7 @@ function AuthenticatedDashboard() {
       await apiRequest(`/api/admin/appointments/${id}/status`, "PATCH", { status });
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/appointments"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/schedule"] });
     }
   });
 
