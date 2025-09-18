@@ -18,6 +18,7 @@ import { db } from "./db";
 import { eq, desc, and, gte, lte, isNull } from "drizzle-orm";
 import crypto from "crypto";
 import { fromZonedTime } from "date-fns-tz";
+import { withDatabaseRetry, withGracefulFailure, checkDatabaseHealth } from "./utils/database-error-handling";
 
 // Security utility functions for token hashing
 function hashToken(token: string): string {
@@ -1271,22 +1272,47 @@ export class DatabaseStorage implements IStorage {
 
   // Customers
   async getCustomer(id: number): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.id, id));
-    return customer;
+    return await withDatabaseRetry(
+      async () => {
+        const [customer] = await db.select().from(customers).where(eq(customers.id, id));
+        return customer;
+      },
+      'getCustomer',
+      undefined,
+      { id }
+    );
   }
 
   async getCustomerByEmail(email: string): Promise<Customer | undefined> {
-    const [customer] = await db.select().from(customers).where(eq(customers.email, email));
-    return customer;
+    return await withDatabaseRetry(
+      async () => {
+        const [customer] = await db.select().from(customers).where(eq(customers.email, email));
+        return customer;
+      },
+      'getCustomerByEmail',
+      undefined,
+      { email }
+    );
   }
 
   async createCustomer(customer: InsertCustomer): Promise<Customer> {
-    const [created] = await db.insert(customers).values(customer).returning();
-    return created;
+    return await withDatabaseRetry(
+      async () => {
+        const [created] = await db.insert(customers).values(customer).returning();
+        return created;
+      },
+      'createCustomer',
+      undefined,
+      { customer: { ...customer, email: customer.email } } // Don't log full customer data
+    );
   }
 
   async getAllCustomers(): Promise<Customer[]> {
-    return await db.select().from(customers).orderBy(desc(customers.createdAt));
+    return await withGracefulFailure(
+      () => db.select().from(customers).orderBy(desc(customers.createdAt)),
+      [], // Empty array as fallback
+      'getAllCustomers'
+    );
   }
 
   async updateCustomer(id: number, updates: Partial<InsertCustomer>): Promise<void> {
@@ -1457,12 +1483,23 @@ export class DatabaseStorage implements IStorage {
 
   // Appointments
   async getAppointment(id: number): Promise<Appointment | undefined> {
-    const [appointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
-    return appointment;
+    return await withDatabaseRetry(
+      async () => {
+        const [appointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
+        return appointment;
+      },
+      'getAppointment',
+      undefined,
+      { id }
+    );
   }
 
   async getAllAppointments(): Promise<Appointment[]> {
-    return await db.select(appointmentColumns).from(appointments).orderBy(desc(appointments.createdAt));
+    return await withGracefulFailure(
+      () => db.select(appointmentColumns).from(appointments).orderBy(desc(appointments.createdAt)),
+      [], // Empty array as fallback
+      'getAllAppointments'
+    );
   }
 
   async getAppointmentsByCustomer(customerId: number): Promise<Appointment[]> {
@@ -1700,32 +1737,62 @@ export class DatabaseStorage implements IStorage {
 
   // Availability Rules
   async getAvailabilityRules(): Promise<AvailabilityRule[]> {
-    return await db.select().from(availabilityRules).orderBy(availabilityRules.weekday, availabilityRules.startTime);
+    return await withDatabaseRetry(
+      () => db.select().from(availabilityRules).orderBy(availabilityRules.weekday, availabilityRules.startTime),
+      'getAvailabilityRules'
+    );
   }
 
   async getActiveAvailabilityRules(): Promise<AvailabilityRule[]> {
-    return await db.select().from(availabilityRules)
-      .where(eq(availabilityRules.active, true))
-      .orderBy(availabilityRules.weekday, availabilityRules.startTime);
+    return await withDatabaseRetry(
+      () => db.select().from(availabilityRules)
+        .where(eq(availabilityRules.active, true))
+        .orderBy(availabilityRules.weekday, availabilityRules.startTime),
+      'getActiveAvailabilityRules',
+      undefined, // Use default retry config
+      { critical: true, fallback_available: false }
+    );
   }
 
   async createAvailabilityRule(rule: InsertAvailabilityRule): Promise<AvailabilityRule> {
-    const [created] = await db.insert(availabilityRules).values(rule).returning();
-    return created;
+    return await withDatabaseRetry(
+      async () => {
+        const [created] = await db.insert(availabilityRules).values(rule).returning();
+        return created;
+      },
+      'createAvailabilityRule',
+      undefined,
+      { rule }
+    );
   }
 
   async updateAvailabilityRule(id: number, updates: Partial<InsertAvailabilityRule>): Promise<void> {
-    await db.update(availabilityRules).set(updates).where(eq(availabilityRules.id, id));
+    await withDatabaseRetry(
+      () => db.update(availabilityRules).set(updates).where(eq(availabilityRules.id, id)),
+      'updateAvailabilityRule',
+      undefined,
+      { id, updates }
+    );
   }
 
   async deleteAvailabilityRule(id: number): Promise<void> {
-    await db.delete(availabilityRules).where(eq(availabilityRules.id, id));
+    await withDatabaseRetry(
+      () => db.delete(availabilityRules).where(eq(availabilityRules.id, id)),
+      'deleteAvailabilityRule',
+      undefined,
+      { id }
+    );
   }
 
   async toggleAvailabilityRuleStatus(id: number, active: boolean): Promise<void> {
-    await db.update(availabilityRules)
-      .set({ active })
-      .where(eq(availabilityRules.id, id));
+    await withDatabaseRetry(
+      () => db.update(availabilityRules)
+        .set({ active })
+        .where(eq(availabilityRules.id, id)),
+      'toggleAvailabilityRuleStatus',
+      undefined,
+      { id, active }
+    );
   }
 
   // Services Management
