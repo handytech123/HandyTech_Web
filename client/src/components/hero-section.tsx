@@ -12,7 +12,7 @@ export default function HeroSection() {
     <section className="relative bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
-          <div>
+          <div className="text-center lg:text-left">
             <div className="bg-brand-red text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
               PROFESSIONAL HANDYMAN SERVICES
             </div>
@@ -22,7 +22,7 @@ export default function HeroSection() {
             <p className="text-xl text-gray-600 mb-8 leading-relaxed">
               Your trusted partner for home improvement and smart tech solutions, delivered with precision and professionalism.
             </p>
-            <div className="flex flex-col sm:flex-row gap-4">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
               <Button 
                 onClick={() => scrollToSection('contact')}
                 className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-lg"
@@ -30,7 +30,7 @@ export default function HeroSection() {
                 Get Free Estimate
               </Button>
             </div>
-            <div className="flex items-center gap-8 mt-8 text-sm text-gray-600">
+            <div className="flex items-center gap-8 mt-8 text-sm text-gray-600 justify-center lg:justify-start">
               <div className="flex items-center gap-2">
                 <div className="w-3 h-3 bg-brand-red rounded-full"></div>
                 <span>Family Owned</span>
@@ -46,7 +46,7 @@ export default function HeroSection() {
             </div>
             
             {/* Home Depot Pro Badge */}
-            <div className="mt-6">
+            <div className="mt-6 flex justify-center lg:justify-start">
               <a 
                 href="https://proreferral.homedepot.com/public-profile/885948" 
                 target="_blank" 
