@@ -151,6 +151,11 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
     return next();
   }
 
+  // Skip CSRF for customer portal reschedule endpoint (already heavily secured)
+  if (req.path.match(/^\/api\/portal\/appointments\/\d+\/reschedule$/)) {
+    return next();
+  }
+
   const secret = (req.session as any)?.csrfSecret;
   const token = req.headers['x-csrf-token'] as string || req.body?._csrf;
 
