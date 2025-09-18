@@ -77,7 +77,10 @@ const bookingFormSchema = insertAppointmentSchema.pick({
   lastName: true,
   email: true,
   phone: true,
-  address: true,
+  street: true,
+  city: true,
+  state: true,
+  zip: true,
   serviceType: true,
   notes: true
 }).extend({
@@ -134,7 +137,10 @@ export default function AppointmentScheduler() {
       lastName: "",
       email: "",
       phone: "",
-      address: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
       serviceType: "General Handyman",
       notes: "",
     }
@@ -201,7 +207,10 @@ export default function AppointmentScheduler() {
         lastName: appointmentData.lastName,
         email: appointmentData.email,
         phone: appointmentData.phone || null,
-        address: appointmentData.address || null,
+        street: appointmentData.street || null,
+        city: appointmentData.city || null,
+        state: appointmentData.state || null,
+        zip: appointmentData.zip || null,
         serviceType: appointmentData.serviceType,
         notes: appointmentData.notes || null,
         appointmentDate: appointmentDateTime,
@@ -329,9 +338,19 @@ export default function AppointmentScheduler() {
       formData.firstName &&
       formData.lastName &&
       formData.email &&
+      formData.phone &&
+      formData.street &&
+      formData.city &&
+      formData.state &&
+      formData.zip &&
       !form.formState.errors.firstName &&
       !form.formState.errors.lastName &&
-      !form.formState.errors.email
+      !form.formState.errors.email &&
+      !form.formState.errors.phone &&
+      !form.formState.errors.street &&
+      !form.formState.errors.city &&
+      !form.formState.errors.state &&
+      !form.formState.errors.zip
     );
   };
 
@@ -566,26 +585,27 @@ export default function AppointmentScheduler() {
                         name="phone"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Phone Number (Optional)</FormLabel>
+                            <FormLabel>Phone Number</FormLabel>
                             <FormControl>
-                              <Input type="tel" {...field} value={field.value || ""} data-testid="input-phone" />
+                              <Input type="tel" {...field} value={field.value || ""} data-testid="input-phone" placeholder="(314) 325-4575" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
                         )}
                       />
 
+                      {/* Address Fields */}
                       <FormField
                         control={form.control}
-                        name="address"
+                        name="street"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Service Address</FormLabel>
+                            <FormLabel>Street Address</FormLabel>
                             <FormControl>
                               <Input 
                                 {...field} 
-                                placeholder="Where should we provide the service?" 
-                                data-testid="input-address" 
+                                placeholder="123 Main Street" 
+                                data-testid="input-street" 
                                 value={field.value || ""} 
                               />
                             </FormControl>
@@ -593,6 +613,63 @@ export default function AppointmentScheduler() {
                           </FormItem>
                         )}
                       />
+                      
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <FormField
+                          control={form.control}
+                          name="city"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>City</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="Hazelwood" 
+                                  data-testid="input-city" 
+                                  value={field.value || ""} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="state"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>State</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="MO" 
+                                  data-testid="input-state" 
+                                  value={field.value || ""} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                        <FormField
+                          control={form.control}
+                          name="zip"
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel>ZIP Code</FormLabel>
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  placeholder="63042" 
+                                  data-testid="input-zip" 
+                                  value={field.value || ""} 
+                                />
+                              </FormControl>
+                              <FormMessage />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
                       <FormItem>
                         <FormLabel>Select Specific Service</FormLabel>

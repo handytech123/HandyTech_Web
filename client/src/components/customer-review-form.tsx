@@ -1,23 +1,27 @@
-import React, { useState } from "react";
+import React from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Star } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertReviewSchema } from "@shared/schema";
+import { z } from "zod";
 
-interface ReviewFormData {
-  firstName: string;
-  lastName: string;
-  email: string;
-  phone?: string;
-  serviceType: string;
-  rating: number;
-  title: string;
-  content: string;
-}
+// Extended schema to include customer information fields not in the base review schema
+const reviewFormSchema = insertReviewSchema.extend({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Please enter a valid email address"),
+  serviceType: z.string().min(1, "Please select a service type"),
+});
+
+type ReviewFormData = z.infer<typeof reviewFormSchema>;
 
 interface CustomerReviewFormProps {
   onSuccess?: () => void;
@@ -27,18 +31,20 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
   const { toast } = useToast();
   const queryClient = useQueryClient();
   
-  const [formData, setFormData] = useState<ReviewFormData>({
-    firstName: "",
-    lastName: "",
-    email: "",
-    phone: "",
-    serviceType: "",
-    rating: 5,
-    title: "",
-    content: "",
+  const form = useForm<ReviewFormData>({
+    resolver: zodResolver(reviewFormSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      serviceType: "",
+      rating: 5,
+      title: "",
+      content: "",
+      city: "",
+      state: "",
+    },
   });
-
-  const [hoveredRating, setHoveredRating] = useState(0);
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: ReviewFormData) => {
@@ -52,16 +58,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       });
       
       // Reset form
-      setFormData({
-        firstName: "",
-        lastName: "",
-        email: "",
-        phone: "",
-        serviceType: "",
-        rating: 5,
-        title: "",
-        content: "",
-      });
+      form.reset();
       
       // Refresh reviews
       queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
@@ -77,32 +74,8 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
     },
   });
 
-  const handleInputChange = (field: keyof ReviewFormData, value: string | number) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!formData.firstName || !formData.lastName || !formData.email || !formData.title || !formData.content) {
-      toast({
-        title: "Missing Information",
-        description: "Please fill in all required fields.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    if (formData.rating < 1 || formData.rating > 5) {
-      toast({
-        title: "Invalid Rating",
-        description: "Please select a rating between 1 and 5 stars.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    submitReviewMutation.mutate(formData);
+  const onSubmit = (data: ReviewFormData) => {
+    submitReviewMutation.mutate(data);
   };
 
   const serviceTypes = [
@@ -133,153 +106,202 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       </CardHeader>
       
       <CardContent>
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
           {/* Customer Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-charcoal">Your Information</h3>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  First Name *
-                </label>
-                <Input
-                  type="text"
-                  value={formData.firstName}
-                  onChange={(e) => handleInputChange("firstName", e.target.value)}
-                  placeholder="Enter your first name"
-                  required
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter your first name" data-testid="input-firstName" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Last Name *
-                </label>
-                <Input
-                  type="text"
-                  value={formData.lastName}
-                  onChange={(e) => handleInputChange("lastName", e.target.value)}
-                  placeholder="Enter your last name"
-                  required
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter your last name" data-testid="input-lastName" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Email Address *
-                </label>
-                <Input
-                  type="email"
-                  value={formData.email}
-                  onChange={(e) => handleInputChange("email", e.target.value)}
-                  placeholder="your.email@example.com"
-                  required
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address *</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} placeholder="your.email@example.com" data-testid="input-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
               
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Phone Number
-                </label>
-                <Input
-                  type="tel"
-                  value={formData.phone}
-                  onChange={(e) => handleInputChange("phone", e.target.value)}
-                  placeholder="(555) 123-4567"
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="serviceType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Received *</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent"
+                        data-testid="select-service"
+                      >
+                        <option value="">Select the service you received...</option>
+                        {serviceTypes.map((service, index) => (
+                          <option key={index} value={service}>{service}</option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Service Received
-              </label>
-              <select
-                value={formData.serviceType}
-                onChange={(e) => handleInputChange("serviceType", e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent"
-              >
-                <option value="">Select the service you received...</option>
-                {serviceTypes.map((service, index) => (
-                  <option key={index} value={service}>{service}</option>
-                ))}
-              </select>
+            {/* Location Fields - Required for reviews */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Hazelwood" data-testid="input-city" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="MO" data-testid="input-state" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
             </div>
           </div>
 
           {/* Rating */}
           <div className="space-y-2">
             <h3 className="text-lg font-semibold text-charcoal">Overall Rating *</h3>
-            <div className="flex items-center space-x-1">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => handleInputChange("rating", star)}
-                  onMouseEnter={() => setHoveredRating(star)}
-                  onMouseLeave={() => setHoveredRating(0)}
-                  className="p-1 transition-colors"
-                >
-                  <Star
-                    size={32}
-                    className={`${
-                      (hoveredRating || formData.rating) >= star
-                        ? "text-yellow-400 fill-current"
-                        : "text-gray-300"
-                    } hover:text-yellow-400 transition-colors`}
-                  />
-                </button>
-              ))}
-              <span className="ml-3 text-gray-600">
-                {formData.rating === 5 && "Excellent"}
-                {formData.rating === 4 && "Very Good"}
-                {formData.rating === 3 && "Good"}
-                {formData.rating === 2 && "Fair"}
-                {formData.rating === 1 && "Poor"}
-              </span>
-            </div>
+            <FormField
+              control={form.control}
+              name="rating"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => field.onChange(star)}
+                        className="p-1 transition-colors"
+                        data-testid={`star-${star}`}
+                      >
+                        <Star
+                          size={32}
+                          className={`${
+                            field.value >= star
+                              ? "text-yellow-400 fill-current"
+                              : "text-gray-300"
+                          } hover:text-yellow-400 transition-colors`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-3 text-gray-600">
+                      {field.value === 5 && "Excellent"}
+                      {field.value === 4 && "Very Good"}
+                      {field.value === 3 && "Good"}
+                      {field.value === 2 && "Fair"}
+                      {field.value === 1 && "Poor"}
+                    </span>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           {/* Review Content */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-charcoal">Your Review</h3>
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Review Title *
-              </label>
-              <Input
-                type="text"
-                value={formData.title}
-                onChange={(e) => handleInputChange("title", e.target.value)}
-                placeholder="Summarize your experience..."
-                maxLength={100}
-                required
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                {formData.title.length}/100 characters
-              </div>
-            </div>
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Review Title *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Summarize your experience..."
+                      maxLength={100}
+                      data-testid="input-title"
+                    />
+                  </FormControl>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {field.value?.length || 0}/100 characters
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
             
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Detailed Review *
-              </label>
-              <Textarea
-                value={formData.content}
-                onChange={(e) => handleInputChange("content", e.target.value)}
-                placeholder="Tell others about your experience with HandyTech Solutions. What did we do well? How was our communication and professionalism?"
-                rows={6}
-                maxLength={1000}
-                required
-              />
-              <div className="text-xs text-gray-500 mt-1">
-                {formData.content.length}/1000 characters
-              </div>
-            </div>
+            <FormField
+              control={form.control}
+              name="content"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Detailed Review *</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder="Tell others about your experience with HandyTech Solutions. What did we do well? How was our communication and professionalism?"
+                      rows={6}
+                      maxLength={1000}
+                      data-testid="textarea-content"
+                    />
+                  </FormControl>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {field.value?.length || 0}/1000 characters
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </div>
 
           <div className="pt-4 border-t">
@@ -287,6 +309,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               type="submit"
               disabled={submitReviewMutation.isPending}
               className="w-full bg-brand-red hover:bg-brand-red-dark text-white py-3 text-lg font-semibold"
+              data-testid="button-submit-review"
             >
               {submitReviewMutation.isPending ? "Submitting Review..." : "Submit Review"}
             </Button>
@@ -296,7 +319,8 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               Reviews help other customers make informed decisions about our services.
             </p>
           </div>
-        </form>
+          </form>
+        </Form>
       </CardContent>
     </Card>
   );

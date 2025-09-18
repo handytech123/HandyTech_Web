@@ -1500,53 +1500,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customer review submission endpoint
   app.post("/api/reviews/submit", async (req, res) => {
     try {
-      const {
-        firstName,
-        lastName,
-        email,
-        phone,
-        serviceType,
-        rating,
-        title,
-        content
-      } = req.body;
-
-      // Validate required fields
-      if (!firstName || !lastName || !email || !rating || !title || !content) {
-        return res.status(400).json({ 
-          message: "Missing required fields: firstName, lastName, email, rating, title, and content are required" 
-        });
-      }
-
-      // Validate rating
-      if (rating < 1 || rating > 5) {
-        return res.status(400).json({ message: "Rating must be between 1 and 5" });
-      }
-
+      // Parse and validate review data using insertReviewSchema
+      const validatedData = insertReviewSchema.parse(req.body);
+      
       // Auto-create customer if they don't exist
-      let customer = await storage.getCustomerByEmail(email);
+      let customer = await storage.getCustomerByEmail(validatedData.email);
       if (!customer) {
         customer = await storage.createCustomer({
-          firstName,
-          lastName,
-          email,
-          phone: phone || "",
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          email: validatedData.email,
+          phone: validatedData.phone || "",
           company: "",
           street: "",
-          city: "",
-          state: "",
+          city: validatedData.city,
+          state: validatedData.state,
           zip: "",
         });
       }
 
-      // Create the review
+      // Create the review with validated data
       const reviewData = {
         customerId: customer.id,
-        rating: parseInt(rating),
-        title,
-        content,
-        city: "",
-        state: "",
+        rating: validatedData.rating,
+        title: validatedData.title,
+        content: validatedData.content,
+        city: validatedData.city,
+        state: validatedData.state,
       };
 
       const review = await storage.createReview(reviewData);
@@ -1556,13 +1536,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await getEmailService().sendReviewNotification({
           customerName: `${customer.firstName} ${customer.lastName}`,
           customerEmail: customer.email,
-          serviceType: serviceType || undefined,
-          rating: parseInt(rating),
-          title,
-          content,
+          serviceType: validatedData.serviceType || undefined,
+          rating: validatedData.rating,
+          title: validatedData.title,
+          content: validatedData.content,
           submittedAt: new Date()
         });
-        console.log(`Review notification email sent for new review from ${customer.firstName} ${customer.lastName} (${rating} stars)`);
+        console.log(`Review notification email sent for new review from ${customer.firstName} ${customer.lastName} (${validatedData.rating} stars)`);
       } catch (emailError) {
         console.error('Failed to send review notification email:', emailError);
         // Don't fail the request if email fails
@@ -1570,8 +1550,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(review);
     } catch (error) {
-      console.error("Error creating customer review:", error);
-      res.status(500).json({ message: "Failed to submit review" });
+      if (error instanceof z.ZodError) {
+        res.status(400).json({ 
+          message: "Invalid review data", 
+          errors: error.errors 
+        });
+      } else {
+        console.error("Error creating customer review:", error);
+        res.status(500).json({ message: "Failed to submit review" });
+      }
     }
   });
 

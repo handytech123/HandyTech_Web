@@ -82,7 +82,12 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
       firstName: "",
       lastName: "",
       email: "",
+      phone: "",
       company: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
       serviceNeeded: plan.name,
       message: "",
     },
@@ -162,17 +167,88 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
         
         <FormField
           control={form.control}
-          name="company"
+          name="phone"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>Phone Number</FormLabel>
+              <FormLabel>Phone Number *</FormLabel>
               <FormControl>
-                <Input data-testid="input-phone" placeholder="(555) 123-4567" {...field} value={field.value || ""} />
+                <Input data-testid="input-phone" type="tel" placeholder="(314) 325-4575" {...field} value={field.value || ""} />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
+        
+        <FormField
+          control={form.control}
+          name="company"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Company (Optional)</FormLabel>
+              <FormControl>
+                <Input data-testid="input-company" placeholder="Your Company Name" {...field} value={field.value || ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        {/* Address Fields */}
+        <FormField
+          control={form.control}
+          name="street"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Street Address *</FormLabel>
+              <FormControl>
+                <Input data-testid="input-street" placeholder="123 Main Street" {...field} value={field.value || ""} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <FormField
+            control={form.control}
+            name="city"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>City *</FormLabel>
+                <FormControl>
+                  <Input data-testid="input-city" placeholder="Hazelwood" {...field} value={field.value || ""} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="state"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>State *</FormLabel>
+                <FormControl>
+                  <Input data-testid="input-state" placeholder="MO" {...field} value={field.value || ""} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+          <FormField
+            control={form.control}
+            name="zip"
+            render={({ field }) => (
+              <FormItem>
+                <FormLabel>ZIP Code *</FormLabel>
+                <FormControl>
+                  <Input data-testid="input-zip" placeholder="63042" {...field} value={field.value || ""} />
+                </FormControl>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+        </div>
         
         <FormField
           control={form.control}

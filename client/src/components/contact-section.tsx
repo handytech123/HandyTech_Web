@@ -26,7 +26,12 @@ export default function ContactSection() {
       firstName: "",
       lastName: "",
       email: "",
+      phone: "",
       company: "",
+      street: "",
+      city: "",
+      state: "",
+      zip: "",
       serviceNeeded: "",
       message: "",
     },
@@ -135,6 +140,7 @@ export default function ContactSection() {
                     {...form.register("firstName")}
                     className="mt-2"
                     placeholder="John"
+                    data-testid="input-firstName"
                   />
                   {form.formState.errors.firstName && (
                     <p className="text-red-500 text-sm mt-1">{form.formState.errors.firstName.message}</p>
@@ -147,6 +153,7 @@ export default function ContactSection() {
                     {...form.register("lastName")}
                     className="mt-2"
                     placeholder="Smith"
+                    data-testid="input-lastName"
                   />
                   {form.formState.errors.lastName && (
                     <p className="text-red-500 text-sm mt-1">{form.formState.errors.lastName.message}</p>
@@ -162,6 +169,7 @@ export default function ContactSection() {
                   {...form.register("email")}
                   className="mt-2"
                   placeholder="john@company.com"
+                  data-testid="input-email"
                 />
                 {form.formState.errors.email && (
                   <p className="text-red-500 text-sm mt-1">{form.formState.errors.email.message}</p>
@@ -169,19 +177,92 @@ export default function ContactSection() {
               </div>
               
               <div>
-                <Label htmlFor="company" className="text-charcoal">Company</Label>
+                <Label htmlFor="phone" className="text-charcoal">Phone Number</Label>
+                <Input 
+                  id="phone"
+                  type="tel"
+                  {...form.register("phone")}
+                  className="mt-2"
+                  placeholder="(314) 325-4575"
+                  data-testid="input-phone"
+                />
+                {form.formState.errors.phone && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.phone.message}</p>
+                )}
+              </div>
+              
+              <div>
+                <Label htmlFor="company" className="text-charcoal">Company (Optional)</Label>
                 <Input 
                   id="company"
                   {...form.register("company")}
                   className="mt-2"
                   placeholder="Your Company Name"
+                  data-testid="input-company"
                 />
+              </div>
+              
+              {/* Address Fields */}
+              <div>
+                <Label htmlFor="street" className="text-charcoal">Street Address</Label>
+                <Input 
+                  id="street"
+                  {...form.register("street")}
+                  className="mt-2"
+                  placeholder="123 Main Street"
+                  data-testid="input-street"
+                />
+                {form.formState.errors.street && (
+                  <p className="text-red-500 text-sm mt-1">{form.formState.errors.street.message}</p>
+                )}
+              </div>
+              
+              <div className="grid md:grid-cols-3 gap-4">
+                <div>
+                  <Label htmlFor="city" className="text-charcoal">City</Label>
+                  <Input 
+                    id="city"
+                    {...form.register("city")}
+                    className="mt-2"
+                    placeholder="Hazelwood"
+                    data-testid="input-city"
+                  />
+                  {form.formState.errors.city && (
+                    <p className="text-red-500 text-sm mt-1">{form.formState.errors.city.message}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="state" className="text-charcoal">State</Label>
+                  <Input 
+                    id="state"
+                    {...form.register("state")}
+                    className="mt-2"
+                    placeholder="MO"
+                    data-testid="input-state"
+                  />
+                  {form.formState.errors.state && (
+                    <p className="text-red-500 text-sm mt-1">{form.formState.errors.state.message}</p>
+                  )}
+                </div>
+                <div>
+                  <Label htmlFor="zip" className="text-charcoal">ZIP Code</Label>
+                  <Input 
+                    id="zip"
+                    {...form.register("zip")}
+                    className="mt-2"
+                    placeholder="63042"
+                    data-testid="input-zip"
+                  />
+                  {form.formState.errors.zip && (
+                    <p className="text-red-500 text-sm mt-1">{form.formState.errors.zip.message}</p>
+                  )}
+                </div>
               </div>
               
               <div>
                 <Label className="text-charcoal">Service Needed</Label>
                 <Select onValueChange={(value) => form.setValue("serviceNeeded", value)}>
-                  <SelectTrigger className="mt-2">
+                  <SelectTrigger className="mt-2" data-testid="select-service">
                     <SelectValue placeholder="Select a service" />
                   </SelectTrigger>
                   <SelectContent>
@@ -207,6 +288,7 @@ export default function ContactSection() {
                   className="mt-2"
                   rows={4}
                   placeholder="Tell us about your project needs..."
+                  data-testid="textarea-message"
                 />
               </div>
 
@@ -250,6 +332,7 @@ export default function ContactSection() {
                 type="submit" 
                 disabled={submitQuote.isPending}
                 className="w-full bg-brand-red text-white hover:bg-brand-red-dark py-4 text-lg font-semibold"
+                data-testid="button-submit-quote"
               >
                 {submitQuote.isPending ? "Submitting..." : "Get Free Quote"}
               </Button>
