@@ -236,6 +236,8 @@ function AppointmentsTab({
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
+  const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+  const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -406,7 +408,14 @@ function AuthenticatedDashboard() {
           </TabsList>
 
           <TabsContent value="calendar">
-            <CalendarView />
+            <CalendarView 
+              appointments={appointments} 
+              onEventClick={(appointment) => {
+                // Open reschedule dialog directly
+                setSelectedAppointmentForReschedule(appointment);
+                setRescheduleDialogOpen(true);
+              }} 
+            />
           </TabsContent>
 
           <TabsContent value="blocked-dates">
@@ -566,6 +575,13 @@ function AuthenticatedDashboard() {
 
         </Tabs>
       </div>
+      
+      {/* Reschedule Appointment Dialog */}
+      <RescheduleAppointmentDialog
+        appointment={selectedAppointmentForReschedule}
+        open={rescheduleDialogOpen}
+        onOpenChange={setRescheduleDialogOpen}
+      />
     </div>
   );
 }
