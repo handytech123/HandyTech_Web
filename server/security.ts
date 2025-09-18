@@ -156,6 +156,11 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
     return next();
   }
 
+  // Skip CSRF for admin login endpoint (already protected by rate limiting and password auth)
+  if (req.path === '/api/admin/login') {
+    return next();
+  }
+
   const secret = (req.session as any)?.csrfSecret;
   const token = req.headers['x-csrf-token'] as string || req.body?._csrf;
 
