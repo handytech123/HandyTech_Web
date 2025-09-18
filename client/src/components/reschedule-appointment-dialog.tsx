@@ -22,12 +22,14 @@ interface RescheduleAppointmentDialogProps {
   appointment: Appointment | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  customMutation?: any; // Optional custom mutation for different API endpoints
 }
 
 export default function RescheduleAppointmentDialog({
   appointment,
   open,
-  onOpenChange
+  onOpenChange,
+  customMutation
 }: RescheduleAppointmentDialogProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
@@ -93,8 +95,8 @@ export default function RescheduleAppointmentDialog({
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
 
-  // Reschedule appointment mutation
-  const rescheduleAppointmentMutation = useMutation({
+  // Use custom mutation if provided, otherwise use admin mutation
+  const defaultMutation = useMutation({
     mutationFn: async ({ appointmentId, startTime, endTime }: { 
       appointmentId: number; 
       startTime: string; 
@@ -128,6 +130,8 @@ export default function RescheduleAppointmentDialog({
       });
     }
   });
+
+  const rescheduleAppointmentMutation = customMutation || defaultMutation;
 
   // Format time slots for display in Central Time
   const formatTimeSlots = (slots: string[]): AvailableSlot[] => {

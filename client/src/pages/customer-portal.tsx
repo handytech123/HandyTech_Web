@@ -20,6 +20,7 @@ import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointme
 import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone, FileText, Search, Download, DollarSign, Home } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import { z } from "zod";
 import { fromZonedTime } from "date-fns-tz";
 
@@ -124,8 +125,6 @@ export default function CustomerPortal() {
   const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'upcoming' | 'past'>('upcoming');
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
-  const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
-  const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>('');
   
   // Subscription management state
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -216,25 +215,31 @@ export default function CustomerPortal() {
     },
   });
 
-  // Reschedule appointment mutation
+  // Customer-specific reschedule appointment mutation using the admin dialog
   const rescheduleAppointmentMutation = useMutation({
-    mutationFn: async (data: { appointmentId: number; startISO: string }) => {
-      return apiRequest(`/api/portal/appointments/${data.appointmentId}/reschedule`, {
+    mutationFn: async ({ appointmentId, startTime, endTime }: { 
+      appointmentId: number; 
+      startTime: string; 
+      endTime: string; 
+    }) => {
+      // Convert to the format expected by customer portal API
+      return apiRequest(`/api/portal/appointments/${appointmentId}/reschedule`, {
         method: "PUT",
-        body: { startISO: data.startISO },
+        body: { startISO: startTime },
       });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/portal/profile"] });
       setRescheduleDialogOpen(false);
       setSelectedAppointment(null);
-      setSelectedDate(undefined);
-      setSelectedTimeSlot('');
-      toast({ title: "Appointment rescheduled successfully!" });
+      toast({ 
+        title: "Appointment Rescheduled",
+        description: "Your appointment has been successfully rescheduled."
+      });
     },
     onError: (error: any) => {
       toast({ 
-        title: "Failed to reschedule appointment", 
+        title: "Reschedule Failed", 
         description: error?.message || "Please try again.",
         variant: "destructive" 
       });
@@ -379,31 +384,6 @@ export default function CustomerPortal() {
   const handleReschedule = (appointment: Appointment) => {
     setSelectedAppointment(appointment);
     setRescheduleDialogOpen(true);
-  };
-
-  const handleRescheduleSubmit = () => {
-    if (!selectedAppointment || !selectedDate || !selectedTimeSlot) {
-      toast({
-        title: "Please select both a date and time",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    const [hours, minutes] = selectedTimeSlot.split(':').map(Number);
-    
-    // Create appointment date/time in Central Time, then convert to UTC for API
-    const year = selectedDate.getFullYear();
-    const month = (selectedDate.getMonth() + 1).toString().padStart(2, '0');
-    const day = selectedDate.getDate().toString().padStart(2, '0');
-    const dateTimeString = `${year}-${month}-${day}T${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-    
-    const centralDateTime = fromZonedTime(dateTimeString, 'America/Chicago');
-
-    rescheduleAppointmentMutation.mutate({
-      appointmentId: selectedAppointment.id,
-      startISO: centralDateTime.toISOString()
-    });
   };
 
   // Subscription management handlers
@@ -697,17 +677,16 @@ export default function CustomerPortal() {
         </div>
 
         {/* All Dialogs */}
-        <RescheduleDialog 
-          rescheduleDialogOpen={rescheduleDialogOpen}
-          setRescheduleDialogOpen={setRescheduleDialogOpen}
-          selectedAppointment={selectedAppointment}
-          setSelectedAppointment={setSelectedAppointment}
-          selectedDate={selectedDate}
-          setSelectedDate={setSelectedDate}
-          selectedTimeSlot={selectedTimeSlot}
-          setSelectedTimeSlot={setSelectedTimeSlot}
-          handleRescheduleSubmit={handleRescheduleSubmit}
-          rescheduleAppointmentMutation={rescheduleAppointmentMutation}
+        <RescheduleAppointmentDialog
+          appointment={selectedAppointment}
+          open={rescheduleDialogOpen}
+          onOpenChange={(open) => {
+            setRescheduleDialogOpen(open);
+            if (!open) {
+              setSelectedAppointment(null);
+            }
+          }}
+          customMutation={rescheduleAppointmentMutation}
         />
 
         <CancelSubscriptionDialog 
@@ -1641,127 +1620,6 @@ function ServiceHistorySection({
 }
 
 // Dialog Components
-interface RescheduleDialogProps {
-  rescheduleDialogOpen: boolean;
-  setRescheduleDialogOpen: (open: boolean) => void;
-  selectedAppointment: Appointment | null;
-  setSelectedAppointment: (appointment: Appointment | null) => void;
-  selectedDate: Date | undefined;
-  setSelectedDate: (date: Date | undefined) => void;
-  selectedTimeSlot: string;
-  setSelectedTimeSlot: (slot: string) => void;
-  handleRescheduleSubmit: () => void;
-  rescheduleAppointmentMutation: any;
-}
-
-function RescheduleDialog({
-  rescheduleDialogOpen,
-  setRescheduleDialogOpen,
-  selectedAppointment,
-  setSelectedAppointment,
-  selectedDate,
-  setSelectedDate,
-  selectedTimeSlot,
-  setSelectedTimeSlot,
-  handleRescheduleSubmit,
-  rescheduleAppointmentMutation
-}: RescheduleDialogProps) {
-  return (
-    <Dialog open={rescheduleDialogOpen} onOpenChange={setRescheduleDialogOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>Reschedule Appointment</DialogTitle>
-          <DialogDescription>
-            Select a new date and time for your {selectedAppointment?.serviceType} appointment.
-            <br />
-            <span className="text-xs text-orange-600 mt-1 block">
-              Appointments must be rescheduled at least 24 hours in advance.
-            </span>
-          </DialogDescription>
-        </DialogHeader>
-        
-        <div className="space-y-4 py-4">
-          <div className="space-y-2">
-            <Label>Select Date</Label>
-            <Popover>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                  data-testid="button-select-date"
-                >
-                  <Calendar className="mr-2 h-4 w-4" />
-                  {selectedDate ? selectedDate.toLocaleDateString() : "Pick a date"}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <CalendarComponent
-                  mode="single"
-                  selected={selectedDate}
-                  onSelect={setSelectedDate}
-                  disabled={(date) => {
-                    const now = new Date();
-                    const twentyFourHoursFromNow = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-                    return date < twentyFourHoursFromNow || date.getDay() === 0; // Disable Sundays and dates within 24h
-                  }}
-                  initialFocus
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-          
-          <div className="space-y-2">
-            <Label>Select Time</Label>
-            <Select value={selectedTimeSlot} onValueChange={setSelectedTimeSlot}>
-              <SelectTrigger data-testid="select-time-slot">
-                <SelectValue placeholder="Choose a time slot" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="08:00">8:00 AM</SelectItem>
-                <SelectItem value="10:00">10:00 AM</SelectItem>
-                <SelectItem value="12:00">12:00 PM</SelectItem>
-                <SelectItem value="14:00">2:00 PM</SelectItem>
-                <SelectItem value="16:00">4:00 PM</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-        
-        <div className="flex gap-3">
-          <Button
-            variant="outline"
-            onClick={() => {
-              setRescheduleDialogOpen(false);
-              setSelectedAppointment(null);
-              setSelectedDate(undefined);
-              setSelectedTimeSlot('');
-            }}
-            className="flex-1"
-            data-testid="button-cancel-reschedule"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleRescheduleSubmit}
-            disabled={rescheduleAppointmentMutation.isPending || !selectedDate || !selectedTimeSlot}
-            className="flex-1 bg-brand-red hover:bg-brand-red/90 text-white"
-            data-testid="button-confirm-reschedule"
-          >
-            {rescheduleAppointmentMutation.isPending ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2"></div>
-                Rescheduling...
-              </>
-            ) : (
-              'Confirm Reschedule'
-            )}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 interface CancelSubscriptionDialogProps {
   cancelDialogOpen: boolean;
   setCancelDialogOpen: (open: boolean) => void;
