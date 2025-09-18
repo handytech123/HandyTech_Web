@@ -2291,6 +2291,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Live chat sessions storage
   const liveChatSessions = new Map();
   
+  // Conversation history storage for OpenAI context
+  const conversationHistory = new Map();
+  
   // Chatbot endpoint with intelligent fallback system and live handoff
   app.post("/api/chatbot", async (req, res) => {
     try {
@@ -2325,24 +2328,45 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (!openaiClient) {
             throw new Error('OpenAI client not available - API key not configured');
           }
+          
+          // Get or create conversation history for this session
+          let history = conversationHistory.get(sessionId) || [];
+          
+          // Build messages array starting with system prompt
+          const messages = [
+            {
+              role: "system",
+              content: "You are a friendly customer service representative for HandyTech Solutions, a Missouri-based handyman service. We specialize in electrical work, plumbing, smart home technology, painting, and general maintenance. Be helpful, professional, and knowledgeable about home improvement services. If customers need to schedule an appointment or want a quote, encourage them to do so. Keep responses conversational and under 150 words."
+            },
+            // Add conversation history
+            ...history,
+            // Add current user message
+            {
+              role: "user",
+              content: message
+            }
+          ];
+          
           const response = await openaiClient.chat.completions.create({
             model: "gpt-5",
-            messages: [
-              {
-                role: "system",
-                content: "You are a friendly customer service representative for HandyTech Solutions, a Missouri-based handyman service. We specialize in electrical work, plumbing, smart home technology, painting, and general maintenance. Be helpful, professional, and knowledgeable about home improvement services. If customers need to schedule an appointment or want a quote, encourage them to do so. Keep responses conversational and under 150 words."
-              },
-              {
-                role: "user",
-                content: message
-              }
-            ],
+            messages: messages,
             max_completion_tokens: 150,
             temperature: 0.7,
           });
           
           botResponse = response.choices[0].message.content || "";
           console.log("OpenAI response generated:", botResponse);
+          
+          // Update conversation history
+          history.push({ role: "user", content: message });
+          history.push({ role: "assistant", content: botResponse });
+          
+          // Keep only last 10 messages to prevent token limit issues
+          if (history.length > 10) {
+            history = history.slice(-10);
+          }
+          
+          conversationHistory.set(sessionId, history);
         } catch (error) {
           console.error("OpenAI API error:", error);
           console.log("Falling back to local response system");
