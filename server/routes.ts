@@ -2337,7 +2337,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 content: message
               }
             ],
-            max_tokens: 150,
+            max_completion_tokens: 150,
             temperature: 0.7,
           });
           
