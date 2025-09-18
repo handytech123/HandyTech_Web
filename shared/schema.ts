@@ -408,3 +408,22 @@ export const serviceHistoryFiltersSchema = z.object({
 });
 
 export type ServiceHistoryFilters = z.infer<typeof serviceHistoryFiltersSchema>;
+
+// Public review submission schema - includes customer information for auto-creation
+export const publicReviewSubmissionSchema = z.object({
+  // Review fields
+  rating: z.number().min(1).max(5),
+  title: z.string().min(1, "Title is required"),
+  content: z.string().min(1, "Review content is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  
+  // Customer fields for auto-creation
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Valid email is required"),
+  phone: z.string().optional(),
+  
+  // Optional service information
+  serviceType: z.string().optional(),
+});

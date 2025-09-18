@@ -19,6 +19,7 @@ import {
   cancelMaintenancePlanSchema,
   portalCreateMaintenancePlanSchema,
   serviceHistoryFiltersSchema,
+  publicReviewSubmissionSchema,
   type InsertCustomer,
   type InsertMaintenancePlan
 } from "@shared/schema";
@@ -789,7 +790,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           console.log(`Google Calendar event updated for appointment ${appointmentId}: ${appointment.googleEventId}`);
         } catch (googleError) {
-          console.error("Google Calendar sync (update) failed:", googleError.message || googleError);
+          console.error("Google Calendar sync (update) failed:", googleError instanceof Error ? googleError.message : googleError);
           // Do NOT fail the reschedule; log only
         }
       }
@@ -998,7 +999,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           console.log(`Google Calendar event updated for appointment ${appointmentId}: ${appointment.googleEventId}`);
         } catch (googleError) {
-          console.error("Google Calendar sync (update) failed:", googleError.message || googleError);
+          console.error("Google Calendar sync (update) failed:", googleError instanceof Error ? googleError.message : googleError);
           // Do NOT fail the reschedule; log only
         }
       }
@@ -1031,7 +1032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           await deleteEvent(appointment.googleEventId);
           console.log(`Google Calendar event deleted for appointment ${appointmentId}: ${appointment.googleEventId}`);
         } catch (googleError) {
-          console.error("Google Calendar sync (delete) failed:", googleError.message || googleError);
+          console.error("Google Calendar sync (delete) failed:", googleError instanceof Error ? googleError.message : googleError);
           // Do NOT fail the cancellation; log only
         }
       }
@@ -1541,8 +1542,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Customer review submission endpoint
   app.post("/api/reviews/submit", async (req, res) => {
     try {
-      // Parse and validate review data using insertReviewSchema
-      const validatedData = insertReviewSchema.parse(req.body);
+      // Parse and validate review data using publicReviewSubmissionSchema
+      const validatedData = publicReviewSubmissionSchema.parse(req.body);
       
       // Auto-create customer if they don't exist
       let customer = await storage.getCustomerByEmail(validatedData.email);
@@ -1895,7 +1896,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await storage.updateAppointmentGoogleEventId(appointment.id, event.id);
         console.log(`Google Calendar event created for appointment ${appointment.id}: ${event.id}`);
       } catch (googleError) {
-        console.error("Google Calendar sync (create) failed:", googleError.message || googleError);
+        console.error("Google Calendar sync (create) failed:", googleError instanceof Error ? googleError.message : googleError);
         // Do NOT fail the booking; log only
       }
 
@@ -2106,7 +2107,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           console.log(`Google Calendar event updated for appointment ${appointment.id}: ${appointment.googleEventId}`);
         } catch (googleError) {
-          console.error("Google Calendar sync (update) failed:", googleError.message || googleError);
+          console.error("Google Calendar sync (update) failed:", googleError instanceof Error ? googleError.message : googleError);
           // Do NOT fail the reschedule; log only
         }
       }
