@@ -15,6 +15,10 @@ export const customers = pgTable("customers", {
   email: text("email").notNull().unique(),
   phone: text("phone"),
   company: text("company"),
+  street: text("street"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastEmailSent: timestamp("last_email_sent"),
 });
@@ -39,6 +43,8 @@ export const reviews = pgTable("reviews", {
   rating: integer("rating").notNull(),
   title: text("title").notNull(),
   content: text("content").notNull(),
+  city: text("city"),
+  state: text("state"),
   isApproved: boolean("is_approved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -48,7 +54,12 @@ export const quotes = pgTable("quotes", {
   firstName: text("first_name").notNull(),
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
+  phone: text("phone"),
   company: text("company"),
+  street: text("street"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
   serviceNeeded: text("service_needed").notNull(),
   message: text("message"),
   status: text("status").notNull().default("pending"), // 'pending', 'contacted', 'converted', 'declined'
@@ -75,7 +86,11 @@ export const appointments = pgTable("appointments", {
   serviceId: integer("service_id"), // Optional reference to service catalog
   appointmentDate: timestamp("appointment_date").notNull(),
   appointmentTime: text("appointment_time").notNull(),
-  address: text("address"), // Service address
+  address: text("address"), // Service address (keep for compatibility)
+  street: text("street"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
   startTimestamptz: timestamp("start_timestamptz", { withTimezone: true }),
   endTimestamptz: timestamp("end_timestamptz", { withTimezone: true }),
   rescheduleToken: varchar("reschedule_token", { length: 64 }),
@@ -115,6 +130,12 @@ export const insertCustomerSchema = createInsertSchema(customers).omit({
   id: true,
   createdAt: true,
   lastEmailSent: true,
+}).extend({
+  phone: z.string().min(1, "Phone number is required"),
+  street: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  zip: z.string().min(1, "ZIP code is required"),
 });
 
 // Customer profile update schema for portal - allows partial updates and validates fields
@@ -131,6 +152,10 @@ export const updateCustomerProfileSchema = createInsertSchema(customers)
     lastName: z.string().min(1, "Last name is required").optional(),
     phone: z.string().optional(),
     company: z.string().optional(),
+    street: z.string().optional(),
+    city: z.string().optional(),
+    state: z.string().optional(),
+    zip: z.string().optional(),
   })
   .refine(data => Object.keys(data).length > 0, {
     message: "At least one field must be updated"
@@ -163,12 +188,21 @@ export const insertReviewSchema = createInsertSchema(reviews).omit({
   id: true,
   createdAt: true,
   isApproved: true,
+}).extend({
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
 });
 
 export const insertQuoteSchema = createInsertSchema(quotes).omit({
   id: true,
   createdAt: true,
   status: true,
+}).extend({
+  phone: z.string().min(1, "Phone number is required"),
+  street: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  zip: z.string().min(1, "ZIP code is required"),
 });
 
 export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit({
@@ -187,6 +221,11 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   rescheduleExpires: z.coerce.date().optional(),
   durationHours: z.number().min(1).max(12).optional(),
   serviceId: z.number().optional(),
+  phone: z.string().min(1, "Phone number is required"),
+  street: z.string().min(1, "Street address is required"),
+  city: z.string().min(1, "City is required"),
+  state: z.string().min(1, "State is required"),
+  zip: z.string().min(1, "ZIP code is required"),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
