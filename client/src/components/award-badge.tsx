@@ -25,7 +25,7 @@ export default function AwardBadge() {
           <div className="w-8 h-12 bg-gradient-to-b from-yellow-400 to-yellow-600 transform -skew-x-12 shadow-md"></div>
           <div className="w-8 h-12 bg-gradient-to-b from-yellow-400 to-yellow-600 transform skew-x-12 shadow-md absolute top-0 left-2"></div>
           {/* 2025 text on ribbons */}
-          <div className="absolute top-2 left-1/2 transform -translate-x-1/2 text-black text-xs font-bold">
+          <div className="absolute top-4 left-1/2 transform -translate-x-1/2 text-black text-xs font-bold z-10">
             2025
           </div>
         </div>
