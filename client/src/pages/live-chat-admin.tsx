@@ -33,10 +33,14 @@ export default function LiveChatAdmin() {
   const queryClient = useQueryClient();
 
   // Fetch live chat sessions
-  const { data: sessions = [], refetch } = useQuery<LiveChatSession[]>({
+  const { data: sessions = [], refetch, error } = useQuery<LiveChatSession[]>({
     queryKey: ['/api/admin/live-chats'],
     refetchInterval: 10000, // Refresh every 10 seconds (reduced from 2 seconds to prevent rate limiting)
+    retry: false, // Don't retry on auth errors
   });
+
+  // Check if user is not authenticated
+  const isNotAuthenticated = error && (error as any).message?.includes('ADMIN_AUTH_REQUIRED');
 
   // Auto-select session from URL parameter when sessions load
   useEffect(() => {
@@ -109,6 +113,44 @@ export default function LiveChatAdmin() {
   };
 
   const selectedSessionData = sessions.find((s: LiveChatSession) => s.sessionId === selectedSession);
+
+  // Show login prompt if not authenticated
+  if (isNotAuthenticated) {
+    return (
+      <div className="container mx-auto p-6">
+        <div className="max-w-md mx-auto mt-20">
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-red-600">Admin Authentication Required</CardTitle>
+            </CardHeader>
+            <CardContent className="text-center space-y-4">
+              <p className="text-gray-600">You need to log in as an administrator to access live chat management.</p>
+              <div className="space-y-2">
+                <Link href="/admin">
+                  <Button className="w-full bg-red-600 hover:bg-red-700">
+                    Go to Admin Login
+                  </Button>
+                </Link>
+                <Link href="/">
+                  <Button variant="outline" className="w-full">
+                    Back to Main Site
+                  </Button>
+                </Link>
+              </div>
+              {params.sessionId && (
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Chat Session:</strong> {params.sessionId}<br/>
+                    After logging in, you'll be redirected to this conversation.
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="container mx-auto p-6">
