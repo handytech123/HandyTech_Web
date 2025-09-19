@@ -1,55 +1,15 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { 
   Laptop, 
+  Wrench, 
   Shield, 
-  Cloud, 
-  Network, 
-  Database, 
-  Wrench,
   ArrowRight,
   Eye 
 } from "lucide-react";
-import type { Service } from "@shared/schema";
-
-const categoryConfig = [
-  {
-    category: "essential",
-    icon: Wrench,
-    title: "Essential Repairs & Maintenance",
-    subtitle: "🛠️ Service A",
-    description: "Quick fixes and routine maintenance to keep your home in top shape."
-  },
-  {
-    category: "improvement",
-    icon: Shield,
-    title: "Home Improvement & Remodeling", 
-    subtitle: "🏡 Service B",
-    description: "Enhance and modernize your living spaces with our remodeling services."
-  },
-  {
-    category: "specialized",
-    icon: Network,
-    title: "Specialized Installations & Custom Projects",
-    subtitle: "🧰 Service C", 
-    description: "Tailored solutions for unique home projects and installations."
-  }
-];
 
 export default function ServicesSection() {
-  const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ["/api/services"]
-  });
-
-  const getServicesByCategory = (category: string) => {
-    return services
-      .filter(service => service.category === category && service.isActive)
-      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-      .map(service => service.name);
-  };
-
   return (
     <section id="services" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -64,47 +24,140 @@ export default function ServicesSection() {
         </div>
         
         <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
-          {categoryConfig.map((categoryInfo, index) => {
-            const IconComponent = categoryInfo.icon;
-            const categoryServices = getServicesByCategory(categoryInfo.category);
-            
-            return (
-              <Card key={index} className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
-                <CardContent className="p-8">
-                  <div className="flex items-center mb-4">
-                    <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
-                      <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-brand-red mb-1">{categoryInfo.subtitle}</div>
-                      <h3 className="text-lg font-bold text-charcoal">{categoryInfo.title}</h3>
-                    </div>
-                  </div>
-                  <p className="text-gray-600 mb-6 leading-relaxed">{categoryInfo.description}</p>
-                  <ul className="text-sm text-gray-600 space-y-2">
-                    {categoryServices.map((serviceName, serviceIndex) => (
-                      <li key={serviceIndex} className="flex items-start">
-                        <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
-                        <span className="leading-relaxed">{serviceName}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-6 pt-6 border-t border-gray-100">
-                    <Button 
-                      onClick={() => {
-                        const element = document.getElementById('scheduler');
-                        if (element) element.scrollIntoView({ behavior: 'smooth' });
-                      }}
-                      variant="outline" 
-                      className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
-                    >
-                      Book This Service
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+          {/* Technology & Smart Home */}
+          <Card className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
+            <CardContent className="p-8">
+              <div className="flex items-center mb-4">
+                <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
+                  <Laptop className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-charcoal">Technology & Smart Home</h3>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-6 leading-relaxed">Smart home installations, device setup, and technology integration for modern living.</p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Smart thermostats and lighting</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Home security systems</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">WiFi and network setup</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">TV mounting and wiring</span>
+                </li>
+              </ul>
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <Button 
+                  onClick={() => {
+                    const element = document.getElementById('scheduler');
+                    if (element) element.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  variant="outline" 
+                  className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
+                >
+                  Book This Service
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Traditional Handyman */}
+          <Card className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
+            <CardContent className="p-8">
+              <div className="flex items-center mb-4">
+                <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
+                  <Wrench className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-charcoal">Traditional Handyman</h3>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-6 leading-relaxed">Professional plumbing, electrical, and carpentry services for all your home maintenance needs.</p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Faucet and fixture repairs</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Electrical outlet installation</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Drywall and painting</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Trim and molding work</span>
+                </li>
+              </ul>
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <Button 
+                  onClick={() => {
+                    const element = document.getElementById('scheduler');
+                    if (element) element.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  variant="outline" 
+                  className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
+                >
+                  Book This Service
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* General Services */}
+          <Card className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl">
+            <CardContent className="p-8">
+              <div className="flex items-center mb-4">
+                <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
+                  <Shield className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-charcoal">General Services</h3>
+                </div>
+              </div>
+              <p className="text-gray-600 mb-6 leading-relaxed">Maintenance plans, consultations, and custom projects tailored to your specific needs.</p>
+              <ul className="text-sm text-gray-600 space-y-2">
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Home maintenance plans</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Project consultations</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Custom installations</span>
+                </li>
+                <li className="flex items-start">
+                  <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                  <span className="leading-relaxed">Emergency repairs</span>
+                </li>
+              </ul>
+              <div className="mt-6 pt-6 border-t border-gray-100">
+                <Button 
+                  onClick={() => {
+                    const element = document.getElementById('scheduler');
+                    if (element) element.scrollIntoView({ behavior: 'smooth' });
+                  }}
+                  variant="outline" 
+                  className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
+                >
+                  Book This Service
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
         
         {/* Gallery CTA Section */}
