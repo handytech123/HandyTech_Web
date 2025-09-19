@@ -1,6 +1,4 @@
 import { Button } from "@/components/ui/button";
-import proReferralImage from "@assets/ProReferral-191 (1)_1758249625912.png";
-import AwardBadge from "./award-badge";
 
 export default function HeroSection() {
   const scrollToSection = (sectionId: string) => {
@@ -44,27 +42,6 @@ export default function HeroSection() {
               </div>
             </div>
             
-            {/* Badges Section */}
-            <div className="mt-6 flex flex-col sm:flex-row items-center gap-8 justify-center lg:justify-start">
-              {/* Home Depot Pro Badge */}
-              <a 
-                href="https://proreferral.homedepot.com/public-profile/885948" 
-                target="_blank" 
-                rel="noopener noreferrer"
-                className="hover:opacity-80 transition-opacity"
-              >
-                <img 
-                  src={proReferralImage} 
-                  alt="Pro Referral - Powered by The Home Depot" 
-                  className="h-16 w-auto"
-                />
-              </a>
-              
-              {/* Award Badge */}
-              <div className="scale-75 sm:scale-100">
-                <AwardBadge />
-              </div>
-            </div>
           </div>
           <div className="relative">
             <div className="bg-light-gray rounded-2xl p-8">
