@@ -6,8 +6,14 @@ export default function BadgesSection() {
     <div className="bg-white py-6 border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-12">
-          {/* Home Depot Pro Badge - Left */}
+          {/* Award Badge - Left */}
+          <div className="flex flex-col items-center scale-90">
+            <AwardBadge />
+          </div>
+          
+          {/* Home Depot Pro Badge - Right */}
           <div className="flex flex-col items-center">
+            <p className="text-charcoal font-semibold text-sm mb-2">Certified</p>
             <a 
               href="https://proreferral.homedepot.com/public-profile/885948" 
               target="_blank" 
@@ -20,11 +26,6 @@ export default function BadgesSection() {
                 className="h-20 w-auto"
               />
             </a>
-          </div>
-          
-          {/* Award Badge - Right */}
-          <div className="flex flex-col items-center scale-90">
-            <AwardBadge />
           </div>
         </div>
       </div>
