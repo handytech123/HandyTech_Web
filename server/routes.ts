@@ -2383,45 +2383,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (humanRequest.test(message.toLowerCase())) {
         needsHumanHandoff = true;
         
-        // Create or update live chat session
-        liveChatSessions.set(sessionId, {
-          isLive: false, // Admin hasn't taken over yet
-          needsHandoff: true,
-          customerMessage: message,
-          messages: [
-            { type: 'customer', message, timestamp: new Date() }
-          ],
-          startTime: new Date()
-        });
-        
-        console.log(`🚨 HUMAN HANDOFF REQUEST - Session: ${sessionId}, Message: "${message}"`);
-        
-        // Trigger SMS/Email handoff alert with conversation history
         try {
-          // Get conversation history for this session
-          const history = conversationHistory.get(sessionId) || [];
+          // Generate a short session ID for SMS replies
+          const shortSessionId = await storage.generateShortSessionId();
           
-          // Build conversation summary for the alert
+          // Create persistent chat session in database
+          const chatSession = await storage.createChatSession({
+            sessionId: shortSessionId,
+            originalSessionId: sessionId,
+            status: 'handoff_requested',
+            needsHandoff: true,
+            isLive: false
+          });
+
+          // Store all previous conversation history in database
+          const history = conversationHistory.get(sessionId) || [];
+          for (const msg of history) {
+            await storage.addChatMessage({
+              sessionId: shortSessionId,
+              messageType: msg.role === 'user' ? 'customer' : 'bot',
+              content: msg.content,
+              timestamp: new Date()
+            });
+          }
+
+          // Store current customer message
+          await storage.addChatMessage({
+            sessionId: shortSessionId,
+            messageType: 'customer',
+            content: message,
+            timestamp: new Date()
+          });
+
+          // Create or update legacy in-memory session for backward compatibility
+          liveChatSessions.set(sessionId, {
+            isLive: false,
+            needsHandoff: true,
+            customerMessage: message,
+            shortSessionId: shortSessionId, // Link to persistent session
+            messages: [
+              { type: 'customer', message, timestamp: new Date() }
+            ],
+            startTime: new Date()
+          });
+          
+          console.log(`🚨 HUMAN HANDOFF REQUEST - Session: ${sessionId}, Short ID: ${shortSessionId}, Message: "${message}"`);
+          
+          // Trigger SMS/Email handoff alert with conversation history and short session ID
+          // Get conversation history for this session
           const conversationSummary = history.length > 0 
             ? history.map((msg, index) => 
                 `${index + 1}. ${msg.role === 'user' ? 'Customer' : 'Bot'}: ${msg.content}`
               ).join('\n')
             : 'No previous conversation';
           
-          // Create comprehensive message including history
-          const fullMessage = history.length > 0 
-            ? `LATEST: ${message}\n\n--- CONVERSATION HISTORY ---\n${conversationSummary}`
-            : message;
+          // Create SMS-friendly message with short session ID for replies
+          const shortMessage = message.length > 100 ? message.substring(0, 100) + "..." : message;
+          const smsMessage = `Chat ID: ${shortSessionId} - Customer: "${shortMessage}"`;
+          
+          // Create comprehensive email message including history  
+          const emailMessage = history.length > 0 
+            ? `Chat ID: ${shortSessionId}\n\nLATEST MESSAGE: ${message}\n\n--- CONVERSATION HISTORY ---\n${conversationSummary}\n\nREPLY FORMAT: Reply via SMS starting with "${shortSessionId}: your message"`
+            : `Chat ID: ${shortSessionId}\n\nCUSTOMER MESSAGE: ${message}\n\nREPLY FORMAT: Reply via SMS starting with "${shortSessionId}: your message"`;
           
           const handoffData = {
-            customer_name: undefined, // Could be enhanced to extract from conversation
+            customer_name: undefined,
             customer_email: undefined,
             customer_phone: undefined,
             channel: "website chatbot",
-            message: fullMessage,
+            message: emailMessage, // Full message for email
+            sms_message: smsMessage, // Short message for SMS
+            session_id: shortSessionId, // Include short session ID
             page_url: undefined,
             conversation_url: undefined,
-            conversation_id: sessionId,
+            conversation_id: sessionId, // Original session ID for tracking
             timestamp: new Date().toISOString()
           };
           
@@ -2433,12 +2468,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
           
           if (handoffResponse.ok) {
-            console.log(`✅ Handoff alert sent for session ${sessionId}`);
+            console.log(`✅ Handoff alert sent for session ${sessionId} (${shortSessionId})`);
           } else {
             console.error(`❌ Handoff alert failed for session ${sessionId}:`, await handoffResponse.text());
           }
         } catch (handoffError) {
-          console.error(`❌ Handoff alert error for session ${sessionId}:`, handoffError);
+          console.error(`❌ Handoff setup error for session ${sessionId}:`, handoffError);
+          // Fallback to legacy behavior if database operations fail
+          liveChatSessions.set(sessionId, {
+            isLive: false,
+            needsHandoff: true,
+            customerMessage: message,
+            messages: [
+              { type: 'customer', message, timestamp: new Date() }
+            ],
+            startTime: new Date()
+          });
         }
       }
 
@@ -3032,7 +3077,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const parsed = handoffSchema.parse(req.body || {});
       const {
         customer_name, customer_email, customer_phone,
-        channel, message, page_url, conversation_url, conversation_id
+        channel, message, sms_message, session_id, page_url, conversation_url, conversation_id
       } = parsed;
 
       // De-dupe by conversation_id (prefer) or by message hash fallback
@@ -3044,11 +3089,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       recentAlerts.set(dedupeKey, now);
 
-      // Build plain text & SMS bodies
-      const short = `LIVE CHAT${channel ? " (" + channel + ")" : ""}: ${customer_name || "Visitor"} — ${message}${page_url ? " | " + page_url : ""}`;
+      // Build SMS message (use sms_message if provided, otherwise fallback to default format)
+      const smsBody = sms_message || `LIVE CHAT${channel ? " (" + channel + ")" : ""}: ${customer_name || "Visitor"} — ${message}${page_url ? " | " + page_url : ""}`;
 
+      // Build detailed email message
       const text = [
         `⚡ Live Chat Request ${channel ? `(${channel})` : ""}`,
+        session_id ? `Session ID: ${session_id}` : null,
         `Name:  ${customer_name || "Unknown"}`,
         `Email: ${customer_email || "Unknown"}`,
         `Phone: ${customer_phone || "Unknown"}`,
@@ -3056,12 +3103,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         page_url ? `Page: ${page_url}` : null,
         conversation_url ? `Transcript: ${conversation_url}` : null,
         conversation_id ? `Conversation ID: ${conversation_id}` : null,
+        session_id ? `Reply via SMS: "${session_id}: your message"` : null,
         `Time: ${new Date().toISOString()}`
       ].filter(Boolean).join("\n");
 
       // Fire both channels in parallel (don't fail all if one fails)
       const [smsResult, mailResult] = await Promise.allSettled([
-        sendSMS(short),
+        sendSMS(smsBody),
         sendHandoffEmail({
           subject: "⚡ Live Chat Request",
           text,
@@ -3083,6 +3131,157 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       console.error("[/api/handoff]", err);
       return res.status(500).json({ ok: false, error: msg });
+    }
+  });
+
+  // SMS Reply parsing endpoint - receives SMS replies via email and injects them into chat sessions
+  app.post("/api/sms-reply", async (req, res) => {
+    try {
+      const { from, to, subject, text, html } = req.body;
+      
+      console.log(`📱 SMS Reply received from ${from}:`, text?.substring(0, 200));
+      
+      // Parse email content to extract message (email body contains the SMS text)
+      const smsContent = text || html || "";
+      
+      // Extract session ID and message using regex pattern
+      // Expected format: "abc123: I can help! What specific work do you need?"
+      const sessionPattern = /^([a-z0-9]{6}):\s*(.+)/i;
+      const match = smsContent.trim().match(sessionPattern);
+      
+      if (!match) {
+        console.warn(`❌ SMS Reply: Could not extract session ID from message: "${smsContent.substring(0, 100)}"`);
+        return res.status(400).json({ 
+          success: false, 
+          error: "Invalid SMS format. Use: sessionID: your message" 
+        });
+      }
+      
+      const sessionId = match[1].toLowerCase();
+      const message = match[2].trim();
+      
+      console.log(`🔍 Parsed SMS - Session: ${sessionId}, Message: "${message}"`);
+      
+      // Find the chat session
+      const chatSession = await storage.getChatSession(sessionId);
+      if (!chatSession) {
+        console.warn(`❌ SMS Reply: Chat session not found for ID: ${sessionId}`);
+        return res.status(404).json({ 
+          success: false, 
+          error: `Chat session ${sessionId} not found` 
+        });
+      }
+      
+      console.log(`✅ Found chat session: ${sessionId} (status: ${chatSession.status})`);
+      
+      // Add the message to the chat session as an agent message
+      await storage.addChatMessage({
+        sessionId: sessionId,
+        messageType: 'agent',
+        content: message,
+        senderName: 'HandyTech Support',
+        isFromSMS: true,
+        timestamp: new Date()
+      });
+      
+      // Update chat session to live mode (agent has taken over)
+      await storage.updateChatSessionStatus(sessionId, 'live_agent', true, true);
+      
+      // Update legacy in-memory session for backward compatibility
+      const originalSessionId = chatSession.originalSessionId;
+      if (originalSessionId && liveChatSessions.has(originalSessionId)) {
+        const legacySession = liveChatSessions.get(originalSessionId);
+        legacySession.isLive = true;
+        legacySession.messages.push({
+          type: 'admin',
+          message,
+          timestamp: new Date(),
+          fromSMS: true
+        });
+      }
+      
+      console.log(`✅ SMS Reply processed: Session ${sessionId}, Message injected from HandyTech Support`);
+      
+      res.json({ 
+        success: true, 
+        sessionId,
+        message: "Message injected into chat session" 
+      });
+      
+    } catch (error) {
+      console.error("SMS Reply processing error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to process SMS reply" 
+      });
+    }
+  });
+
+  // Check if a regular session has been converted to a short session (for polling)
+  app.get("/api/chat/check-session/:sessionId", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      
+      // Check if there's a short session associated with this original session
+      // This happens when a human handoff is requested
+      const chatSession = await storage.getChatSessionByOriginalId(sessionId);
+      
+      if (chatSession) {
+        res.json({ 
+          success: true, 
+          shortSessionId: chatSession.sessionId,
+          status: chatSession.status,
+          hasMessages: true
+        });
+      } else {
+        res.json({ 
+          success: true, 
+          shortSessionId: null,
+          hasMessages: false
+        });
+      }
+      
+    } catch (error) {
+      console.error("Check session error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to check session" 
+      });
+    }
+  });
+
+  // Get messages for a chat session - used by chat widget to check for new agent messages
+  app.get("/api/chat/:sessionId/messages", async (req, res) => {
+    try {
+      const { sessionId } = req.params;
+      const { since } = req.query; // Optional timestamp to get messages since a certain time
+      
+      // Get messages from database
+      const messages = await storage.getChatMessages(sessionId, since ? new Date(since as string) : undefined);
+      
+      // Transform to format expected by chat widget
+      const formattedMessages = messages.map(msg => ({
+        id: msg.id,
+        text: msg.content,
+        isBot: msg.messageType === 'bot',
+        isAgent: msg.messageType === 'agent',
+        senderName: msg.senderName || (msg.messageType === 'agent' ? 'HandyTech Support' : undefined),
+        fromSMS: msg.isFromSMS || false,
+        timestamp: msg.timestamp
+      }));
+      
+      res.json({ 
+        success: true, 
+        messages: formattedMessages,
+        sessionId 
+      });
+      
+    } catch (error) {
+      console.error("Get messages error:", error);
+      res.status(500).json({ 
+        success: false, 
+        error: "Failed to fetch messages" 
+      });
     }
   });
 

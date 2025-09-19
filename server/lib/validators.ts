@@ -6,6 +6,8 @@ export const handoffSchema = z.object({
   customer_phone: z.string().min(7).max(32).optional(),
   channel: z.string().min(1).max(60).optional(),
   message: z.string().min(1).max(1000),
+  sms_message: z.string().min(1).max(160).optional(), // SMS-specific message with session ID
+  session_id: z.string().min(1).max(20).optional(), // Short session ID for SMS replies
   page_url: z.string().url().optional(),
   conversation_url: z.string().url().optional(),
   conversation_id: z.string().min(3).max(120).optional(), // use this to de-dupe

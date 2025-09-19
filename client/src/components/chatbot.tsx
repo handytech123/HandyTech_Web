@@ -18,6 +18,9 @@ interface ChatMessage {
   id: string;
   text: string;
   isBot: boolean;
+  isAgent?: boolean; // New: for agent messages from SMS replies
+  senderName?: string; // New: for agent messages (e.g., "HandyTech Support")
+  fromSMS?: boolean; // New: indicates message came from SMS
   timestamp: Date;
   showScheduling?: boolean;
 }
@@ -152,6 +155,7 @@ export default function Chatbot() {
   const [inputMessage, setInputMessage] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [showScheduling, setShowScheduling] = useState(false);
+  const [shortSessionId, setShortSessionId] = useState<string>(""); // For SMS bridge functionality
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
 
@@ -203,6 +207,61 @@ export default function Chatbot() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Poll for new agent messages when chat is open and we have a session
+  useEffect(() => {
+    if (!isOpen || !sessionId) return;
+    
+    const pollForMessages = async () => {
+      try {
+        // First check if we have a short session ID for this regular session
+        // This happens when a human handoff is requested
+        const response = await fetch(`/api/chat/check-session/${sessionId}`);
+        if (response.ok) {
+          const data = await response.json();
+          if (data.shortSessionId && data.shortSessionId !== shortSessionId) {
+            setShortSessionId(data.shortSessionId);
+          }
+          
+          // If we have a short session ID, poll for new messages
+          if (data.shortSessionId) {
+            const messagesResponse = await fetch(`/api/chat/${data.shortSessionId}/messages`);
+            if (messagesResponse.ok) {
+              const messagesData = await messagesResponse.json();
+              
+              // Find new agent messages that aren't already in our local messages
+              const currentMessageIds = new Set(messages.map(m => m.id));
+              const newAgentMessages = messagesData.messages.filter((msg: any) => 
+                msg.isAgent && !currentMessageIds.has(msg.id)
+              );
+              
+              // Add new agent messages to the chat
+              if (newAgentMessages.length > 0) {
+                const formattedMessages = newAgentMessages.map((msg: any) => ({
+                  id: msg.id,
+                  text: msg.text,
+                  isBot: false,
+                  isAgent: true,
+                  senderName: msg.senderName || 'HandyTech Support',
+                  fromSMS: msg.fromSMS || false,
+                  timestamp: new Date(msg.timestamp)
+                }));
+                
+                setMessages(prev => [...prev, ...formattedMessages]);
+              }
+            }
+          }
+        }
+      } catch (error) {
+        console.error('Polling error:', error);
+      }
+    };
+    
+    // Poll every 3 seconds when chat is open
+    const interval = setInterval(pollForMessages, 3000);
+    
+    return () => clearInterval(interval);
+  }, [isOpen, sessionId, shortSessionId, messages]);
 
   const sendMessage = useMutation({
     mutationFn: async (message: string) => {
@@ -341,28 +400,59 @@ export default function Chatbot() {
           {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
             {messages.map((message) => (
-              <div key={message.id} className={`flex ${message.isBot ? "justify-start" : "justify-end"}`}>
-                <div className={`max-w-[80%] rounded-lg p-3 ${
-                  message.isBot 
-                    ? "bg-white text-gray-800 shadow-sm" 
-                    : "bg-brand-red text-white"
-                }`}>
-                  <div className="text-sm" data-testid={`message-text-${message.id}`}>
-                    <SafeMessageRenderer text={message.text} />
-                  </div>
-                  {message.showScheduling && (
-                    <Button
-                      onClick={() => setShowScheduling(true)}
-                      className="mt-2 bg-brand-red text-white hover:bg-brand-red-dark text-xs"
-                      size="sm"
-                    >
-                      <Calendar className="w-3 h-3 mr-1" />
-                      Schedule Meeting
-                    </Button>
+              <div key={message.id} className={`flex ${(message.isBot || message.isAgent) ? "justify-start" : "justify-end"}`}>
+                <div className="flex items-start space-x-2 max-w-[80%]">
+                  {/* Avatar for bot and agent messages */}
+                  {(message.isBot || message.isAgent) && (
+                    <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                      message.isAgent ? "bg-green-500" : "bg-brand-red"
+                    }`}>
+                      {message.isAgent ? (
+                        <User className="w-4 h-4 text-white" />
+                      ) : (
+                        <Bot className="w-4 h-4 text-white" />
+                      )}
+                    </div>
                   )}
-                  <p className="text-xs opacity-70 mt-1">
-                    {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
+                  
+                  <div className={`rounded-lg p-3 ${
+                    message.isAgent
+                      ? "bg-green-50 text-gray-800 border border-green-200 shadow-sm"
+                      : message.isBot 
+                        ? "bg-white text-gray-800 shadow-sm" 
+                        : "bg-brand-red text-white"
+                  }`}>
+                    {/* Agent name header */}
+                    {message.isAgent && (
+                      <div className="flex items-center gap-1 mb-1">
+                        <p className="text-xs font-medium text-green-700">
+                          {message.senderName || 'HandyTech Support'}
+                        </p>
+                        {message.fromSMS && (
+                          <Badge variant="secondary" className="text-xs px-1 py-0">SMS</Badge>
+                        )}
+                      </div>
+                    )}
+                    
+                    <div className="text-sm" data-testid={`message-text-${message.id}`}>
+                      <SafeMessageRenderer text={message.text} />
+                    </div>
+                    
+                    {message.showScheduling && (
+                      <Button
+                        onClick={() => setShowScheduling(true)}
+                        className="mt-2 bg-brand-red text-white hover:bg-brand-red-dark text-xs"
+                        size="sm"
+                      >
+                        <Calendar className="w-3 h-3 mr-1" />
+                        Schedule Meeting
+                      </Button>
+                    )}
+                    
+                    <p className="text-xs opacity-70 mt-1">
+                      {message.timestamp.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </div>
                 </div>
               </div>
             ))}
