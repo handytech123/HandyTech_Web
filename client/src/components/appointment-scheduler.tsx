@@ -423,6 +423,29 @@ export default function AppointmentScheduler() {
           </p>
         </div>
 
+        {/* Home Depot Pro Certification Trust Badge */}
+        <div className="flex justify-center mb-8">
+          <div className="flex items-center gap-3 bg-gray-50 px-6 py-3 rounded-lg border">
+            <img 
+              src="/assets/ProReferral-191 (1)_1758249625912.png"
+              alt="Pro Referral - Powered by The Home Depot" 
+              className="h-8 w-auto"
+            />
+            <div className="text-center">
+              <p className="text-xs font-semibold text-charcoal">Certified Home Depot Pro</p>
+              <a 
+                href="https://proreferral.homedepot.com/public-profile/885948" 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="text-xs text-brand-red hover:text-red-700 transition-colors"
+                data-testid="link-verify-home-depot"
+              >
+                Verify on Home Depot →
+              </a>
+            </div>
+          </div>
+        </div>
+
         {/* Step Indicator */}
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2 sm:space-x-4">
