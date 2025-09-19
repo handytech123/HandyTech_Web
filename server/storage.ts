@@ -17,7 +17,7 @@ import {
   type ChatMessage, type InsertChatMessage
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, isNull } from "drizzle-orm";
+import { eq, desc, and, gte, lte, isNull, count } from "drizzle-orm";
 import crypto from "crypto";
 import { fromZonedTime } from "date-fns-tz";
 import { withDatabaseRetry, withGracefulFailure, checkDatabaseHealth } from "./utils/database-error-handling";
@@ -104,6 +104,9 @@ export interface IStorage {
   getProjectGalleryByCategory(category: string): Promise<ProjectGallery[]>;
   getFeaturedProjects(): Promise<ProjectGallery[]>;
   createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery>;
+  updateProjectGalleryItem(id: number, updates: Partial<InsertProjectGallery>): Promise<void>;
+  deleteProjectGalleryItem(id: number): Promise<ProjectGallery | undefined>;
+  getProjectGalleryPaginated(page: number, limit: number, category?: string): Promise<{items: ProjectGallery[], total: number}>;
 
   // Blocked Times
   getBlockedTimes(): Promise<BlockedTime[]>;
@@ -981,6 +984,45 @@ export class MemStorage implements IStorage {
     return item;
   }
 
+  async updateProjectGalleryItem(id: number, updates: Partial<InsertProjectGallery>): Promise<void> {
+    const item = this.projectGallery.get(id);
+    if (item) {
+      const updatedItem = { ...item, ...updates };
+      this.projectGallery.set(id, updatedItem);
+    }
+  }
+
+  async deleteProjectGalleryItem(id: number): Promise<ProjectGallery | undefined> {
+    const item = this.projectGallery.get(id);
+    if (item) {
+      this.projectGallery.delete(id);
+    }
+    return item;
+  }
+
+  async getProjectGalleryPaginated(page: number, limit: number, category?: string): Promise<{items: ProjectGallery[], total: number}> {
+    // Get all items
+    let allItems = Array.from(this.projectGallery.values());
+    
+    // Filter by category if specified
+    if (category) {
+      allItems = allItems.filter(item => item.category === category);
+    }
+    
+    // Sort by creation date (newest first)
+    allItems.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+    
+    // Apply pagination
+    const validatedLimit = Math.min(100, Math.max(1, limit));
+    const offset = Math.max(0, (page - 1) * validatedLimit);
+    const paginatedItems = allItems.slice(offset, offset + validatedLimit);
+    
+    return {
+      items: paginatedItems,
+      total: allItems.length
+    };
+  }
+
   // Blocked Times (MemStorage placeholder - not used since we use DatabaseStorage)
   async getBlockedTimes(): Promise<BlockedTime[]> {
     return [];
@@ -1800,6 +1842,104 @@ export class DatabaseStorage implements IStorage {
   async createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery> {
     const [created] = await db.insert(projectGallery).values(item).returning();
     return created;
+  }
+
+  async updateProjectGalleryItem(id: number, updates: Partial<InsertProjectGallery>): Promise<void> {
+    return await withDatabaseRetry(
+      async () => {
+        // Sanitize updates by removing undefined values to prevent null writes
+        const sanitizedUpdates = Object.fromEntries(
+          Object.entries(updates).filter(([_, value]) => value !== undefined)
+        );
+        
+        console.log(`[DatabaseStorage] Updating project gallery item ${id} with fields:`, Object.keys(sanitizedUpdates));
+        
+        if (Object.keys(sanitizedUpdates).length === 0) {
+          console.log(`[DatabaseStorage] No valid updates for project gallery item ${id}, skipping database call`);
+          return;
+        }
+        
+        await db.update(projectGallery).set(sanitizedUpdates).where(eq(projectGallery.id, id));
+        console.log(`[DatabaseStorage] Successfully updated project gallery item ${id}`);
+      },
+      'updateProjectGalleryItem',
+      undefined,
+      { id, updateFields: Object.keys(updates) }
+    );
+  }
+
+  async deleteProjectGalleryItem(id: number): Promise<ProjectGallery | undefined> {
+    return await withDatabaseRetry(
+      async () => {
+        console.log(`[DatabaseStorage] Attempting to delete project gallery item ${id}`);
+        
+        // Use a transaction to atomically fetch-and-delete to avoid race conditions
+        const result = await db.transaction(async (tx) => {
+          // First get the item to return for file cleanup
+          const [item] = await tx.select().from(projectGallery).where(eq(projectGallery.id, id));
+          
+          if (item) {
+            console.log(`[DatabaseStorage] Found project gallery item ${id}: "${item.title}", proceeding with deletion`);
+            await tx.delete(projectGallery).where(eq(projectGallery.id, id));
+            console.log(`[DatabaseStorage] Successfully deleted project gallery item ${id} from database`);
+            // Note: Routes should handle image file deletion only after this database operation succeeds
+            return item;
+          } else {
+            console.log(`[DatabaseStorage] Project gallery item ${id} not found, nothing to delete`);
+            return undefined;
+          }
+        });
+        
+        return result;
+      },
+      'deleteProjectGalleryItem',
+      undefined,
+      { id }
+    );
+  }
+
+  async getProjectGalleryPaginated(page: number, limit: number, category?: string): Promise<{items: ProjectGallery[], total: number}> {
+    return await withGracefulFailure(
+      async () => {
+        console.log(`[DatabaseStorage] Fetching project gallery page ${page}, limit ${limit}${category ? `, category: ${category}` : ''}`);
+        
+        // Validate pagination parameters
+        const validatedLimit = Math.min(100, Math.max(1, limit));
+        const offset = Math.max(0, (page - 1) * validatedLimit);
+        
+        // Build query conditions
+        const conditions = category ? [eq(projectGallery.category, category)] : [];
+        const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+        
+        // Get total count and paginated items with consistent ordering
+        const [totalResult, items] = await Promise.all([
+          db
+            .select({ count: count() })
+            .from(projectGallery)
+            .where(whereClause),
+          db
+            .select()
+            .from(projectGallery)
+            .where(whereClause)
+            .orderBy(desc(projectGallery.createdAt)) // Explicit ordering for consistency
+            .limit(validatedLimit)
+            .offset(offset)
+        ]);
+        
+        // Properly coerce total count
+        const total = Number(totalResult.count ?? 0);
+        
+        console.log(`[DatabaseStorage] Retrieved ${items.length} project gallery items (total: ${total})`);
+        
+        return {
+          items,
+          total
+        };
+      },
+      { items: [], total: 0 }, // Fallback for graceful failure
+      'getProjectGalleryPaginated',
+      { page, limit, category }
+    );
   }
 
   // Blocked Times
