@@ -4,7 +4,7 @@ export default function ContactBanner() {
   return (
     <div className="bg-brand-red text-white py-4 px-6 border-b-4 border-brand-red-dark">
       <div className="max-w-7xl mx-auto">
-        <div className="flex flex-col md:flex-row items-center justify-center space-y-3 md:space-y-0 md:space-x-8 lg:space-x-12">
+        <div className="flex flex-col sm:flex-row items-center justify-center space-y-3 sm:space-y-0 sm:space-x-6">
           
           {/* Phone */}
           <div className="flex items-center space-x-3">
@@ -16,9 +16,6 @@ export default function ContactBanner() {
               <a href="tel:+13143254575" className="text-xl font-bold hover:underline">(314) 325-4575</a>
             </div>
           </div>
-
-          {/* Divider */}
-          <div className="hidden md:block h-12 w-px bg-white bg-opacity-30"></div>
 
           {/* Email */}
           <div className="flex items-center space-x-3">
