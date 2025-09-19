@@ -1,4 +1,5 @@
 import { Button } from "@/components/ui/button";
+import proReferralImage from "@assets/ProReferral-191 (1)_1758249625912.png";
 
 export default function HeroSection() {
   const scrollToSection = (sectionId: string) => {
@@ -51,7 +52,7 @@ export default function HeroSection() {
                 className="hover:opacity-80 transition-opacity"
               >
                 <img 
-                  src="@assets/ProReferral-191 (1)_1758249625912.png" 
+                  src={proReferralImage} 
                   alt="Pro Referral - Powered by The Home Depot" 
                   className="h-16 w-auto"
                 />
