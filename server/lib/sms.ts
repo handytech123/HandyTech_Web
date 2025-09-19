@@ -36,23 +36,27 @@ if (host && user && pass) {
 }
 
 export async function sendSMS(body: string) {
-  if (!transporter || !from || !alertPhone) {
-    console.warn("[Custom SMS] Skipped (missing SMTP_* or ALERT_TO_SMS)");
+  return await sendCustomSMS(alertPhone, body, phoneCarrier);
+}
+
+export async function sendCustomSMS(phone: string | undefined, body: string, carrier: string) {
+  if (!transporter || !from || !phone) {
+    console.warn("[Custom SMS] Skipped (missing SMTP_* or phone)");
     return { skipped: true };
   }
   
   // Get carrier gateway (case-insensitive lookup)
-  const normalizedCarrier = phoneCarrier.toLowerCase();
+  const normalizedCarrier = carrier.toLowerCase();
   const gateway = carrierGateways[normalizedCarrier as keyof typeof carrierGateways];
   if (!gateway) {
-    console.warn(`[Custom SMS] Unknown carrier: ${phoneCarrier}`);
-    return { skipped: true, error: `Unknown carrier: ${phoneCarrier}` };
+    console.warn(`[Custom SMS] Unknown carrier: ${carrier}`);
+    return { skipped: true, error: `Unknown carrier: ${carrier}` };
   }
   
   // Clean phone number (remove any formatting)
-  const cleanPhone = alertPhone.replace(/\D/g, '');
+  const cleanPhone = phone.replace(/\D/g, '');
   if (cleanPhone.length !== 10) {
-    console.warn(`[Custom SMS] Invalid phone number format: ${alertPhone}`);
+    console.warn(`[Custom SMS] Invalid phone number format: ${phone}`);
     return { skipped: true, error: "Phone number must be 10 digits" };
   }
   
@@ -70,8 +74,8 @@ export async function sendSMS(body: string) {
       text: truncatedBody
     });
     
-    console.log(`[Custom SMS] Sent to ${cleanPhone} via ${phoneCarrier} (${gateway})`);
-    return { messageId: info.messageId, carrier: phoneCarrier, gateway };
+    console.log(`[Custom SMS] Sent to ${cleanPhone} via ${carrier} (${gateway})`);
+    return { messageId: info.messageId, carrier, gateway };
   } catch (error) {
     console.error("[Custom SMS] Send error:", error);
     return { error: error instanceof Error ? error.message : "Send failed" };
