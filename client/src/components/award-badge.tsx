@@ -20,10 +20,14 @@ export default function AwardBadge() {
           <div className="absolute inset-2 bg-gradient-to-tr from-transparent via-yellow-200 to-transparent opacity-30 rounded-full"></div>
         </div>
         
-        {/* Decorative ribbons */}
+        {/* Decorative ribbons with 2025 text */}
         <div className="absolute -bottom-2 left-1/2 transform -translate-x-1/2">
           <div className="w-8 h-12 bg-gradient-to-b from-yellow-400 to-yellow-600 transform -skew-x-12 shadow-md"></div>
           <div className="w-8 h-12 bg-gradient-to-b from-yellow-400 to-yellow-600 transform skew-x-12 shadow-md absolute top-0 left-2"></div>
+          {/* 2025 text on ribbons */}
+          <div className="absolute top-2 left-1/2 transform -translate-x-1/2 text-black text-xs font-bold">
+            2025
+          </div>
         </div>
       </div>
       
