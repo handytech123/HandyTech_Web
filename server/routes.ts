@@ -2682,20 +2682,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Project gallery routes
+  // Project gallery routes with pagination support
   app.get("/api/gallery", async (req, res) => {
     try {
-      const { category } = req.query;
-      let projects;
+      const { category, page } = req.query;
       
-      if (category && typeof category === 'string') {
-        projects = await storage.getProjectGalleryByCategory(category);
-      } else {
-        projects = await storage.getAllProjectGalleryItems();
-      }
+      // Parse and validate page parameter
+      const pageNumber = page && typeof page === 'string' ? Math.max(1, parseInt(page, 10)) || 1 : 1;
+      const limit = 12; // Items per page to match frontend ITEMS_PER_PAGE
       
-      res.json(projects);
+      // Parse and validate category parameter
+      const categoryFilter = category && typeof category === 'string' && category !== 'all' ? category : undefined;
+      
+      // Use paginated method for consistent behavior
+      const result = await storage.getProjectGalleryPaginated(pageNumber, limit, categoryFilter);
+      
+      // Calculate pagination metadata
+      const totalPages = Math.ceil(result.total / limit);
+      const hasMore = pageNumber < totalPages;
+      
+      // Return proper response structure expected by frontend
+      const response = {
+        projects: result.items,
+        totalCount: result.total,
+        totalPages,
+        currentPage: pageNumber,
+        hasMore
+      };
+      
+      res.json(response);
     } catch (error) {
+      console.error('Gallery API error:', error);
       res.status(500).json({ message: "Failed to fetch gallery items" });
     }
   });

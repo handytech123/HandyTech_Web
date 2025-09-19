@@ -4,6 +4,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import Home from "@/pages/home";
+import Gallery from "@/pages/gallery";
 import CustomerPortal from "@/pages/customer-portal";
 import PortalLogin from "@/pages/portal-login";
 import PortalCallback from "@/pages/portal-callback";
@@ -17,6 +18,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/gallery" component={Gallery} />
       <Route path="/customer-portal" component={CustomerPortal} />
       <Route path="/portal/login" component={PortalLogin} />
       <Route path="/portal/callback" component={PortalCallback} />
