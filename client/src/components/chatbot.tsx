@@ -34,8 +34,113 @@ const appointmentSchema = z.object({
 
 type AppointmentFormData = z.infer<typeof appointmentSchema>;
 
+// Safe message renderer component that handles phone numbers and emails without XSS risk
+function SafeMessageRenderer({ text }: { text: string }) {
+  const phoneRegex = /\((\d{3})\)\s(\d{3})-(\d{4})/g;
+  const emailRegex = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g;
+  
+  // Split text into parts, identifying phone numbers and emails
+  const parts: (string | { type: 'phone' | 'email'; value: string; display: string })[] = [];
+  let lastIndex = 0;
+  
+  // Find all matches for phones and emails
+  const matches: Array<{ index: number; match: string; type: 'phone' | 'email'; display: string }> = [];
+  
+  let match;
+  while ((match = phoneRegex.exec(text)) !== null) {
+    matches.push({
+      index: match.index,
+      match: match[0],
+      type: 'phone',
+      display: match[0]
+    });
+  }
+  
+  phoneRegex.lastIndex = 0; // Reset regex
+  
+  while ((match = emailRegex.exec(text)) !== null) {
+    matches.push({
+      index: match.index,
+      match: match[0],
+      type: 'email',
+      display: match[0]
+    });
+  }
+  
+  // Sort matches by index
+  matches.sort((a, b) => a.index - b.index);
+  
+  // Build parts array
+  matches.forEach((match) => {
+    // Add text before this match
+    if (match.index > lastIndex) {
+      parts.push(text.slice(lastIndex, match.index));
+    }
+    
+    // Add the match as a special part
+    parts.push({
+      type: match.type,
+      value: match.match,
+      display: match.display
+    });
+    
+    lastIndex = match.index + match.match.length;
+  });
+  
+  // Add remaining text
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
+  
+  // If no matches found, just return the text
+  if (parts.length === 0) {
+    parts.push(text);
+  }
+  
+  return (
+    <>
+      {parts.map((part, index) => {
+        if (typeof part === 'string') {
+          return <span key={index}>{part}</span>;
+        }
+        
+        if (part.type === 'phone') {
+          // Extract digits for tel: link
+          const digits = part.value.replace(/\D/g, '');
+          return (
+            <a
+              key={index}
+              href={`tel:+1${digits}`}
+              className="underline hover:text-brand-red"
+              data-testid={`link-phone-${digits}`}
+            >
+              {part.display}
+            </a>
+          );
+        }
+        
+        if (part.type === 'email') {
+          return (
+            <a
+              key={index}
+              href={`mailto:${part.value}`}
+              className="underline hover:text-brand-red"
+              data-testid={`link-email-${part.value}`}
+            >
+              {part.display}
+            </a>
+          );
+        }
+        
+        return <span key={index}>{part.display}</span>;
+      })}
+    </>
+  );
+}
+
 export default function Chatbot() {
   const [isOpen, setIsOpen] = useState(false);
+  const [sessionId, setSessionId] = useState<string>("");
   const [messages, setMessages] = useState<ChatMessage[]>([
     {
       id: "1",
@@ -49,6 +154,34 @@ export default function Chatbot() {
   const [showScheduling, setShowScheduling] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+
+  // Generate a unique session ID
+  const generateSessionId = () => {
+    return `session_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  };
+
+  // Get or create session ID with localStorage persistence
+  const getSessionId = () => {
+    if (sessionId) return sessionId;
+    
+    // Try to get from localStorage first
+    const stored = localStorage.getItem('chatbot-session-id');
+    if (stored) {
+      setSessionId(stored);
+      return stored;
+    }
+    
+    // Generate new session ID
+    const newSessionId = generateSessionId();
+    setSessionId(newSessionId);
+    localStorage.setItem('chatbot-session-id', newSessionId);
+    return newSessionId;
+  };
+
+  // Initialize session ID when component mounts
+  useEffect(() => {
+    getSessionId();
+  }, []);
 
   const form = useForm<AppointmentFormData>({
     resolver: zodResolver(appointmentSchema),
@@ -73,7 +206,8 @@ export default function Chatbot() {
 
   const sendMessage = useMutation({
     mutationFn: async (message: string) => {
-      const response = await apiRequest("/api/chatbot", "POST", { message });
+      const currentSessionId = getSessionId();
+      const response = await apiRequest("/api/chatbot", "POST", { message, sessionId: currentSessionId });
       return response.json();
     },
     onSuccess: (data) => {
@@ -140,6 +274,9 @@ export default function Chatbot() {
 
   const handleSendMessage = () => {
     if (!inputMessage.trim()) return;
+
+    // Ensure we have a session ID before sending
+    const currentSessionId = getSessionId();
 
     const userMessage: ChatMessage = {
       id: Date.now().toString(),
@@ -210,11 +347,9 @@ export default function Chatbot() {
                     ? "bg-white text-gray-800 shadow-sm" 
                     : "bg-brand-red text-white"
                 }`}>
-                  <div className="text-sm" dangerouslySetInnerHTML={{
-                    __html: message.text
-                      .replace(/\((\d{3})\)\s(\d{3})-(\d{4})/g, '<a href="tel:+1$1$2$3" class="underline hover:text-brand-red">($1) $2-$3</a>')
-                      .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<a href="mailto:$1" class="underline hover:text-brand-red">$1</a>')
-                  }} />
+                  <div className="text-sm" data-testid={`message-text-${message.id}`}>
+                    <SafeMessageRenderer text={message.text} />
+                  </div>
                   {message.showScheduling && (
                     <Button
                       onClick={() => setShowScheduling(true)}
