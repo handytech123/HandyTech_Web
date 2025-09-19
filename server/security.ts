@@ -11,27 +11,11 @@ import { pool } from "./db";
 // CSRF tokens manager - modern approach using 'csrf' package
 const tokens = new csrf();
 
-// Helmet middleware for security headers
+// Helmet middleware for security headers (CSP disabled - handled manually)
 export const useHelmet = helmet({
   crossOriginResourcePolicy: { policy: "cross-origin" },
   referrerPolicy: { policy: "strict-origin-when-cross-origin" }, // Prevent token leakage via referrers
-  contentSecurityPolicy: {
-    directives: {
-      defaultSrc: ["'self'"],
-      styleSrc: ["'self'", "'unsafe-inline'", "https://fonts.googleapis.com"],
-      // Production: Remove 'unsafe-inline' and use nonces/hashes for scripts
-      scriptSrc: process.env.NODE_ENV === "production" 
-        ? ["'self'"] // More restrictive for production
-        : ["'self'", "'unsafe-inline'", "https://replit.com"], // Allow Replit scripts in development
-      fontSrc: ["'self'", "https://fonts.gstatic.com"],
-      imgSrc: ["'self'", "data:", "https:"],
-      connectSrc: ["'self'", "ws:", "wss:"],
-      // Production hardening
-      objectSrc: ["'none'"],
-      baseUri: ["'self'"],
-      formAction: ["'self'"]
-    }
-  }
+  contentSecurityPolicy: false // Disable Helmet CSP - we handle it manually in securityHeaders
 });
 
 /**
