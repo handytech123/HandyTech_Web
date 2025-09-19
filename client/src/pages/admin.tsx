@@ -4,6 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { apiRequest } from "@/lib/queryClient";
+import { createCsrfHeaders } from "@/lib/csrf";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
@@ -11,7 +12,11 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit } from "lucide-react";
+import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Progress } from "@/components/ui/progress";
+import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit, Image, Upload, Eye, Calendar, MapPin as Location } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -22,8 +27,8 @@ import ServicesManager from "@/components/services-manager";
 import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer } from "@shared/schema";
-import { insertCustomerSchema } from "@shared/schema";
+import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
+import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 
@@ -832,6 +837,878 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
   );
 }
 
+// GalleryTab component
+function GalleryTab() {
+  const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingItem, setEditingItem] = useState<ProjectGallery | null>(null);
+  const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploading, setUploading] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
+  const [selectedImages, setSelectedImages] = useState<{ main: File | null; before: File | null }>({ main: null, before: null });
+  
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
+  
+  const pageSize = 12;
+
+  // Fetch gallery items with pagination
+  const { data: galleryData, isLoading: galleryLoading } = useQuery<{items: ProjectGallery[], total: number}>({
+    queryKey: ["/api/admin/gallery", currentPage, categoryFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: pageSize.toString(),
+        ...(categoryFilter && { category: categoryFilter })
+      });
+      const response = await fetch(`/api/admin/gallery?${params}`, {
+        credentials: "include"
+      });
+      if (!response.ok) throw new Error('Failed to fetch gallery items');
+      return response.json();
+    }
+  });
+
+  const galleryItems = galleryData?.items || [];
+  const totalPages = Math.ceil((galleryData?.total || 0) / pageSize);
+
+  // Upload form
+  const uploadForm = useForm<InsertProjectGallery & { mainImage?: FileList; beforeImage?: FileList }>({
+    resolver: zodResolver(insertProjectGallerySchema.extend({
+      completionDate: insertProjectGallerySchema.shape.completionDate.optional().default(() => new Date())
+    })),
+    defaultValues: {
+      title: "",
+      description: "",
+      category: "general",
+      location: "",
+      completionDate: new Date(),
+      featured: false,
+    },
+  });
+
+  // Edit form
+  const editForm = useForm<Partial<ProjectGallery>>({
+    resolver: zodResolver(updateProjectGallerySchema),
+    defaultValues: {
+      title: "",
+      description: "",
+      category: "general",
+      location: "",
+      completionDate: new Date(),
+      featured: false,
+    },
+  });
+
+  // File upload validation
+  const validateFile = (file: File): string | null => {
+    const maxSize = 10 * 1024 * 1024; // 10MB
+    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    
+    if (file.size > maxSize) {
+      return 'File size must be less than 10MB';
+    }
+    if (!allowedTypes.includes(file.type)) {
+      return 'Only JPEG, PNG and WebP images are allowed';
+    }
+    return null;
+  };
+
+  // Handle file selection and preview
+  const handleFileSelect = (files: FileList | null, type: 'main' | 'before') => {
+    if (!files || files.length === 0) return;
+    
+    const file = files[0];
+    const error = validateFile(file);
+    
+    if (error) {
+      toast({
+        title: "Invalid File",
+        description: error,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const result = e.target?.result as string;
+      if (type === 'main') {
+        setImagePreview(result);
+        setSelectedImages(prev => ({ ...prev, main: file }));
+      } else {
+        setBeforeImagePreview(result);
+        setSelectedImages(prev => ({ ...prev, before: file }));
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  // Upload mutation with XMLHttpRequest for real progress and CSRF protection
+  const uploadMutation = useMutation({
+    mutationFn: async (formData: FormData) => {
+      setUploading(true);
+      setUploadProgress(0);
+
+      try {
+        // Get CSRF headers for secure upload
+        const headers = await createCsrfHeaders();
+        
+        return new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          
+          // Real upload progress tracking
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable) {
+              const progress = (event.loaded / event.total) * 100;
+              setUploadProgress(Math.round(progress));
+            }
+          };
+          
+          xhr.onload = () => {
+            setUploadProgress(100);
+            
+            if (xhr.status === 200 || xhr.status === 201) {
+              try {
+                const response = JSON.parse(xhr.responseText);
+                resolve(response);
+              } catch (parseError) {
+                reject(new Error('Invalid server response'));
+              }
+            } else if (xhr.status === 401) {
+              reject(new Error('Your session has expired. Please refresh the page and log in again.'));
+            } else if (xhr.status === 403) {
+              if (xhr.responseText.includes('CSRF')) {
+                reject(new Error('Security token expired. Please refresh the page and try again.'));
+              } else {
+                reject(new Error('Access denied. Please check your permissions.'));
+              }
+            } else {
+              reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText || 'Unknown error'}`));
+            }
+          };
+          
+          xhr.onerror = () => {
+            reject(new Error('Network error occurred during upload. Please check your connection and try again.'));
+          };
+          
+          xhr.ontimeout = () => {
+            reject(new Error('Upload timed out. Please try uploading a smaller file or check your connection.'));
+          };
+          
+          // Configure request
+          xhr.open('POST', '/api/admin/gallery');
+          xhr.timeout = 300000; // 5 minute timeout for large files
+          xhr.withCredentials = true; // Include cookies for session-based auth
+          
+          // Set CSRF headers
+          Object.entries(headers).forEach(([key, value]) => {
+            xhr.setRequestHeader(key, value);
+          });
+          
+          xhr.send(formData);
+        });
+      } catch (csrfError) {
+        throw new Error(`Security token error: ${csrfError instanceof Error ? csrfError.message : 'Unable to get security token'}`);
+      } finally {
+        setTimeout(() => {
+          setUploading(false);
+          setUploadProgress(0);
+        }, 1000);
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
+      setUploadDialogOpen(false);
+      uploadForm.reset();
+      setImagePreview(null);
+      setBeforeImagePreview(null);
+      setSelectedImages({ main: null, before: null });
+      toast({
+        title: "Success",
+        description: "Photo uploaded successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Upload Failed",
+        description: error.message || "Failed to upload photo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Edit mutation
+  const editMutation = useMutation({
+    mutationFn: async ({ id, data }: { id: number; data: Partial<ProjectGallery> }) => {
+      return apiRequest(`/api/admin/gallery/${id}`, "PATCH", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
+      setEditDialogOpen(false);
+      setEditingItem(null);
+      editForm.reset();
+      toast({
+        title: "Success",
+        description: "Photo updated successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to update photo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Delete mutation
+  const deleteMutation = useMutation({
+    mutationFn: async (id: number) => {
+      return apiRequest(`/api/admin/gallery/${id}`, "DELETE");
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
+      setDeleteItemId(null);
+      toast({
+        title: "Success",
+        description: "Photo deleted successfully",
+      });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error",
+        description: error?.message || "Failed to delete photo",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onUploadSubmit = async (data: InsertProjectGallery) => {
+    if (!selectedImages.main) {
+      toast({
+        title: "Error",
+        description: "Please select a main image",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const formData = new FormData();
+    
+    // Add images
+    formData.append('images', selectedImages.main);
+    if (selectedImages.before) {
+      formData.append('images', selectedImages.before);
+    }
+    
+    // Add metadata
+    formData.append('title', data.title);
+    formData.append('description', data.description);
+    formData.append('category', data.category);
+    if (data.location) formData.append('location', data.location);
+    formData.append('completionDate', data.completionDate.toISOString());
+    formData.append('featured', data.featured.toString());
+
+    uploadMutation.mutate(formData);
+  };
+
+  const onEditSubmit = (data: Partial<ProjectGallery>) => {
+    if (!editingItem) return;
+    editMutation.mutate({ id: editingItem.id, data });
+  };
+
+  const handleEditItem = (item: ProjectGallery) => {
+    setEditingItem(item);
+    editForm.reset({
+      title: item.title,
+      description: item.description,
+      category: item.category,
+      location: item.location || "",
+      completionDate: new Date(item.completionDate),
+      featured: item.featured,
+    });
+    setEditDialogOpen(true);
+  };
+
+  const getCategoryBadgeColor = (category: string) => {
+    const colors = {
+      plumbing: 'bg-blue-100 text-blue-800',
+      electrical: 'bg-yellow-100 text-yellow-800',
+      carpentry: 'bg-amber-100 text-amber-800',
+      tech: 'bg-purple-100 text-purple-800',
+      general: 'bg-gray-100 text-gray-800',
+    };
+    return colors[category as keyof typeof colors] || colors.general;
+  };
+
+  return (
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex justify-between items-start">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <Image className="h-5 w-5" />
+                Project Gallery Management
+              </CardTitle>
+              <CardDescription>Upload, edit, and manage project photos</CardDescription>
+            </div>
+            <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
+              <DialogTrigger asChild>
+                <Button className="flex items-center gap-2" data-testid="button-upload-photo">
+                  <Upload className="h-4 w-4" />
+                  Upload Photo
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="sm:max-w-[600px]">
+                <DialogHeader>
+                  <DialogTitle>Upload New Photo</DialogTitle>
+                  <DialogDescription>
+                    Add a new project photo with details and metadata.
+                  </DialogDescription>
+                </DialogHeader>
+                <Form {...uploadForm}>
+                  <form onSubmit={uploadForm.handleSubmit(onUploadSubmit)} className="space-y-4" data-testid="form-upload-photo">
+                    
+                    {/* Image Upload Section */}
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Main Image *
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <Input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(e) => handleFileSelect(e.target.files, 'main')}
+                            className="hidden"
+                            id="main-image-upload"
+                            data-testid="input-main-image"
+                          />
+                          <label htmlFor="main-image-upload" className="cursor-pointer">
+                            {imagePreview ? (
+                              <img src={imagePreview} alt="Preview" className="max-w-full h-32 object-cover mx-auto rounded" />
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-500">Click to upload main image</p>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Before Image (Optional)
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <Input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            onChange={(e) => handleFileSelect(e.target.files, 'before')}
+                            className="hidden"
+                            id="before-image-upload"
+                            data-testid="input-before-image"
+                          />
+                          <label htmlFor="before-image-upload" className="cursor-pointer">
+                            {beforeImagePreview ? (
+                              <img src={beforeImagePreview} alt="Before Preview" className="max-w-full h-32 object-cover mx-auto rounded" />
+                            ) : (
+                              <div className="flex flex-col items-center">
+                                <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                                <p className="text-sm text-gray-500">Click to upload before image</p>
+                              </div>
+                            )}
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={uploadForm.control}
+                        name="title"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Title *</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-title" placeholder="Project title" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={uploadForm.control}
+                        name="category"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Category *</FormLabel>
+                            <Select onValueChange={field.onChange} defaultValue={field.value}>
+                              <FormControl>
+                                <SelectTrigger data-testid="select-category">
+                                  <SelectValue placeholder="Select category" />
+                                </SelectTrigger>
+                              </FormControl>
+                              <SelectContent>
+                                <SelectItem value="plumbing">Plumbing</SelectItem>
+                                <SelectItem value="electrical">Electrical</SelectItem>
+                                <SelectItem value="carpentry">Carpentry</SelectItem>
+                                <SelectItem value="tech">Tech Support</SelectItem>
+                                <SelectItem value="general">General</SelectItem>
+                              </SelectContent>
+                            </Select>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={uploadForm.control}
+                      name="description"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Description *</FormLabel>
+                          <FormControl>
+                            <Textarea {...field} data-testid="input-description" placeholder="Describe the project..." rows={3} />
+                          </FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <FormField
+                        control={uploadForm.control}
+                        name="location"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Location</FormLabel>
+                            <FormControl>
+                              <Input {...field} data-testid="input-location" placeholder="Project location" />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={uploadForm.control}
+                        name="completionDate"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Completion Date</FormLabel>
+                            <FormControl>
+                              <Input 
+                                {...field} 
+                                type="date"
+                                value={field.value ? format(field.value, 'yyyy-MM-dd') : ''}
+                                onChange={(e) => field.onChange(new Date(e.target.value))}
+                                data-testid="input-completion-date"
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+
+                    <FormField
+                      control={uploadForm.control}
+                      name="featured"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                          <FormControl>
+                            <Checkbox
+                              checked={field.value}
+                              onCheckedChange={field.onChange}
+                              data-testid="checkbox-featured"
+                            />
+                          </FormControl>
+                          <div className="space-y-1 leading-none">
+                            <FormLabel>Featured Project</FormLabel>
+                            <FormDescription>
+                              This project will be highlighted on the main gallery
+                            </FormDescription>
+                          </div>
+                        </FormItem>
+                      )}
+                    />
+
+                    {uploading && (
+                      <div className="space-y-2">
+                        <div className="flex justify-between text-sm">
+                          <span>Uploading...</span>
+                          <span>{uploadProgress}%</span>
+                        </div>
+                        <Progress value={uploadProgress} className="w-full" />
+                      </div>
+                    )}
+
+                    <div className="flex justify-end gap-2 pt-4">
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => setUploadDialogOpen(false)}
+                        disabled={uploading}
+                        data-testid="button-cancel-upload"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        type="submit"
+                        disabled={uploading || uploadMutation.isPending}
+                        data-testid="button-submit-upload"
+                      >
+                        {uploading ? "Uploading..." : "Upload Photo"}
+                      </Button>
+                    </div>
+                  </form>
+                </Form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {/* Filter Controls */}
+          <div className="flex justify-between items-center mb-6">
+            <Select value={categoryFilter} onValueChange={setCategoryFilter}>
+              <SelectTrigger className="w-48" data-testid="select-category-filter">
+                <SelectValue placeholder="Filter by category" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="plumbing">Plumbing</SelectItem>
+                <SelectItem value="electrical">Electrical</SelectItem>
+                <SelectItem value="carpentry">Carpentry</SelectItem>
+                <SelectItem value="tech">Tech Support</SelectItem>
+                <SelectItem value="general">General</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <div className="text-sm text-gray-500">
+              {galleryData?.total || 0} photos total
+            </div>
+          </div>
+
+          {/* Gallery Grid */}
+          {galleryLoading ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {[...Array(6)].map((_, i) => (
+                <div key={i} className="border rounded-lg p-4 animate-pulse">
+                  <div className="bg-gray-200 h-48 rounded mb-4"></div>
+                  <div className="bg-gray-200 h-4 rounded mb-2"></div>
+                  <div className="bg-gray-200 h-3 rounded"></div>
+                </div>
+              ))}
+            </div>
+          ) : galleryItems.length === 0 ? (
+            <div className="text-center py-12" data-testid="text-no-photos">
+              <Image className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-900 mb-2">No photos yet</h3>
+              <p className="text-gray-500">Upload your first project photo to get started.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" data-testid="gallery-grid">
+              {galleryItems.map((item) => (
+                <div key={item.id} className="border rounded-lg overflow-hidden bg-white dark:bg-gray-800" data-testid={`gallery-item-${item.id}`}>
+                  <div className="relative">
+                    <img 
+                      src={item.imageUrl} 
+                      alt={item.title}
+                      className="w-full h-48 object-cover"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMzAwIiBoZWlnaHQ9IjIwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHg9IjUwJSIgeT0iNTAlIiBmb250LXNpemU9IjE2IiBmaWxsPSIjOTk5IiB0ZXh0LWFuY2hvcj0ibWlkZGxlIiBkeT0iLjNlbSI+SW1hZ2UgTm90IEZvdW5kPC90ZXh0Pjwvc3ZnPg==';
+                      }}
+                    />
+                    {item.featured && (
+                      <Badge className="absolute top-2 left-2 bg-yellow-500 text-white">
+                        Featured
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="p-4">
+                    <div className="flex justify-between items-start mb-2">
+                      <h3 className="font-semibold text-lg truncate" data-testid={`text-title-${item.id}`}>
+                        {item.title}
+                      </h3>
+                      <Badge className={getCategoryBadgeColor(item.category)} data-testid={`badge-category-${item.id}`}>
+                        {item.category}
+                      </Badge>
+                    </div>
+                    <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2" data-testid={`text-description-${item.id}`}>
+                      {item.description}
+                    </p>
+                    <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
+                      {item.location && (
+                        <div className="flex items-center gap-1">
+                          <Location className="h-3 w-3" />
+                          <span>{item.location}</span>
+                        </div>
+                      )}
+                      <div className="flex items-center gap-1">
+                        <Calendar className="h-3 w-3" />
+                        <span>{format(new Date(item.completionDate), 'MMM dd, yyyy')}</span>
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => handleEditItem(item)}
+                        className="flex items-center gap-1 flex-1"
+                        data-testid={`button-edit-${item.id}`}
+                      >
+                        <Edit className="h-3 w-3" />
+                        Edit
+                      </Button>
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex items-center gap-1 text-red-600 hover:text-red-700"
+                            data-testid={`button-delete-${item.id}`}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                            Delete
+                          </Button>
+                        </AlertDialogTrigger>
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Photo</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              Are you sure you want to delete "{item.title}"? This action cannot be undone.
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+                          <div className="my-4">
+                            <img 
+                              src={item.imageUrl} 
+                              alt={item.title}
+                              className="w-full max-w-sm h-32 object-cover rounded mx-auto"
+                            />
+                          </div>
+                          <AlertDialogFooter>
+                            <AlertDialogCancel data-testid={`button-cancel-delete-${item.id}`}>
+                              Cancel
+                            </AlertDialogCancel>
+                            <AlertDialogAction
+                              onClick={() => deleteMutation.mutate(item.id)}
+                              disabled={deleteMutation.isPending}
+                              className="bg-red-600 hover:bg-red-700"
+                              data-testid={`button-confirm-delete-${item.id}`}
+                            >
+                              {deleteMutation.isPending ? "Deleting..." : "Delete"}
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-2 mt-8" data-testid="pagination-controls">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                disabled={currentPage === 1}
+                data-testid="button-prev-page"
+              >
+                Previous
+              </Button>
+              
+              <div className="flex items-center gap-2">
+                {[...Array(Math.min(5, totalPages))].map((_, i) => {
+                  const page = Math.max(1, Math.min(currentPage - 2, totalPages - 4)) + i;
+                  if (page > totalPages) return null;
+                  return (
+                    <Button
+                      key={page}
+                      variant={currentPage === page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setCurrentPage(page)}
+                      data-testid={`button-page-${page}`}
+                    >
+                      {page}
+                    </Button>
+                  );
+                })}
+              </div>
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                disabled={currentPage === totalPages}
+                data-testid="button-next-page"
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Edit Photo Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle>Edit Photo</DialogTitle>
+            <DialogDescription>
+              Update photo information and metadata.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4" data-testid="form-edit-photo">
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="title"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Title</FormLabel>
+                      <FormControl>
+                        <Input {...field} data-testid="input-edit-title" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="category"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Category</FormLabel>
+                      <Select onValueChange={field.onChange} value={field.value}>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-edit-category">
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                        </FormControl>
+                        <SelectContent>
+                          <SelectItem value="plumbing">Plumbing</SelectItem>
+                          <SelectItem value="electrical">Electrical</SelectItem>
+                          <SelectItem value="carpentry">Carpentry</SelectItem>
+                          <SelectItem value="tech">Tech Support</SelectItem>
+                          <SelectItem value="general">General</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="description"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Description</FormLabel>
+                    <FormControl>
+                      <Textarea {...field} data-testid="input-edit-description" rows={3} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={editForm.control}
+                  name="location"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Location</FormLabel>
+                      <FormControl>
+                        <Input {...field} value={field.value || ""} data-testid="input-edit-location" />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={editForm.control}
+                  name="completionDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Completion Date</FormLabel>
+                      <FormControl>
+                        <Input 
+                          {...field} 
+                          type="date"
+                          value={field.value ? format(new Date(field.value), 'yyyy-MM-dd') : ''}
+                          onChange={(e) => field.onChange(new Date(e.target.value))}
+                          data-testid="input-edit-completion-date"
+                        />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              <FormField
+                control={editForm.control}
+                name="featured"
+                render={({ field }) => (
+                  <FormItem className="flex flex-row items-start space-x-3 space-y-0">
+                    <FormControl>
+                      <Checkbox
+                        checked={field.value}
+                        onCheckedChange={field.onChange}
+                        data-testid="checkbox-edit-featured"
+                      />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Featured Project</FormLabel>
+                      <FormDescription>
+                        This project will be highlighted on the main gallery
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-2 pt-4">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setEditDialogOpen(false)}
+                  data-testid="button-cancel-edit"
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={editMutation.isPending}
+                  data-testid="button-submit-edit"
+                >
+                  {editMutation.isPending ? "Updating..." : "Update Photo"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
+    </>
+  );
+}
+
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
@@ -979,7 +1856,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-8 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-9 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
               Services
             </TabsTrigger>
@@ -994,6 +1871,9 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="appointments" className="flex-1 min-w-[100px] text-sm">
               Appointments
+            </TabsTrigger>
+            <TabsTrigger value="gallery" className="flex-1 min-w-[100px] text-sm">
+              Gallery
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
@@ -1030,6 +1910,10 @@ function AuthenticatedDashboard() {
               appointments={appointments}
               updateAppointmentStatusMutation={updateAppointmentStatusMutation}
             />
+          </TabsContent>
+
+          <TabsContent value="gallery">
+            <GalleryTab />
           </TabsContent>
 
           <TabsContent value="services" className="mt-6">
