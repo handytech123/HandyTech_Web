@@ -24,6 +24,7 @@ function Router() {
       <Route path="/portal" component={CustomerPortal} />
       <Route path="/admin" component={AdminDashboard} />
       <Route path="/live-chat" component={LiveChatAdmin} />
+      <Route path="/live-chat/:sessionId" component={LiveChatAdmin} />
       <Route path="/leave-review" component={LeaveReview} />
       <Route path="/reschedule/:token" component={ReschedulePage} />
       <Route component={NotFound} />

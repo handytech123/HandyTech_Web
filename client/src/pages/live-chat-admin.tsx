@@ -7,7 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
 import { Clock, User, MessageSquare, AlertCircle, Home } from 'lucide-react';
-import { Link } from 'wouter';
+import { Link, useParams } from 'wouter';
 import { apiRequest } from '@/lib/queryClient';
 
 interface ChatMessage {
@@ -27,7 +27,8 @@ interface LiveChatSession {
 }
 
 export default function LiveChatAdmin() {
-  const [selectedSession, setSelectedSession] = useState<string | null>(null);
+  const params = useParams();
+  const [selectedSession, setSelectedSession] = useState<string | null>(params.sessionId || null);
   const [newMessage, setNewMessage] = useState('');
   const queryClient = useQueryClient();
 
@@ -36,6 +37,16 @@ export default function LiveChatAdmin() {
     queryKey: ['/api/admin/live-chats'],
     refetchInterval: 10000, // Refresh every 10 seconds (reduced from 2 seconds to prevent rate limiting)
   });
+
+  // Auto-select session from URL parameter when sessions load
+  useEffect(() => {
+    if (params.sessionId && sessions.length > 0) {
+      const sessionExists = sessions.find(s => s.sessionId === params.sessionId);
+      if (sessionExists) {
+        setSelectedSession(params.sessionId);
+      }
+    }
+  }, [params.sessionId, sessions]);
 
   // Take over chat mutation
   const takeChatMutation = useMutation({

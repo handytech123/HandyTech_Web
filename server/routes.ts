@@ -2441,10 +2441,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const shortMessage = message.length > 100 ? message.substring(0, 100) + "..." : message;
           const smsMessage = `Chat ID: ${shortSessionId} - Customer: "${shortMessage}"`;
           
+          // Get base URL for direct link
+          const baseUrl = process.env.PUBLIC_BASE_URL || 'https://handytech-solutions.replit.app';
+          const directChatLink = `${baseUrl}/live-chat/${shortSessionId}`;
+          
           // Create comprehensive email message including history  
           const emailMessage = history.length > 0 
-            ? `Chat ID: ${shortSessionId}\n\nLATEST MESSAGE: ${message}\n\n--- CONVERSATION HISTORY ---\n${conversationSummary}\n\nREPLY FORMAT: Reply via SMS starting with "${shortSessionId}: your message"`
-            : `Chat ID: ${shortSessionId}\n\nCUSTOMER MESSAGE: ${message}\n\nREPLY FORMAT: Reply via SMS starting with "${shortSessionId}: your message"`;
+            ? `Chat ID: ${shortSessionId}\n\nLATEST MESSAGE: ${message}\n\n--- CONVERSATION HISTORY ---\n${conversationSummary}\n\n🔗 QUICK ACCESS: ${directChatLink}\n\nREPLY FORMAT: Reply via SMS starting with "${shortSessionId}: your message"`
+            : `Chat ID: ${shortSessionId}\n\nCUSTOMER MESSAGE: ${message}\n\n🔗 QUICK ACCESS: ${directChatLink}\n\nREPLY FORMAT: Reply via SMS starting with "${shortSessionId}: your message"`;
           
           const handoffData = {
             customer_name: undefined,
@@ -2466,10 +2470,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
           console.log(`📧 Sending handoff email alert for session ${sessionId} (${shortSessionId})`);
           
           try {
+            // Create HTML version with clickable link
+            const htmlMessage = emailMessage
+              .replace(/\n/g, "<br>")
+              .replace(
+                `🔗 QUICK ACCESS: ${directChatLink}`,
+                `🔗 <strong><a href="${directChatLink}" style="color: #BB0000; text-decoration: none;">QUICK ACCESS - CLICK TO JOIN CHAT</a></strong>`
+              );
+
             const emailResult = await sendHandoffEmail({
               subject: "⚡ Live Chat Request - HandyTech Solutions",
               text: emailMessage,
-              html: emailMessage.replace(/\n/g, "<br>")
+              html: htmlMessage
             });
             
             console.log(`✅ Handoff email sent for session ${sessionId} (${shortSessionId})`);
