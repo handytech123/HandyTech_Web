@@ -2464,6 +2464,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const { sendSMS } = await import("./lib/sms");
           const { sendHandoffEmail } = await import("./lib/handoff-mailer");
           
+          console.log(`📧 Attempting to send handoff alerts for session ${sessionId} (${shortSessionId})`);
+          console.log(`📧 SMS Message: "${smsMessage}"`);
+          console.log(`📧 Email Message: "${emailMessage}"`);
+          
           // Fire both channels in parallel
           const [smsResult, mailResult] = await Promise.allSettled([
             sendSMS(smsMessage),
@@ -2477,10 +2481,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           const smsSuccess = smsResult.status === "fulfilled" && !smsResult.value?.skipped;
           const emailSuccess = mailResult.status === "fulfilled" && !mailResult.value?.skipped;
           
+          console.log(`📧 SMS Result: ${JSON.stringify(smsResult, null, 2)}`);
+          console.log(`📧 Email Result: ${JSON.stringify(mailResult, null, 2)}`);
+          
           if (smsSuccess || emailSuccess) {
             console.log(`✅ Handoff alert sent for session ${sessionId} (${shortSessionId}) - SMS: ${smsSuccess ? 'sent' : 'skipped'}, Email: ${emailSuccess ? 'sent' : 'skipped'}`);
           } else {
             console.error(`❌ Both SMS and email handoff alerts failed for session ${sessionId} (${shortSessionId})`);
+            console.error(`❌ SMS Status: ${smsResult.status}, Value: ${JSON.stringify(smsResult)}`);
+            console.error(`❌ Email Status: ${mailResult.status}, Value: ${JSON.stringify(mailResult)}`);
           }
         } catch (handoffError) {
           console.error(`❌ Handoff setup error for session ${sessionId}:`, handoffError);
