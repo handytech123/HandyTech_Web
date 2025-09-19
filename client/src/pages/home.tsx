@@ -102,10 +102,10 @@ export default function Home() {
         </script>
       </Helmet>
       
-      <ScrollingBanner />
       <ThemeSwitcher />
       <Navigation />
       <ContactBanner />
+      <ScrollingBanner />
       <main>
         <HeroSection />
         <AppointmentScheduler />
