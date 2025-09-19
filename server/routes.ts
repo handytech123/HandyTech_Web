@@ -3060,7 +3060,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       };
 
       return res.status(200).json({ ok: true, ...details });
-    } catch (err) {
+    } catch (err: any) {
       // zod validation or runtime errors
       const msg = err?.errors ? "invalid_payload" : "handoff_failed";
       if (err?.errors) {
