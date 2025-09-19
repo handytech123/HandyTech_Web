@@ -233,6 +233,29 @@ export const insertProjectGallerySchema = createInsertSchema(projectGallery).omi
   createdAt: true,
 });
 
+// Partial update schema for PATCH operations on project gallery items
+export const updateProjectGallerySchema = createInsertSchema(projectGallery)
+  .omit({
+    id: true,
+    createdAt: true,
+    imageUrl: true, // Images are handled separately via upload endpoints
+    beforeImageUrl: true
+  })
+  .partial()
+  .extend({
+    title: z.string().min(1, "Title is required").optional(),
+    description: z.string().min(1, "Description is required").optional(),
+    category: z.enum(['plumbing', 'electrical', 'carpentry', 'tech', 'general'], {
+      errorMap: () => ({ message: "Category must be one of: plumbing, electrical, carpentry, tech, general" })
+    }).optional(),
+    completionDate: z.coerce.date().optional(),
+    location: z.string().optional(),
+    featured: z.boolean().optional(),
+  })
+  .refine(data => Object.keys(data).length > 0, {
+    message: "At least one field must be updated"
+  });
+
 export const blockedTimes = pgTable("blocked_times", {
   id: serial("id").primaryKey(),
   startTimestamptz: timestamp("start_timestamptz", { withTimezone: true }).notNull(),

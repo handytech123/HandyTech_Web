@@ -9,6 +9,7 @@ import {
   insertEmailCampaignSchema,
   insertAppointmentSchema,
   insertProjectGallerySchema,
+  updateProjectGallerySchema,
   insertBlockedTimeSchema,
   insertAvailabilityRuleSchema,
   insertServiceSchema,
@@ -32,7 +33,9 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
-import { handleImageUpload, type ProcessedImage } from "./utils/upload";
+import { handleImageUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import fs from "fs/promises";
+import path from "path";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount Google Calendar admin routes
@@ -3328,6 +3331,416 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: "Failed to fetch messages" 
+      });
+    }
+  });
+
+  // ====================================
+  // ADMIN GALLERY MANAGEMENT ENDPOINTS
+  // ====================================
+
+  // Helper function to extract file URLs from gallery item for cleanup
+  function extractFileUrls(item: any): string[] {
+    const urls: string[] = [];
+    if (item.imageUrl) urls.push(item.imageUrl);
+    if (item.beforeImageUrl) urls.push(item.beforeImageUrl);
+    return urls;
+  }
+
+  // Helper function to delete physical files from disk
+  async function deletePhysicalFiles(urls: string[]): Promise<void> {
+    for (const url of urls) {
+      try {
+        // Extract file path from URL (remove '/uploads/' prefix)
+        const relativePath = url.replace(/^\/uploads\//, '');
+        const fullPath = path.join(process.cwd(), 'server', 'public', 'uploads', relativePath);
+        
+        await fs.unlink(fullPath);
+        console.log(`🗑️ Deleted file: ${relativePath}`);
+      } catch (error) {
+        console.warn(`⚠️ Failed to delete file: ${url}`, error);
+        // Continue with other files even if one fails
+      }
+    }
+  }
+
+  // POST /api/admin/gallery - Create gallery item with image upload
+  app.post("/api/admin/gallery", requireAdmin, rlSensitive, handleImageUpload('images'), async (req, res) => {
+    try {
+      console.log(`[ADMIN_GALLERY] POST /api/admin/gallery - Creating new gallery item`);
+      
+      const processedImages = (req as any).processedImages as ProcessedImage[];
+      
+      if (!processedImages || processedImages.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'NO_IMAGES_UPLOADED',
+          message: 'At least one image is required for gallery items'
+        });
+      }
+
+      // Validate form fields
+      const formData = {
+        title: req.body.title,
+        description: req.body.description,
+        category: req.body.category,
+        location: req.body.location,
+        completionDate: req.body.completionDate ? new Date(req.body.completionDate) : new Date(),
+        featured: req.body.featured === 'true' || req.body.featured === true,
+        imageUrl: processedImages[0].sizes.large.url, // Use first image as main image
+        beforeImageUrl: processedImages[1]?.sizes.large.url || null // Use second image as before image if provided
+      };
+
+      // Validate using schema
+      const validatedData = insertProjectGallerySchema.parse(formData);
+      
+      // Create gallery item in database
+      const createdItem = await storage.createProjectGalleryItem(validatedData);
+      
+      console.log(`[ADMIN_GALLERY] Successfully created gallery item ${createdItem.id}`);
+      
+      res.json({
+        success: true,
+        message: 'Gallery item created successfully',
+        item: createdItem,
+        processedImages: processedImages.length
+      });
+
+    } catch (error) {
+      console.error('Gallery creation error:', error);
+      
+      // Clean up uploaded files if database creation failed
+      if ((req as any).processedImages) {
+        try {
+          await cleanupUploadedFiles((req as any).processedImages);
+          console.log('🗑️ Cleaned up uploaded files due to creation failure');
+        } catch (cleanupError) {
+          console.error('Failed to cleanup files:', cleanupError);
+        }
+      }
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'VALIDATION_ERROR',
+          message: 'Invalid input data',
+          details: error.errors
+        });
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: 'GALLERY_CREATION_ERROR',
+        message: 'Failed to create gallery item'
+      });
+    }
+  });
+
+  // GET /api/admin/gallery - List gallery items with pagination
+  app.get("/api/admin/gallery", requireAdmin, async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(100, Math.max(1, parseInt(req.query.limit as string) || 12));
+      const category = req.query.category as string | undefined;
+
+      console.log(`[ADMIN_GALLERY] GET /api/admin/gallery - page: ${page}, limit: ${limit}, category: ${category || 'all'}`);
+
+      const result = await storage.getProjectGalleryPaginated(page, limit, category);
+      const hasMore = (page * limit) < result.total;
+
+      res.json({
+        success: true,
+        items: result.items,
+        total: result.total,
+        page,
+        limit,
+        hasMore,
+        totalPages: Math.ceil(result.total / limit)
+      });
+
+    } catch (error) {
+      console.error('Gallery listing error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'GALLERY_LISTING_ERROR',
+        message: 'Failed to fetch gallery items'
+      });
+    }
+  });
+
+  // GET /api/admin/gallery/:id - Get single gallery item
+  app.get("/api/admin/gallery/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_ID',
+          message: 'Invalid gallery item ID'
+        });
+      }
+
+      console.log(`[ADMIN_GALLERY] GET /api/admin/gallery/${id}`);
+
+      const item = await storage.getProjectGalleryItem(id);
+      
+      if (!item) {
+        return res.status(404).json({
+          success: false,
+          error: 'GALLERY_ITEM_NOT_FOUND',
+          message: 'Gallery item not found'
+        });
+      }
+
+      res.json({
+        success: true,
+        item
+      });
+
+    } catch (error) {
+      console.error('Gallery item retrieval error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'GALLERY_RETRIEVAL_ERROR',
+        message: 'Failed to retrieve gallery item'
+      });
+    }
+  });
+
+  // PATCH /api/admin/gallery/:id - Update gallery item (text fields only)
+  app.patch("/api/admin/gallery/:id", requireAdmin, rlSensitive, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_ID',
+          message: 'Invalid gallery item ID'
+        });
+      }
+
+      console.log(`[ADMIN_GALLERY] PATCH /api/admin/gallery/${id}`, req.body);
+
+      // Check if item exists
+      const existingItem = await storage.getProjectGalleryItem(id);
+      if (!existingItem) {
+        return res.status(404).json({
+          success: false,
+          error: 'GALLERY_ITEM_NOT_FOUND',
+          message: 'Gallery item not found'
+        });
+      }
+
+      // Validate update data
+      const validatedData = updateProjectGallerySchema.parse(req.body);
+      
+      // Update gallery item
+      await storage.updateProjectGalleryItem(id, validatedData);
+      
+      console.log(`[ADMIN_GALLERY] Successfully updated gallery item ${id}`);
+      
+      res.json({
+        success: true,
+        message: 'Gallery item updated successfully'
+      });
+
+    } catch (error) {
+      console.error('Gallery update error:', error);
+      
+      if (error instanceof z.ZodError) {
+        return res.status(400).json({
+          success: false,
+          error: 'VALIDATION_ERROR',
+          message: 'Invalid update data',
+          details: error.errors
+        });
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: 'GALLERY_UPDATE_ERROR',
+        message: 'Failed to update gallery item'
+      });
+    }
+  });
+
+  // PUT /api/admin/gallery/:id/image - Replace image for existing gallery item
+  app.put("/api/admin/gallery/:id/image", requireAdmin, rlSensitive, handleImageUpload('images'), async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_ID',
+          message: 'Invalid gallery item ID'
+        });
+      }
+
+      console.log(`[ADMIN_GALLERY] PUT /api/admin/gallery/${id}/image - Replacing images`);
+
+      // Check if item exists and get current image URLs for cleanup
+      const existingItem = await storage.getProjectGalleryItem(id);
+      if (!existingItem) {
+        return res.status(404).json({
+          success: false,
+          error: 'GALLERY_ITEM_NOT_FOUND',
+          message: 'Gallery item not found'
+        });
+      }
+
+      const processedImages = (req as any).processedImages as ProcessedImage[];
+      
+      if (!processedImages || processedImages.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'NO_IMAGES_UPLOADED',
+          message: 'At least one image is required for replacement'
+        });
+      }
+
+      // Prepare update data with new image URLs
+      const updateData = {
+        imageUrl: processedImages[0].sizes.large.url,
+        beforeImageUrl: processedImages[1]?.sizes.large.url || null
+      };
+
+      // Update database with new image URLs
+      await storage.updateProjectGalleryItem(id, updateData);
+      
+      // Clean up old image files after successful database update
+      const oldImageUrls = extractFileUrls(existingItem);
+      if (oldImageUrls.length > 0) {
+        try {
+          await deletePhysicalFiles(oldImageUrls);
+          console.log(`🗑️ Cleaned up ${oldImageUrls.length} old image files`);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup some old files:', cleanupError);
+          // Continue since database update was successful
+        }
+      }
+      
+      console.log(`[ADMIN_GALLERY] Successfully replaced images for gallery item ${id}`);
+      
+      res.json({
+        success: true,
+        message: 'Gallery item images replaced successfully',
+        newImageUrls: {
+          main: updateData.imageUrl,
+          before: updateData.beforeImageUrl
+        }
+      });
+
+    } catch (error) {
+      console.error('Gallery image replacement error:', error);
+      
+      // Clean up newly uploaded files if database update failed
+      if ((req as any).processedImages) {
+        try {
+          await cleanupUploadedFiles((req as any).processedImages);
+          console.log('🗑️ Cleaned up new uploaded files due to replacement failure');
+        } catch (cleanupError) {
+          console.error('Failed to cleanup new files:', cleanupError);
+        }
+      }
+      
+      res.status(500).json({
+        success: false,
+        error: 'IMAGE_REPLACEMENT_ERROR',
+        message: 'Failed to replace gallery item images'
+      });
+    }
+  });
+
+  // DELETE /api/admin/gallery/:id - Delete gallery item with file cleanup
+  app.delete("/api/admin/gallery/:id", requireAdmin, rlSensitive, async (req, res) => {
+    try {
+      const id = parseInt(req.params.id);
+      
+      if (isNaN(id)) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_ID',
+          message: 'Invalid gallery item ID'
+        });
+      }
+
+      console.log(`[ADMIN_GALLERY] DELETE /api/admin/gallery/${id}`);
+
+      // Delete from database first and get the deleted item data for file cleanup
+      const deletedItem = await storage.deleteProjectGalleryItem(id);
+      
+      if (!deletedItem) {
+        return res.status(404).json({
+          success: false,
+          error: 'GALLERY_ITEM_NOT_FOUND',
+          message: 'Gallery item not found'
+        });
+      }
+
+      // Clean up associated image files after successful database deletion
+      const imageUrls = extractFileUrls(deletedItem);
+      if (imageUrls.length > 0) {
+        try {
+          await deletePhysicalFiles(imageUrls);
+          console.log(`🗑️ Cleaned up ${imageUrls.length} image files`);
+        } catch (cleanupError) {
+          console.warn('Failed to cleanup some files:', cleanupError);
+          // Continue since database deletion was successful
+        }
+      }
+      
+      console.log(`[ADMIN_GALLERY] Successfully deleted gallery item ${id} and associated files`);
+      
+      res.json({
+        success: true,
+        message: 'Gallery item deleted successfully',
+        deletedItem: {
+          id: deletedItem.id,
+          title: deletedItem.title
+        }
+      });
+
+    } catch (error) {
+      console.error('Gallery deletion error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'GALLERY_DELETION_ERROR',
+        message: 'Failed to delete gallery item'
+      });
+    }
+  });
+
+  // ====================================
+  // PUBLIC GALLERY VIEWING ENDPOINT
+  // ====================================
+
+  // GET /api/gallery - Public endpoint for customer gallery viewing
+  app.get("/api/gallery", async (req, res) => {
+    try {
+      const page = Math.max(1, parseInt(req.query.page as string) || 1);
+      const limit = Math.min(50, Math.max(1, parseInt(req.query.limit as string) || 12));
+      const category = req.query.category as string | undefined;
+
+      console.log(`[PUBLIC_GALLERY] GET /api/gallery - page: ${page}, limit: ${limit}, category: ${category || 'all'}`);
+
+      const result = await storage.getProjectGalleryPaginated(page, limit, category);
+
+      res.json({
+        success: true,
+        items: result.items,
+        total: result.total,
+        hasMore: (page * limit) < result.total
+      });
+
+    } catch (error) {
+      console.error('Public gallery listing error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'GALLERY_LISTING_ERROR',
+        message: 'Failed to fetch gallery items'
       });
     }
   });
