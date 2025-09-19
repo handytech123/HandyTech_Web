@@ -151,11 +151,6 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
     return next();
   }
 
-  // Skip CSRF for internal handoff notifications (server-to-server calls)
-  if (req.path === '/api/handoff') {
-    return next();
-  }
-
   // Skip CSRF for customer portal reschedule endpoint (already heavily secured)
   if (req.path.match(/^\/api\/portal\/appointments\/\d+\/reschedule$/)) {
     return next();
