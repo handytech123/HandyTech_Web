@@ -3,7 +3,9 @@ import nodemailer from "nodemailer";
 // Email-to-SMS gateway mapping for major US carriers
 const carrierGateways = {
   'verizon': 'vtext.com',
+  'verizon-alt': 'vzwpix.com', // Alternative Verizon gateway
   'spectrum': 'vtext.com', // Spectrum Mobile uses Verizon network but may have different policies
+  'spectrum-alt': 'vzwpix.com', // Alternative gateway for Spectrum
   'att': 'txt.att.net', 
   'tmobile': 'tmomail.net',
   'sprint': 'messaging.sprintpcs.com',
