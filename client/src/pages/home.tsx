@@ -9,6 +9,7 @@ import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
 import ThemeSwitcher from "@/components/theme-switcher";
 import ContactBanner from "@/components/contact-banner";
+import ScrollingBanner from "@/components/scrolling-banner";
 
 export default function Home() {
   return (
@@ -101,6 +102,7 @@ export default function Home() {
         </script>
       </Helmet>
       
+      <ScrollingBanner />
       <ThemeSwitcher />
       <Navigation />
       <ContactBanner />
