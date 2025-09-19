@@ -2395,6 +2395,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         console.log(`🚨 HUMAN HANDOFF REQUEST - Session: ${sessionId}, Message: "${message}"`);
+        
+        // Trigger SMS/Email handoff alert
+        try {
+          const handoffData = {
+            customer_name: undefined, // Could be enhanced to extract from conversation
+            customer_email: undefined,
+            customer_phone: undefined,
+            channel: "website chatbot",
+            message: message,
+            page_url: undefined,
+            conversation_url: undefined,
+            conversation_id: sessionId,
+            timestamp: new Date().toISOString()
+          };
+          
+          // Call internal handoff API
+          const handoffResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/handoff`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(handoffData)
+          });
+          
+          if (handoffResponse.ok) {
+            console.log(`✅ Handoff alert sent for session ${sessionId}`);
+          } else {
+            console.error(`❌ Handoff alert failed for session ${sessionId}:`, await handoffResponse.text());
+          }
+        } catch (handoffError) {
+          console.error(`❌ Handoff alert error for session ${sessionId}:`, handoffError);
+        }
       }
 
       // If no response was generated, provide a default
@@ -2970,6 +3000,74 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to fetch availability slots" 
       });
+    }
+  });
+
+  // Handoff API for SMS/Email notifications
+  const { handoffSchema } = await import("./lib/validators");
+  const { sendSMS } = await import("./lib/sms");
+  const { sendHandoffEmail } = await import("./lib/handoff-mailer");
+
+  /** In-memory dedupe window to prevent spammy repeats */
+  const DEDUPE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+  const recentAlerts = new Map(); // key: conversation_id, val: lastTs
+
+  app.post("/api/handoff", async (req, res) => {
+    try {
+      const parsed = handoffSchema.parse(req.body || {});
+      const {
+        customer_name, customer_email, customer_phone,
+        channel, message, page_url, conversation_url, conversation_id
+      } = parsed;
+
+      // De-dupe by conversation_id (prefer) or by message hash fallback
+      const now = Date.now();
+      const dedupeKey = conversation_id || `${(message || "").slice(0,80)}|${customer_phone || ""}`;
+      const last = recentAlerts.get(dedupeKey);
+      if (last && now - last < DEDUPE_WINDOW_MS) {
+        return res.status(200).json({ ok: true, deduped: true });
+      }
+      recentAlerts.set(dedupeKey, now);
+
+      // Build plain text & SMS bodies
+      const short = `LIVE CHAT${channel ? " (" + channel + ")" : ""}: ${customer_name || "Visitor"} — ${message}${page_url ? " | " + page_url : ""}`;
+
+      const text = [
+        `⚡ Live Chat Request ${channel ? `(${channel})` : ""}`,
+        `Name:  ${customer_name || "Unknown"}`,
+        `Email: ${customer_email || "Unknown"}`,
+        `Phone: ${customer_phone || "Unknown"}`,
+        `Message: ${message}`,
+        page_url ? `Page: ${page_url}` : null,
+        conversation_url ? `Transcript: ${conversation_url}` : null,
+        conversation_id ? `Conversation ID: ${conversation_id}` : null,
+        `Time: ${new Date().toISOString()}`
+      ].filter(Boolean).join("\n");
+
+      // Fire both channels in parallel (don't fail all if one fails)
+      const [smsResult, mailResult] = await Promise.allSettled([
+        sendSMS(short),
+        sendHandoffEmail({
+          subject: "⚡ Live Chat Request",
+          text,
+          html: text.replace(/\n/g, "<br>")
+        })
+      ]);
+
+      const details = {
+        sms: smsResult.status === "fulfilled" ? smsResult.value : { error: smsResult.reason?.message },
+        email: mailResult.status === "fulfilled" ? mailResult.value : { error: mailResult.reason?.message }
+      };
+
+      return res.status(200).json({ ok: true, ...details });
+    } catch (err) {
+      // zod validation or runtime errors
+      const msg = err?.errors ? "invalid_payload" : "handoff_failed";
+      if (err?.errors) {
+        return res.status(400).json({ ok: false, error: msg, details: err.errors });
+      }
+      console.error("[/api/handoff]", err);
+      return res.status(500).json({ ok: false, error: msg });
     }
   });
 
