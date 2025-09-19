@@ -39,12 +39,13 @@ export default function Navigation() {
               >
                 Services
               </button>
-              <button 
-                onClick={() => scrollToSection('gallery')}
+              <Link 
+                href="/gallery"
                 className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
+                data-testid="nav-gallery-desktop"
               >
                 Gallery
-              </button>
+              </Link>
               <button 
                 onClick={() => scrollToSection('testimonials')}
                 className="text-charcoal hover:text-brand-red px-3 py-2 text-sm font-medium transition-colors"
@@ -93,12 +94,14 @@ export default function Navigation() {
                   >
                     Services
                   </button>
-                  <button 
-                    onClick={() => scrollToSection('gallery')}
-                    className="text-left text-charcoal hover:text-brand-red py-2"
+                  <Link 
+                    href="/gallery"
+                    className="w-full text-left text-charcoal hover:text-brand-red py-2 block"
+                    data-testid="nav-gallery-mobile"
+                    onClick={() => setIsOpen(false)}
                   >
                     Gallery
-                  </button>
+                  </Link>
                   <button 
                     onClick={() => scrollToSection('testimonials')}
                     className="text-left text-charcoal hover:text-brand-red py-2"

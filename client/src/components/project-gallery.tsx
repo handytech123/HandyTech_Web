@@ -21,18 +21,13 @@ export default function ProjectGallery() {
   const [selectedProject, setSelectedProject] = useState<ProjectGallery | null>(null);
 
   const { data: projects = [] } = useQuery<ProjectGallery[]>({
-    queryKey: ["/api/gallery", selectedCategory === "all" ? "" : selectedCategory],
-    queryFn: () => {
-      const url = selectedCategory === "all" 
-        ? "/api/gallery" 
-        : `/api/gallery?category=${selectedCategory}`;
-      return fetch(url).then(res => res.json());
-    },
+    queryKey: [selectedCategory === "all" 
+      ? "/api/gallery" 
+      : `/api/gallery?category=${selectedCategory}`],
   });
 
   const { data: featuredProjects = [] } = useQuery<ProjectGallery[]>({
     queryKey: ["/api/gallery/featured"],
-    queryFn: () => fetch("/api/gallery/featured").then(res => res.json()),
   });
 
   const displayProjects = selectedCategory === "all" ? projects : projects;

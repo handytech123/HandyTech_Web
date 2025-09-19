@@ -1,13 +1,16 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { 
   Laptop, 
   Shield, 
   Cloud, 
   Network, 
   Database, 
-  Wrench 
+  Wrench,
+  ArrowRight,
+  Eye 
 } from "lucide-react";
 import type { Service } from "@shared/schema";
 
@@ -102,6 +105,60 @@ export default function ServicesSection() {
               </Card>
             );
           })}
+        </div>
+        
+        {/* Gallery CTA Section */}
+        <div className="mt-16 text-center">
+          <div className="bg-gray-50 rounded-2xl p-12">
+            <div className="max-w-3xl mx-auto">
+              <div className="bg-brand-red text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+                SEE OUR CRAFTSMANSHIP
+              </div>
+              <h3 className="text-3xl font-bold text-charcoal mb-6">
+                Quality Work Speaks for Itself
+              </h3>
+              <p className="text-xl text-gray-600 mb-8 leading-relaxed">
+                Don't just take our word for it. Browse our project gallery to see the exceptional quality and attention to detail that makes HandyTech Solutions the trusted choice for Missouri homeowners.
+              </p>
+              
+              <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
+                <Button 
+                  asChild
+                  size="lg" 
+                  className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 text-lg font-semibold transition-all duration-300 hover:scale-105"
+                >
+                  <Link href="/gallery" data-testid="button-view-completed-projects">
+                    <Eye className="mr-2 w-5 h-5" />
+                    View Completed Projects
+                    <ArrowRight className="ml-2 w-5 h-5" />
+                  </Link>
+                </Button>
+                <div className="text-gray-500 text-sm">
+                  See real projects from real customers
+                </div>
+              </div>
+              
+              {/* Trust indicators */}
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12 pt-8 border-t border-gray-200">
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-brand-red mb-1">10+</div>
+                  <div className="text-gray-600 text-sm">Years Experience</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-brand-red mb-1">500+</div>
+                  <div className="text-gray-600 text-sm">Projects Completed</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-brand-red mb-1">100%</div>
+                  <div className="text-gray-600 text-sm">Customer Satisfaction</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-brand-red mb-1">Fully</div>
+                  <div className="text-gray-600 text-sm">Insured & Bonded</div>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
         
         {/* Home Depot Pro Benefits Section */}

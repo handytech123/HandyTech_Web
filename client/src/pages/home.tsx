@@ -3,7 +3,8 @@ import Navigation from "@/components/navigation";
 import HeroSection from "@/components/hero-section";
 import AppointmentScheduler from "@/components/appointment-scheduler";
 import MaintenancePlans from "@/components/maintenance-plans";
-
+import ServicesSection from "@/components/services-section";
+import GalleryPreview from "@/components/gallery-preview";
 import TestimonialsSection from "@/components/testimonials-section";
 import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
@@ -110,7 +111,8 @@ export default function Home() {
         <HeroSection />
         <AppointmentScheduler />
         <MaintenancePlans />
-
+        <ServicesSection />
+        <GalleryPreview />
         <TestimonialsSection />
         <ContactSection />
       </main>
