@@ -2460,36 +2460,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
             timestamp: new Date().toISOString()
           };
           
-          // Call handoff functions directly (bypass CSRF)
-          const { sendSMS } = await import("./lib/sms");
+          // Send email alert (SMS disabled due to carrier blocking)
           const { sendHandoffEmail } = await import("./lib/handoff-mailer");
           
-          console.log(`📧 Attempting to send handoff alerts for session ${sessionId} (${shortSessionId})`);
-          console.log(`📧 SMS Message: "${smsMessage}"`);
-          console.log(`📧 Email Message: "${emailMessage}"`);
+          console.log(`📧 Sending handoff email alert for session ${sessionId} (${shortSessionId})`);
           
-          // Fire both channels in parallel
-          const [smsResult, mailResult] = await Promise.allSettled([
-            sendSMS(smsMessage),
-            sendHandoffEmail({
-              subject: "⚡ Live Chat Request",
+          try {
+            const emailResult = await sendHandoffEmail({
+              subject: "⚡ Live Chat Request - HandyTech Solutions",
               text: emailMessage,
               html: emailMessage.replace(/\n/g, "<br>")
-            })
-          ]);
-
-          const smsSuccess = smsResult.status === "fulfilled" && !smsResult.value?.skipped;
-          const emailSuccess = mailResult.status === "fulfilled" && !mailResult.value?.skipped;
-          
-          console.log(`📧 SMS Result: ${JSON.stringify(smsResult, null, 2)}`);
-          console.log(`📧 Email Result: ${JSON.stringify(mailResult, null, 2)}`);
-          
-          if (smsSuccess || emailSuccess) {
-            console.log(`✅ Handoff alert sent for session ${sessionId} (${shortSessionId}) - SMS: ${smsSuccess ? 'sent' : 'skipped'}, Email: ${emailSuccess ? 'sent' : 'skipped'}`);
-          } else {
-            console.error(`❌ Both SMS and email handoff alerts failed for session ${sessionId} (${shortSessionId})`);
-            console.error(`❌ SMS Status: ${smsResult.status}, Value: ${JSON.stringify(smsResult)}`);
-            console.error(`❌ Email Status: ${mailResult.status}, Value: ${JSON.stringify(mailResult)}`);
+            });
+            
+            console.log(`✅ Handoff email sent for session ${sessionId} (${shortSessionId})`);
+            console.log(`📧 Email Result: ${JSON.stringify(emailResult, null, 2)}`);
+          } catch (emailError) {
+            console.error(`❌ Handoff email failed for session ${sessionId} (${shortSessionId}):`, emailError);
           }
         } catch (handoffError) {
           console.error(`❌ Handoff setup error for session ${sessionId}:`, handoffError);
