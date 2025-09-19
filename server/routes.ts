@@ -32,6 +32,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
+import { handleImageUpload, type ProcessedImage } from "./utils/upload";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount Google Calendar admin routes
@@ -3327,6 +3328,67 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         success: false, 
         error: "Failed to fetch messages" 
+      });
+    }
+  });
+
+  // Test upload endpoint for photo gallery system - Admin only
+  app.post("/api/admin/test-upload", requireAdmin, rlSensitive, handleImageUpload('images'), async (req, res) => {
+    try {
+      const processedImages = (req as any).processedImages as ProcessedImage[];
+      
+      if (!processedImages || processedImages.length === 0) {
+        return res.status(400).json({
+          success: false,
+          error: 'NO_IMAGES_PROCESSED',
+          message: 'No images were successfully processed'
+        });
+      }
+
+      // Return processed image metadata for client use
+      const imageData = processedImages.map(image => ({
+        originalName: image.originalName,
+        secureFilename: image.secureFilename,
+        fileSize: image.fileSize,
+        dimensions: image.dimensions,
+        sizes: {
+          thumbnail: {
+            url: image.sizes.thumbnail.url,
+            width: image.sizes.thumbnail.width,
+            height: image.sizes.thumbnail.height,
+            fileSize: image.sizes.thumbnail.fileSize
+          },
+          medium: {
+            url: image.sizes.medium.url,
+            width: image.sizes.medium.width,
+            height: image.sizes.medium.height,
+            fileSize: image.sizes.medium.fileSize
+          },
+          large: {
+            url: image.sizes.large.url,
+            width: image.sizes.large.width,
+            height: image.sizes.large.height,
+            fileSize: image.sizes.large.fileSize
+          }
+        },
+        createdAt: image.createdAt
+      }));
+
+      console.log(`✅ Successfully processed ${processedImages.length} image(s) for admin test upload`);
+
+      res.json({
+        success: true,
+        message: `Successfully processed ${processedImages.length} image(s)`,
+        images: imageData,
+        uploadedCount: processedImages.length
+      });
+
+    } catch (error) {
+      console.error('Test upload error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'UPLOAD_PROCESSING_ERROR',
+        message: 'Failed to process uploaded images'
       });
     }
   });

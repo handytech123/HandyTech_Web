@@ -6,6 +6,8 @@ import { reminderScheduler } from "./reminder-scheduler";
 import { seedEssentialData } from "./utils/seed-data";
 import { validateDatabaseConnection } from "./utils/database-validation";
 import { validateEnvironmentVariables } from "./utils/environment-validation";
+import { validateUploadConfiguration } from "./utils/upload";
+import path from "path";
 
 const app = express();
 
@@ -93,6 +95,9 @@ app.use((req, res, next) => {
     
     // Validate database connection and schema
     await validateDatabaseConnection();
+    
+    // Validate upload system configuration
+    await validateUploadConfiguration();
   } catch (error) {
     console.error('\n🚨 APPLICATION STARTUP FAILED 🚨\n');
     console.error('Startup validation error:', error instanceof Error ? error.message : error);
@@ -102,6 +107,27 @@ app.use((req, res, next) => {
   
   // Seed essential data (availability rules, etc.)
   await seedEssentialData();
+  
+  // Configure static serving for uploads with security headers
+  const uploadsPath = path.join(process.cwd(), 'server', 'public', 'uploads');
+  app.use('/uploads', (req, res, next) => {
+    // Security headers for uploaded files
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('Cache-Control', 'public, max-age=31536000, immutable'); // 1 year cache for images
+    res.setHeader('X-Frame-Options', 'DENY');
+    next();
+  }, express.static(uploadsPath, {
+    // Security options for static file serving
+    dotfiles: 'deny', // Deny access to dotfiles
+    index: false, // Disable directory indexing
+    redirect: false, // Disable trailing slash redirects
+    setHeaders: (res, path) => {
+      // Set appropriate MIME types for WebP files
+      if (path.endsWith('.webp')) {
+        res.setHeader('Content-Type', 'image/webp');
+      }
+    }
+  }));
   
   // Register all application routes (includes CSRF route from setupSecurity)
   const server = await registerRoutes(app);
