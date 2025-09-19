@@ -2497,6 +2497,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      // Override response if human handoff is needed
+      if (needsHumanHandoff) {
+        botResponse = "I'm connecting you with a human representative from HandyTech Solutions who will help you shortly. They should reach out to you within a few minutes. In the meantime, feel free to continue the conversation here if you have any other questions!";
+      }
+
       // If no response was generated, provide a default
       if (!botResponse) {
         console.log("No response generated, using default");
