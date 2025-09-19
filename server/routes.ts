@@ -2559,7 +2559,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/admin/send-message", requireAdmin, async (req, res) => {
     const { sessionId, message } = req.body;
+    console.log(`🔍 Admin send-message request: sessionId=${sessionId}, message="${message}"`);
     const session = liveChatSessions.get(sessionId);
+    console.log(`🔍 Session found: ${!!session}, isLive: ${session?.isLive}, shortSessionId: ${session?.shortSessionId}`);
     
     if (session && session.isLive) {
       // Save to in-memory storage for admin interface

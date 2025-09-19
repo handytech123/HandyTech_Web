@@ -99,12 +99,18 @@ export default function LiveChatAdmin() {
     setSelectedSession(sessionId);
   };
 
-  const handleSendMessage = () => {
+  const handleSendMessage = async () => {
     if (newMessage.trim() && selectedSession) {
-      sendMessageMutation.mutate({
-        sessionId: selectedSession,
-        message: newMessage.trim(),
-      });
+      try {
+        await sendMessageMutation.mutateAsync({
+          sessionId: selectedSession,
+          message: newMessage.trim(),
+        });
+        console.log('✅ Admin message sent successfully');
+      } catch (error) {
+        console.error('❌ Admin message failed (caught):', error);
+        alert(`Admin message failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      }
     }
   };
 
