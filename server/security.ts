@@ -22,7 +22,7 @@ export const useHelmet = helmet({
       // Production: Remove 'unsafe-inline' and use nonces/hashes for scripts
       scriptSrc: process.env.NODE_ENV === "production" 
         ? ["'self'"] // More restrictive for production
-        : ["'self'", "'unsafe-inline'"], // Allow inline scripts in development
+        : ["'self'", "'unsafe-inline'", "https://replit.com"], // Allow Replit scripts in development
       fontSrc: ["'self'", "https://fonts.gstatic.com"],
       imgSrc: ["'self'", "data:", "https:"],
       connectSrc: ["'self'", "ws:", "wss:"],
@@ -347,8 +347,11 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   // Enhanced referrer policy for better privacy
   res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
   
-  // Content Security Policy for additional XSS protection
-  res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;");
+  // Content Security Policy for additional XSS protection (development allows Replit scripts)
+  const scriptSrc = process.env.NODE_ENV === "production" 
+    ? "'self'" 
+    : "'self' 'unsafe-inline' https://replit.com";
+  res.setHeader('Content-Security-Policy', `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;`);
   
   // Prevent content type sniffing
   res.setHeader('X-Download-Options', 'noopen');
