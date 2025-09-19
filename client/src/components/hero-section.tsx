@@ -48,10 +48,13 @@ export default function HeroSection() {
                 href="https://proreferral.homedepot.com/public-profile/885948" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition-colors"
+                className="hover:opacity-80 transition-opacity"
               >
-                <span className="mr-2">🔨</span>
-                Home Depot Pro Partner - View Reviews
+                <img 
+                  src="@assets/ProReferral-191 (1)_1758249625912.png" 
+                  alt="Pro Referral - Powered by The Home Depot" 
+                  className="h-16 w-auto"
+                />
               </a>
             </div>
           </div>
