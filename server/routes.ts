@@ -2395,6 +2395,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
         
         console.log(`🚨 HUMAN HANDOFF REQUEST - Session: ${sessionId}, Message: "${message}"`);
+        
+        // Send handoff notification
+        try {
+          const response = await fetch(`http://localhost:5000/api/handoff`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              customer_name: "Website Visitor",
+              channel: "website chat",
+              message: message,
+              page_url: "https://handytech-solutions.com",
+              conversation_id: sessionId
+            })
+          });
+          
+          if (response.ok) {
+            console.log("✅ Handoff notification sent successfully");
+          } else {
+            console.error("❌ Handoff notification failed:", await response.text());
+          }
+        } catch (handoffError) {
+          console.error("❌ Handoff notification error:", handoffError);
+        }
       }
 
       // If no response was generated, provide a default
@@ -2970,6 +2993,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ 
         error: "Failed to fetch availability slots" 
       });
+    }
+  });
+
+  // Handoff system for live chat notifications
+  const handoffSchema = z.object({
+    customer_name: z.string().min(1).max(120).optional(),
+    customer_email: z.string().email().optional(), 
+    customer_phone: z.string().min(7).max(32).optional(),
+    channel: z.string().min(1).max(60).optional(),
+    message: z.string().min(1).max(1000),
+    page_url: z.string().url().optional(),
+    conversation_url: z.string().url().optional(),
+    conversation_id: z.string().min(3).max(120).optional(),
+    timestamp: z.string().datetime().optional()
+  });
+
+  // SMS sending function
+  async function sendSMS(body: string) {
+    const sid = process.env.TWILIO_ACCOUNT_SID;
+    const token = process.env.TWILIO_AUTH_TOKEN;
+    const from = process.env.TWILIO_PHONE_NUMBER;
+    const to = process.env.ALERT_TO_SMS;
+    
+    if (!sid || !token || !from || !to) {
+      console.warn("[SMS] Skipped (missing TWILIO_* or ALERT_TO_SMS)");
+      return { skipped: true, sid: undefined, error: undefined };
+    }
+    
+    try {
+      const { default: twilio } = await import("twilio");
+      const client = twilio(sid, token);
+      const msg = await client.messages.create({ to, from, body });
+      return { sid: msg.sid, skipped: false, error: undefined };
+    } catch (error) {
+      console.error("[SMS] Error:", error);
+      return { error: error instanceof Error ? error.message : 'Unknown error', sid: undefined, skipped: false };
+    }
+  }
+
+  // Email sending function  
+  async function sendHandoffEmail({ subject, text, html }: { subject: string, text: string, html: string }) {
+    const host = process.env.SMTP_HOST;
+    const port = process.env.SMTP_PORT || 587;
+    const user = process.env.SMTP_USER;
+    const pass = process.env.SMTP_PASS;
+    const from = process.env.FROM_EMAIL;
+    const to = process.env.ALERT_TO_EMAIL;
+    
+    if (!host || !user || !pass || !from || !to) {
+      console.warn("[Email] Skipped (missing SMTP_* or FROM/TO)");
+      return { skipped: true, messageId: undefined, error: undefined };
+    }
+    
+    try {
+      const nodemailer = await import("nodemailer");
+      const transporter = nodemailer.createTransport({
+        host,
+        port: Number(port),
+        secure: Number(port) === 465,
+        auth: { user, pass }
+      });
+      
+      const info = await transporter.sendMail({ from, to, subject, text, html });
+      return { messageId: info.messageId, skipped: false, error: undefined };
+    } catch (error) {
+      console.error("[Email] Error:", error);
+      return { error: error instanceof Error ? error.message : 'Unknown error', messageId: undefined, skipped: false };
+    }
+  }
+
+  // In-memory dedupe to prevent spam
+  const DEDUPE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
+  const recentAlerts = new Map<string, number>();
+
+  // Handoff endpoint - no CSRF for internal calls
+  app.post("/api/handoff", async (req, res) => {
+    try {
+      const parsed = handoffSchema.parse(req.body || {});
+      const {
+        customer_name, customer_email, customer_phone,
+        channel, message, page_url, conversation_url, conversation_id
+      } = parsed;
+
+      // De-dupe by conversation_id or message hash
+      const now = Date.now();
+      const dedupeKey = conversation_id || `${(message || "").slice(0,80)}|${customer_phone || ""}`;
+      const last = recentAlerts.get(dedupeKey);
+      if (last && now - last < DEDUPE_WINDOW_MS) {
+        return res.status(200).json({ ok: true, deduped: true });
+      }
+      recentAlerts.set(dedupeKey, now);
+
+      // Build notification messages
+      const short = `🚨 LIVE CHAT${channel ? " (" + channel + ")" : ""}: ${customer_name || "Visitor"} — ${message}${page_url ? " | " + page_url : ""}`;
+
+      const text = [
+        `⚡ Live Chat Request ${channel ? `(${channel})` : ""}`,
+        `Name:  ${customer_name || "Unknown"}`,
+        `Email: ${customer_email || "Unknown"}`,
+        `Phone: ${customer_phone || "Unknown"}`,
+        `Message: ${message}`,
+        page_url ? `Page: ${page_url}` : null,
+        conversation_url ? `Transcript: ${conversation_url}` : null,
+        conversation_id ? `Conversation ID: ${conversation_id}` : null,
+        `Time: ${new Date().toISOString()}`
+      ].filter(Boolean).join("\n");
+
+      // Send both SMS and email in parallel
+      const [smsResult, mailResult] = await Promise.allSettled([
+        sendSMS(short),
+        sendHandoffEmail({
+          subject: "⚡ Live Chat Request - HandyTech Solutions",
+          text,
+          html: text.replace(/\n/g, "<br>")
+        })
+      ]);
+
+      const details = {
+        sms: smsResult.status === "fulfilled" ? smsResult.value : { error: smsResult.reason?.message },
+        email: mailResult.status === "fulfilled" ? mailResult.value : { error: mailResult.reason?.message }
+      };
+
+      const smsStatus = details.sms?.sid ? `sent (${details.sms.sid})` : details.sms?.error || 'failed';
+      const emailStatus = details.email?.messageId ? `sent (${details.email.messageId})` : details.email?.error || 'failed';
+      console.log(`🚨 HANDOFF NOTIFICATION SENT - Session: ${conversation_id}, SMS: ${smsStatus}, Email: ${emailStatus}`);
+      
+      return res.status(200).json({ ok: true, ...details });
+    } catch (err) {
+      const msg = err instanceof z.ZodError ? "invalid_payload" : "handoff_failed";
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ ok: false, error: msg, details: err.errors });
+      }
+      console.error("[/api/handoff]", err);
+      return res.status(500).json({ ok: false, error: msg });
     }
   });
 
