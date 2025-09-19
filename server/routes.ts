@@ -2557,16 +2557,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/admin/send-message", requireAdmin, (req, res) => {
+  app.post("/api/admin/send-message", requireAdmin, async (req, res) => {
     const { sessionId, message } = req.body;
     const session = liveChatSessions.get(sessionId);
     
     if (session && session.isLive) {
+      // Save to in-memory storage for admin interface
       session.messages.push({ 
         type: 'admin', 
         message, 
         timestamp: new Date() 
       });
+
+      // CRITICAL: Also save to database so customers can see admin messages
+      try {
+        await storage.addChatMessage({
+          sessionId: sessionId,
+          messageType: 'agent',
+          content: message,
+          senderName: 'HandyTech Support',
+          isFromSMS: false,
+          timestamp: new Date()
+        });
+        console.log(`💬 Admin message saved to database for session: ${sessionId}`);
+      } catch (error) {
+        console.error(`❌ Failed to save admin message to database:`, error);
+      }
+
       res.json({ success: true });
     } else {
       res.status(404).json({ error: "Session not found or not live" });
