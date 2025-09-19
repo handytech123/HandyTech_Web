@@ -2348,9 +2348,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ];
           
           const response = await openaiClient.chat.completions.create({
-            model: "gpt-5",
+            model: "gpt-4o-mini",
             messages: messages,
-            max_completion_tokens: 150,
+            max_tokens: 150,
           });
           
           botResponse = response.choices[0].message.content || "";
