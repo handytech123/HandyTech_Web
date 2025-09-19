@@ -14,7 +14,7 @@ export default function HeroSection() {
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="text-center lg:text-left">
             <div className="bg-brand-red text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
-              PROFESSIONAL HANDYMAN SERVICES
+              PROFESSIONAL HANDYMAN AND TECHNICAL SERVICES
             </div>
             <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6 text-charcoal">
               Expert Handyman <span className="text-brand-red">Solutions</span>
