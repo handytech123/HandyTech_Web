@@ -2396,14 +2396,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         console.log(`🚨 HUMAN HANDOFF REQUEST - Session: ${sessionId}, Message: "${message}"`);
         
-        // Trigger SMS/Email handoff alert
+        // Trigger SMS/Email handoff alert with conversation history
         try {
+          // Get conversation history for this session
+          const history = conversationHistory.get(sessionId) || [];
+          
+          // Build conversation summary for the alert
+          const conversationSummary = history.length > 0 
+            ? history.map((msg, index) => 
+                `${index + 1}. ${msg.role === 'user' ? 'Customer' : 'Bot'}: ${msg.content}`
+              ).join('\n')
+            : 'No previous conversation';
+          
+          // Create comprehensive message including history
+          const fullMessage = history.length > 0 
+            ? `LATEST: ${message}\n\n--- CONVERSATION HISTORY ---\n${conversationSummary}`
+            : message;
+          
           const handoffData = {
             customer_name: undefined, // Could be enhanced to extract from conversation
             customer_email: undefined,
             customer_phone: undefined,
             channel: "website chatbot",
-            message: message,
+            message: fullMessage,
             page_url: undefined,
             conversation_url: undefined,
             conversation_id: sessionId,
