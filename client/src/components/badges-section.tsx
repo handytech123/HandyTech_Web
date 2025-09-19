@@ -5,7 +5,7 @@ export default function BadgesSection() {
   return (
     <div className="bg-white py-6 border-b border-gray-200">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-12">
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-6">
           {/* Award Badge - Left */}
           <div className="flex flex-col items-center scale-75">
             <AwardBadge />
