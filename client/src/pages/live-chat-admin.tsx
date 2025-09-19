@@ -75,6 +75,10 @@ export default function LiveChatAdmin() {
       setNewMessage('');
       queryClient.invalidateQueries({ queryKey: ['/api/admin/live-chats'] });
     },
+    onError: (error) => {
+      console.error('❌ Admin message send failed:', error);
+      alert(`Failed to send message: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    },
   });
 
   // End chat mutation
