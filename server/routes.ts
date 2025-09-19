@@ -2569,19 +2569,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         timestamp: new Date() 
       });
 
-      // CRITICAL: Also save to database so customers can see admin messages
-      try {
-        await storage.addChatMessage({
-          sessionId: sessionId,
-          messageType: 'agent',
-          content: message,
-          senderName: 'HandyTech Support',
-          isFromSMS: false,
-          timestamp: new Date()
-        });
-        console.log(`💬 Admin message saved to database for session: ${sessionId}`);
-      } catch (error) {
-        console.error(`❌ Failed to save admin message to database:`, error);
+      // CRITICAL: Save to database using shortSessionId so customers can see admin messages
+      const shortSessionId = session.shortSessionId;
+      if (shortSessionId) {
+        try {
+          await storage.addChatMessage({
+            sessionId: shortSessionId, // Use SHORT session ID, not the original one!
+            messageType: 'agent',
+            content: message,
+            senderName: 'HandyTech Support',
+            isFromSMS: false,
+            timestamp: new Date()
+          });
+          console.log(`💬 Admin message saved to database for short session: ${shortSessionId} (original: ${sessionId})`);
+        } catch (error) {
+          console.error(`❌ Failed to save admin message to database:`, error);
+        }
+      } else {
+        console.warn(`⚠️ No shortSessionId found for session: ${sessionId}`);
       }
 
       res.json({ success: true });
