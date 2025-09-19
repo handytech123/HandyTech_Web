@@ -13,9 +13,6 @@ export default function HeroSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 lg:py-24">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           <div className="text-center lg:text-left">
-            <div className="bg-brand-red text-white px-6 py-3 rounded-full text-base font-semibold inline-block mb-6">
-              PROFESSIONAL HANDYMAN AND TECH SERVICES
-            </div>
             <h1 className="text-4xl lg:text-5xl font-bold leading-tight mb-6 text-charcoal">
               Expert Handyman <span className="text-brand-red">Solutions</span>
             </h1>
