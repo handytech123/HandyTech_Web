@@ -38,8 +38,9 @@ export async function sendSMS(body: string) {
     return { skipped: true };
   }
   
-  // Get carrier gateway
-  const gateway = carrierGateways[phoneCarrier as keyof typeof carrierGateways];
+  // Get carrier gateway (case-insensitive lookup)
+  const normalizedCarrier = phoneCarrier.toLowerCase();
+  const gateway = carrierGateways[normalizedCarrier as keyof typeof carrierGateways];
   if (!gateway) {
     console.warn(`[Custom SMS] Unknown carrier: ${phoneCarrier}`);
     return { skipped: true, error: `Unknown carrier: ${phoneCarrier}` };
