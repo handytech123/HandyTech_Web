@@ -2460,17 +2460,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
             timestamp: new Date().toISOString()
           };
           
-          // Call internal handoff API
-          const handoffResponse = await fetch(`http://localhost:${process.env.PORT || 5000}/api/handoff`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(handoffData)
-          });
+          // Call handoff functions directly (bypass CSRF)
+          const { sendSMS } = await import("./lib/sms");
+          const { sendHandoffEmail } = await import("./lib/handoff-mailer");
           
-          if (handoffResponse.ok) {
-            console.log(`✅ Handoff alert sent for session ${sessionId} (${shortSessionId})`);
+          // Fire both channels in parallel
+          const [smsResult, mailResult] = await Promise.allSettled([
+            sendSMS(smsMessage),
+            sendHandoffEmail({
+              subject: "⚡ Live Chat Request",
+              text: emailMessage,
+              html: emailMessage.replace(/\n/g, "<br>")
+            })
+          ]);
+
+          const smsSuccess = smsResult.status === "fulfilled" && !smsResult.value?.skipped;
+          const emailSuccess = mailResult.status === "fulfilled" && !mailResult.value?.skipped;
+          
+          if (smsSuccess || emailSuccess) {
+            console.log(`✅ Handoff alert sent for session ${sessionId} (${shortSessionId}) - SMS: ${smsSuccess ? 'sent' : 'skipped'}, Email: ${emailSuccess ? 'sent' : 'skipped'}`);
           } else {
-            console.error(`❌ Handoff alert failed for session ${sessionId}:`, await handoffResponse.text());
+            console.error(`❌ Both SMS and email handoff alerts failed for session ${sessionId} (${shortSessionId})`);
           }
         } catch (handoffError) {
           console.error(`❌ Handoff setup error for session ${sessionId}:`, handoffError);
