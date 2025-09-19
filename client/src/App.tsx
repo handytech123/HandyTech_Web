@@ -12,7 +12,6 @@ import LiveChatAdmin from "@/pages/live-chat-admin";
 import LeaveReview from "@/pages/leave-review";
 import ReschedulePage from "@/pages/reschedule";
 import NotFound from "@/pages/not-found";
-import Chatbot from "@/components/chatbot";
 
 function Router() {
   return (
@@ -38,7 +37,6 @@ function App() {
       <TooltipProvider>
         <Toaster />
         <Router />
-        <Chatbot />
       </TooltipProvider>
     </QueryClientProvider>
   );
