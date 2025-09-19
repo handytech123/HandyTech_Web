@@ -7,7 +7,7 @@ export default function BadgesSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col sm:flex-row items-center justify-center gap-12">
           {/* Award Badge - Left */}
-          <div className="flex flex-col items-center scale-90">
+          <div className="flex flex-col items-center scale-75">
             <AwardBadge />
           </div>
           
@@ -23,7 +23,7 @@ export default function BadgesSection() {
               <img 
                 src={proReferralImage} 
                 alt="Pro Referral - Powered by The Home Depot" 
-                className="h-20 w-auto"
+                className="h-16 w-auto"
               />
             </a>
           </div>
