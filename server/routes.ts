@@ -3009,28 +3009,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     timestamp: z.string().datetime().optional()
   });
 
-  // SMS sending function
-  async function sendSMS(body: string) {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const token = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_PHONE_NUMBER;
-    const to = process.env.ALERT_TO_SMS;
-    
-    if (!sid || !token || !from || !to) {
-      console.warn("[SMS] Skipped (missing TWILIO_* or ALERT_TO_SMS)");
-      return { skipped: true, sid: undefined, error: undefined };
-    }
-    
-    try {
-      const { default: twilio } = await import("twilio");
-      const client = twilio(sid, token);
-      const msg = await client.messages.create({ to, from, body });
-      return { sid: msg.sid, skipped: false, error: undefined };
-    } catch (error) {
-      console.error("[SMS] Error:", error);
-      return { error: error instanceof Error ? error.message : 'Unknown error', sid: undefined, skipped: false };
-    }
-  }
 
   // Email sending function  
   async function sendHandoffEmail({ subject, text, html }: { subject: string, text: string, html: string }) {
@@ -3085,9 +3063,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       recentAlerts.set(dedupeKey, now);
 
-      // Build notification messages
-      const short = `🚨 LIVE CHAT${channel ? " (" + channel + ")" : ""}: ${customer_name || "Visitor"} — ${message}${page_url ? " | " + page_url : ""}`;
-
+      // Build email notification
       const text = [
         `⚡ Live Chat Request ${channel ? `(${channel})` : ""}`,
         `Name:  ${customer_name || "Unknown"}`,
@@ -3100,9 +3076,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `Time: ${new Date().toISOString()}`
       ].filter(Boolean).join("\n");
 
-      // Send both SMS and email in parallel
-      const [smsResult, mailResult] = await Promise.allSettled([
-        sendSMS(short),
+      // Send email notification
+      const mailResult = await Promise.allSettled([
         sendHandoffEmail({
           subject: "⚡ Live Chat Request - HandyTech Solutions",
           text,
@@ -3111,13 +3086,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
 
       const details = {
-        sms: smsResult.status === "fulfilled" ? smsResult.value : { error: smsResult.reason?.message },
-        email: mailResult.status === "fulfilled" ? mailResult.value : { error: mailResult.reason?.message }
+        email: mailResult[0].status === "fulfilled" ? mailResult[0].value : { error: mailResult[0].reason?.message }
       };
 
-      const smsStatus = details.sms?.sid ? `sent (${details.sms.sid})` : details.sms?.error || 'failed';
-      const emailStatus = details.email?.messageId ? `sent (${details.email.messageId})` : details.email?.error || 'failed';
-      console.log(`🚨 HANDOFF NOTIFICATION SENT - Session: ${conversation_id}, SMS: ${smsStatus}, Email: ${emailStatus}`);
+      const emailStatus = (details.email as any)?.messageId ? `sent (${(details.email as any).messageId})` : (details.email as any)?.error || 'failed';
+      console.log(`🚨 HANDOFF NOTIFICATION SENT - Session: ${conversation_id}, Email: ${emailStatus}`);
       
       return res.status(200).json({ ok: true, ...details });
     } catch (err) {
