@@ -4,7 +4,7 @@ export default function ContactBanner() {
   return (
     <div className="bg-brand-red text-white py-6 px-4 border-b-4 border-brand-red-dark">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center justify-center space-x-6 md:space-x-12">
+        <div className="flex items-center justify-center space-x-3 md:space-x-6">
           
           {/* Phone */}
           <div className="flex items-center space-x-3">
