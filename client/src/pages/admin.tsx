@@ -1165,15 +1165,16 @@ function GalleryTab() {
                   Upload Photo
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px]">
+              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Upload New Photo</DialogTitle>
                   <DialogDescription>
                     Add a new project photo with details and metadata.
                   </DialogDescription>
                 </DialogHeader>
-                <Form {...uploadForm}>
-                  <form onSubmit={uploadForm.handleSubmit(onUploadSubmit)} className="space-y-4" data-testid="form-upload-photo">
+                <div className="max-h-[70vh] overflow-y-auto pr-2">
+                  <Form {...uploadForm}>
+                    <form onSubmit={uploadForm.handleSubmit(onUploadSubmit)} className="space-y-4" data-testid="form-upload-photo">
                     
                     {/* Image Upload Section */}
                     <div className="space-y-4">
@@ -1371,6 +1372,7 @@ function GalleryTab() {
                     </div>
                   </form>
                 </Form>
+                </div>
               </DialogContent>
             </Dialog>
           </div>
