@@ -39,38 +39,50 @@ export default function AwardBadge() {
             <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse"></div>
           </div>
           
-          {/* Silver Twinkling Stars */}
-          <div className="absolute top-1 left-4 animate-twinkle-1">
-            <Star className="w-5 h-5 text-gray-300 fill-gray-300" />
+          {/* Silver Twinkling Stars - Random Scattered */}
+          <div className="absolute top-0 left-6 animate-twinkle-1">
+            <Star className="w-7 h-7 text-gray-300 fill-gray-300" />
           </div>
-          <div className="absolute top-6 right-2 animate-twinkle-2">
-            <Star className="w-4 h-4 text-gray-400 fill-gray-400" />
+          <div className="absolute top-3 right-1 animate-twinkle-2">
+            <Star className="w-5 h-5 text-gray-400 fill-gray-400" />
           </div>
-          <div className="absolute top-14 left-1 animate-twinkle-3">
-            <Star className="w-6 h-6 text-gray-200 fill-gray-200" />
+          <div className="absolute top-11 left-0 animate-twinkle-3">
+            <Star className="w-8 h-8 text-gray-200 fill-gray-200" />
           </div>
-          <div className="absolute top-24 right-1 animate-twinkle-1">
-            <Star className="w-5 h-5 text-gray-300 fill-gray-300" />
-          </div>
-          <div className="absolute bottom-4 left-4 animate-twinkle-2">
+          <div className="absolute top-7 right-8 animate-twinkle-1">
             <Star className="w-4 h-4 text-gray-350 fill-gray-350" />
           </div>
-          <div className="absolute bottom-2 right-4 animate-twinkle-3">
-            <Star className="w-5 h-5 text-gray-300 fill-gray-300" />
+          <div className="absolute top-19 left-3 animate-twinkle-2">
+            <Star className="w-6 h-6 text-gray-300 fill-gray-300" />
+          </div>
+          <div className="absolute top-26 right-2 animate-twinkle-3">
+            <Star className="w-5 h-5 text-gray-250 fill-gray-250" />
+          </div>
+          <div className="absolute bottom-6 left-2 animate-twinkle-1">
+            <Star className="w-7 h-7 text-gray-400 fill-gray-400" />
+          </div>
+          <div className="absolute bottom-1 right-6 animate-twinkle-2">
+            <Star className="w-6 h-6 text-gray-300 fill-gray-300" />
           </div>
           
-          {/* Distant silver stars */}
-          <div className="absolute top-10 left-14 animate-twinkle-1">
-            <Star className="w-3 h-3 text-gray-400 fill-gray-400" />
+          {/* Scattered distant silver stars */}
+          <div className="absolute top-5 left-16 animate-twinkle-3">
+            <Star className="w-4 h-4 text-gray-400 fill-gray-400" />
           </div>
-          <div className="absolute top-18 right-14 animate-twinkle-2">
-            <Star className="w-4 h-4 text-gray-300 fill-gray-300" />
+          <div className="absolute top-13 right-15 animate-twinkle-1">
+            <Star className="w-5 h-5 text-gray-300 fill-gray-300" />
           </div>
-          <div className="absolute bottom-10 left-14 animate-twinkle-3">
-            <Star className="w-3 h-3 text-gray-200 fill-gray-200" />
+          <div className="absolute top-21 left-15 animate-twinkle-2">
+            <Star className="w-3 h-3 text-gray-350 fill-gray-350" />
           </div>
-          <div className="absolute bottom-14 right-16 animate-twinkle-1">
-            <Star className="w-4 h-4 text-gray-350 fill-gray-350" />
+          <div className="absolute bottom-8 left-16 animate-twinkle-3">
+            <Star className="w-6 h-6 text-gray-200 fill-gray-200" />
+          </div>
+          <div className="absolute bottom-3 right-17 animate-twinkle-1">
+            <Star className="w-4 h-4 text-gray-400 fill-gray-400" />
+          </div>
+          <div className="absolute bottom-12 right-15 animate-twinkle-2">
+            <Star className="w-5 h-5 text-gray-300 fill-gray-300" />
           </div>
         </div>
         
