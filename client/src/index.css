@@ -196,6 +196,19 @@
     animation: badge-glow 4s ease-in-out infinite;
   }
   
+  /* Silver star twinkling animations */
+  .animate-twinkle-1 {
+    animation: twinkle-1 1.5s ease-in-out infinite;
+  }
+  
+  .animate-twinkle-2 {
+    animation: twinkle-2 2s ease-in-out infinite 0.3s;
+  }
+  
+  .animate-twinkle-3 {
+    animation: twinkle-3 1.8s ease-in-out infinite 0.7s;
+  }
+  
   @keyframes sparkle-1 {
     0%, 100% {
       opacity: 0;
@@ -235,6 +248,40 @@
     }
     50% {
       box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.4);
+    }
+  }
+  
+  /* Silver star twinkling effects */
+  @keyframes twinkle-1 {
+    0%, 100% {
+      opacity: 0.2;
+      transform: scale(0.8);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.1);
+    }
+  }
+  
+  @keyframes twinkle-2 {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(0.6) rotate(0deg);
+    }
+    50% {
+      opacity: 0.9;
+      transform: scale(1.2) rotate(45deg);
+    }
+  }
+  
+  @keyframes twinkle-3 {
+    0%, 100% {
+      opacity: 0.1;
+      transform: scale(0.7) rotate(0deg);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1) rotate(180deg);
     }
   }
 }

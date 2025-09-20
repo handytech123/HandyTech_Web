@@ -1,4 +1,4 @@
-import { Award, Sparkles } from "lucide-react";
+import { Award, Sparkles, Star } from "lucide-react";
 
 export default function AwardBadge() {
   return (
@@ -37,6 +37,40 @@ export default function AwardBadge() {
           </div>
           <div className="absolute top-20 right-12 animate-sparkle-2">
             <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse"></div>
+          </div>
+          
+          {/* Silver Twinkling Stars */}
+          <div className="absolute top-1 left-4 animate-twinkle-1">
+            <Star className="w-3 h-3 text-gray-300 fill-gray-300" />
+          </div>
+          <div className="absolute top-6 right-2 animate-twinkle-2">
+            <Star className="w-2 h-2 text-gray-400 fill-gray-400" />
+          </div>
+          <div className="absolute top-14 left-1 animate-twinkle-3">
+            <Star className="w-4 h-4 text-gray-200 fill-gray-200" />
+          </div>
+          <div className="absolute top-24 right-1 animate-twinkle-1">
+            <Star className="w-3 h-3 text-gray-300 fill-gray-300" />
+          </div>
+          <div className="absolute bottom-4 left-4 animate-twinkle-2">
+            <Star className="w-2.5 h-2.5 text-gray-350 fill-gray-350" />
+          </div>
+          <div className="absolute bottom-2 right-4 animate-twinkle-3">
+            <Star className="w-3.5 h-3.5 text-gray-300 fill-gray-300" />
+          </div>
+          
+          {/* Distant silver stars */}
+          <div className="absolute top-10 left-14 animate-twinkle-1">
+            <Star className="w-1.5 h-1.5 text-gray-400 fill-gray-400" />
+          </div>
+          <div className="absolute top-18 right-14 animate-twinkle-2">
+            <Star className="w-2 h-2 text-gray-300 fill-gray-300" />
+          </div>
+          <div className="absolute bottom-10 left-14 animate-twinkle-3">
+            <Star className="w-1.5 h-1.5 text-gray-200 fill-gray-200" />
+          </div>
+          <div className="absolute bottom-14 right-16 animate-twinkle-1">
+            <Star className="w-2.5 h-2.5 text-gray-350 fill-gray-350" />
           </div>
         </div>
         
