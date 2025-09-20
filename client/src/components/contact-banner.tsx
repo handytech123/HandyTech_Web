@@ -11,7 +11,7 @@ export default function ContactBanner() {
             <div className="bg-white bg-opacity-20 rounded-lg p-2">
               <Phone className="h-6 w-6" />
             </div>
-            <a href="tel:+13143254575" className="text-lg md:text-2xl lg:text-3xl font-bold hover:underline whitespace-nowrap">(314) 325-4575</a>
+            <a href="tel:+13143254575" className="text-base md:text-lg lg:text-xl font-bold hover:underline whitespace-nowrap">(314) 325-4575</a>
           </div>
 
           {/* Divider */}
@@ -22,7 +22,7 @@ export default function ContactBanner() {
             <div className="bg-white bg-opacity-20 rounded-lg p-2">
               <Mail className="h-6 w-6" />
             </div>
-            <a href="mailto:contact@handytech-solutions.com" className="text-lg md:text-2xl lg:text-3xl font-bold hover:underline whitespace-nowrap">contact@handytech-solutions.com</a>
+            <a href="mailto:contact@handytech-solutions.com" className="text-base md:text-lg lg:text-xl font-bold hover:underline whitespace-nowrap">contact@handytech-solutions.com</a>
           </div>
 
           
