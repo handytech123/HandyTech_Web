@@ -80,8 +80,6 @@ export default function ContactSection() {
         <div className="grid lg:grid-cols-2 gap-16">
           {/* Contact Information */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold text-charcoal mb-6">Get Your Free Estimate</h3>
-            
             <div className="mb-6">
               <Button 
                 onClick={() => {
@@ -90,7 +88,7 @@ export default function ContactSection() {
                     form.scrollIntoView({ behavior: 'smooth' });
                   }
                 }}
-                className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-lg w-full"
+                className="bg-brand-red hover:bg-brand-red-dark text-white px-12 py-6 rounded-lg text-2xl font-bold shadow-xl w-full"
                 data-testid="button-get-estimate"
               >
                 Get Free Estimate
