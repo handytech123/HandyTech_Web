@@ -81,6 +81,22 @@ export default function ContactSection() {
           {/* Contact Information */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h3 className="text-2xl font-bold text-charcoal mb-6">Get Your Free Estimate</h3>
+            
+            <div className="mb-6">
+              <Button 
+                onClick={() => {
+                  const form = document.getElementById('quote-form');
+                  if (form) {
+                    form.scrollIntoView({ behavior: 'smooth' });
+                  }
+                }}
+                className="bg-brand-red hover:bg-brand-red-dark text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-lg w-full"
+                data-testid="button-get-estimate"
+              >
+                Get Free Estimate
+              </Button>
+            </div>
+            
             <div className="bg-green-50 border-l-4 border-green-400 p-4 mb-6">
               <div className="flex flex-col space-y-1">
                 <div className="flex items-center">
@@ -131,7 +147,7 @@ export default function ContactSection() {
           {/* Contact Form */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
             <h3 className="text-2xl font-bold text-charcoal mb-6">Request Your Quote</h3>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+            <form id="quote-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>
                   <Label htmlFor="firstName" className="text-charcoal">First Name</Label>
