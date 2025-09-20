@@ -339,18 +339,10 @@ export default function AppointmentScheduler() {
       formData.lastName &&
       formData.email &&
       formData.phone &&
-      formData.street &&
-      formData.city &&
-      formData.state &&
-      formData.zip &&
       !form.formState.errors.firstName &&
       !form.formState.errors.lastName &&
       !form.formState.errors.email &&
-      !form.formState.errors.phone &&
-      !form.formState.errors.street &&
-      !form.formState.errors.city &&
-      !form.formState.errors.state &&
-      !form.formState.errors.zip
+      !form.formState.errors.phone
     );
   };
 
