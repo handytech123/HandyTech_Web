@@ -1,12 +1,47 @@
-import { Award } from "lucide-react";
+import { Award, Sparkles } from "lucide-react";
 
 export default function AwardBadge() {
   return (
     <div className="flex flex-col items-center py-8">
       {/* Gold Badge */}
       <div className="relative">
+        {/* Animated Sparkles */}
+        <div className="absolute inset-0 pointer-events-none">
+          {/* Top sparkles */}
+          <div className="absolute top-2 left-8 animate-sparkle-1">
+            <Sparkles className="w-4 h-4 text-yellow-300" />
+          </div>
+          <div className="absolute top-4 right-6 animate-sparkle-2">
+            <Sparkles className="w-3 h-3 text-yellow-400" />
+          </div>
+          
+          {/* Side sparkles */}
+          <div className="absolute top-12 left-2 animate-sparkle-3">
+            <Sparkles className="w-3 h-3 text-yellow-200" />
+          </div>
+          <div className="absolute top-16 right-2 animate-sparkle-1">
+            <Sparkles className="w-4 h-4 text-yellow-300" />
+          </div>
+          
+          {/* Bottom sparkles */}
+          <div className="absolute bottom-8 left-6 animate-sparkle-2">
+            <Sparkles className="w-3 h-3 text-yellow-400" />
+          </div>
+          <div className="absolute bottom-6 right-8 animate-sparkle-3">
+            <Sparkles className="w-4 h-4 text-yellow-300" />
+          </div>
+          
+          {/* Extra accent sparkles */}
+          <div className="absolute top-8 left-12 animate-sparkle-1">
+            <div className="w-2 h-2 bg-yellow-300 rounded-full animate-pulse"></div>
+          </div>
+          <div className="absolute top-20 right-12 animate-sparkle-2">
+            <div className="w-1.5 h-1.5 bg-yellow-400 rounded-full animate-pulse"></div>
+          </div>
+        </div>
+        
         {/* Outer gold circle */}
-        <div className="w-32 h-32 bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 rounded-full shadow-xl border-4 border-yellow-500 flex items-center justify-center relative">
+        <div className="w-32 h-32 bg-gradient-to-br from-yellow-300 via-yellow-400 to-yellow-600 rounded-full shadow-xl border-4 border-yellow-500 flex items-center justify-center relative animate-badge-glow">
           {/* Inner content area */}
           <div className="w-24 h-24 bg-gradient-to-br from-yellow-200 to-yellow-300 rounded-full flex flex-col items-center justify-center text-center border-2 border-yellow-600">
             <Award className="w-6 h-6 text-yellow-800 mb-1" />

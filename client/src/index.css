@@ -178,4 +178,63 @@
     -webkit-box-orient: vertical;
     overflow: hidden;
   }
+  
+  /* Sparkle animations for award badge */
+  .animate-sparkle-1 {
+    animation: sparkle-1 2s ease-in-out infinite;
+  }
+  
+  .animate-sparkle-2 {
+    animation: sparkle-2 2.5s ease-in-out infinite 0.5s;
+  }
+  
+  .animate-sparkle-3 {
+    animation: sparkle-3 3s ease-in-out infinite 1s;
+  }
+  
+  .animate-badge-glow {
+    animation: badge-glow 4s ease-in-out infinite;
+  }
+  
+  @keyframes sparkle-1 {
+    0%, 100% {
+      opacity: 0;
+      transform: scale(0.5) rotate(0deg);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1) rotate(180deg);
+    }
+  }
+  
+  @keyframes sparkle-2 {
+    0%, 100% {
+      opacity: 0.3;
+      transform: scale(0.7) rotate(0deg);
+    }
+    50% {
+      opacity: 1;
+      transform: scale(1.2) rotate(90deg);
+    }
+  }
+  
+  @keyframes sparkle-3 {
+    0%, 100% {
+      opacity: 0;
+      transform: scale(0.3) rotate(360deg);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1) rotate(180deg);
+    }
+  }
+  
+  @keyframes badge-glow {
+    0%, 100% {
+      box-shadow: 0 0 20px rgba(255, 215, 0, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 30px rgba(255, 215, 0, 0.6), 0 0 40px rgba(255, 215, 0, 0.4);
+    }
+  }
 }
