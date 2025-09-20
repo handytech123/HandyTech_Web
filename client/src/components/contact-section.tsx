@@ -348,7 +348,7 @@ export default function ContactSection() {
                 className="w-full bg-brand-red text-white hover:bg-brand-red-dark py-4 text-lg font-semibold"
                 data-testid="button-submit-quote"
               >
-                {submitQuote.isPending ? "Submitting..." : "Get Free Quote"}
+                {submitQuote.isPending ? "Submitting..." : "Get Free Estimate"}
               </Button>
             </form>
           </div>
