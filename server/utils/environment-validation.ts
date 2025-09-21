@@ -50,7 +50,7 @@ const ENVIRONMENT_VARIABLES: EnvironmentConfig[] = [
     validation: (value) => value.length >= 3
   },
   {
-    name: 'ADMIN_PASSWORD',
+    name: 'ADMIN_PASS',
     required: true,
     security_critical: true,
     description: 'Password for admin panel access (should be strong)',
