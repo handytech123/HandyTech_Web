@@ -17,7 +17,7 @@ npm start
 ```bash
 DATABASE_URL=postgresql://username:password@hostname:port/database_name
 SESSION_SECRET=your-secure-32-character-minimum-secret
-ADMIN_PASS=YourAdminPassword123!
+ADMIN_PASSWORD=YourAdminPassword123!
 GOOGLE_CLIENT_ID=your-google-client-id
 GOOGLE_CLIENT_SECRET=your-google-client-secret
 GOOGLE_REDIRECT_URI=https://YOUR_DOMAIN/api/admin/google/callback

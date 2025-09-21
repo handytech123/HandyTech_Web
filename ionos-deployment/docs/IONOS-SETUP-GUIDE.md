@@ -204,7 +204,7 @@ This guide provides step-by-step instructions for deploying HandyTech Solutions 
    ```env
    DATABASE_URL=postgresql://username:password@hostname:port/database
    SESSION_SECRET=your-32-character-secret-key
-   ADMIN_PASS=your-admin-password
+   ADMIN_PASSWORD=your-admin-password
    ADMIN_EMAIL=contact@handytech-solutions.com
    SMTP_HOST=smtp.ionos.com
    SMTP_USER=contact@handytech-solutions.com

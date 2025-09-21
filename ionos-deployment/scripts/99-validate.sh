@@ -107,7 +107,7 @@ validate_environment() {
         # Required variables from deploy.json
         test_check "DATABASE_URL configured" "$(test -n "${DATABASE_URL:-}" && echo true || echo false)"
         test_check "SESSION_SECRET configured" "$(test -n "${SESSION_SECRET:-}" && echo true || echo false)"
-        test_check "ADMIN_PASS configured" "$(test -n "${ADMIN_PASS:-}" && echo true || echo false)"
+        test_check "ADMIN_PASSWORD configured" "$(test -n "${ADMIN_PASSWORD:-}" && echo true || echo false)"
         test_check "ADMIN_EMAIL configured" "$(test -n "${ADMIN_EMAIL:-}" && echo true || echo false)"
         test_check "SMTP_HOST configured" "$(test -n "${SMTP_HOST:-}" && echo true || echo false)"
         test_check "SMTP_USER configured" "$(test -n "${SMTP_USER:-}" && echo true || echo false)"

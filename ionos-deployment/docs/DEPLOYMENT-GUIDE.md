@@ -66,7 +66,7 @@ DATABASE_URL=postgresql://username:password@hostname:port/database
 
 # Security
 SESSION_SECRET=your-32-character-secret-key
-ADMIN_PASS=your-admin-password
+ADMIN_PASSWORD=your-admin-password
 
 # Email (IONOS SMTP)
 ADMIN_EMAIL=contact@handytech-solutions.com
