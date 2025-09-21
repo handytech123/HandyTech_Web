@@ -314,7 +314,7 @@ create_env_template() {
 # Required Variables
 DATABASE_URL=postgresql://username:password@hostname:port/database
 SESSION_SECRET=generate-32-character-secret-key
-ADMIN_PASSWORD=your-admin-password
+ADMIN_PASS=your-admin-password
 ADMIN_EMAIL=contact@handytech-solutions.com
 SMTP_HOST=smtp.ionos.com
 SMTP_USER=contact@handytech-solutions.com

@@ -92,7 +92,7 @@ fi
 
 # Security Configuration
 check_required "SESSION_SECRET" "Secret key for session encryption" 32
-check_required "ADMIN_PASSWORD" "Admin portal login password" 8
+check_required "ADMIN_PASS" "Admin portal login password" 8
 
 # Email Configuration
 check_required "ADMIN_EMAIL" "Admin email address for notifications"
@@ -183,8 +183,8 @@ if [[ "${NODE_ENV:-}" == "production" ]]; then
     fi
     
     # Check strong passwords
-    if [[ -n "${ADMIN_PASSWORD:-}" ]] && [[ ${#ADMIN_PASSWORD} -lt 12 ]]; then
-        echo -e "${YELLOW}⚠️  ADMIN_PASSWORD should be at least 12 characters in production${NC}"
+    if [[ -n "${ADMIN_PASS:-}" ]] && [[ ${#ADMIN_PASS} -lt 12 ]]; then
+        echo -e "${YELLOW}⚠️  ADMIN_PASS should be at least 12 characters in production${NC}"
         ((WARNINGS++))
     fi
 fi

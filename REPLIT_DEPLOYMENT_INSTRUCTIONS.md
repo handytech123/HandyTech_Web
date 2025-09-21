@@ -104,7 +104,7 @@ export DATABASE_URL="postgresql://username:password@hostname:port/database"
 
 # Security (generate strong values)
 export SESSION_SECRET="your-secure-32-plus-character-session-secret-key"
-export ADMIN_PASSWORD="SecureAdminPassword123!"
+export ADMIN_PASS="SecureAdminPassword123!"
 
 # Email Configuration
 export ADMIN_EMAIL="contact@handytech-solutions.com"
@@ -123,7 +123,7 @@ export GOOGLE_REDIRECT_URI="https://yourdomain.com/api/admin/google/callback"
 # Verify each variable is set
 echo "DATABASE_URL: $DATABASE_URL"
 echo "SESSION_SECRET length: $(echo -n $SESSION_SECRET | wc -c)"
-echo "ADMIN_PASSWORD: $ADMIN_PASSWORD"
+echo "ADMIN_PASS: $ADMIN_PASS"
 echo "ADMIN_EMAIL: $ADMIN_EMAIL"
 echo "SMTP_HOST: $SMTP_HOST"
 echo "GOOGLE_CLIENT_ID: $GOOGLE_CLIENT_ID"
@@ -301,7 +301,7 @@ echo "Should start with postgresql://"
 ### If STEP 2 (Environment Variables) fails:
 ```bash
 echo "Check all required variables are set:"
-env | grep -E "(DATABASE_URL|SESSION_SECRET|ADMIN_PASSWORD|ADMIN_EMAIL|SMTP_HOST|GOOGLE_CLIENT_ID)"
+env | grep -E "(DATABASE_URL|SESSION_SECRET|ADMIN_PASS|ADMIN_EMAIL|SMTP_HOST|GOOGLE_CLIENT_ID)"
 ```
 
 ### If STEP 3 (Dependencies) fails:

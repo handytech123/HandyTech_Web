@@ -92,7 +92,7 @@ ssh root@your-new-server-ip
 
 # Configure environment variables
 sudo nano /opt/handytech/.env
-# Update: DATABASE_URL, ADMIN_PASSWORD, SESSION_SECRET, domain-specific settings
+# Update: DATABASE_URL, ADMIN_PASS, SESSION_SECRET, domain-specific settings
 
 # Validate configuration
 sudo -u handytech /opt/handytech/scripts/validate-secrets.sh
