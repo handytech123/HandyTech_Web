@@ -16,7 +16,7 @@ function validateRequiredEnvVars(): void {
   const isProduction = process.env.NODE_ENV === 'production';
   
   // Base requirements for all environments
-  const required = ['JWT_SECRET', 'ADMIN_USERNAME', 'ADMIN_PASS'];
+  const required = ['JWT_SECRET', 'ADMIN_USERNAME', 'ADMIN_PASSWORD'];
   
   // Additional requirements for production
   if (isProduction) {
