@@ -1,0 +1,2 @@
+# This file ensures the uploads directory is included in Git but keeps it empty
+# The uploads directory is needed for file upload functionality

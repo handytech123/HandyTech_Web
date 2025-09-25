@@ -1,0 +1,327 @@
+import React from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Star } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { insertReviewSchema } from "@shared/schema";
+import { z } from "zod";
+
+// Extended schema to include customer information fields not in the base review schema
+const reviewFormSchema = insertReviewSchema.extend({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  email: z.string().email("Please enter a valid email address"),
+  serviceType: z.string().min(1, "Please select a service type"),
+});
+
+type ReviewFormData = z.infer<typeof reviewFormSchema>;
+
+interface CustomerReviewFormProps {
+  onSuccess?: () => void;
+}
+
+export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProps) {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  
+  const form = useForm<ReviewFormData>({
+    resolver: zodResolver(reviewFormSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      email: "",
+      serviceType: "",
+      rating: 5,
+      title: "",
+      content: "",
+      city: "",
+      state: "",
+    },
+  });
+
+  const submitReviewMutation = useMutation({
+    mutationFn: async (data: ReviewFormData) => {
+      const response = await apiRequest("/api/reviews/submit", "POST", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Review Submitted Successfully!",
+        description: "Thank you for your feedback. Your review is pending approval and will appear on our site soon.",
+      });
+      
+      // Reset form
+      form.reset();
+      
+      // Refresh reviews
+      queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
+      
+      if (onSuccess) onSuccess();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error Submitting Review",
+        description: error.message || "There was a problem submitting your review. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const onSubmit = (data: ReviewFormData) => {
+    submitReviewMutation.mutate(data);
+  };
+
+  const serviceTypes = [
+    "Electrical Work",
+    "Plumbing Services", 
+    "Smart Home Installation",
+    "Home Repairs",
+    "Furniture Assembly",
+    "TV Mounting",
+    "Grab Bar Installation",
+    "Dishwasher Installation",
+    "Microwave Installation",
+    "Door Hardware Installation",
+    "Bathroom Hardware Installation",
+    "Drywall Repair",
+    "Other"
+  ];
+
+  return (
+    <Card className="max-w-2xl mx-auto">
+      <CardHeader>
+        <CardTitle className="text-2xl font-bold text-center text-charcoal">
+          Share Your Experience
+        </CardTitle>
+        <p className="text-center text-gray-600">
+          Help others by sharing your experience with HandyTech Solutions
+        </p>
+      </CardHeader>
+      
+      <CardContent>
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          {/* Customer Information */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-charcoal">Your Information</h3>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="firstName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>First Name *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter your first name" data-testid="input-firstName" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="lastName"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Last Name *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Enter your last name" data-testid="input-lastName" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address *</FormLabel>
+                    <FormControl>
+                      <Input type="email" {...field} placeholder="your.email@example.com" data-testid="input-email" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="serviceType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Received *</FormLabel>
+                    <FormControl>
+                      <select
+                        {...field}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent"
+                        data-testid="select-service"
+                      >
+                        <option value="">Select the service you received...</option>
+                        {serviceTypes.map((service, index) => (
+                          <option key={index} value={service}>{service}</option>
+                        ))}
+                      </select>
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            {/* Location Fields - Required for reviews */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="city"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>City *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="Hazelwood" data-testid="input-city" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="state"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>State *</FormLabel>
+                    <FormControl>
+                      <Input {...field} placeholder="MO" data-testid="input-state" />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+          </div>
+
+          {/* Rating */}
+          <div className="space-y-2">
+            <h3 className="text-lg font-semibold text-charcoal">Overall Rating *</h3>
+            <FormField
+              control={form.control}
+              name="rating"
+              render={({ field }) => (
+                <FormItem>
+                  <div className="flex items-center space-x-1">
+                    {[1, 2, 3, 4, 5].map((star) => (
+                      <button
+                        key={star}
+                        type="button"
+                        onClick={() => field.onChange(star)}
+                        className="p-1 transition-colors"
+                        data-testid={`star-${star}`}
+                      >
+                        <Star
+                          size={32}
+                          className={`${
+                            field.value >= star
+                              ? "text-yellow-400 fill-current"
+                              : "text-gray-300"
+                          } hover:text-yellow-400 transition-colors`}
+                        />
+                      </button>
+                    ))}
+                    <span className="ml-3 text-gray-600">
+                      {field.value === 5 && "Excellent"}
+                      {field.value === 4 && "Very Good"}
+                      {field.value === 3 && "Good"}
+                      {field.value === 2 && "Fair"}
+                      {field.value === 1 && "Poor"}
+                    </span>
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          {/* Review Content */}
+          <div className="space-y-4">
+            <h3 className="text-lg font-semibold text-charcoal">Your Review</h3>
+            
+            <FormField
+              control={form.control}
+              name="title"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Review Title *</FormLabel>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="Summarize your experience..."
+                      maxLength={100}
+                      data-testid="input-title"
+                    />
+                  </FormControl>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {field.value?.length || 0}/100 characters
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            
+            <FormField
+              control={form.control}
+              name="content"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Detailed Review *</FormLabel>
+                  <FormControl>
+                    <Textarea
+                      {...field}
+                      placeholder="Tell others about your experience with HandyTech Solutions. What did we do well? How was our communication and professionalism?"
+                      rows={6}
+                      maxLength={1000}
+                      data-testid="textarea-content"
+                    />
+                  </FormControl>
+                  <div className="text-xs text-gray-500 mt-1">
+                    {field.value?.length || 0}/1000 characters
+                  </div>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          </div>
+
+          <div className="pt-4 border-t">
+            <Button 
+              type="submit"
+              disabled={submitReviewMutation.isPending}
+              className="w-full bg-brand-red hover:bg-brand-red-dark text-white py-3 text-lg font-semibold"
+              data-testid="button-submit-review"
+            >
+              {submitReviewMutation.isPending ? "Submitting Review..." : "Submit Review"}
+            </Button>
+            
+            <p className="text-xs text-gray-500 text-center mt-3">
+              Your review will be reviewed and published within 24-48 hours. 
+              Reviews help other customers make informed decisions about our services.
+            </p>
+          </div>
+          </form>
+        </Form>
+      </CardContent>
+    </Card>
+  );
+}

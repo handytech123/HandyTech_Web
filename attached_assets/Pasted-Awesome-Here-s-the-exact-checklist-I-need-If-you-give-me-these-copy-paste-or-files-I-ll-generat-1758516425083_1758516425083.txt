@@ -1,0 +1,116 @@
+Awesome. Here’s the exact checklist I need. If you give me these (copy-paste or files), I’ll generate a perfectly tailored, copy-paste deployment for your Node server on handytech-solutions.com.
+
+1) Repo basics
+
+GitHub link (or zip)
+
+File tree (top 2–3 levels) — you can paste output like:
+
+/ (root)
+├─ package.json
+├─ server.js (or app.js / dist/server.js / index.js)
+├─ src/
+├─ public/ or build/ or dist/
+└─ .env.example (if you have one)
+
+2) package.json (just paste the JSON)
+
+Specifically need:
+
+"scripts" (start/build/migrate/seed)
+
+"engines" (Node version, if set)
+
+Any notable dependencies (express, next, nest, prisma, knex, socket.io, etc.)
+
+3) Entry + build
+
+Entry command you run locally (e.g., node server.js, npm run start, npm run start -- -p 5000)
+
+Build step? npm run build (yes/no)
+
+4) Web server details
+
+Port the app listens on by default (if hardcoded; otherwise I’ll use PORT=5000)
+
+Health endpoint (e.g., /health GET) so I can wire checks
+
+Static files:
+
+Served by Node (e.g., app.use(express.static('public'))) OR
+
+Built frontend dir you want NGINX to serve (path?)
+
+5) Security & session/CSRF
+
+Using sessions/cookies? (paste the session/cookie config block if you have it)
+
+Using CSRF (library & how you verify token)?
+
+CORS: list allowed origins (e.g., https://handytech-solutions.com, https://www.handytech-solutions.com)
+
+OK to enable HSTS immediately? (forces HTTPS)
+
+6) Environment variables (full list)
+
+Paste your .env.example or list all required envs:
+
+DATABASE_URL (format only, not secrets if you prefer)
+
+SESSION_SECRET, CSRF_SECRET
+
+Any API keys / third-party creds (names only)
+
+Any SMTP/Twilio/Stripe/Webhook URLs (names only)
+
+7) Database
+
+Using PostgreSQL (confirmed). Provide:
+
+ORM/migrations tool: Prisma, Knex, Sequelize, or raw SQL?
+
+Migration command (e.g., npx prisma migrate deploy or knex migrate:latest)
+
+Seed command (if any)
+
+Any required extensions (e.g., uuid-ossp, pgcrypto)
+
+Default OK? → DB: handydb, user: handy (local-only). If you want different names, tell me.
+
+8) Realtime / uploads / cron
+
+socket.io / websockets? (yes/no; path if custom)
+
+File uploads? (target folder; max size needed)
+
+Background jobs / cron? (commands & frequency)
+
+9) Domains
+
+We have handytech-solutions.com and www.
+
+Do you also want an API subdomain (e.g., api.handytech-solutions.com)? (yes/no)
+
+10) Deploy workflow preference
+
+Pick one:
+
+Manual: git pull → npm ci → npm run build → pm2 restart
+
+pm2 deploy: one-line pm2 deploy production
+
+GitHub Actions: auto-deploy on push
+
+11) Backups & logs
+
+DB backups: nightly cron ok? (yes/no; keep how many days?)
+
+Logs: PM2 logrotate ok? (recommended) (yes/no)
+
+How to send quickly
+
+Paste: package.json, .env.example (or list of env keys), and a short file tree.
+
+If easier: give me the GitHub repo link and I’ll infer everything.
+
+Once I have those, I’ll return a single, turn-key deploy script (server + PM2 + NGINX + SSL + Postgres + CSRF/CORS/session wiring) customized to your app.

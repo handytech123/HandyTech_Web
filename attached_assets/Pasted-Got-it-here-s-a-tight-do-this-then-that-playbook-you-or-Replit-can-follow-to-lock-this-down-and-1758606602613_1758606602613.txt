@@ -1,0 +1,157 @@
+Got it—here’s a tight, do-this-then-that playbook you (or “Replit”) can follow to lock this down and add the missing API you were trying to hit.
+
+1) Lock the runtime env to the working DB
+
+You already proved the DB creds that work are for user handy.
+
+Files to update (all of them):
+
+/var/www/handytech/shared/env/.env
+
+/var/www/handytech/app/.env (if present)
+
+any PM2 env source (ecosystem/deploy.json if used)
+
+Value to set:
+
+DATABASE_URL=postgresql://handy:Savannah%4021976@localhost:5432/handydb
+
+
+Apply to PM2:
+
+cd /var/www/handytech/app
+set -a; . /var/www/handytech/shared/env/.env; set +a
+pm2 restart handytech-api --update-env
+
+2) Route ordering (API before static & SPA)
+
+Make sure your Express setup mounts the API router first, then static, then SPA fallback. In server/index.ts (or wherever you create the app):
+
+// ✅ 1) API first
+app.use('/api', apiRouter);
+
+// ✅ 2) Static files
+app.use(express.static(path.join(__dirname, 'public')));
+
+// ✅ 3) SPA fallback (for anything NOT starting with /api)
+app.get(/^\/(?!api\/).*/, (_req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+
+Then rebuild/restart if you changed TS:
+
+npm run build
+pm2 restart handytech-api --update-env
+
+3) Add the endpoints you were curling (optional but handy)
+
+Your app already supports GET /api/availability (with required query params). You also tried /api/availability/rules and /api/availability/rules/active—those returned HTML because no routes matched. If you want these, add tiny read-only routes.
+
+Create server/routes/availabilityRules.ts:
+
+import { Router } from 'express';
+import { Pool } from 'pg';
+
+const router = Router();
+const pool = new Pool({ connectionString: process.env.DATABASE_URL });
+
+router.get('/rules', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, day_of_week, start_time, end_time, is_active
+       FROM availability_rules
+       ORDER BY day_of_week, start_time`
+    );
+    res.json({ rules: rows });
+  } catch (err) {
+    console.error('rules error', err);
+    res.status(500).json({ error: 'Failed to load rules' });
+  }
+});
+
+router.get('/rules/active', async (_req, res) => {
+  try {
+    const { rows } = await pool.query(
+      `SELECT id, day_of_week, start_time, end_time
+       FROM availability_rules
+       WHERE is_active = true
+       ORDER BY day_of_week, start_time`
+    );
+    res.json({ rules: rows });
+  } catch (err) {
+    console.error('active rules error', err);
+    res.status(500).json({ error: 'Failed to load active rules' });
+  }
+});
+
+export default router;
+
+
+Wire it into your main API router (e.g., server/routes/index.ts):
+
+import { Router } from 'express';
+import availabilityRules from './availabilityRules';
+
+const api = Router();
+
+api.use('/availability', availabilityRules);
+
+// ...existing endpoints
+export default api;
+
+
+Rebuild & restart:
+
+npm run build
+pm2 restart handytech-api --update-env
+
+4) How to call the existing availability endpoint correctly
+
+Validation requires from, to, and either hours or serviceId. Example:
+
+FROM=$(date -u +"%Y-%m-%dT00:00:00Z")
+TO=$(date -u -d "+7 days" +"%Y-%m-%dT23:59:59Z")
+SERVICE_ID="<put-a-real-service-id-here>"  # or use &hours=60
+
+curl -s "http://127.0.0.1:5000/api/availability?from=$FROM&to=$TO&serviceId=$SERVICE_ID&timezone=America/New_York" | jq .
+
+
+If you don’t have services, use hours:
+
+curl -s "http://127.0.0.1:5000/api/availability?from=$FROM&to=$TO&hours=60&timezone=America/New_York" | jq .
+
+5) DB is good; keep migrations wired
+
+You already ran:
+
+npm run db:push  # drizzle-kit push
+
+
+Keep that script in package.json and make sure drizzle.config.ts points at process.env.DATABASE_URL.
+
+6) Smoke tests Replit (or your CI bot) can run
+
+Paste these into an automated “Fix”/CI step after deploy:
+
+# Health
+curl -fsS http://127.0.0.1:5000/health >/dev/null
+
+# Rules JSON (new routes)
+curl -fsS http://127.0.0.1:5000/api/availability/rules | jq -e '.rules | length >= 5' >/dev/null
+curl -fsS http://127.0.0.1:5000/api/availability/rules/active | jq -e '.rules | length >= 5' >/dev/null
+
+# Availability with hours fallback
+FROM=$(date -u +"%Y-%m-%dT00:00:00Z")
+TO=$(date -u -d "+7 days" +"%Y-%m-%dT23:59:59Z")
+curl -fsS "http://127.0.0.1:5000/api/availability?from=$FROM&to=$TO&hours=60&timezone=America/New_York" | jq -e 'type == "array"' >/dev/null
+
+7) Security follow-ups (please do these)
+
+Rotate the DB password (you typed it in logs/commands). Then update DATABASE_URL and pg_hba.conf if needed.
+
+Use strong values for SMTP_PASS and GOOGLE_CLIENT_SECRET (your logs flagged length).
+
+Restrict ALLOWED_ORIGINS to your real domains only.
+
+8) If you deploy on Replit proper

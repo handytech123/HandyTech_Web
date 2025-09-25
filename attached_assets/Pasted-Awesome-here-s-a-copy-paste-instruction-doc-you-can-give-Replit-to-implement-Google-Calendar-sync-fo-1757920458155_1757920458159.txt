@@ -1,0 +1,339 @@
+Awesome—here’s a copy-paste instruction doc you can give Replit to implement Google Calendar sync for HandyTech using your business email contact@handytech-solutions.com.
+
+
+---
+
+📌 Task: Push HandyTech bookings to Google Calendar
+
+Goal: Whenever a customer books (or reschedules/cancels) in our app, create/update/delete a matching event in Google Calendar owned by contact@handytech-solutions.com.
+
+Summary of Deliverables
+
+1. Add Google Calendar API integration (OAuth2 + token storage).
+
+
+2. Admin connect flow (/api/admin/google/auth → /api/admin/google/callback).
+
+
+3. On create booking: insert event.
+
+
+4. On reschedule: update event.
+
+
+5. On cancel: delete event.
+
+
+6. Env vars documented; minimal, safe error handling (don’t block bookings if Google is down).
+
+
+
+
+---
+
+1) Dependencies
+
+npm i googleapis
+
+
+---
+
+2) .env (use these exact keys)
+
+> Replit: add to Secrets. Server: add to .env.
+
+
+
+# Google OAuth Credentials (from Google Cloud Console)
+GOOGLE_CLIENT_ID=<<to be added by Replit after console setup>>
+GOOGLE_CLIENT_SECRET=<<to be added by Replit after console setup>>
+GOOGLE_REDIRECT_URI=https://YOUR_DOMAIN/api/admin/google/callback
+
+# Calendar we push into (HandyTech account)
+GOOGLE_CALENDAR_ID=contact@handytech-solutions.com
+
+# Timezone for event start/end
+TZ=America/Chicago
+
+> If we want to use a different calendar later, only change GOOGLE_CALENDAR_ID.
+
+
+
+
+---
+
+3) Google Cloud Console setup (Replit to complete)
+
+Create/choose project → Enable “Google Calendar API.”
+
+OAuth consent screen: External → app name “HandyTech Calendar Sync”.
+
+OAuth 2.0 Client ID (type Web application).
+
+Authorized redirect URI: https://YOUR_DOMAIN/api/admin/google/callback
+
+
+Paste the Client ID/Secret into env above.
+
+We will authenticate as: contact@handytech-solutions.com.
+
+
+
+---
+
+4) Token helper (new file)
+
+server/utils/google.js
+
+const fs = require("fs");
+const path = require("path");
+const { google } = require("googleapis");
+
+const TOKENS_FILE = path.join(process.cwd(), "server", "data", "google_tokens.json");
+
+function getOAuth2Client() {
+  const client = new google.auth.OAuth2(
+    process.env.GOOGLE_CLIENT_ID,
+    process.env.GOOGLE_CLIENT_SECRET,
+    process.env.GOOGLE_REDIRECT_URI
+  );
+  if (fs.existsSync(TOKENS_FILE)) {
+    client.setCredentials(JSON.parse(fs.readFileSync(TOKENS_FILE, "utf-8")));
+  }
+  return client;
+}
+
+function saveTokens(tokens) {
+  const dir = path.dirname(TOKENS_FILE);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(TOKENS_FILE, JSON.stringify(tokens, null, 2), "utf-8");
+}
+
+function calendarClient(auth) {
+  return google.calendar({ version: "v3", auth });
+}
+
+function toRFC3339(d) {
+  return new Date(d).toISOString();
+}
+
+async function ensureAuthed() {
+  const client = getOAuth2Client();
+  const creds = client.credentials || {};
+  if (!creds.access_token && !creds.refresh_token) {
+    throw new Error("GOOGLE_NOT_CONNECTED");
+  }
+  return client;
+}
+
+async function createEvent({ summary, description, start, end, attendees = [] }) {
+  const auth = await ensureAuthed();
+  const cal = calendarClient(auth);
+  const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+  const TZ = process.env.TZ || "America/Chicago";
+  const { data } = await cal.events.insert({
+    calendarId,
+    requestBody: {
+      summary,
+      description,
+      start: { dateTime: toRFC3339(start), timeZone: TZ },
+      end:   { dateTime: toRFC3339(end),   timeZone: TZ },
+      attendees: attendees.map(e => ({ email: e })),
+      reminders: { useDefault: true }
+    }
+  });
+  return data; // contains id
+}
+
+async function updateEvent(eventId, { summary, description, start, end, attendees = [] }) {
+  const auth = await ensureAuthed();
+  const cal = calendarClient(auth);
+  const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+  const TZ = process.env.TZ || "America/Chicago";
+  const { data } = await cal.events.patch({
+    calendarId,
+    eventId,
+    requestBody: {
+      summary,
+      description,
+      start: { dateTime: toRFC3339(start), timeZone: TZ },
+      end:   { dateTime: toRFC3339(end),   timeZone: TZ },
+      attendees: attendees.map(e => ({ email: e }))
+    }
+  });
+  return data;
+}
+
+async function deleteEvent(eventId) {
+  const auth = await ensureAuthed();
+  const cal = calendarClient(auth);
+  const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
+  await cal.events.delete({ calendarId, eventId });
+}
+
+module.exports = {
+  getOAuth2Client,
+  saveTokens,
+  createEvent,
+  updateEvent,
+  deleteEvent
+};
+
+
+---
+
+5) Admin OAuth routes (new)
+
+server/routes/google-admin.js
+
+const Router = require("express").Router;
+const { getOAuth2Client, saveTokens } = require("../utils/google");
+const r = Router();
+
+// TODO: attach admin auth middleware if available
+// r.use(requireAdmin);
+
+// Step 1: kick off OAuth
+r.get("/auth", (_req, res) => {
+  const oAuth2Client = getOAuth2Client();
+  const scopes = ["https://www.googleapis.com/auth/calendar.events"];
+  const url = oAuth2Client.generateAuthUrl({
+    access_type: "offline",
+    prompt: "consent",
+    scope: scopes
+  });
+  res.redirect(url);
+});
+
+// Step 2: callback
+r.get("/callback", async (req, res) => {
+  try {
+    const oAuth2Client = getOAuth2Client();
+    const { code } = req.query;
+    const { tokens } = await oAuth2Client.getToken(String(code));
+    saveTokens(tokens);
+    res.status(200).send("Google Calendar connected for contact@handytech-solutions.com! You can close this tab.");
+  } catch (e) {
+    console.error("Google OAuth failed:", e);
+    res.status(500).send("Google auth failed. Check server logs.");
+  }
+});
+
+module.exports = r;
+
+Mount in server/index.js (or main router):
+
+const googleAdmin = require("./routes/google-admin");
+app.use("/api/admin/google", /* requireAdmin, */ googleAdmin);
+
+Admin connect flow (one-time):
+Visit https://YOUR_DOMAIN/api/admin/google/auth → sign in as contact@handytech-solutions.com → allow → see “connected” message.
+
+
+---
+
+6) Hook bookings → Calendar
+
+Where: inside your existing POST /api/appointments after a booking is successfully saved.
+
+const { createEvent } = require("../utils/google"); // adjust relative path
+
+// Assume we have: title, start (Date), end (Date), notes, and booking/customer object "b"
+try {
+  const event = await createEvent({
+    summary: title, // e.g., "Faucet Replacement — 2h Block"
+    description: [
+      `Customer: ${b.customerName} (${b.customerEmail}${b.customerPhone ? ", " + b.customerPhone : ""})`,
+      notes ? `Notes: ${notes}` : null
+    ].filter(Boolean).join("\n"),
+    start,
+    end,
+    attendees: [b.customerEmail] // include customer on event (optional)
+  });
+
+  // IMPORTANT: persist Google event id with the appointment for updates/deletes
+  // e.g., await saveAppointmentGoogleEventId(appt.id, event.id);
+} catch (e) {
+  console.error("Google Calendar sync (create) failed:", e.message);
+  // Do NOT fail the booking; log only. Admin can re-connect if tokens expired.
+}
+
+On reschedule: (wherever you change start/end/title)
+
+const { updateEvent } = require("../utils/google");
+// appt.google_event_id must be loaded from storage
+try {
+  if (appt.google_event_id) {
+    await updateEvent(appt.google_event_id, {
+      summary: title,
+      description: notes || "",
+      start, end,
+      attendees: [b.customerEmail]
+    });
+  }
+} catch (e) {
+  console.error("Google Calendar sync (update) failed:", e.message);
+}
+
+On cancel: (if you support hard delete)
+
+const { deleteEvent } = require("../utils/google");
+try {
+  if (appt.google_event_id) await deleteEvent(appt.google_event_id);
+} catch (e) {
+  console.error("Google Calendar sync (delete) failed:", e.message);
+}
+
+> Storage requirement: Add a field to bookings (JSON or DB) to store google_event_id returned by createEvent. This is needed for updates/deletes.
+
+
+
+
+---
+
+7) Acceptance Criteria (Replit to verify)
+
+Auth flow: Visiting /api/admin/google/auth prompts Google; callback stores tokens in server/data/google_tokens.json.
+
+Create: Make a booking in the app → event appears in contact@handytech-solutions.com calendar with correct start/end, title, and description.
+
+Update: Reschedule the same booking → the same event moves to new time (verify by event ID).
+
+Delete: Cancel booking → event is removed from the calendar.
+
+Failure tolerance: If Google tokens are missing/expired, booking still succeeds; server logs an error and returns JSON to the client without crashing.
+
+
+
+---
+
+8) Security & Notes
+
+Protect /api/admin/google/* with our admin auth middleware if available.
+
+Do not block customer bookings if Google API is down; log and continue.
+
+Timezone: respect TZ=America/Chicago and always store timestamps in UTC internally.
+
+Only calendar scope needed: https://www.googleapis.com/auth/calendar.events.
+
+Token file path: server/data/google_tokens.json (gitignore it).
+
+
+
+---
+
+9) Optional (nice to have)
+
+Admin status route /api/admin/google/status to return connected: true/false.
+
+Retry job (cron) to push missed events if sync failed temporarily.
+
+Support selecting a different GOOGLE_CALENDAR_ID from Admin UI later.
+
+
+
+---
+
+If anything is unclear, ask before changing existing file paths. The business calendar is contact@handytech-solutions.com and all events should go there unless we change GOOGLE_CALENDAR_ID.
+

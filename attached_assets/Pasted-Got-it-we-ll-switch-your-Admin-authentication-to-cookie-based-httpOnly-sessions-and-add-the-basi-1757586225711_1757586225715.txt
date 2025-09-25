@@ -1,0 +1,240 @@
+Got it — we’ll switch your Admin authentication to cookie-based (httpOnly) sessions and add the basic guards. Copy the snippets below into your project.
+
+
+---
+
+0) Install deps
+
+npm i helmet express-rate-limit express-session cookie-parser csurf cors
+
+
+---
+
+1) Env (Replit Secrets)
+
+Add these:
+
+SESSION_SECRET=super-long-random-string
+ADMIN_PASS=choose-a-strong-password
+NODE_ENV=production
+
+
+---
+
+2) security.ts (new)
+
+Create server/security.ts:
+
+import helmet from "helmet";
+import cors from "cors";
+import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
+import session from "express-session";
+import csrf from "csurf";
+import type { Request, Response, NextFunction } from "express";
+
+export const useHelmet = helmet({
+  crossOriginResourcePolicy: { policy: "cross-origin" },
+});
+
+export const useCORS = cors({
+  origin: [/localhost:\d+$/, /.*\.replit\.dev$/], // add your domain if you have one
+  credentials: true,
+});
+
+export const useCookies = cookieParser();
+
+export const useSession = session({
+  name: "ht.sid",
+  secret: process.env.SESSION_SECRET!,
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    maxAge: 1000 * 60 * 60 * 8, // 8 hours
+  },
+});
+
+// CSRF for browser POST/PUT/DELETE
+export const useCSRF = csrf({ cookie: false });
+
+export const rlPublic = rateLimit({ windowMs: 15 * 60 * 1000, max: 300 });
+export const rlSensitive = rateLimit({ windowMs: 15 * 60 * 1000, max: 60 });
+
+export function requireAdmin(req: Request, res: Response, next: NextFunction) {
+  if (req.session && (req.session as any).isAdmin === true) return next();
+  return res.status(401).json({ error: "ADMIN_AUTH_REQUIRED" });
+}
+
+export function attachCsrfRoute(app: any) {
+  app.get("/api/csrf", (req: Request, res: Response) => {
+    // @ts-ignore
+    res.json({ csrfToken: req.csrfToken?.() });
+  });
+}
+
+
+---
+
+3) server.ts (wire the middleware)
+
+In your main server file (e.g., server/index.ts), add:
+
+import express from "express";
+import { useHelmet, useCORS, useCookies, useSession, useCSRF, rlPublic, rlSensitive, attachCsrfRoute } from "./security.js";
+
+const app = express();
+
+app.use(useHelmet);
+app.use(useCORS);
+app.use(express.json({ limit: "200kb" }));
+app.use(useCookies);
+app.use(useSession);
+
+// (If you have webhooks like Stripe/Calendly, mount them BEFORE CSRF and with raw body)
+
+// CSRF (for browser requests)
+attachCsrfRoute(app);
+app.use(useCSRF);
+
+// Rate limits
+app.use("/api/availability", rlPublic);
+app.use("/api/admin", rlSensitive);
+app.use("/api/reschedule", rlSensitive);
+
+// ...mount your routes below...
+export default app;
+
+
+---
+
+4) Admin login/logout routes (cookie session)
+
+Create or update server/routes/admin-auth.ts:
+
+import { Router } from "express";
+import { rlSensitive } from "../security.js";
+
+const r = Router();
+
+// POST /api/admin/login  { password }
+r.post("/login", rlSensitive, (req, res) => {
+  const { password } = req.body || {};
+  if (!password) return res.status(400).json({ error: "PASSWORD_REQUIRED" });
+  if (password !== process.env.ADMIN_PASS) return res.status(401).json({ error: "BAD_CREDENTIALS" });
+
+  (req.session as any).isAdmin = true; // session is stored via cookie
+  res.json({ ok: true });
+});
+
+// POST /api/admin/logout
+r.post("/logout", rlSensitive, (req, res) => {
+  req.session.destroy(() => {
+    res.clearCookie("ht.sid");
+    res.json({ ok: true });
+  });
+});
+
+export default r;
+
+Mount it in server/index.ts (after middleware):
+
+import adminAuthRoutes from "./routes/admin-auth.js";
+app.use("/api/admin", adminAuthRoutes);
+
+
+---
+
+5) Protect existing Admin routes
+
+Wherever your Admin APIs are, import requireAdmin and use it:
+
+import { requireAdmin } from "../security.js";
+
+app.get("/api/admin/schedule", requireAdmin, handler);
+app.post("/api/admin/block", requireAdmin, handler);
+app.get("/api/availability/rules", requireAdmin, handler);
+app.post("/api/availability/rules", requireAdmin, handler);
+app.put("/api/availability/rules/:id", requireAdmin, handler);
+app.delete("/api/availability/rules/:id", requireAdmin, handler);
+
+
+---
+
+6) Client changes (Admin UI)
+
+Use cookies, not headers. Always include credentials and CSRF.
+
+// csrf.ts
+let csrfToken = "";
+export async function getCsrf() {
+  if (csrfToken) return csrfToken;
+  const r = await fetch("/api/csrf", { credentials: "include" });
+  const d = await r.json();
+  csrfToken = d.csrfToken;
+  return csrfToken;
+}
+
+// api.ts
+export async function apiFetch(url: string, opts: RequestInit = {}) {
+  const token = await getCsrf();
+  const headers = new Headers(opts.headers || {});
+  if (opts.method && opts.method !== "GET") {
+    headers.set("Content-Type", "application/json");
+    headers.set("x-csrf-token", token);
+  }
+  return fetch(url, { ...opts, headers, credentials: "include" });
+}
+
+// login example
+export async function adminLogin(password: string) {
+  const r = await apiFetch("/api/admin/login", {
+    method: "POST",
+    body: JSON.stringify({ password })
+  });
+  if (!r.ok) throw new Error("Login failed");
+  return r.json();
+}
+
+// after login, just call:
+await apiFetch("/api/admin/schedule"); // cookie carries the session
+
+> No localStorage tokens; no Authorization header. The secure, httpOnly cookie ht.sid is handled by the browser.
+
+
+
+
+---
+
+7) Reschedule POST (works with CSRF)
+
+Your existing reschedule route can stay the same; just ensure your client page fetches /api/csrf once and includes x-csrf-token on the POST /api/reschedule/:token call (use the same apiFetch above).
+
+
+---
+
+8) Quick test plan
+
+1. Admin login: POST /api/admin/login with correct ADMIN_PASS → 200; then GET /api/admin/schedule succeeds.
+
+
+2. Unauthorized: GET /api/admin/schedule before login → 401.
+
+
+3. CSRF: Try a POST without x-csrf-token → 403; with token → 200.
+
+
+4. Rate limit: Hammer /api/admin/login >60 times/15min → 429.
+
+
+5. Cookie: Confirm ht.sid is httpOnly, SameSite=Lax, Secure (in prod).
+
+
+
+
+---
+
+If you pasted the above into your codebase, you’re now on cookie-based, httpOnly sessions with CSRF, rate limiting, and secure headers — exactly what Replit expects and the safer approach for your Admin.
+
