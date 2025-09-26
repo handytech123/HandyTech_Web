@@ -349,6 +349,37 @@ export const insertPortalLoginTokenSchema = createInsertSchema(portalLoginTokens
   expiresAt: z.coerce.date(),
 });
 
+// Chat system tables
+export const chatConversations = pgTable("chat_conversations", {
+  id: varchar("id").primaryKey(), // UUID-based conversation ID
+  status: varchar("status", { length: 20 }).notNull().default("bot"), // bot, pending_handoff, human
+  customerId: integer("customer_id").references(() => customers.id),
+  customerName: varchar("customer_name", { length: 100 }),
+  customerEmail: varchar("customer_email", { length: 255 }),
+  customerPhone: varchar("customer_phone", { length: 20 }),
+  lastMessageAt: timestamp("last_message_at").defaultNow().notNull(),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const chatMessages = pgTable("chat_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: varchar("conversation_id").notNull().references(() => chatConversations.id, { onDelete: "cascade" }),
+  role: varchar("role", { length: 20 }).notNull(), // user, assistant, admin, system
+  content: text("content").notNull(),
+  metadata: text("metadata"), // JSON string for additional data
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const insertChatConversationSchema = createInsertSchema(chatConversations).omit({
+  lastMessageAt: true,
+  createdAt: true,
+});
+
+export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
+  id: true,
+  createdAt: true,
+});
+
 // Reschedule validation schema
 export const rescheduleRequestSchema = z.object({
   startISO: z.string().datetime("Invalid ISO datetime format"),
@@ -395,6 +426,11 @@ export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
 export type PortalLoginToken = typeof portalLoginTokens.$inferSelect;
 export type InsertPortalLoginToken = z.infer<typeof insertPortalLoginTokenSchema>;
 
+export type ChatConversation = typeof chatConversations.$inferSelect;
+export type InsertChatConversation = z.infer<typeof insertChatConversationSchema>;
+
+export type ChatMessage = typeof chatMessages.$inferSelect;
+export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 
 // Service History Types - combines appointment data with service pricing
 export interface ServiceHistoryItem {
