@@ -11,6 +11,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
 import { storage } from "./storage";
 import path from "path";
+import { OpenAI } from "openai";
 
 const app = express();
 
@@ -291,8 +292,9 @@ app.use((req, res, next) => {
         return "I'm having trouble connecting to my AI service right now. Would you like to speak with a human agent?";
       }
       
-      const { OpenAI } = await import("openai");
-      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      const openai = new OpenAI({ 
+        apiKey: process.env.OPENAI_API_KEY?.trim()
+      });
       
       const systemPrompt = `You are HandyChat for HandyTech Solutions, a professional handyman service in Missouri specializing in home improvement and smart technology solutions.
 
@@ -320,7 +322,7 @@ When customer is ready to schedule, collect: name, phone number, address, detail
 If customer requests human assistance, respond: "I'm connecting you with our expert technician who can provide specialized help for your project."`;
       
       const response = await openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-3.5-turbo',
         temperature: 0.4,
         messages: [
           { role: 'system', content: systemPrompt },
