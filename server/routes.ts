@@ -2330,14 +2330,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enhanced handoff detection with multiple trigger phrases
       const handoffTriggers = [
-        /human|agent|representative|person|someone|live|help|support/i,
+        /human|agent|representative|person|someone|live/i,
         /speak.*(real|actual).*(person|human)/i,
         /talk.*(someone|human|person)/i,
         /customer.*service/i,
         /need.*help.*(person|human)/i,
         /transfer.*me/i,
         /chat.*(human|person)/i,
-        /real.*person/i
+        /real.*person/i,
+        /speak.*to.*someone/i,
+        /talk.*to.*someone/i
       ];
       
       const isHandoffRequest = handoffTriggers.some(trigger => trigger.test(message));
@@ -2427,7 +2429,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Check if human handoff was requested (using same triggers as above)
-      const humanRequest = /human|agent|representative|person|someone|live|help|support|speak.*(real|actual).*(person|human)|talk.*(someone|human|person)|customer.*service|need.*help.*(person|human)|transfer.*me|chat.*(human|person)|real.*person/i;
+      const humanRequest = /human|agent|representative|person|someone|live|speak.*(real|actual).*(person|human)|talk.*(someone|human|person)|customer.*service|need.*help.*(person|human)|transfer.*me|chat.*(human|person)|real.*person|speak.*to.*someone|talk.*to.*someone/i;
       if (humanRequest.test(message.toLowerCase())) {
         needsHumanHandoff = true;
         
