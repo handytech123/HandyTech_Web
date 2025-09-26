@@ -143,68 +143,202 @@ app.use((req, res, next) => {
     }
   });
 
-  // Socket.IO connection handling for live chat
+  // Socket.IO connection handling for AI-powered chat with human handoff
   io.on('connection', (socket) => {
     log(`Socket connected: ${socket.id}`);
-
-    // Join admin room for receiving live chat notifications
-    socket.on('join-admin', () => {
+    
+    // Handle different roles
+    const role = socket.handshake.auth?.role || 'visitor';
+    
+    if (role === 'visitor') {
+      // Customer/visitor connection
+      const convId = socket.handshake.auth?.convId || `conv_${Math.random().toString(36).slice(2)}_${Date.now()}`;
+      socket.join(convId);
+      socket.emit('connected', { convId });
+      
+      // Initialize conversation in database if not exists
+      initializeConversation(convId);
+      
+      socket.on('visitor:message', async ({ text }) => {
+        if (!text?.trim()) return;
+        
+        try {
+          // Store user message
+          await storage.createChatMessage({
+            conversationId: convId,
+            role: 'user',
+            content: text.trim()
+          });
+          
+          const conversation = await storage.getChatConversation(convId);
+          if (!conversation) return;
+          
+          // Check for human handoff request
+          if (/human|agent|representative|person|live/i.test(text)) {
+            await storage.updateChatConversationStatus(convId, 'pending_handoff');
+            socket.emit('bot:message', { text: "I'm connecting you with a human agent now. Please hold on..." });
+            
+            // Notify admins
+            socket.to('admin-room').emit('handoff:requested', { 
+              conversationId: convId,
+              customerMessage: text,
+              timestamp: new Date()
+            });
+            
+            // Send email/SMS notification
+            await notifyAdminOfHandoff(convId, text);
+            return;
+          }
+          
+          // AI response only if in bot mode
+          if (conversation.status === 'bot') {
+            const messages = await storage.getChatMessages(convId);
+            const chatHistory = messages.map(msg => ({
+              role: msg.role === 'assistant' ? 'assistant' : 'user',
+              content: msg.content
+            }));
+            
+            const aiResponse = await generateAIResponse(chatHistory);
+            
+            // Store AI response
+            await storage.createChatMessage({
+              conversationId: convId,
+              role: 'assistant',
+              content: aiResponse
+            });
+            
+            socket.emit('bot:message', { text: aiResponse });
+          } else {
+            // Forward to admin if human is handling
+            socket.to(`admin:${convId}`).emit('admin:forward', { text, convId });
+          }
+        } catch (error) {
+          console.error('Chat error:', error);
+          socket.emit('bot:message', { text: "Sorry, I'm having trouble right now. Please try again." });
+        }
+      });
+      
+    } else if (role === 'admin') {
+      // Admin connection
+      const convId = socket.handshake.auth?.convId;
       socket.join('admin-room');
-      log(`Admin joined: ${socket.id}`);
-    });
-
-    // Handle admin taking over a chat session
-    socket.on('take-session', (sessionId: string) => {
-      // Notify admin room that session was taken
-      socket.to('admin-room').emit('session-taken', { sessionId, adminId: socket.id });
+      if (convId) socket.join(`admin:${convId}`);
       
-      // Notify customer that admin has joined
-      socket.to(`customer-${sessionId}`).emit('admin-joined', {
-        message: 'A team member has joined the chat!'
+      socket.on('admin:takeover', async ({ convId }) => {
+        try {
+          await storage.updateChatConversationStatus(convId, 'human');
+          socket.to(convId).emit('bot:message', { text: "You're now chatting with a human agent." });
+          log(`Admin ${socket.id} took over conversation ${convId}`);
+        } catch (error) {
+          console.error('Takeover error:', error);
+        }
       });
       
-      log(`Admin ${socket.id} took over session ${sessionId}`);
-    });
-
-    // Handle admin messages to customers
-    socket.on('admin-message', ({ sessionId, message }: { sessionId: string; message: string }) => {
-      // Send to customer
-      socket.to(`customer-${sessionId}`).emit('admin-message', {
-        message,
-        timestamp: new Date(),
-        isAgent: true
+      socket.on('admin:botback', async ({ convId }) => {
+        try {
+          await storage.updateChatConversationStatus(convId, 'bot');
+          socket.to(convId).emit('bot:message', { text: "The AI assistant is back to help you." });
+          log(`Admin ${socket.id} returned conversation ${convId} to bot`);
+        } catch (error) {
+          console.error('Bot return error:', error);
+        }
       });
       
-      log(`Admin message sent to session ${sessionId}`);
-    });
-
-    // Handle customer joining a session
-    socket.on('join-customer-session', (sessionId: string) => {
-      socket.join(`customer-${sessionId}`);
-      log(`Customer joined session ${sessionId}`);
-      
-      // Notify admin room about new customer session
-      socket.to('admin-room').emit('new-customer-session', { sessionId });
-    });
-
-    // Handle customer messages (when in live mode)
-    socket.on('customer-message', ({ sessionId, message }: { sessionId: string; message: string }) => {
-      // Send to admin room
-      socket.to('admin-room').emit('customer-message', {
-        sessionId,
-        message,
-        timestamp: new Date()
+      socket.on('admin:message', async ({ convId, text }) => {
+        if (!text?.trim()) return;
+        
+        try {
+          // Store admin message
+          await storage.createChatMessage({
+            conversationId: convId,
+            role: 'admin',
+            content: text.trim()
+          });
+          
+          // Send to customer
+          socket.to(convId).emit('human:message', { text: text.trim() });
+          log(`Admin message sent to conversation ${convId}`);
+        } catch (error) {
+          console.error('Admin message error:', error);
+        }
       });
-    });
+    }
 
-    // Handle disconnect
     socket.on('disconnect', () => {
       log(`Socket disconnected: ${socket.id}`);
-      
-      // Notify admin room about disconnection
-      socket.to('admin-room').emit('admin-disconnected', { adminId: socket.id });
     });
   });
+  
+  // Helper functions
+  async function initializeConversation(convId: string) {
+    try {
+      const existing = await storage.getChatConversation(convId);
+      if (!existing) {
+        await storage.createChatConversation({
+          id: convId,
+          status: 'bot'
+        });
+      }
+    } catch (error) {
+      console.error('Failed to initialize conversation:', error);
+    }
+  }
+  
+  async function generateAIResponse(history: Array<{ role: string; content: string }>) {
+    try {
+      if (!process.env.OPENAI_API_KEY) {
+        return "I'm having trouble connecting to my AI service right now. Would you like to speak with a human agent?";
+      }
+      
+      const { OpenAI } = await import("openai");
+      const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+      
+      const systemPrompt = `You are HandyChat for HandyTech Solutions, a handyman service in Missouri.
+- Be brief, friendly, and helpful
+- Specialize in electrical, plumbing, smart home tech, painting, and general repairs
+- If customer seems ready to book, ask for name, phone, address, description, and preferred time
+- If they ask for a human, acknowledge and tell them you're connecting them`;
+      
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        temperature: 0.4,
+        messages: [
+          { role: 'system', content: systemPrompt },
+          ...history.slice(-12) // Keep last 12 messages for context
+        ]
+      });
+      
+      return response.choices[0].message.content?.trim() || "I'm here to help! What can I do for you today?";
+    } catch (error) {
+      console.error('OpenAI error:', error);
+      return "I'm having trouble with my AI right now. Would you like to speak with a human agent?";
+    }
+  }
+  
+  async function notifyAdminOfHandoff(convId: string, message: string) {
+    try {
+      // Email notification
+      const emailService = await import("./lib/email-service");
+      if (emailService.isConfigured() && process.env.ADMIN_EMAIL) {
+        await emailService.sendEmail({
+          to: process.env.ADMIN_EMAIL,
+          subject: 'Chat Handoff Requested - HandyTech',
+          text: `A customer has requested to speak with a human agent.\n\nConversation ID: ${convId}\nCustomer message: "${message}"\n\nPlease check the admin panel to take over the chat.`
+        });
+      }
+      
+      // SMS notification (if configured)
+      if (process.env.ALERT_TO_SMS && process.env.SMS_CARRIER) {
+        const smsService = await import("./lib/sms");
+        await smsService.sendSMS(
+          process.env.ALERT_TO_SMS,
+          `HandyTech: Customer requesting human agent. Conversation: ${convId.slice(-8)}. Check admin panel.`
+        );
+      }
+    } catch (error) {
+      console.error('Notification error:', error);
+    }
+  }
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

@@ -2293,24 +2293,27 @@ export class DatabaseStorage implements IStorage {
   // ====================================
 
   async createChatConversation(conversation: InsertChatConversation): Promise<ChatConversation> {
-    const [result] = await withDatabaseRetry(() =>
-      db.insert(chatConversations).values(conversation).returning()
+    const [result] = await withDatabaseRetry(
+      () => db.insert(chatConversations).values(conversation).returning(),
+      'createChatConversation'
     );
     return result;
   }
 
   async getChatConversation(id: string): Promise<ChatConversation | undefined> {
-    const [result] = await withDatabaseRetry(() =>
-      db.select().from(chatConversations).where(eq(chatConversations.id, id)).limit(1)
+    const [result] = await withDatabaseRetry(
+      () => db.select().from(chatConversations).where(eq(chatConversations.id, id)).limit(1),
+      'getChatConversation'
     );
     return result;
   }
 
   async updateChatConversationStatus(id: string, status: string): Promise<void> {
-    await withDatabaseRetry(() =>
-      db.update(chatConversations)
+    await withDatabaseRetry(
+      () => db.update(chatConversations)
         .set({ status, lastMessageAt: new Date() })
-        .where(eq(chatConversations.id, id))
+        .where(eq(chatConversations.id, id)),
+      'updateChatConversationStatus'
     );
   }
 
@@ -2320,24 +2323,27 @@ export class DatabaseStorage implements IStorage {
     if (customerEmail !== undefined) updates.customerEmail = customerEmail;
     if (customerPhone !== undefined) updates.customerPhone = customerPhone;
     
-    await withDatabaseRetry(() =>
-      db.update(chatConversations)
+    await withDatabaseRetry(
+      () => db.update(chatConversations)
         .set(updates)
-        .where(eq(chatConversations.id, id))
+        .where(eq(chatConversations.id, id)),
+      'updateChatConversationCustomer'
     );
   }
 
   async getAllChatConversations(): Promise<ChatConversation[]> {
-    return await withDatabaseRetry(() =>
-      db.select().from(chatConversations).orderBy(desc(chatConversations.lastMessageAt))
+    return await withDatabaseRetry(
+      () => db.select().from(chatConversations).orderBy(desc(chatConversations.lastMessageAt)),
+      'getAllChatConversations'
     );
   }
 
   async getRecentChatConversations(limit: number = 50): Promise<ChatConversation[]> {
-    return await withDatabaseRetry(() =>
-      db.select().from(chatConversations)
+    return await withDatabaseRetry(
+      () => db.select().from(chatConversations)
         .orderBy(desc(chatConversations.lastMessageAt))
-        .limit(limit)
+        .limit(limit),
+      'getRecentChatConversations'
     );
   }
 
@@ -2346,34 +2352,38 @@ export class DatabaseStorage implements IStorage {
   // ====================================
 
   async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
-    const [result] = await withDatabaseRetry(() =>
-      db.insert(chatMessages).values(message).returning()
+    const [result] = await withDatabaseRetry(
+      () => db.insert(chatMessages).values(message).returning(),
+      'createChatMessage'
     );
     
     // Update conversation lastMessageAt
-    await withDatabaseRetry(() =>
-      db.update(chatConversations)
+    await withDatabaseRetry(
+      () => db.update(chatConversations)
         .set({ lastMessageAt: new Date() })
-        .where(eq(chatConversations.id, message.conversationId))
+        .where(eq(chatConversations.id, message.conversationId)),
+      'updateConversationLastMessage'
     );
     
     return result;
   }
 
   async getChatMessages(conversationId: string): Promise<ChatMessage[]> {
-    return await withDatabaseRetry(() =>
-      db.select().from(chatMessages)
+    return await withDatabaseRetry(
+      () => db.select().from(chatMessages)
         .where(eq(chatMessages.conversationId, conversationId))
-        .orderBy(chatMessages.createdAt)
+        .orderBy(chatMessages.createdAt),
+      'getChatMessages'
     );
   }
 
   async getRecentChatMessages(conversationId: string, limit: number = 50): Promise<ChatMessage[]> {
-    return await withDatabaseRetry(() =>
-      db.select().from(chatMessages)
+    return await withDatabaseRetry(
+      () => db.select().from(chatMessages)
         .where(eq(chatMessages.conversationId, conversationId))
         .orderBy(desc(chatMessages.createdAt))
-        .limit(limit)
+        .limit(limit),
+      'getRecentChatMessages'
     );
   }
 

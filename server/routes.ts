@@ -2293,6 +2293,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return "Hey there! What's going on with your home today? We handle all kinds of stuff - electrical, plumbing, smart home tech, painting, you name it. What can I help you figure out?";
   }
 
+  // ====================================
+  // CHAT API ENDPOINTS
+  // ====================================
+
+  // Admin chat authentication
+  app.post("/api/admin/chat/login", (req, res) => {
+    const { password } = req.body || {};
+    if (!password || password !== (process.env.ADMIN_PASSWORD || 'changeme')) {
+      return res.status(401).json({ ok: false, message: "Invalid password" });
+    }
+    
+    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
+    // Store admin token (in production, use Redis or database)
+    res.json({ ok: true, token });
+  });
+
+  // Get all chat conversations for admin
+  app.get("/api/admin/chat/conversations", requireAdmin, async (req, res) => {
+    try {
+      const conversations = await storage.getRecentChatConversations(100);
+      const conversationList = conversations.map(c => ({
+        id: c.id,
+        status: c.status,
+        customerName: c.customerName,
+        customerEmail: c.customerEmail,
+        lastMessageAt: c.lastMessageAt,
+        createdAt: c.createdAt
+      }));
+      res.json({ ok: true, conversations: conversationList });
+    } catch (error) {
+      console.error("Failed to get conversations:", error);
+      res.status(500).json({ ok: false, message: "Failed to get conversations" });
+    }
+  });
+
+  // Get chat history for a specific conversation
+  app.get("/api/admin/chat/history/:conversationId", requireAdmin, async (req, res) => {
+    try {
+      const { conversationId } = req.params;
+      const conversation = await storage.getChatConversation(conversationId);
+      if (!conversation) {
+        return res.status(404).json({ ok: false, message: "Conversation not found" });
+      }
+      
+      const messages = await storage.getChatMessages(conversationId);
+      res.json({ ok: true, messages });
+    } catch (error) {
+      console.error("Failed to get chat history:", error);
+      res.status(500).json({ ok: false, message: "Failed to get chat history" });
+    }
+  });
+
   // Service calculator endpoint
   app.post("/api/service-quote-calculator", async (req, res) => {
     try {
