@@ -232,10 +232,9 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
   id: true,
   createdAt: true,
-  imageUrl: true, // Images are handled via file upload
-  beforeImageUrl: true, // Images are handled via file upload
-  imageUrls: true, // Images are handled via file upload
 }).extend({
+  imageUrl: z.string().optional(), // Allow imageUrl for backend processing
+  beforeImageUrl: z.string().optional(), // Allow beforeImageUrl for backend processing  
   imageUrls: z.array(z.string()).optional(), // Allow array of image URLs for multiple finished images
 });
 
