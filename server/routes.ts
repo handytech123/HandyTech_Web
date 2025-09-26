@@ -2330,12 +2330,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Enhanced handoff detection with multiple trigger phrases
       const handoffTriggers = [
-        /human|agent|representative|person|someone|live/i,
+        /human|agent|representative|person|someone|live|help|support/i,
         /speak.*(real|actual).*(person|human)/i,
         /talk.*(someone|human|person)/i,
         /customer.*service/i,
         /need.*help.*(person|human)/i,
-        /transfer.*me/i
+        /transfer.*me/i,
+        /chat.*(human|person)/i,
+        /real.*person/i
       ];
       
       const isHandoffRequest = handoffTriggers.some(trigger => trigger.test(message));
