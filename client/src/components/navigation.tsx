@@ -70,6 +70,11 @@ export default function Navigation() {
                   Admin
                 </Button>
               </Link>
+              <Link href="/admin/chat">
+                <Button variant="outline" size="sm" className="mr-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+                  Live Chat
+                </Button>
+              </Link>
               <button 
                 onClick={() => scrollToSection('contact')}
                 className="bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-red-dark transition-colors"
@@ -124,6 +129,11 @@ export default function Navigation() {
                   <Link href="/admin">
                     <Button variant="outline" className="w-full justify-start border-brand-red text-brand-red hover:bg-brand-red hover:text-white">
                       Admin Dashboard
+                    </Button>
+                  </Link>
+                  <Link href="/admin/chat">
+                    <Button variant="outline" className="w-full justify-start border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white">
+                      Live Chat Admin
                     </Button>
                   </Link>
                   <button 

@@ -10,6 +10,7 @@ import CustomerPortal from "@/pages/customer-portal";
 import PortalLogin from "@/pages/portal-login";
 import PortalCallback from "@/pages/portal-callback";
 import AdminDashboard from "@/pages/admin";
+import AdminChat from "@/pages/admin-chat";
 import LeaveReview from "@/pages/leave-review";
 import ReschedulePage from "@/pages/reschedule";
 import NotFound from "@/pages/not-found";
@@ -24,6 +25,7 @@ function Router() {
       <Route path="/portal/callback" component={PortalCallback} />
       <Route path="/portal" component={CustomerPortal} />
       <Route path="/admin" component={AdminDashboard} />
+      <Route path="/admin/chat" component={AdminChat} />
       <Route path="/leave-review" component={LeaveReview} />
       <Route path="/reschedule/:token" component={ReschedulePage} />
       <Route component={NotFound} />
