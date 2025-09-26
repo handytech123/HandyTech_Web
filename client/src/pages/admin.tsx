@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Helmet } from 'react-helmet';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
@@ -16,7 +16,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
-import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit, Image, Upload, Eye, Calendar, MapPin as Location } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit, Image, Upload, Eye, Calendar, MapPin as Location, Bot, UserCheck, Send, RefreshCw } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -31,6 +32,267 @@ import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCusto
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
+import { io, Socket } from "socket.io-client";
+
+// Types for chat
+interface ChatMessage {
+  id: string;
+  conversationId: string;
+  role: string;
+  content: string;
+  createdAt: string;
+}
+
+interface ChatConversation {
+  id: string;
+  status: 'bot' | 'pending_handoff' | 'human';
+  customerName?: string;
+  customerEmail?: string;
+  lastMessageAt: string;
+  createdAt: string;
+}
+
+// LiveChatManagement component 
+function LiveChatManagement() {
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+  const [messageInput, setMessageInput] = useState("");
+  const [socket, setSocket] = useState<Socket | null>(null);
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Initialize Socket.IO connection
+  useEffect(() => {
+    const newSocket = io({
+      auth: {
+        role: 'admin'
+      }
+    });
+    
+    newSocket.on('handoff:requested', (data) => {
+      toast({
+        title: "Handoff Requested",
+        description: `Customer in conversation ${data.conversationId.slice(-8)} wants human help`
+      });
+      queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+    });
+    
+    setSocket(newSocket);
+
+    return () => {
+      newSocket.disconnect();
+    };
+  }, [queryClient, toast]);
+
+  // Get conversations
+  const { data: conversations, isLoading: conversationsLoading } = useQuery({
+    queryKey: ['chat-conversations'],
+    queryFn: async () => {
+      const response = await fetch('/api/chat/conversations');
+      if (!response.ok) throw new Error('Failed to fetch conversations');
+      const data = await response.json();
+      return data.conversations as ChatConversation[];
+    },
+    refetchInterval: 5000
+  });
+
+  // Get messages for selected conversation
+  const { data: messages, isLoading: messagesLoading } = useQuery({
+    queryKey: ['chat-history', selectedConversation],
+    queryFn: async () => {
+      if (!selectedConversation) return [];
+      const response = await fetch(`/api/chat/history/${selectedConversation}`);
+      if (!response.ok) throw new Error('Failed to fetch messages');
+      const data = await response.json();
+      return data.messages as ChatMessage[];
+    },
+    enabled: !!selectedConversation
+  });
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  const takeoverConversation = () => {
+    if (!socket || !selectedConversation) return;
+    
+    socket.emit('admin:takeover', { convId: selectedConversation });
+    toast({ title: "Conversation taken over" });
+    queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+  };
+
+  const returnToBot = () => {
+    if (!socket || !selectedConversation) return;
+    
+    socket.emit('admin:botback', { convId: selectedConversation });
+    toast({ title: "Returned to AI assistant" });
+    queryClient.invalidateQueries({ queryKey: ['chat-conversations'] });
+  };
+
+  const sendMessage = () => {
+    if (!socket || !selectedConversation || !messageInput.trim()) return;
+    
+    socket.emit('admin:message', { 
+      convId: selectedConversation, 
+      text: messageInput.trim() 
+    });
+    
+    setMessageInput("");
+    
+    setTimeout(() => {
+      queryClient.invalidateQueries({ queryKey: ['chat-history', selectedConversation] });
+    }, 500);
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case 'bot':
+        return <Badge className="bg-blue-100 text-blue-800"><Bot className="w-3 h-3 mr-1" />AI Active</Badge>;
+      case 'pending_handoff':
+        return <Badge className="bg-yellow-100 text-yellow-800"><Clock className="w-3 h-3 mr-1" />Handoff Requested</Badge>;
+      case 'human':
+        return <Badge className="bg-green-100 text-green-800"><UserCheck className="w-3 h-3 mr-1" />Human Active</Badge>;
+      default:
+        return null;
+    }
+  };
+
+  const formatTime = (dateString: string) => {
+    return format(new Date(dateString), 'MMM d, h:mm a');
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-[600px]">
+      {/* Conversations List */}
+      <Card className="lg:col-span-1">
+        <CardHeader className="pb-3">
+          <CardTitle className="text-lg flex items-center justify-between">
+            <span className="flex items-center">
+              <MessageSquare className="w-5 h-5 mr-2" />
+              Conversations ({conversations?.length || 0})
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => queryClient.invalidateQueries({ queryKey: ['chat-conversations'] })}
+            >
+              <RefreshCw className="w-4 h-4" />
+            </Button>
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="p-0">
+          <ScrollArea className="h-[500px]">
+            {conversationsLoading ? (
+              <div className="p-4 text-center text-gray-500">Loading conversations...</div>
+            ) : conversations?.length === 0 ? (
+              <div className="p-4 text-center text-gray-500">No conversations yet</div>
+            ) : (
+              <div className="space-y-1">
+                {conversations?.map((conv) => (
+                  <div
+                    key={conv.id}
+                    className={`p-4 border-b cursor-pointer hover:bg-gray-50 ${
+                      selectedConversation === conv.id ? 'bg-blue-50 border-blue-200' : ''
+                    }`}
+                    onClick={() => setSelectedConversation(conv.id)}
+                  >
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-900">
+                        {conv.customerName || `Conversation ${conv.id.slice(-8)}`}
+                      </span>
+                      {getStatusBadge(conv.status)}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {formatTime(conv.lastMessageAt)}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+        </CardContent>
+      </Card>
+
+      {/* Chat Interface */}
+      <Card className="lg:col-span-2">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <CardTitle className="text-lg">
+              {selectedConversation ? `Chat ${selectedConversation.slice(-8)}` : 'Select a conversation'}
+            </CardTitle>
+            {selectedConversation && (
+              <div className="flex space-x-2">
+                <Button size="sm" onClick={takeoverConversation}>
+                  Take Over
+                </Button>
+                <Button size="sm" variant="outline" onClick={returnToBot}>
+                  Return to AI
+                </Button>
+              </div>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          {!selectedConversation ? (
+            <div className="h-[400px] flex items-center justify-center text-gray-500">
+              Select a conversation to start chatting
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {/* Messages */}
+              <ScrollArea className="h-[350px] border rounded-lg p-4">
+                {messagesLoading ? (
+                  <div className="text-center text-gray-500">Loading messages...</div>
+                ) : messages?.length === 0 ? (
+                  <div className="text-center text-gray-500">No messages yet</div>
+                ) : (
+                  <div className="space-y-3">
+                    {messages?.map((message) => (
+                      <div
+                        key={message.id}
+                        className={`flex ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
+                      >
+                        <div
+                          className={`max-w-[80%] p-3 rounded-lg ${
+                            message.role === 'user'
+                              ? 'bg-blue-500 text-white'
+                              : message.role === 'assistant'
+                              ? 'bg-gray-100 text-gray-900'
+                              : 'bg-green-100 text-green-900'
+                          }`}
+                        >
+                          <div className="text-sm">{message.content}</div>
+                          <div className="text-xs opacity-75 mt-1">
+                            {formatTime(message.createdAt)}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                    <div ref={messagesEndRef} />
+                  </div>
+                )}
+              </ScrollArea>
+
+              {/* Message Input */}
+              <div className="flex space-x-2">
+                <Input
+                  placeholder="Type your message..."
+                  value={messageInput}
+                  onChange={(e) => setMessageInput(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                />
+                <Button onClick={sendMessage} disabled={!messageInput.trim()}>
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
 
 // AppointmentsTab component
 function AppointmentsTab({ 
@@ -2130,19 +2392,7 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="live-chat">
-            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
-              <MessageSquare className="w-16 h-16 text-blue-600 mb-4" />
-              <h3 className="text-xl font-semibold text-gray-900 mb-2">Live Chat Management</h3>
-              <p className="text-gray-600 text-center mb-6 max-w-md">
-                Access the full-featured live chat admin interface to manage conversations, take over from AI, and chat directly with customers.
-              </p>
-              <Link href="/admin/chat">
-                <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3">
-                  <MessageSquare className="w-5 h-5 mr-2" />
-                  Open Live Chat Admin
-                </Button>
-              </Link>
-            </div>
+            <LiveChatManagement />
           </TabsContent>
 
         </Tabs>
