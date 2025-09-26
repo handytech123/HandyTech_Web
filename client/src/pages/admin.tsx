@@ -1221,7 +1221,7 @@ function GalleryTab() {
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-2" data-testid="button-upload-photo">
                   <Upload className="h-4 w-4" />
-                  Upload Photo
+                  Submit
                 </Button>
               </DialogTrigger>
               <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
@@ -1473,7 +1473,7 @@ function GalleryTab() {
                         disabled={uploading || uploadMutation.isPending}
                         data-testid="button-submit-upload"
                       >
-                        {uploading ? "Uploading..." : "Upload Photo"}
+                        {uploading ? "Uploading..." : "Submit"}
                       </Button>
                     </div>
                   </form>
