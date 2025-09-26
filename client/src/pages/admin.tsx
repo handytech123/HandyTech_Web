@@ -1141,7 +1141,7 @@ function GalleryTab() {
     },
   });
 
-  const onUploadSubmit = async (data: InsertProjectGallery) => {
+  const onUploadSubmit = (data: InsertProjectGallery) => {
     if (!selectedImages.main && selectedImages.finished.length === 0) {
       toast({
         title: "Error",
