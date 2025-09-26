@@ -219,6 +219,24 @@ app.use((req, res, next) => {
           socket.emit('bot:message', { text: "Sorry, I'm having trouble right now. Please try again." });
         }
       });
+
+      // Handle conversation termination when customer leaves website
+      socket.on('visitor:terminate', async ({ convId }) => {
+        try {
+          // Mark conversation as terminated and remove from admin view
+          await storage.updateChatConversationStatus(convId, 'terminated');
+          
+          // Notify admins that conversation ended
+          socket.to('admin-room').emit('conversation:terminated', { 
+            conversationId: convId,
+            timestamp: new Date()
+          });
+          
+          log(`Conversation terminated: ${convId}`);
+        } catch (error) {
+          console.error('Failed to terminate conversation:', error);
+        }
+      });
       
     } else if (role === 'admin') {
       // Admin connection

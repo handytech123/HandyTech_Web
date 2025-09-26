@@ -88,19 +88,19 @@ function LiveChatManagement() {
   const { data: conversations, isLoading: conversationsLoading } = useQuery({
     queryKey: ['chat-conversations'],
     queryFn: async () => {
-      const data = await apiRequest('/api/admin/chat/conversations', 'GET');
-      return data.conversations as ChatConversation[];
+      const response = await apiRequest('/api/admin/chat/conversations', 'GET');
+      return (response?.conversations || []) as ChatConversation[];
     },
     refetchInterval: 5000
   });
 
-  // Get messages for selected conversation
+  // Get messages for selected conversation  
   const { data: messages, isLoading: messagesLoading } = useQuery({
     queryKey: ['chat-history', selectedConversation],
     queryFn: async () => {
       if (!selectedConversation) return [];
-      const data = await apiRequest(`/api/admin/chat/history/${selectedConversation}`, 'GET');
-      return data.messages as ChatMessage[];
+      const response = await apiRequest(`/api/admin/chat/history/${selectedConversation}`, 'GET');
+      return (response?.messages || []) as ChatMessage[];
     },
     enabled: !!selectedConversation
   });

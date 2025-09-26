@@ -2309,11 +2309,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ok: true, token });
   });
 
-  // Get all chat conversations for admin
+  // Get all chat conversations for admin (exclude terminated)
   app.get("/api/admin/chat/conversations", requireAdmin, async (req, res) => {
     try {
-      const conversations = await storage.getRecentChatConversations(100);
-      const conversationList = conversations.map(c => ({
+      const allConversations = await storage.getRecentChatConversations(100);
+      // Filter out terminated conversations 
+      const activeConversations = allConversations.filter(c => c.status !== 'terminated');
+      const conversationList = activeConversations.map(c => ({
         id: c.id,
         status: c.status,
         customerName: c.customerName,
