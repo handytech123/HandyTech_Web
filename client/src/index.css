@@ -288,7 +288,7 @@
   /* Handyman Theme: Hammer Cursor for Desktop */
   @media (hover: hover) and (pointer: fine) {
     body, html {
-      cursor: url("data:image/svg+xml,%3csvg width='32' height='32' xmlns='http://www.w3.org/2000/svg'%3e%3cdefs%3e%3cfilter id='shadow' x='-50%25' y='-50%25' width='200%25' height='200%25'%3e%3cfeDropShadow dx='1' dy='1' stdDeviation='1' flood-color='rgba(0,0,0,0.3)'/%3e%3c/filter%3e%3c/defs%3e%3cg filter='url(%23shadow)'%3e%3cpath d='M8 12L24 12L24 20L8 20Z' fill='%23654321'/%3e%3cpath d='M6 14L8 14L8 18L6 18Z' fill='%238B4513'/%3e%3ccircle cx='25' cy='16' r='3' fill='%23C0C0C0'/%3e%3cpath d='M22 15L26 15L26 17L22 17Z' fill='%23A0A0A0'/%3e%3c/g%3e%3c/svg%3e") 4 16, auto;
+      cursor: url("data:image/svg+xml,%3csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M4 8h12v6H4z' fill='%23654321'/%3e%3cpath d='M2 10h2v2H2z' fill='%238B4513'/%3e%3ccircle cx='17' cy='11' r='2' fill='%23C0C0C0'/%3e%3c/svg%3e") 2 10, auto;
     }
     
     /* Specific elements keep their normal cursors when appropriate */
@@ -297,12 +297,12 @@
     }
     
     button, a, [role="button"] {
-      cursor: url("data:image/svg+xml,%3csvg width='32' height='32' xmlns='http://www.w3.org/2000/svg'%3e%3cdefs%3e%3cfilter id='shadow' x='-50%25' y='-50%25' width='200%25' height='200%25'%3e%3cfeDropShadow dx='1' dy='1' stdDeviation='1' flood-color='rgba(0,0,0,0.3)'/%3e%3c/filter%3e%3c/defs%3e%3cg filter='url(%23shadow)'%3e%3cpath d='M8 12L24 12L24 20L8 20Z' fill='%23BB0000'/%3e%3cpath d='M6 14L8 14L8 18L6 18Z' fill='%23990000'/%3e%3ccircle cx='25' cy='16' r='3' fill='%23E0E0E0'/%3e%3cpath d='M22 15L26 15L26 17L22 17Z' fill='%23C0C0C0'/%3e%3c/g%3e%3c/svg%3e") 4 16, pointer !important;
+      cursor: url("data:image/svg+xml,%3csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M4 8h12v6H4z' fill='%23BB0000'/%3e%3cpath d='M2 10h2v2H2z' fill='%23990000'/%3e%3ccircle cx='17' cy='11' r='2' fill='%23E0E0E0'/%3e%3c/svg%3e") 2 10, pointer !important;
     }
     
     /* Resize cursors for draggable elements */
     .resize, [data-resize] {
-      cursor: url("data:image/svg+xml,%3csvg width='32' height='32' xmlns='http://www.w3.org/2000/svg'%3e%3cdefs%3e%3cfilter id='shadow' x='-50%25' y='-50%25' width='200%25' height='200%25'%3e%3cfeDropShadow dx='1' dy='1' stdDeviation='1' flood-color='rgba(0,0,0,0.3)'/%3e%3c/filter%3e%3c/defs%3e%3cg filter='url(%23shadow)'%3e%3cpath d='M8 12L24 12L24 20L8 20Z' fill='%23FF8C00'/%3e%3cpath d='M6 14L8 14L8 18L6 18Z' fill='%23FF7700'/%3e%3ccircle cx='25' cy='16' r='3' fill='%23FFD700'/%3e%3cpath d='M22 15L26 15L26 17L22 17Z' fill='%23FFC700'/%3e%3c/g%3e%3c/svg%3e") 4 16, move !important;
+      cursor: url("data:image/svg+xml,%3csvg width='20' height='20' xmlns='http://www.w3.org/2000/svg'%3e%3cpath d='M4 8h12v6H4z' fill='%23FF8C00'/%3e%3cpath d='M2 10h2v2H2z' fill='%23FF7700'/%3e%3ccircle cx='17' cy='11' r='2' fill='%23FFD700'/%3e%3c/svg%3e") 2 10, move !important;
     }
   }
 }
