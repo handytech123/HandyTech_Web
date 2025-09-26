@@ -114,6 +114,7 @@ export const projectGallery = pgTable("project_gallery", {
   category: text("category").notNull(), // 'plumbing', 'electrical', 'carpentry', 'tech', 'general'
   imageUrl: text("image_url").notNull(),
   beforeImageUrl: text("before_image_url"),
+  imageUrls: text("image_urls").array(), // Array of multiple finished result images
   completionDate: timestamp("completion_date").notNull(),
   location: text("location"),
   featured: boolean("featured").default(false).notNull(),

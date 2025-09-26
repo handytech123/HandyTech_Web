@@ -849,7 +849,8 @@ function GalleryTab() {
   const [uploading, setUploading] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
-  const [selectedImages, setSelectedImages] = useState<{ main: File | null; before: File | null }>({ main: null, before: null });
+  const [finishedImagePreviews, setFinishedImagePreviews] = useState<string[]>([]);
+  const [selectedImages, setSelectedImages] = useState<{ main: File | null; before: File | null; finished: File[] }>({ main: null, before: null, finished: [] });
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -919,33 +920,84 @@ function GalleryTab() {
   };
 
   // Handle file selection and preview
-  const handleFileSelect = (files: FileList | null, type: 'main' | 'before') => {
+  const handleFileSelect = (files: FileList | null, type: 'main' | 'before' | 'finished') => {
     if (!files || files.length === 0) return;
     
-    const file = files[0];
-    const error = validateFile(file);
-    
-    if (error) {
-      toast({
-        title: "Invalid File",
-        description: error,
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const result = e.target?.result as string;
-      if (type === 'main') {
-        setImagePreview(result);
-        setSelectedImages(prev => ({ ...prev, main: file }));
-      } else {
-        setBeforeImagePreview(result);
-        setSelectedImages(prev => ({ ...prev, before: file }));
+    if (type === 'finished') {
+      // Handle multiple finished images
+      const fileArray = Array.from(files);
+      const validFiles: File[] = [];
+      const previews: string[] = [];
+      
+      for (const file of fileArray) {
+        const error = validateFile(file);
+        if (error) {
+          toast({
+            title: "Invalid File",
+            description: `${file.name}: ${error}`,
+            variant: "destructive",
+          });
+          continue;
+        }
+        validFiles.push(file);
       }
-    };
-    reader.readAsDataURL(file);
+      
+      if (validFiles.length === 0) return;
+      
+      // Generate previews for valid files
+      validFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const result = e.target?.result as string;
+          previews.push(result);
+          
+          // Update state when all previews are loaded
+          if (previews.length === validFiles.length) {
+            setFinishedImagePreviews(prev => [...prev, ...previews]);
+            setSelectedImages(prev => ({ 
+              ...prev, 
+              finished: [...prev.finished, ...validFiles] 
+            }));
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    } else {
+      // Handle single main or before image
+      const file = files[0];
+      const error = validateFile(file);
+      
+      if (error) {
+        toast({
+          title: "Invalid File",
+          description: error,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const result = e.target?.result as string;
+        if (type === 'main') {
+          setImagePreview(result);
+          setSelectedImages(prev => ({ ...prev, main: file }));
+        } else {
+          setBeforeImagePreview(result);
+          setSelectedImages(prev => ({ ...prev, before: file }));
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // Remove finished image
+  const removeFinishedImage = (index: number) => {
+    setFinishedImagePreviews(prev => prev.filter((_, i) => i !== index));
+    setSelectedImages(prev => ({ 
+      ...prev, 
+      finished: prev.finished.filter((_, i) => i !== index) 
+    }));
   };
 
   // Upload mutation with XMLHttpRequest for real progress and CSRF protection
@@ -1027,10 +1079,11 @@ function GalleryTab() {
       uploadForm.reset();
       setImagePreview(null);
       setBeforeImagePreview(null);
-      setSelectedImages({ main: null, before: null });
+      setFinishedImagePreviews([]);
+      setSelectedImages({ main: null, before: null, finished: [] });
       toast({
         title: "Success",
-        description: "Photo uploaded successfully",
+        description: "Photos uploaded successfully",
       });
     },
     onError: (error: any) => {
@@ -1089,10 +1142,10 @@ function GalleryTab() {
   });
 
   const onUploadSubmit = async (data: InsertProjectGallery) => {
-    if (!selectedImages.main) {
+    if (!selectedImages.main && selectedImages.finished.length === 0) {
       toast({
         title: "Error",
-        description: "Please select a main image",
+        description: "Please select at least one image (main image or finished result images)",
         variant: "destructive",
       });
       return;
@@ -1100,11 +1153,17 @@ function GalleryTab() {
 
     const formData = new FormData();
     
-    // Add images
-    formData.append('images', selectedImages.main);
+    // Add all images
+    if (selectedImages.main) {
+      formData.append('images', selectedImages.main);
+    }
     if (selectedImages.before) {
       formData.append('images', selectedImages.before);
     }
+    // Add all finished images
+    selectedImages.finished.forEach(file => {
+      formData.append('images', file);
+    });
     
     // Add metadata
     formData.append('title', data.title);
@@ -1228,6 +1287,53 @@ function GalleryTab() {
                             )}
                           </label>
                         </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium mb-2">
+                          Finished Result Images (Multiple Upload)
+                        </label>
+                        <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
+                          <Input
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp"
+                            multiple
+                            onChange={(e) => handleFileSelect(e.target.files, 'finished')}
+                            className="hidden"
+                            id="finished-images-upload"
+                            data-testid="input-finished-images"
+                          />
+                          <label htmlFor="finished-images-upload" className="cursor-pointer">
+                            <div className="flex flex-col items-center">
+                              <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                              <p className="text-sm text-gray-500">Click to upload finished result images</p>
+                              <p className="text-xs text-gray-400 mt-1">You can select multiple images at once</p>
+                            </div>
+                          </label>
+                        </div>
+                        
+                        {/* Finished images preview grid */}
+                        {finishedImagePreviews.length > 0 && (
+                          <div className="grid grid-cols-3 gap-2 mt-4">
+                            {finishedImagePreviews.map((preview, index) => (
+                              <div key={index} className="relative group">
+                                <img 
+                                  src={preview} 
+                                  alt={`Finished result ${index + 1}`} 
+                                  className="w-full h-24 object-cover rounded border"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => removeFinishedImage(index)}
+                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                  data-testid={`button-remove-finished-${index}`}
+                                >
+                                  ×
+                                </button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
 
