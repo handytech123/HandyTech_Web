@@ -1142,10 +1142,6 @@ function GalleryTab() {
   });
 
   const onUploadSubmit = (data: InsertProjectGallery) => {
-    console.log("Upload submit called with data:", data);
-    console.log("Form errors:", uploadForm.formState.errors);
-    console.log("Selected images:", selectedImages);
-    
     if (!selectedImages.main && selectedImages.finished.length === 0) {
       toast({
         title: "Error",
