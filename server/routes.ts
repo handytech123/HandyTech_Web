@@ -2426,8 +2426,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.log("Fallback response generated:", botResponse);
       }
 
-      // Check if human handoff was requested
-      const humanRequest = /human|person|live person|real person|speak to someone|talk to someone|representative|agent|operator|manager|owner/i;
+      // Check if human handoff was requested (using same triggers as above)
+      const humanRequest = /human|agent|representative|person|someone|live|help|support|speak.*(real|actual).*(person|human)|talk.*(someone|human|person)|customer.*service|need.*help.*(person|human)|transfer.*me|chat.*(human|person)|real.*person/i;
       if (humanRequest.test(message.toLowerCase())) {
         needsHumanHandoff = true;
         
@@ -2464,7 +2464,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
           });
 
           // Store all conversation history in the in-memory session
-          const history = conversationHistory.get(sessionId) || [];
           const allMessages = [];
           
           // Convert conversation history to message format
