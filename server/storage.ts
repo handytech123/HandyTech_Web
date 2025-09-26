@@ -148,15 +148,6 @@ export interface IStorage {
   markPortalLoginTokenUsed(rawToken: string): Promise<void>;
   deleteExpiredPortalLoginTokens(): Promise<void>;
 
-  // Chat Sessions and Messages - SMS-to-chat bridge support
-  createChatSession(session: InsertChatSession): Promise<ChatSession>;
-  getChatSession(sessionId: string): Promise<ChatSession | undefined>;
-  getChatSessionByOriginalId(originalSessionId: string): Promise<ChatSession | undefined>;
-  updateChatSessionStatus(sessionId: string, status: string, needsHandoff?: boolean, isLive?: boolean): Promise<void>;
-  addChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
-  getChatMessages(sessionId: string): Promise<ChatMessage[]>;
-  getActiveChatSessions(): Promise<ChatSession[]>;
-  generateShortSessionId(): Promise<string>;
 }
 
 export class MemStorage implements IStorage {
@@ -1131,38 +1122,6 @@ export class MemStorage implements IStorage {
     throw new Error("MemStorage not implemented for portal login tokens");
   }
 
-  // Chat Sessions and Messages - Not implemented for MemStorage (use DatabaseStorage in production)
-  async createChatSession(session: InsertChatSession): Promise<ChatSession> {
-    throw new Error("MemStorage not implemented for chat sessions");
-  }
-
-  async getChatSession(sessionId: string): Promise<ChatSession | undefined> {
-    throw new Error("MemStorage not implemented for chat sessions");
-  }
-
-  async getChatSessionByOriginalId(originalSessionId: string): Promise<ChatSession | undefined> {
-    throw new Error("MemStorage not implemented for chat sessions");
-  }
-
-  async updateChatSessionStatus(sessionId: string, status: string, needsHandoff?: boolean, isLive?: boolean): Promise<void> {
-    throw new Error("MemStorage not implemented for chat sessions");
-  }
-
-  async addChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
-    throw new Error("MemStorage not implemented for chat messages");
-  }
-
-  async getChatMessages(sessionId: string): Promise<ChatMessage[]> {
-    throw new Error("MemStorage not implemented for chat messages");
-  }
-
-  async getActiveChatSessions(): Promise<ChatSession[]> {
-    throw new Error("MemStorage not implemented for chat sessions");
-  }
-
-  async generateShortSessionId(): Promise<string> {
-    throw new Error("MemStorage not implemented for chat sessions");
-  }
 
   // Service History Implementation
   async getServiceHistoryByCustomer(customerId: number, filters?: { startDate?: string; endDate?: string; serviceType?: string; limit?: number; offset?: number }): Promise<import("@shared/schema").ServiceHistoryItem[]> {
@@ -2317,124 +2276,6 @@ export class DatabaseStorage implements IStorage {
   }
 
   // Chat Sessions and Messages - SMS-to-chat bridge support
-  async createChatSession(session: InsertChatSession): Promise<ChatSession> {
-    return await withDatabaseRetry(async () => {
-      const [newSession] = await db
-        .insert(chatSessions)
-        .values({
-          ...session,
-          startTime: session.startTime || new Date(),
-          lastActivity: session.lastActivity || new Date(),
-        })
-        .returning();
-      return newSession;
-    });
-  }
-
-  async getChatSession(sessionId: string): Promise<ChatSession | undefined> {
-    return await withDatabaseRetry(async () => {
-      const [session] = await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.sessionId, sessionId));
-      return session;
-    });
-  }
-
-  async getChatSessionByOriginalId(originalSessionId: string): Promise<ChatSession | undefined> {
-    return await withDatabaseRetry(async () => {
-      const [session] = await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.originalSessionId, originalSessionId));
-      return session;
-    });
-  }
-
-  async updateChatSessionStatus(
-    sessionId: string, 
-    status: string, 
-    needsHandoff?: boolean, 
-    isLive?: boolean
-  ): Promise<void> {
-    return await withDatabaseRetry(async () => {
-      const updateData: any = { 
-        status,
-        lastActivity: new Date()
-      };
-      
-      if (needsHandoff !== undefined) {
-        updateData.needsHandoff = needsHandoff;
-      }
-      
-      if (isLive !== undefined) {
-        updateData.isLive = isLive;
-      }
-
-      await db
-        .update(chatSessions)
-        .set(updateData)
-        .where(eq(chatSessions.sessionId, sessionId));
-    });
-  }
-
-  async addChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
-    return await withDatabaseRetry(async () => {
-      const [newMessage] = await db
-        .insert(chatMessages)
-        .values({
-          ...message,
-          timestamp: message.timestamp || new Date(),
-        })
-        .returning();
-
-      // Update session last activity
-      await db
-        .update(chatSessions)
-        .set({ lastActivity: new Date() })
-        .where(eq(chatSessions.sessionId, message.sessionId));
-
-      return newMessage;
-    });
-  }
-
-  async getChatMessages(sessionId: string): Promise<ChatMessage[]> {
-    return await withDatabaseRetry(async () => {
-      return await db
-        .select()
-        .from(chatMessages)
-        .where(eq(chatMessages.sessionId, sessionId))
-        .orderBy(chatMessages.timestamp);
-    });
-  }
-
-  async getActiveChatSessions(): Promise<ChatSession[]> {
-    return await withDatabaseRetry(async () => {
-      return await db
-        .select()
-        .from(chatSessions)
-        .where(eq(chatSessions.status, 'active'))
-        .orderBy(desc(chatSessions.lastActivity));
-    });
-  }
-
-  async generateShortSessionId(): Promise<string> {
-    return await withDatabaseRetry(async () => {
-      let sessionId: string;
-      let exists: boolean;
-      
-      do {
-        // Generate a short, user-friendly session ID like "abc123"
-        sessionId = Math.random().toString(36).substring(2, 8);
-        
-        // Check if it already exists
-        const existing = await this.getChatSession(sessionId);
-        exists = !!existing;
-      } while (exists);
-      
-      return sessionId;
-    });
-  }
 }
 
 export const storage = new DatabaseStorage();

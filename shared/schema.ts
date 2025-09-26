@@ -342,31 +342,6 @@ export const portalLoginTokens = pgTable("portal_login_tokens", {
 });
 
 // Chat sessions for persistent chat storage and SMS bridge
-export const chatSessions = pgTable("chat_sessions", {
-  id: serial("id").primaryKey(),
-  sessionId: varchar("session_id", { length: 20 }).notNull().unique(), // Short ID like "abc123" for SMS replies
-  originalSessionId: text("original_session_id"), // Original long session ID from frontend
-  status: text("status").notNull().default("active"), // 'active', 'ended', 'handoff_requested', 'live_agent'
-  needsHandoff: boolean("needs_handoff").default(false),
-  isLive: boolean("is_live").default(false), // True when live agent has taken over
-  customerInfo: text("customer_info"), // JSON string with any extracted customer info
-  startTime: timestamp("start_time").defaultNow().notNull(),
-  endTime: timestamp("end_time"),
-  lastActivity: timestamp("last_activity").defaultNow().notNull(),
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
-
-// Chat messages for each session
-export const chatMessages = pgTable("chat_messages", {
-  id: serial("id").primaryKey(),
-  sessionId: varchar("session_id", { length: 20 }).references(() => chatSessions.sessionId).notNull(),
-  messageType: text("message_type").notNull(), // 'customer', 'bot', 'agent'
-  content: text("content").notNull(),
-  senderName: text("sender_name"), // e.g., "HandyTech Support" for agent messages
-  timestamp: timestamp("timestamp").defaultNow().notNull(),
-  isFromSMS: boolean("is_from_sms").default(false), // Track which messages came from SMS replies
-  createdAt: timestamp("created_at").defaultNow().notNull(),
-});
 
 export const insertPortalLoginTokenSchema = createInsertSchema(portalLoginTokens).omit({
   id: true,
@@ -377,15 +352,6 @@ export const insertPortalLoginTokenSchema = createInsertSchema(portalLoginTokens
 });
 
 export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({
-  id: true,
-  createdAt: true,
-});
-
-export const insertChatMessageSchema = createInsertSchema(chatMessages).omit({
-  id: true,
-  createdAt: true,
-});
-
 // Reschedule validation schema
 export const rescheduleRequestSchema = z.object({
   startISO: z.string().datetime("Invalid ISO datetime format"),
