@@ -1956,7 +1956,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs defaultValue="services" className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-9 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-10 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
               Services
             </TabsTrigger>
@@ -1983,6 +1983,9 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="customers" className="flex-1 min-w-[100px] text-sm">
               Customers
+            </TabsTrigger>
+            <TabsTrigger value="live-chat" className="flex-1 min-w-[100px] text-sm bg-blue-600 text-white data-[state=active]:bg-blue-700">
+              Live Chat
             </TabsTrigger>
           </TabsList>
 
@@ -2124,6 +2127,22 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="customers">
             <CustomersTab customers={customers} />
+          </TabsContent>
+
+          <TabsContent value="live-chat">
+            <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border-2 border-dashed border-gray-300">
+              <MessageSquare className="w-16 h-16 text-blue-600 mb-4" />
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Live Chat Management</h3>
+              <p className="text-gray-600 text-center mb-6 max-w-md">
+                Access the full-featured live chat admin interface to manage conversations, take over from AI, and chat directly with customers.
+              </p>
+              <Link href="/admin/chat">
+                <Button className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-3">
+                  <MessageSquare className="w-5 h-5 mr-2" />
+                  Open Live Chat Admin
+                </Button>
+              </Link>
+            </div>
           </TabsContent>
 
         </Tabs>

@@ -191,8 +191,8 @@ app.use((req, res, next) => {
             return;
           }
           
-          // AI response only if in bot mode
-          if (conversation.status === 'bot') {
+          // AI response if in bot mode OR pending handoff (no human has taken over yet)
+          if (conversation.status === 'bot' || conversation.status === 'pending_handoff') {
             const messages = await storage.getChatMessages(convId);
             const chatHistory = messages.map((msg: any) => ({
               role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
