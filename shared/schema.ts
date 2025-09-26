@@ -232,12 +232,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
   id: true,
   createdAt: true,
-  imageUrl: true, // Handled separately in upload
-  beforeImageUrl: true, // Handled separately in upload
-  imageUrls: true, // Handled separately in upload
 }).extend({
-  title: z.string().min(1, "Title is required"),
-  description: z.string().min(1, "Description is required"),
   imageUrls: z.array(z.string()).optional(), // Allow array of image URLs for multiple finished images
 });
 
