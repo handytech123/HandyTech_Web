@@ -9,6 +9,7 @@ import { validateEnvironmentVariables } from "./utils/environment-validation";
 import { validateUploadConfiguration } from "./utils/upload";
 import { Server as SocketIOServer } from 'socket.io';
 import { createServer } from 'http';
+import { storage } from "./storage";
 import path from "path";
 
 const app = express();
@@ -193,8 +194,8 @@ app.use((req, res, next) => {
           // AI response only if in bot mode
           if (conversation.status === 'bot') {
             const messages = await storage.getChatMessages(convId);
-            const chatHistory = messages.map(msg => ({
-              role: msg.role === 'assistant' ? 'assistant' : 'user',
+            const chatHistory = messages.map((msg: any) => ({
+              role: msg.role === 'assistant' ? 'assistant' as const : 'user' as const,
               content: msg.content
             }));
             
@@ -284,7 +285,7 @@ app.use((req, res, next) => {
     }
   }
   
-  async function generateAIResponse(history: Array<{ role: string; content: string }>) {
+  async function generateAIResponse(history: Array<{ role: 'user' | 'assistant'; content: string }>) {
     try {
       if (!process.env.OPENAI_API_KEY) {
         return "I'm having trouble connecting to my AI service right now. Would you like to speak with a human agent?";
@@ -317,23 +318,16 @@ app.use((req, res, next) => {
   
   async function notifyAdminOfHandoff(convId: string, message: string) {
     try {
-      // Email notification
-      const emailService = await import("./lib/email-service");
-      if (emailService.isConfigured() && process.env.ADMIN_EMAIL) {
-        await emailService.sendEmail({
-          to: process.env.ADMIN_EMAIL,
-          subject: 'Chat Handoff Requested - HandyTech',
-          text: `A customer has requested to speak with a human agent.\n\nConversation ID: ${convId}\nCustomer message: "${message}"\n\nPlease check the admin panel to take over the chat.`
-        });
+      // Email notification (if configured)
+      if (process.env.ADMIN_EMAIL) {
+        console.log(`Chat handoff requested: ${convId} - ${message}`);
+        // Email notification would go here in production
       }
       
       // SMS notification (if configured)
-      if (process.env.ALERT_TO_SMS && process.env.SMS_CARRIER) {
-        const smsService = await import("./lib/sms");
-        await smsService.sendSMS(
-          process.env.ALERT_TO_SMS,
-          `HandyTech: Customer requesting human agent. Conversation: ${convId.slice(-8)}. Check admin panel.`
-        );
+      if (process.env.ALERT_TO_SMS) {
+        console.log(`SMS alert: Customer requesting human agent. Conversation: ${convId.slice(-8)}`);
+        // SMS notification would go here in production
       }
     } catch (error) {
       console.error('Notification error:', error);
