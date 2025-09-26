@@ -3424,6 +3424,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const urls: string[] = [];
     if (item.imageUrl) urls.push(item.imageUrl);
     if (item.beforeImageUrl) urls.push(item.beforeImageUrl);
+    if (item.imageUrls && Array.isArray(item.imageUrls)) {
+      urls.push(...item.imageUrls);
+    }
     return urls;
   }
 
@@ -3459,6 +3462,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      // Organize images by type (main, before, and multiple finished images)
+      const imageUrls = processedImages.map(img => img.sizes.large.url);
+      
       // Validate form fields
       const formData = {
         title: req.body.title,
@@ -3468,7 +3474,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completionDate: req.body.completionDate ? new Date(req.body.completionDate) : new Date(),
         featured: req.body.featured === 'true' || req.body.featured === true,
         imageUrl: processedImages[0].sizes.large.url, // Use first image as main image
-        beforeImageUrl: processedImages[1]?.sizes.large.url || null // Use second image as before image if provided
+        beforeImageUrl: processedImages[1]?.sizes.large.url || null, // Use second image as before image if provided
+        imageUrls: processedImages.length > 2 ? imageUrls.slice(2) : undefined // Store remaining images as finished results
       };
 
       // Validate using schema

@@ -232,6 +232,8 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
   id: true,
   createdAt: true,
+}).extend({
+  imageUrls: z.array(z.string()).optional(), // Allow array of image URLs for multiple finished images
 });
 
 // Partial update schema for PATCH operations on project gallery items

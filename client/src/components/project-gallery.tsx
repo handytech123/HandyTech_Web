@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { type ProjectGallery } from "@shared/schema";
 import { Calendar, MapPin, Eye } from "lucide-react";
+import ImageCarousel from "@/components/image-carousel";
 
 const categories = [
   { value: "all", label: "All Projects" },
@@ -19,6 +20,17 @@ const categories = [
 export default function ProjectGallery() {
   const [selectedCategory, setSelectedCategory] = useState("all");
   const [selectedProject, setSelectedProject] = useState<ProjectGallery | null>(null);
+
+  // Helper function to get all images for a project
+  const getProjectImages = (project: ProjectGallery): string[] => {
+    const images: string[] = [];
+    if (project.imageUrl) images.push(project.imageUrl);
+    if (project.beforeImageUrl) images.push(project.beforeImageUrl);
+    if (project.imageUrls && Array.isArray(project.imageUrls)) {
+      images.push(...project.imageUrls);
+    }
+    return images;
+  };
 
   const { data: projects = [] } = useQuery<ProjectGallery[]>({
     queryKey: [selectedCategory === "all" 
