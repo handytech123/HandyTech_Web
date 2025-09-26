@@ -341,8 +341,6 @@ export const portalLoginTokens = pgTable("portal_login_tokens", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-// Chat sessions for persistent chat storage and SMS bridge
-
 export const insertPortalLoginTokenSchema = createInsertSchema(portalLoginTokens).omit({
   id: true,
   createdAt: true,
@@ -351,7 +349,6 @@ export const insertPortalLoginTokenSchema = createInsertSchema(portalLoginTokens
   expiresAt: z.coerce.date(),
 });
 
-export const insertChatSessionSchema = createInsertSchema(chatSessions).omit({
 // Reschedule validation schema
 export const rescheduleRequestSchema = z.object({
   startISO: z.string().datetime("Invalid ISO datetime format"),
@@ -398,11 +395,6 @@ export type InsertServiceAddon = z.infer<typeof insertServiceAddonSchema>;
 export type PortalLoginToken = typeof portalLoginTokens.$inferSelect;
 export type InsertPortalLoginToken = z.infer<typeof insertPortalLoginTokenSchema>;
 
-export type ChatSession = typeof chatSessions.$inferSelect;
-export type InsertChatSession = z.infer<typeof insertChatSessionSchema>;
-
-export type ChatMessage = typeof chatMessages.$inferSelect;
-export type InsertChatMessage = z.infer<typeof insertChatMessageSchema>;
 
 // Service History Types - combines appointment data with service pricing
 export interface ServiceHistoryItem {

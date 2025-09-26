@@ -2293,8 +2293,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     return "Hey there! What's going on with your home today? We handle all kinds of stuff - electrical, plumbing, smart home tech, painting, you name it. What can I help you figure out?";
   }
 
-  
-
+  // Service calculator endpoint
+  app.post("/api/service-quote-calculator", async (req, res) => {
     try {
       const { serviceType, companySize, complexity } = req.body;
       
@@ -2836,28 +2836,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Handoff API for SMS/Email notifications
-  const { handoffSchema } = await import("./lib/validators");
-  const { sendSMS } = await import("./lib/sms");
-  const { sendHandoffEmail } = await import("./lib/handoff-mailer");
 
-  /** In-memory dedupe window to prevent spammy repeats */
-  const DEDUPE_WINDOW_MS = 5 * 60 * 1000; // 5 minutes
-  const recentAlerts = new Map(); // key: conversation_id, val: lastTs
-
-        success: true, 
-        messages: formattedMessages,
-        sessionId 
-      });
-      
-    } catch (error) {
-      console.error("Get messages error:", error);
-      res.status(500).json({ 
-        success: false, 
-        error: "Failed to fetch messages" 
-      });
-    }
-  });
 
   // ====================================
   // ADMIN GALLERY MANAGEMENT ENDPOINTS
