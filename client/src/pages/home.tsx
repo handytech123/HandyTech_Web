@@ -10,7 +10,6 @@ import Footer from "@/components/footer";
 import ThemeSwitcher from "@/components/theme-switcher";
 import ContactBanner from "@/components/contact-banner";
 import BadgesSection from "@/components/badges-section";
-import ChatWidget from "@/components/chatbot";
 
 export default function Home() {
   return (
@@ -116,7 +115,6 @@ export default function Home() {
         <ContactSection />
       </main>
       <Footer />
-      <ChatWidget />
     </div>
   );
 }
