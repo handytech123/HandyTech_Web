@@ -2461,15 +2461,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
             timestamp: new Date()
           });
 
+          // Store all conversation history in the in-memory session
+          const history = conversationHistory.get(sessionId) || [];
+          const allMessages = [];
+          
+          // Convert conversation history to message format
+          for (const msg of history) {
+            allMessages.push({
+              type: msg.role === 'user' ? 'customer' : 'admin',
+              message: msg.content,
+              timestamp: new Date()
+            });
+          }
+          
+          // Add current customer message
+          allMessages.push({
+            type: 'customer',
+            message: message,
+            timestamp: new Date()
+          });
+
           // Create or update legacy in-memory session for backward compatibility
           liveChatSessions.set(sessionId, {
             isLive: false,
             needsHandoff: true,
             customerMessage: message,
             shortSessionId: shortSessionId, // Link to persistent session
-            messages: [
-              { type: 'customer', message, timestamp: new Date() }
-            ],
+            messages: allMessages,
             startTime: new Date()
           });
           
