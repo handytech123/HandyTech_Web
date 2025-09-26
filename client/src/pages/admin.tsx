@@ -88,9 +88,7 @@ function LiveChatManagement() {
   const { data: conversations, isLoading: conversationsLoading } = useQuery({
     queryKey: ['chat-conversations'],
     queryFn: async () => {
-      const response = await fetch('/api/chat/conversations');
-      if (!response.ok) throw new Error('Failed to fetch conversations');
-      const data = await response.json();
+      const data = await apiRequest('/api/admin/chat/conversations', 'GET');
       return data.conversations as ChatConversation[];
     },
     refetchInterval: 5000
@@ -101,9 +99,7 @@ function LiveChatManagement() {
     queryKey: ['chat-history', selectedConversation],
     queryFn: async () => {
       if (!selectedConversation) return [];
-      const response = await fetch(`/api/chat/history/${selectedConversation}`);
-      if (!response.ok) throw new Error('Failed to fetch messages');
-      const data = await response.json();
+      const data = await apiRequest(`/api/admin/chat/history/${selectedConversation}`, 'GET');
       return data.messages as ChatMessage[];
     },
     enabled: !!selectedConversation
