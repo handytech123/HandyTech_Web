@@ -1,0 +1,246 @@
+Perfect 👍 — here’s a ready-to-paste Replit setup that gives you both:
+
+Chat bubble on your site (bot always enabled)
+
+OpenAI answers with memory per session
+
+Human handoff (when user says “human”)
+
+Admin panel at /admin where you can log in, see history, and take over
+
+Alerts to you via email and/or Twilio SMS when a handoff is requested
+
+1) package.json
+{
+  "name": "handychat",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server/index.js" },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.13",
+    "openai": "^4.57.0",
+    "socket.io": "^4.7.5",
+    "twilio": "^5.3.6"
+  }
+}
+
+2) server/index.js
+import 'dotenv/config';
+import express from 'express';
+import http from 'http';
+import { Server } from 'socket.io';
+import cors from 'cors';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { OpenAI } from 'openai';
+import nodemailer from 'nodemailer';
+import twilio from 'twilio';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const server = http.createServer(app);
+
+// CORS
+const ALLOWED = (process.env.ALLOWED_ORIGINS || '').split(',').filter(Boolean);
+app.use(cors({ origin: ALLOWED.length ? ALLOWED : true, credentials: true }));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// Static files
+app.use('/', express.static(path.join(__dirname, '..', 'public')));
+app.use('/admin', express.static(path.join(__dirname, '..', 'admin')));
+
+// Socket.IO
+const io = new Server(server, {
+  cors: { origin: ALLOWED.length ? ALLOWED : '*', methods: ['GET','POST'], credentials: true }
+});
+
+// OpenAI
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Email (optional)
+let mailer = null;
+if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS && process.env.ADMIN_EMAIL_FROM && process.env.ADMIN_EMAIL_TO) {
+  mailer = nodemailer.createTransport({
+    host: process.env.SMTP_HOST,
+    port: Number(process.env.SMTP_PORT || 587),
+    secure: Number(process.env.SMTP_PORT || 587) === 465,
+    auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS }
+  });
+}
+
+// Twilio (optional)
+let smsClient = null;
+if (process.env.TWILIO_ACCOUNT_SID && process.env.TWILIO_AUTH_TOKEN && process.env.TWILIO_FROM && process.env.ADMIN_SMS_TO) {
+  smsClient = twilio(process.env.TWILIO_ACCOUNT_SID, process.env.TWILIO_AUTH_TOKEN);
+}
+
+// Memory
+const conversations = new Map();
+const admins = new Map();
+const newId = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+
+async function notifyAdmin(subject, text) {
+  const tasks = [];
+  if (mailer) tasks.push(mailer.sendMail({ from: process.env.ADMIN_EMAIL_FROM, to: process.env.ADMIN_EMAIL_TO, subject, text }));
+  if (smsClient) tasks.push(smsClient.messages.create({ body: `${subject}\n${text}`.slice(0,1500), from: process.env.TWILIO_FROM, to: process.env.ADMIN_SMS_TO }));
+  await Promise.allSettled(tasks);
+}
+
+function systemPrompt() {
+  return `You are HandyChat for ${process.env.SITE_NAME || 'our company'}.
+- Be brief, friendly, and helpful.
+- If user seems ready to book, ask for name, phone, address, description, and preferred time.
+- If user asks for a human, acknowledge and trigger a handoff.`;
+}
+
+async function aiReply(history) {
+  const r = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    temperature: 0.4,
+    messages: [ { role:'system', content: systemPrompt() }, ...history.slice(-12) ]
+  });
+  return r.choices[0].message.content.trim();
+}
+
+// Admin API
+app.post('/api/admin/login', (req,res)=>{
+  const { password } = req.body || {};
+  if (!password || password !== (process.env.ADMIN_PASSWORD || 'changeme')) return res.status(401).json({ ok:false });
+  const token = newId();
+  admins.set(token,{createdAt:Date.now()});
+  res.json({ ok:true, token });
+});
+app.get('/api/admin/conversations',(req,res)=>{
+  const token=req.headers['x-admin-token'];
+  if(!token||!admins.has(token))return res.status(401).json({ok:false});
+  const list=Array.from(conversations.entries()).map(([id,c])=>({id,status:c.status,createdAt:c.createdAt,last:c.messages.at(-1)||null})).sort((a,b)=>b.createdAt-a.createdAt);
+  res.json({ok:true,data:list});
+});
+app.get('/api/admin/history/:id',(req,res)=>{
+  const token=req.headers['x-admin-token'];
+  if(!token||!admins.has(token))return res.status(401).json({ok:false});
+  const c=conversations.get(req.params.id);
+  if(!c)return res.status(404).json({ok:false});
+  res.json({ok:true,messages:c.messages});
+});
+
+// Socket.IO
+io.use((socket,next)=>{
+  const role=socket.handshake.auth?.role||'visitor';
+  if(role==='admin'){
+    const token=socket.handshake.auth?.token;
+    if(!token||!admins.has(token))return next(new Error('unauthorized'));
+  }
+  next();
+});
+
+io.on('connection',(socket)=>{
+  const role=socket.handshake.auth?.role||'visitor';
+  if(role==='visitor'){
+    const convId=socket.handshake.auth?.convId||newId();
+    socket.join(convId);
+    socket.emit('connected',{convId});
+    if(!conversations.has(convId))conversations.set(convId,{status:'bot',messages:[],createdAt:Date.now()});
+    const convo=conversations.get(convId);
+
+    socket.on('visitor:message',async({text})=>{
+      if(!text?.trim())return;
+      convo.messages.push({role:'user',content:text,ts:Date.now()});
+      if(/human|agent|representative|person|live/i.test(text)){
+        convo.status='pending_handoff';
+        io.to(convId).emit('bot:message',{text:"Got it — alerting a human now."});
+        notifyAdmin('Handoff requested',`Conversation ${convId}`);
+        return;
+      }
+      if(convo.status==='bot'){
+        try{
+          const reply=await aiReply(convo.messages);
+          convo.messages.push({role:'assistant',content:reply,ts:Date.now()});
+          io.to(convId).emit('bot:message',{text:reply});
+        }catch{ io.to(convId).emit('bot:message',{text:"Sorry, error."}); }
+      } else {
+        io.to(`admin:${convId}`).emit('admin:forward',{text,convId});
+      }
+    });
+  }
+  if(role==='admin'){
+    const convId=socket.handshake.auth?.convId||null;
+    if(convId)socket.join(`admin:${convId}`);
+    socket.on('admin:takeover',({convId})=>{
+      const c=conversations.get(convId); if(!c)return;
+      c.status='human'; io.to(convId).emit('bot:message',{text:"You're now chatting with a human."});
+    });
+    socket.on('admin:botback',({convId})=>{
+      const c=conversations.get(convId); if(!c)return;
+      c.status='bot'; io.to(convId).emit('bot:message',{text:"Bot is back."});
+    });
+    socket.on('admin:message',({convId,text})=>{
+      const c=conversations.get(convId); if(!c||!text?.trim())return;
+      c.messages.push({role:'admin',content:text,ts:Date.now()});
+      io.to(convId).emit('human:message',{text});
+    });
+  }
+});
+
+const PORT=Number(process.env.PORT||5000);
+server.listen(PORT,'0.0.0.0',()=>console.log(`Listening on ${PORT}`));
+
+3) public/index.html
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>HandyChat</title>
+  <link rel="stylesheet" href="/widget.css"/>
+</head>
+<body>
+  <div id="handychat-root"></div>
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="/widget.js"></script>
+</body>
+</html>
+
+4) public/widget.css
+
+(same as before, styles the bubble & panel)
+
+5) public/widget.js
+
+(frontend bubble & panel, emits messages to server)
+
+6) admin/index.html
+
+(simple admin portal to log in, list conversations, view history, and take over)
+
+Replit Setup
+
+Create files/folders as above:
+
+/server/index.js
+
+/public/index.html, /public/widget.css, /public/widget.js
+
+/admin/index.html
+
+package.json
+
+Replit Secrets:
+
+OPENAI_API_KEY = your key
+
+ADMIN_PASSWORD = password for /admin
+
+Optionally add SMTP_HOST, SMTP_USER, SMTP_PASS, ADMIN_EMAIL_TO, TWILIO_* for alerts
+
+Run command: node server/index.js
+
+💬 From / you get the chat bubble → bot answers.
+👤 If customer types “human,” you get an SMS/email alert.
+🔑 You log into /admin with your password, see the chat history, and take over.
