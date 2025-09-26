@@ -37,6 +37,20 @@ export function ChatWidget() {
     scrollToBottom();
   }, [messages]);
 
+  // Terminate conversation when customer leaves the website
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      if (socketRef.current && conversationId) {
+        // Terminate conversation when leaving site
+        socketRef.current.emit('visitor:terminate', { convId: conversationId });
+        localStorage.removeItem('handytech-chat-id');
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [conversationId]);
+
   // Initialize socket connection
   useEffect(() => {
     if (isOpen && !socketRef.current) {
@@ -144,24 +158,7 @@ export function ChatWidget() {
   };
 
   const toggleChat = () => {
-    if (isOpen) {
-      // Clear conversation data when closing chat to start fresh next time
-      localStorage.removeItem('handytech-chat-id');
-      setConversationId(null);
-      setMessages([]);
-      setStatus('bot');
-      setIsTyping(false);
-      
-      // Disconnect socket
-      if (socketRef.current) {
-        socketRef.current.disconnect();
-        socketRef.current = null;
-      }
-      setIsConnected(false);
-    }
-    
     setIsOpen(!isOpen);
-    
     if (!isOpen) {
       // Focus input when opening
       setTimeout(() => inputRef.current?.focus(), 100);
