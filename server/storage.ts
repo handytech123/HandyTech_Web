@@ -1,5 +1,5 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens, chatSessions, chatMessages,
+  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens, chatConversations, chatMessages,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
@@ -13,7 +13,7 @@ import {
   type Service, type InsertService,
   type ServiceAddon, type InsertServiceAddon,
   type PortalLoginToken, type InsertPortalLoginToken,
-  type ChatSession, type InsertChatSession,
+  type ChatConversation, type InsertChatConversation,
   type ChatMessage, type InsertChatMessage
 } from "@shared/schema";
 import { db } from "./db";
@@ -147,6 +147,19 @@ export interface IStorage {
   getPortalLoginTokenByHash(rawToken: string): Promise<PortalLoginToken | undefined>;
   markPortalLoginTokenUsed(rawToken: string): Promise<void>;
   deleteExpiredPortalLoginTokens(): Promise<void>;
+
+  // Chat Conversations
+  createChatConversation(conversation: InsertChatConversation): Promise<ChatConversation>;
+  getChatConversation(id: string): Promise<ChatConversation | undefined>;
+  updateChatConversationStatus(id: string, status: string): Promise<void>;
+  updateChatConversationCustomer(id: string, customerId: number | null, customerName?: string, customerEmail?: string, customerPhone?: string): Promise<void>;
+  getAllChatConversations(): Promise<ChatConversation[]>;
+  getRecentChatConversations(limit?: number): Promise<ChatConversation[]>;
+
+  // Chat Messages  
+  createChatMessage(message: InsertChatMessage): Promise<ChatMessage>;
+  getChatMessages(conversationId: string): Promise<ChatMessage[]>;
+  getRecentChatMessages(conversationId: string, limit?: number): Promise<ChatMessage[]>;
 
 }
 
@@ -2275,7 +2288,95 @@ export class DatabaseStorage implements IStorage {
       .where(lte(portalLoginTokens.expiresAt, new Date()));
   }
 
-  // Chat Sessions and Messages - SMS-to-chat bridge support
+  // ====================================
+  // CHAT CONVERSATIONS METHODS
+  // ====================================
+
+  async createChatConversation(conversation: InsertChatConversation): Promise<ChatConversation> {
+    const [result] = await withDatabaseRetry(() =>
+      db.insert(chatConversations).values(conversation).returning()
+    );
+    return result;
+  }
+
+  async getChatConversation(id: string): Promise<ChatConversation | undefined> {
+    const [result] = await withDatabaseRetry(() =>
+      db.select().from(chatConversations).where(eq(chatConversations.id, id)).limit(1)
+    );
+    return result;
+  }
+
+  async updateChatConversationStatus(id: string, status: string): Promise<void> {
+    await withDatabaseRetry(() =>
+      db.update(chatConversations)
+        .set({ status, lastMessageAt: new Date() })
+        .where(eq(chatConversations.id, id))
+    );
+  }
+
+  async updateChatConversationCustomer(id: string, customerId: number | null, customerName?: string, customerEmail?: string, customerPhone?: string): Promise<void> {
+    const updates: Partial<InsertChatConversation> = { customerId };
+    if (customerName !== undefined) updates.customerName = customerName;
+    if (customerEmail !== undefined) updates.customerEmail = customerEmail;
+    if (customerPhone !== undefined) updates.customerPhone = customerPhone;
+    
+    await withDatabaseRetry(() =>
+      db.update(chatConversations)
+        .set(updates)
+        .where(eq(chatConversations.id, id))
+    );
+  }
+
+  async getAllChatConversations(): Promise<ChatConversation[]> {
+    return await withDatabaseRetry(() =>
+      db.select().from(chatConversations).orderBy(desc(chatConversations.lastMessageAt))
+    );
+  }
+
+  async getRecentChatConversations(limit: number = 50): Promise<ChatConversation[]> {
+    return await withDatabaseRetry(() =>
+      db.select().from(chatConversations)
+        .orderBy(desc(chatConversations.lastMessageAt))
+        .limit(limit)
+    );
+  }
+
+  // ====================================
+  // CHAT MESSAGES METHODS  
+  // ====================================
+
+  async createChatMessage(message: InsertChatMessage): Promise<ChatMessage> {
+    const [result] = await withDatabaseRetry(() =>
+      db.insert(chatMessages).values(message).returning()
+    );
+    
+    // Update conversation lastMessageAt
+    await withDatabaseRetry(() =>
+      db.update(chatConversations)
+        .set({ lastMessageAt: new Date() })
+        .where(eq(chatConversations.id, message.conversationId))
+    );
+    
+    return result;
+  }
+
+  async getChatMessages(conversationId: string): Promise<ChatMessage[]> {
+    return await withDatabaseRetry(() =>
+      db.select().from(chatMessages)
+        .where(eq(chatMessages.conversationId, conversationId))
+        .orderBy(chatMessages.createdAt)
+    );
+  }
+
+  async getRecentChatMessages(conversationId: string, limit: number = 50): Promise<ChatMessage[]> {
+    return await withDatabaseRetry(() =>
+      db.select().from(chatMessages)
+        .where(eq(chatMessages.conversationId, conversationId))
+        .orderBy(desc(chatMessages.createdAt))
+        .limit(limit)
+    );
+  }
+
 }
 
 export const storage = new DatabaseStorage();
