@@ -1910,14 +1910,6 @@ function AuthenticatedDashboard() {
                 Main Site
               </Link>
               <Button 
-                variant="outline"
-                onClick={() => window.location.href = '/live-chat'}
-                className="flex items-center gap-2 bg-red-50 border-red-200 hover:bg-red-100"
-              >
-                <MessageSquare className="h-4 w-4 text-red-600" />
-                Live Chat
-              </Button>
-              <Button 
                 variant="outline" 
                 onClick={handleLogout}
                 className="flex items-center gap-2"
