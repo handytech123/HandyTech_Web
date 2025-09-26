@@ -144,7 +144,24 @@ export function ChatWidget() {
   };
 
   const toggleChat = () => {
+    if (isOpen) {
+      // Clear conversation data when closing chat to start fresh next time
+      localStorage.removeItem('handytech-chat-id');
+      setConversationId(null);
+      setMessages([]);
+      setStatus('bot');
+      setIsTyping(false);
+      
+      // Disconnect socket
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
+      setIsConnected(false);
+    }
+    
     setIsOpen(!isOpen);
+    
     if (!isOpen) {
       // Focus input when opening
       setTimeout(() => inputRef.current?.focus(), 100);
