@@ -1,12 +1,13 @@
 import { useState, useEffect } from "react";
 import { Helmet } from "react-helmet";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon, Home } from "lucide-react";
 import { format } from "date-fns";
 import type { ProjectGallery } from "@shared/schema";
 
@@ -354,7 +355,19 @@ export default function Gallery() {
       {/* Header */}
       <div className="bg-white border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="text-center">
+          <div className="text-center relative">
+            {/* Back to Home Button */}
+            <Link href="/">
+              <Button
+                variant="outline"
+                className="absolute left-0 top-0 flex items-center gap-2 hover:bg-brand-red hover:text-white hover:border-brand-red transition-colors"
+                data-testid="button-back-home"
+              >
+                <Home className="w-4 h-4" />
+                Back to Home
+              </Button>
+            </Link>
+            
             <h1 className="text-4xl font-bold text-foreground mb-4" data-testid="text-page-title">
               Project Gallery
             </h1>
