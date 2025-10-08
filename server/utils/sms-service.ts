@@ -1,8 +1,8 @@
-// @ts-ignore - Twilio type declarations issue
-import * as twilio from 'twilio';
+// @ts-ignore - Twilio ESM type resolution issue with package.json exports
+import twilio from 'twilio';
 
 export class SMSService {
-  private client: twilio.Twilio | null = null;
+  private client: ReturnType<typeof twilio> | null = null;
   private fromNumber: string;
   private adminNumber: string;
   private isConfigured: boolean = false;
