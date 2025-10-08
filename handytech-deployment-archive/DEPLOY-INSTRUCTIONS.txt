@@ -1,0 +1,109 @@
+====================================================================
+HANDYTECH SOLUTIONS - DEPLOYMENT INSTRUCTIONS
+====================================================================
+
+📦 DEPLOYMENT PACKAGE CONTENTS:
+- Built production files (dist/)
+- Server-side code (server/)
+- Shared types and schemas (shared/)
+- Complete configuration files
+- Environment variables template (.env.example)
+- Deployment automation config (deploy.json)
+
+====================================================================
+🚀 QUICK START DEPLOYMENT
+====================================================================
+
+STEP 1: UPLOAD FILES
+- Extract this archive to your hosting server
+- Ensure all files maintain their directory structure
+
+STEP 2: CONFIGURE ENVIRONMENT VARIABLES
+- Copy .env.example to .env
+- Fill in all required values (see deploy.json for details)
+
+STEP 3: INSTALL DEPENDENCIES
+$ npm ci
+
+STEP 4: SETUP DATABASE
+- Create PostgreSQL database
+- Set DATABASE_URL in .env
+- Run: npm run db:push
+
+STEP 5: START APPLICATION
+For Production:
+$ npm start
+
+The application will run on port 5000
+
+====================================================================
+📋 REQUIRED ENVIRONMENT VARIABLES
+====================================================================
+
+CRITICAL (Must Set):
+- DATABASE_URL              PostgreSQL connection string
+- SESSION_SECRET            32+ character random string
+- ADMIN_PASS               Admin portal password
+- ADMIN_EMAIL              Your contact email
+- SMTP_HOST                Email server (smtp.ionos.com recommended)
+- SMTP_USER                Email username
+- SMTP_PASS                Email password
+- GOOGLE_CLIENT_ID         Google OAuth client ID
+- GOOGLE_CLIENT_SECRET     Google OAuth secret
+- GOOGLE_REDIRECT_URI      OAuth callback URL
+
+OPTIONAL (Recommended):
+- OPENAI_API_KEY           For AI chatbot functionality
+- BREVO_API_KEY            For email automation
+- ALLOWED_ORIGINS          Production domain(s)
+- TZ                       Timezone (America/Chicago)
+
+Full details in deploy.json and .env.example
+
+====================================================================
+🔧 DEPLOYMENT PLATFORMS
+====================================================================
+
+RECOMMENDED: Replit Autoscale
+- Automatic scaling
+- Built-in PostgreSQL
+- Environment variable management
+- Use deploy.json configuration
+
+ALTERNATIVE: Traditional Hosting
+- Requires Node.js 20.x
+- PostgreSQL 14+
+- Port 5000 exposed
+- SSL/TLS for production
+
+====================================================================
+📊 HEALTH CHECKS
+====================================================================
+
+After deployment, verify:
+✓ http://yourdomain.com/api/health (should return "healthy")
+✓ http://yourdomain.com (main site loads)
+✓ http://yourdomain.com/admin (admin portal accessible)
+
+====================================================================
+🔐 SECURITY CHECKLIST
+====================================================================
+
+Before going live:
+□ Set strong SESSION_SECRET (32+ characters)
+□ Set strong ADMIN_PASS
+□ Configure ALLOWED_ORIGINS for production domain
+□ Verify SSL/HTTPS is enabled
+□ Test email delivery
+□ Test database connection
+□ Verify Google Calendar OAuth works
+
+====================================================================
+📞 SUPPORT
+====================================================================
+
+For detailed automation instructions, see deploy.json
+For environment variable details, see .env.example
+For Google Calendar setup, see deploy.json > integrations > scheduling
+
+====================================================================
