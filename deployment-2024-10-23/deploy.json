@@ -1,0 +1,627 @@
+{
+  "START_HERE": {
+    "title": "REPLIT DEPLOYMENT APP - BEGIN DEPLOYMENT",
+    "instructions": "Follow these steps in EXACT order. Do not skip steps. Validate each step before proceeding.",
+    "automation_ready": true,
+    "deployment_order": [
+      "1. Verify required files exist",
+      "2. Install Node.js 20.x",
+      "3. Create PostgreSQL database", 
+      "4. Set environment variables",
+      "5. Install dependencies with npm ci",
+      "6. Run database push",
+      "7. Build application",
+      "8. Start application",
+      "9. Validate deployment"
+    ],
+    "critical_note": "STOP after each step and verify it worked before proceeding to next step"
+  },
+
+  "automationInstructions": {
+    "preDeploymentChecks": [
+      {
+        "check": "Node.js version",
+        "command": "node --version",
+        "expectedOutput": "v20",
+        "required": true
+      },
+      {
+        "check": "PostgreSQL available",
+        "command": "which psql || echo 'Need PostgreSQL'",
+        "required": true
+      },
+      {
+        "check": "Required files exist",
+        "files": ["package.json", "server/index.ts", "shared/schema.ts"],
+        "required": true
+      }
+    ],
+
+    "deploymentSteps": [
+      {
+        "step": 1,
+        "title": "Database Setup",
+        "action": "Create PostgreSQL database and get connection string",
+        "commands": [
+          "# Create database (use Replit database creation tool)",
+          "# Save DATABASE_URL to environment"
+        ],
+        "validation": {
+          "command": "echo $DATABASE_URL | grep postgresql",
+          "expectedOutput": "postgresql://",
+          "stopIfFail": true
+        },
+        "notes": "DATABASE_URL must be set before proceeding"
+      },
+      {
+        "step": 2,
+        "title": "Environment Variables Setup",
+        "action": "Set all required environment variables from requiredSecrets section",
+        "commands": [
+          "# Set DATABASE_URL (from step 1)",
+          "# Set SESSION_SECRET (generate 32+ char string)",
+          "# Set ADMIN_PASS (strong password)",
+          "# Set ADMIN_EMAIL",
+          "# Set SMTP_* variables for email",
+          "# Set GOOGLE_* variables for calendar"
+        ],
+        "validation": {
+          "commands": [
+            "echo $DATABASE_URL | grep postgresql",
+            "echo $SESSION_SECRET | wc -c | grep -E '[3-9][0-9]|[0-9]{3,}'",
+            "echo $ADMIN_PASS",
+            "echo $ADMIN_EMAIL"
+          ],
+          "stopIfFail": true
+        },
+        "required_variables": [
+          "DATABASE_URL",
+          "SESSION_SECRET", 
+          "ADMIN_PASS",
+          "ADMIN_EMAIL",
+          "SMTP_HOST",
+          "SMTP_USER", 
+          "SMTP_PASS",
+          "GOOGLE_CLIENT_ID",
+          "GOOGLE_CLIENT_SECRET",
+          "GOOGLE_REDIRECT_URI"
+        ]
+      },
+      {
+        "step": 3,
+        "title": "Dependencies Installation",
+        "action": "Install Node.js dependencies",
+        "commands": [
+          "npm ci"
+        ],
+        "validation": {
+          "command": "ls node_modules && npm list --depth=0",
+          "expectedFiles": ["node_modules/express", "node_modules/drizzle-orm"],
+          "stopIfFail": true
+        }
+      },
+      {
+        "step": 4,
+        "title": "Database Schema Setup",
+        "action": "Push database schema to PostgreSQL",
+        "commands": [
+          "npm run db:push"
+        ],
+        "validation": {
+          "command": "npm run db:push --dry-run || echo 'Schema check'",
+          "notes": "Verify no critical errors in schema push",
+          "stopIfFail": true
+        }
+      },
+      {
+        "step": 5,
+        "title": "Application Build", 
+        "action": "Build React frontend and prepare for production",
+        "commands": [
+          "npm run build"
+        ],
+        "validation": {
+          "command": "ls dist && ls dist/public",
+          "expectedFiles": ["dist/public/index.html", "dist/public/assets"],
+          "stopIfFail": true
+        }
+      },
+      {
+        "step": 6,
+        "title": "Application Start",
+        "action": "Start the application server",
+        "commands": [
+          "npm start"
+        ],
+        "validation": {
+          "command": "curl -f http://localhost:5000/api/health || wget -q --spider http://localhost:5000/api/health",
+          "expectedOutput": "healthy",
+          "timeout": 30,
+          "stopIfFail": true
+        },
+        "notes": "Application should be accessible on port 5000"
+      }
+    ],
+
+    "postDeploymentValidation": [
+      {
+        "test": "Health Check",
+        "command": "curl -f http://localhost:5000/api/health",
+        "expectedOutput": "healthy",
+        "critical": true
+      },
+      {
+        "test": "Admin Portal Access",
+        "command": "curl -f http://localhost:5000/admin",
+        "expectedOutput": "200",
+        "critical": true
+      },
+      {
+        "test": "Database Connection",
+        "command": "curl -f http://localhost:5000/api/customers",
+        "expectedOutput": "[]",
+        "critical": true
+      },
+      {
+        "test": "Environment Variables",
+        "validation": "All required environment variables must be set",
+        "critical": true
+      }
+    ],
+
+    "troubleshooting": {
+      "common_issues": [
+        {
+          "issue": "Database connection failed",
+          "solution": "Verify DATABASE_URL format: postgresql://username:password@hostname:port/database",
+          "check_command": "echo $DATABASE_URL"
+        },
+        {
+          "issue": "Build failed",
+          "solution": "Ensure Node.js 20.x is installed and dependencies are installed",
+          "check_command": "node --version && ls node_modules"
+        },
+        {
+          "issue": "Health check fails",
+          "solution": "Check application logs and ensure all environment variables are set",
+          "check_command": "npm run logs || journalctl -u handytech"
+        }
+      ]
+    }
+  },
+
+  "appName": "HandyTech Solutions",
+  "version": "6.0.0",
+  "description": "Professional handyman services platform with enterprise-grade security, comprehensive business management, appointment scheduling, redesigned customer portal with magic link authentication, AI chatbot, automated email notifications, and complete subscription management capabilities",
+  "type": "nodejs",
+  "deploymentType": "dynamic",
+  "architecture": "full-stack",
+  "siteType": "web-application",
+  "requiresServer": true,
+  "buildCommand": "npm run build",
+  "startCommand": "npm start",
+  "port": 5000,
+  "nodeVersion": "20",
+  "framework": "express_vite",
+  "frontend": "react",
+  "database": "postgresql",
+  "buildOutput": "dist/public",
+  "staticFiles": "dist/public",
+  "packageManager": "npm",
+  "requiredServices": ["nodejs", "npm", "postgresql"],
+  
+  "environmentVariables": ["NODE_ENV", "PORT", "DATABASE_URL", "SESSION_SECRET", "ADMIN_PASS"],
+  
+  "requiredSecrets": [
+    {
+      "key": "DATABASE_URL",
+      "description": "PostgreSQL database connection string",
+      "required": true,
+      "category": "database",
+      "example": "postgresql://username:password@hostname:port/database",
+      "notes": "Standard PostgreSQL connection string format. Used for both app data and session storage."
+    },
+    {
+      "key": "SESSION_SECRET",
+      "description": "Secret key for session encryption and signing (minimum 32 characters for security)",
+      "required": true,
+      "category": "security",
+      "example": "your-strong-random-session-secret-at-least-32-characters-long",
+      "validation": "Must be at least 32 characters long",
+      "notes": "Critical for cookie-based session security. Used for express-session encryption and CSRF protection."
+    },
+    {
+      "key": "ADMIN_PASS",
+      "description": "Admin portal login password (use a strong password)", 
+      "required": true,
+      "category": "authentication",
+      "example": "SecureAdminPassword123!",
+      "notes": "Strong password required for cookie-based admin authentication. No username required."
+    },
+    {
+      "key": "ADMIN_EMAIL",
+      "description": "Admin email address to receive appointment notifications and system alerts",
+      "required": true,
+      "category": "email_services",
+      "example": "contact@handytech-solutions.com",
+      "notes": "Primary email for receiving appointment notifications. Recommended: contact@handytech-solutions.com for IONOS hosting."
+    },
+    {
+      "key": "SMTP_HOST",
+      "description": "SMTP server hostname for sending emails (IONOS recommended)",
+      "required": true,
+      "category": "email_services",
+      "example": "smtp.ionos.com",
+      "notes": "For IONOS hosting: use smtp.ionos.com. Alternative providers: smtp.gmail.com, smtp-mail.outlook.com"
+    },
+    {
+      "key": "SMTP_USER",
+      "description": "SMTP authentication username/email address",
+      "required": true,
+      "category": "email_services",
+      "example": "contact@handytech-solutions.com",
+      "notes": "Must be a valid email address configured with your SMTP provider. For IONOS: use your domain email."
+    },
+    {
+      "key": "SMTP_PASS",
+      "description": "SMTP authentication password or app-specific password",
+      "required": true,
+      "category": "email_services",
+      "example": "your-email-password",
+      "notes": "For security, use app-specific passwords when available. IONOS: use your email account password."
+    },
+    {
+      "key": "GOOGLE_CLIENT_ID",
+      "description": "Google OAuth 2.0 Client ID from Google Cloud Console for calendar integration",
+      "required": true,
+      "category": "google_calendar",
+      "example": "123456789-abc123def456.apps.googleusercontent.com",
+      "validation": "Valid Google OAuth Client ID format",
+      "notes": "Required for Google Calendar sync functionality. Obtain from Google Cloud Console APIs & Services > Credentials."
+    },
+    {
+      "key": "GOOGLE_CLIENT_SECRET",
+      "description": "Google OAuth 2.0 Client Secret from Google Cloud Console for secure calendar API access",
+      "required": true,
+      "category": "google_calendar",
+      "example": "GOCSPX-abc123def456789012345",
+      "validation": "Valid Google OAuth Client Secret format",
+      "notes": "Required for Google Calendar sync functionality. Keep this secret secure and never expose in client-side code."
+    },
+    {
+      "key": "GOOGLE_REDIRECT_URI",
+      "description": "OAuth callback URL for Google Calendar authentication (must match Google Cloud Console configuration)",
+      "required": true,
+      "category": "google_calendar",
+      "example": "https://handytech-solutions.com/api/admin/google/callback",
+      "validation": "Must be HTTPS URL matching Google Cloud Console redirect URI configuration",
+      "notes": "Must be exactly configured in Google Cloud Console. Format: https://yourdomain.com/api/admin/google/callback"
+    }
+  ],
+  
+  "optionalSecrets": [
+    {
+      "key": "GOOGLE_CALENDAR_ID",
+      "description": "Target Google Calendar ID or email for syncing appointments (defaults to primary calendar)",
+      "required": false,
+      "category": "google_calendar",
+      "example": "contact@handytech-solutions.com",
+      "default": "primary",
+      "validation": "Valid email address or 'primary' for default calendar",
+      "notes": "Specify which calendar to sync appointments to. Use 'primary' for main calendar or email address for specific calendar."
+    },
+    {
+      "key": "TZ",
+      "description": "Timezone for appointment scheduling and Google Calendar events",
+      "required": false,
+      "category": "google_calendar",
+      "example": "America/Chicago",
+      "default": "America/Chicago",
+      "validation": "Valid IANA timezone identifier",
+      "notes": "Used for calendar event timezone. Missouri business should use 'America/Chicago'."
+    },
+    {
+      "key": "OPENAI_API_KEY",
+      "description": "OpenAI API key for AI-powered customer service chatbot",
+      "required": false,
+      "category": "ai_services",
+      "example": "sk-proj-...",
+      "notes": "If not provided, chatbot will use fallback responses. Required for full AI functionality."
+    },
+    {
+      "key": "BREVO_API_KEY",
+      "description": "Brevo (Sendinblue) API key for automated appointment reminder emails",
+      "required": false,
+      "category": "email_services",
+      "example": "xkeysib-...",
+      "notes": "Required for automated email confirmations and reminders"
+    },
+    {
+      "key": "FROM_EMAIL",
+      "description": "Default sender email address for system emails",
+      "required": false,
+      "category": "email_services",
+      "example": "service@handytech-solutions.com",
+      "default": "service@handytech-solutions.com"
+    },
+    {
+      "key": "BUSINESS_NAME",
+      "description": "Business name displayed in emails and communications",
+      "required": false,
+      "category": "business_info",
+      "example": "HandyTech Solutions",
+      "default": "HandyTech Solutions"
+    },
+    {
+      "key": "BUSINESS_PHONE",
+      "description": "Business phone number for customer communications",
+      "required": false,
+      "category": "business_info",
+      "example": "(314) 325-4575",
+      "default": "(314) 325-4575"
+    },
+    {
+      "key": "PUBLIC_BASE_URL",
+      "description": "Base URL for the public-facing website used in email links",
+      "required": false,
+      "category": "business_info",
+      "example": "https://handytech-solutions.com",
+      "default": "https://handytech-solutions.com"
+    },
+    {
+      "key": "SMTP_PORT",
+      "description": "SMTP server port (587 for STARTTLS, 465 for SSL)",
+      "required": false,
+      "category": "email_services",
+      "example": "587",
+      "default": "587",
+      "notes": "IONOS supports both 587 (STARTTLS) and 465 (SSL). Recommended: 587 for better compatibility."
+    },
+    {
+      "key": "ALLOWED_ORIGINS",
+      "description": "Comma-separated list of allowed CORS origins for production",
+      "required": false,
+      "category": "security",
+      "example": "https://handytech-solutions.com,https://www.handytech-solutions.com",
+      "notes": "Required in production. No wildcards allowed for security. Development allows localhost automatically."
+    },
+    {
+      "key": "JWT_SECRET",
+      "description": "Legacy JWT secret (still used for some operations)",
+      "required": false,
+      "category": "security",
+      "example": "your-strong-random-jwt-secret-at-least-32-characters-long",
+      "validation": "Must be at least 32 characters long",
+      "notes": "Fallback for JWT operations. Primary auth uses cookie sessions."
+    },
+    {
+      "key": "ADMIN_USERNAME",
+      "description": "Legacy admin username (deprecated - not used in cookie auth)",
+      "required": false,
+      "category": "authentication",
+      "example": "admin",
+      "notes": "Deprecated in cookie-based auth system. Only ADMIN_PASS is required."
+    },
+    {
+      "key": "JWT_EXPIRES_IN",
+      "description": "JWT token expiration duration (legacy)",
+      "required": false,
+      "category": "security",
+      "example": "24h",
+      "default": "24h",
+      "notes": "Legacy setting for JWT operations. Session-based auth uses express-session configuration."
+    }
+  ],
+  
+  "features": [
+    "Complete Admin Dashboard with Real-time Notifications",
+    "Redesigned Customer Portal with Magic Link Authentication",
+    "Appointment Management System with 2h/4h/6h durations",
+    "Customer Self-Service Portal with Profile Management",
+    "Maintenance Plan Subscription and Cancellation System",
+    "Service History Tracking and Viewing",
+    "Appointment Rescheduling with Secure Token System",
+    "Customer Relationship Management (CRM)",
+    "Quote Request Management with Status Tracking", 
+    "Review Management with Approval System",
+    "Project Gallery with Categories",
+    "Service Management with Pricing",
+    "Availability Rules Configuration",
+    "Blocked Times Management",
+    "AI-Powered Customer Service Chatbot (OpenAI GPT)",
+    "Professional Email Notification System with IONOS SMTP",
+    "Automated Admin Notifications for All Appointments",
+    "Appointment Confirmation Emails with Calendar Attachments",
+    "24-hour and 2-hour Automated Reminder Emails",
+    "Branded HTML Email Templates with Business Branding",
+    "ICS Calendar Attachments for Easy Scheduling",
+    "Customer Email Confirmations with Reschedule Links",
+    "Email Follow-up Campaigns and Automation",
+    "Live Chat Administration",
+    "Customer Self-Service Reschedule Portal",
+    "Enterprise Cookie-Based Admin Authentication",
+    "CSRF Protection for All Admin Operations",
+    "PostgreSQL Session Storage for Scalability",
+    "Comprehensive Security Headers and Rate Limiting",
+    "Production-Ready Email Security with TLS Encryption",
+    "Maintenance Plans Tracking",
+    "Google Calendar Integration with OAuth 2.0 Authentication",
+    "Responsive Design with Ohio State Buckeyes Branding",
+    "Database Integration with PostgreSQL",
+    "SMTP & Brevo Dual Email Integration",
+    "Real-time Appointment Conflict Detection",
+    "Session Management with Auto-expiration",
+    "Static Asset Serving with Cache Optimization",
+    "RESTful API Endpoints for All Business Operations",
+    "Environment Variable Validation on Startup",
+    "Health Check Endpoints for Monitoring"
+  ],
+  
+  "adminFeatures": [
+    "Full appointment CRUD operations",
+    "Status management (scheduled/completed/cancelled/no-show/in-progress)",
+    "Admin rescheduling with conflict detection", 
+    "Customer detail editing within appointments",
+    "Service management with pricing and categories",
+    "Availability rules configuration (weekly schedule)",
+    "Blocked times management for business closures",
+    "Quote request status tracking and management",
+    "Review approval and management system",
+    "Live chat session management",
+    "Email campaign creation and tracking",
+    "Customer database management",
+    "Project gallery content management",
+    "Google Calendar OAuth authentication and testing tools",
+    "System health monitoring"
+  ],
+  
+  "customerFeatures": [
+    "Secure Magic Link Authentication (30-minute sessions)",
+    "Clean Single-Page Dashboard with Organized Cards",
+    "Profile Management with Real-time Updates",
+    "Service History Viewing with Total Spending Tracking",
+    "Appointment Viewing and Self-Service Rescheduling",
+    "Maintenance Plan Subscription with Multiple Options",
+    "Subscription Cancellation (Immediate or End-of-Period)",
+    "Subscription Reactivation for Cancelled Plans",
+    "Appointment booking with duration selection",
+    "Quote request submission with service categories",
+    "Review and testimonial submission",
+    "AI-powered customer service chat",
+    "Project gallery browsing by category",
+    "Service information and pricing display",
+    "Contact forms with automated responses",
+    "Mobile-responsive interface with Ohio State Buckeyes branding"
+  ],
+  
+  "security": {
+    "authentication": "Enterprise cookie-based admin authentication with httpOnly sessions + Customer magic link authentication",
+    "sessionManagement": "PostgreSQL-backed session storage using connect-pg-simple",
+    "csrfProtection": "CSRF tokens required for all state-changing operations",
+    "passwordPolicy": "Strong passwords required for admin accounts",
+    "secretsValidation": "Environment variable validation on startup with minimum length enforcement",
+    "securityHeaders": "Comprehensive security headers via Helmet (CSP, HSTS, X-Frame-Options, etc.)",
+    "rateLimiting": "Multiple rate limiting tiers (public, sensitive, auth attempts)",
+    "corsPolicy": "Environment-based CORS with production whitelist (no wildcards)",
+    "inputSanitization": "XSS protection and input sanitization middleware",
+    "cookieSecurity": "Secure httpOnly cookies with SameSite protection",
+    "emailSecurity": "TLS encryption for SMTP communications",
+    "webhookSecurity": "Signature verification for external webhooks",
+    "productionHardening": "Strict security policies enforced in production environment",
+    "magicLinkSecurity": "Time-limited token authentication with automatic cleanup"
+  },
+  
+  "integrations": {
+    "database": {
+      "name": "PostgreSQL with Drizzle ORM",
+      "description": "Full relational database with migrations support",
+      "features": ["ACID compliance", "automatic migrations", "type-safe queries"]
+    },
+    "email": {
+      "ionos_smtp": {
+        "name": "IONOS SMTP Email System", 
+        "description": "Professional email service with IONOS hosting integration",
+        "features": ["appointment_notifications", "admin_alerts", "calendar_invites", "reminder_emails", "branded_templates", "magic_link_delivery"],
+        "smtp_host": "smtp.ionos.com",
+        "smtp_ports": ["587 (STARTTLS)", "465 (SSL)"],
+        "security": "TLS encryption",
+        "notes": "Primary email system for professional communications and customer portal authentication"
+      },
+      "smtp_fallback": {
+        "name": "Universal SMTP Service", 
+        "description": "Configurable SMTP for any email provider",
+        "features": ["gmail_support", "outlook_support", "custom_smtp_providers", "calendar_invites", "magic_links"],
+        "providers": ["IONOS", "Gmail", "Outlook", "Custom SMTP"]
+      },
+      "brevo": {
+        "name": "Brevo Email Automation",
+        "description": "Optional automated email marketing and advanced campaigns",
+        "features": ["marketing_campaigns", "advanced_automation", "analytics"],
+        "notes": "Secondary email service for marketing automation"
+      }
+    },
+    "ai": {
+      "openai": {
+        "name": "OpenAI GPT AI Chatbot",
+        "description": "Intelligent customer service with fallback system",
+        "features": ["customer_support", "appointment_assistance", "service_information", "fallback_responses"]
+      }
+    },
+    "scheduling": {
+      "calendly": {
+        "name": "Calendly Appointment Scheduling",
+        "description": "Professional appointment scheduling integration (configurable)",
+        "webhook_url": "https://{{domain}}/api/webhooks/calendly",
+        "features": ["appointment_scheduling", "webhook_integration", "api_integration"],
+        "status": "available_but_disabled"
+      },
+      "custom": {
+        "name": "Built-in Scheduling System",
+        "description": "Custom appointment scheduling with availability management", 
+        "features": ["2h_4h_6h_durations", "conflict_detection", "availability_rules", "blocked_times", "customer_portal_rescheduling"]
+      }
+    }
+  },
+  
+  "webhooks": {
+    "description": "Webhook endpoints for external service integrations",
+    "endpoints": {
+      "calendly": {
+        "url": "/api/webhooks/calendly",
+        "method": "POST",
+        "description": "Calendly webhook endpoint for appointment booking notifications",
+        "purpose": "Receives Calendly invitee.created events and creates appointments in HandyTech database",
+        "security": "Optional signature verification with CALENDLY_SIGNING_KEY"
+      }
+    }
+  },
+  
+  "healthCheck": {
+    "path": "/api/health",
+    "timeout": 30,
+    "checks": ["database_connection", "session_configuration", "security_headers", "csrf_functionality"]
+  },
+  
+  "performance": {
+    "caching": "React Query for client-side caching",
+    "optimization": "Vite build optimization with code splitting",
+    "database": "Connection pooling with Drizzle ORM"
+  },
+  
+  "dependencies": {
+    "production": true,
+    "devDependencies": false,
+    "key_packages": [
+      "@tanstack/react-query",
+      "drizzle-orm", 
+      "express",
+      "express-session",
+      "connect-pg-simple",
+      "helmet",
+      "cors",
+      "express-rate-limit",
+      "cookie-parser",
+      "csrf",
+      "openai",
+      "nodemailer",
+      "sib-api-v3-sdk",
+      "wouter",
+      "@radix-ui components"
+    ]
+  },
+  
+  "deployment": {
+    "ssl": true,
+    "domain": "handytech-solutions.com",
+    "timezone": "America/Chicago",
+    "locale": "en-US",
+    "businessLocation": "Missouri, USA"
+  },
+  
+  "branding": {
+    "colorScheme": "Ohio State Buckeyes (Scarlet Red #BB0000 and Gray)",
+    "businessType": "Professional Handyman Services",
+    "targetMarket": "Missouri residential and commercial customers",
+    "specialties": ["Home Repairs", "Smart Technology", "Electrical", "Plumbing", "Carpentry"]
+  }
+}

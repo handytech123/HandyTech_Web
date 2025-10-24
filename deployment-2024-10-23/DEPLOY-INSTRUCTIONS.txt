@@ -1,0 +1,213 @@
+╔════════════════════════════════════════════════════════════════════════════╗
+║                    HANDYTECH SOLUTIONS - VPS DEPLOYMENT                    ║
+║                        Complete Deployment Guide                           ║
+╚════════════════════════════════════════════════════════════════════════════╝
+
+📦 ENTRY POINT INFORMATION
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Main Entry File:     server/index.ts
+Build Command:       npm run build
+Start Command:       npm start
+Production Command:  NODE_ENV=production node dist/index.js
+Port:                5000 (hardcoded in server/index.ts line 396)
+PM2 Process Name:    handytech
+
+🔧 PACKAGE.JSON SCRIPTS
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+"dev":     Development mode with tsx hot reload
+"build":   Compiles TypeScript and builds React frontend
+"start":   Production mode (runs compiled dist/index.js)
+"db:push": Push database schema to PostgreSQL
+
+
+═══════════════════════════════════════════════════════════════════════════════
+STEP-BY-STEP DEPLOYMENT INSTRUCTIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 1: ONE-TIME INITIAL SETUP (ONLY DO THIS ONCE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1.1 - Install Node.js 20.x on VPS:
+   curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+   sudo apt-get install -y nodejs
+
+1.2 - Install PM2 globally:
+   sudo npm install -g pm2
+
+1.3 - Create directory structure:
+   mkdir -p /var/www/handytech/{source,releases,shared}
+
+1.4 - Clone GitHub repository (already done):
+   cd /var/www/handytech
+   git clone https://github.com/handytech123/HandyTech_Web.git source
+
+1.5 - Create production .env file:
+   nano /var/www/handytech/shared/.env
+
+1.6 - Copy contents from .env.production (included in this package)
+   Fill in all fields marked with 🔴
+
+   REQUIRED FIELDS TO FILL IN:
+   ✓ DATABASE_URL          - Your PostgreSQL connection string
+   ✓ SESSION_SECRET        - Generate with: openssl rand -base64 32
+   ✓ ADMIN_PASS           - Your strong admin password
+   ✓ SMTP_PASS            - Your IONOS email password
+   ✓ GOOGLE_CLIENT_ID     - From Google Cloud Console
+   ✓ GOOGLE_CLIENT_SECRET - From Google Cloud Console
+   ✓ GOOGLE_REDIRECT_URI  - https://your-domain.com/api/admin/google/callback
+
+   OPTIONAL FIELDS:
+   ✓ OPENAI_API_KEY       - For AI chatbot (fallback responses if not set)
+   ✓ BREVO_API_KEY        - For marketing automation
+
+1.7 - Copy deploy.sh to VPS:
+   Upload deploy.sh (included in this package) to /var/www/handytech/deploy.sh
+   Make it executable:
+   chmod +x /var/www/handytech/deploy.sh
+
+1.8 - Initial deployment:
+   cd /var/www/handytech
+   ./deploy.sh
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+STEP 2: REGULAR UPDATES (USE THIS FOR EVERY UPDATE)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+2.1 - Push code changes from Replit to GitHub:
+   (In Replit Shell)
+   git add .
+   git commit -m "Update description"
+   git push origin main
+
+2.2 - Deploy to VPS:
+   (SSH into your VPS)
+   ssh lou@74.208.149.78
+
+   (Run deployment script)
+   cd /var/www/handytech
+   ./deploy.sh
+
+That's it! The deploy.sh script will:
+✓ Pull latest code from GitHub
+✓ Create timestamped release
+✓ Install dependencies
+✓ Build application
+✓ Restart with zero downtime
+✓ Verify deployment
+✓ Clean up old releases
+
+
+═══════════════════════════════════════════════════════════════════════════════
+USEFUL PM2 COMMANDS
+═══════════════════════════════════════════════════════════════════════════════
+
+Check status:        pm2 status
+View logs:           pm2 logs handytech
+Monitor resources:   pm2 monit
+Restart manually:    pm2 restart handytech
+Stop app:            pm2 stop handytech
+Start app:           pm2 start handytech
+
+Auto-start on boot:  pm2 startup
+                     pm2 save
+
+
+═══════════════════════════════════════════════════════════════════════════════
+TROUBLESHOOTING
+═══════════════════════════════════════════════════════════════════════════════
+
+❌ Problem: "DATABASE_URL environment variable is not set"
+✅ Solution: Check /var/www/handytech/shared/.env exists and DATABASE_URL is set
+
+❌ Problem: "tsx: not found" 
+✅ Solution: Don't use npm run dev on VPS - use npm start (production mode)
+
+❌ Problem: App won't start
+✅ Solution: 
+   1. Check logs: pm2 logs handytech
+   2. Verify .env file: cat /var/www/handytech/shared/.env
+   3. Check Node version: node --version (should be v20.x)
+
+❌ Problem: Site can't be reached
+✅ Solution:
+   1. Check PM2 status: pm2 status
+   2. Check health endpoint: curl http://localhost:5000/api/health
+   3. Check firewall allows port 5000
+   4. Verify nginx/apache reverse proxy if using one
+
+❌ Problem: Old code still running after deploy
+✅ Solution: The deploy.sh script uses PM2 reload for zero-downtime updates.
+           If issues persist, try: pm2 delete handytech && ./deploy.sh
+
+
+═══════════════════════════════════════════════════════════════════════════════
+DIRECTORY STRUCTURE ON VPS
+═══════════════════════════════════════════════════════════════════════════════
+
+/var/www/handytech/
+├── source/                     # Git repository (always latest from GitHub)
+├── releases/                   # Timestamped releases (auto-cleanup keeps 5)
+│   ├── 20241024_143022/
+│   ├── 20241024_150815/
+│   └── 20241024_153442/
+├── shared/
+│   └── .env                    # Production environment variables (shared)
+├── current -> releases/latest  # Symlink to current release
+└── deploy.sh                   # Deployment script
+
+
+═══════════════════════════════════════════════════════════════════════════════
+WORKFLOW SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+Development (Replit):
+1. Make changes in Replit
+2. Test locally
+3. Push to GitHub: git push origin main
+
+Deployment (VPS):
+1. SSH into VPS: ssh lou@74.208.149.78
+2. Run deploy script: /var/www/handytech/deploy.sh
+3. Verify: curl http://localhost:5000/api/health
+
+
+═══════════════════════════════════════════════════════════════════════════════
+ENVIRONMENT VARIABLE REFERENCE
+═══════════════════════════════════════════════════════════════════════════════
+
+All environment variables are documented in .env.production (included).
+
+Core variables pre-filled:
+✓ NODE_ENV=production
+✓ PORT=5000
+✓ BUSINESS_NAME=HandyTech Solutions
+✓ BUSINESS_PHONE=(314) 325-4575
+✓ PUBLIC_BASE_URL=https://handytech-solutions.com
+✓ SMTP_HOST=smtp.ionos.com
+✓ SMTP_PORT=587
+✓ TZ=America/Chicago
+
+Variables YOU must fill in:
+🔴 DATABASE_URL
+🔴 SESSION_SECRET
+🔴 ADMIN_PASS
+🔴 SMTP_PASS
+🔴 GOOGLE_CLIENT_ID
+🔴 GOOGLE_CLIENT_SECRET
+
+
+═══════════════════════════════════════════════════════════════════════════════
+SUPPORT & DOCUMENTATION
+═══════════════════════════════════════════════════════════════════════════════
+
+Full deployment configuration: deploy.json
+Complete API documentation: See deploy.json "features" section
+Security configuration: See deploy.json "security" section
+
+Questions? Check the deploy.json file included in this package for complete
+technical specifications, API endpoints, and integration details.
+
+═══════════════════════════════════════════════════════════════════════════════
