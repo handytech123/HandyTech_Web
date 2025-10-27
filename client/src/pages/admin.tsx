@@ -1181,6 +1181,8 @@ function GalleryTab() {
   const handleFileSelect = (files: FileList | null, type: 'main' | 'before' | 'finished') => {
     if (!files || files.length === 0) return;
     
+    console.log(`[Preview] Handling ${files.length} file(s) for type: ${type}`);
+    
     if (type === 'finished') {
       // Handle multiple finished images
       const fileArray = Array.from(files);
@@ -1237,13 +1239,24 @@ function GalleryTab() {
       const reader = new FileReader();
       reader.onload = (e) => {
         const result = e.target?.result as string;
+        console.log(`[Preview] Loaded ${type} image, data URL length: ${result?.length}`);
         if (type === 'main') {
           setImagePreview(result);
           setSelectedImages(prev => ({ ...prev, main: file }));
+          console.log('[Preview] Main image preview set');
         } else {
           setBeforeImagePreview(result);
           setSelectedImages(prev => ({ ...prev, before: file }));
+          console.log('[Preview] Before image preview set');
         }
+      };
+      reader.onerror = (error) => {
+        console.error('[Preview] FileReader error:', error);
+        toast({
+          title: "Preview Error",
+          description: "Failed to load image preview",
+          variant: "destructive",
+        });
       };
       reader.readAsDataURL(file);
     }
