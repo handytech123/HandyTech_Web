@@ -1333,16 +1333,24 @@ function GalleryTab() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
-      setUploadDialogOpen(false);
+      
+      // Reset all form states immediately
       uploadForm.reset();
       setImagePreview(null);
       setBeforeImagePreview(null);
       setFinishedImagePreviews([]);
       setSelectedImages({ main: null, before: null, finished: [] });
+      
+      // Show success toast
       toast({
         title: "Success",
         description: "Photos uploaded successfully",
       });
+      
+      // Close dialog with a small delay to ensure state updates complete
+      setTimeout(() => {
+        setUploadDialogOpen(false);
+      }, 100);
     },
     onError: (error: any) => {
       toast({
