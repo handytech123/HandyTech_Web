@@ -193,7 +193,7 @@ export function ChatWidget() {
         {!isOpen && (
           <Button
             onClick={toggleChat}
-            className="h-14 w-14 rounded-full bg-red-600 hover:bg-red-700 shadow-lg transition-all duration-200 hover:scale-105"
+            className="h-14 w-14 rounded-full bg-brand-red hover:bg-brand-red-dark shadow-lg transition-all duration-200 hover:scale-105"
             data-testid="chat-widget-button"
           >
             <MessageCircle className="h-6 w-6 text-white" />
@@ -206,7 +206,7 @@ export function ChatWidget() {
         <div className="fixed bottom-6 right-6 w-96 h-[500px] z-50 shadow-2xl">
           <Card className="h-full flex flex-col bg-white border-gray-300">
             {/* Header */}
-            <CardHeader className="bg-red-600 text-white p-4 rounded-t-lg">
+            <CardHeader className="bg-brand-red text-white p-4 rounded-t-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="flex flex-col">
@@ -220,7 +220,7 @@ export function ChatWidget() {
                         </div>
                       ) : (
                         <div className="flex items-center text-red-200 text-xs">
-                          <div className="w-2 h-2 bg-red-400 rounded-full mr-1"></div>
+                          <div className="w-2 h-2 bg-blue-400 rounded-full mr-1"></div>
                           Connecting...
                         </div>
                       )}
@@ -231,7 +231,7 @@ export function ChatWidget() {
                   variant="ghost"
                   size="sm"
                   onClick={toggleChat}
-                  className="text-white hover:bg-red-700 h-8 w-8 p-0"
+                  className="text-white hover:bg-brand-red-dark h-8 w-8 p-0"
                   data-testid="chat-close-button"
                 >
                   <X className="h-4 w-4" />
@@ -261,7 +261,7 @@ export function ChatWidget() {
                     "max-w-[280px] rounded-lg p-3 shadow-sm",
                     message.isBot || message.isAgent
                       ? "bg-gray-100 text-gray-900"
-                      : "bg-red-600 text-white"
+                      : "bg-brand-red text-white"
                   )}>
                     <div className="text-sm whitespace-pre-wrap break-words">{message.text}</div>
                     <div className={cn(
@@ -313,7 +313,7 @@ export function ChatWidget() {
                 <Button
                   onClick={sendMessage}
                   disabled={!inputValue.trim() || !isConnected}
-                  className="bg-red-600 hover:bg-red-700"
+                  className="bg-brand-red hover:bg-brand-red-dark"
                   data-testid="chat-send-button"
                 >
                   <Send className="h-4 w-4" />

@@ -3,6 +3,7 @@ import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
+import logoPath from "@assets/handytech_logo_extracted.png";
 
 export default function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
@@ -20,15 +21,13 @@ export default function Navigation() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center">
-            <div className="flex items-center">
-              <div className="w-10 h-10 bg-brand-red rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold text-lg">H</span>
-              </div>
-              <Link href="/" className="text-2xl font-bold">
-                <span className="text-charcoal">HandyTech</span>
-                <span className="text-brand-red ml-1 font-extrabold italic">Solutions</span>
-              </Link>
-            </div>
+            <Link href="/" className="flex items-center">
+              <img
+                src={logoPath}
+                alt="HandyTech Solutions"
+                className="h-12 w-auto object-contain"
+              />
+            </Link>
           </div>
           
           <div className="hidden md:block">
@@ -72,7 +71,7 @@ export default function Navigation() {
               </Link>
               <button 
                 onClick={() => scrollToSection('contact')}
-                className="bg-brand-red text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-red-dark transition-colors"
+                className="bg-brand-blue text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-brand-blue-dark transition-colors"
               >
                 Get Quote
               </button>
@@ -88,6 +87,13 @@ export default function Navigation() {
               </SheetTrigger>
               <SheetContent>
                 <div className="flex flex-col space-y-4 mt-8">
+                  <div className="mb-4">
+                    <img
+                      src={logoPath}
+                      alt="HandyTech Solutions"
+                      className="h-16 w-auto object-contain"
+                    />
+                  </div>
                   <button 
                     onClick={() => scrollToSection('services')}
                     className="text-left text-charcoal hover:text-brand-red py-2"
@@ -128,7 +134,7 @@ export default function Navigation() {
                   </Link>
                   <button 
                     onClick={() => scrollToSection('contact')}
-                    className="bg-brand-red text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-red-dark transition-colors text-center"
+                    className="bg-brand-blue text-white px-4 py-2 rounded-lg font-medium hover:bg-brand-blue-dark transition-colors text-center"
                   >
                     Get Quote
                   </button>

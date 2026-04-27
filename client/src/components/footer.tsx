@@ -1,23 +1,24 @@
 import { Facebook, Twitter, Linkedin, Instagram } from "lucide-react";
 import { Link } from "wouter";
+import logoPath from "@assets/handytech_logo_extracted.png";
 
 export default function Footer() {
   return (
-    <footer className="bg-black text-white py-12">
+    <footer className="bg-brand-red text-white py-12">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid md:grid-cols-4 gap-8">
           {/* Company Info */}
           <div>
             <div className="flex items-center mb-4">
-              <div className="w-8 h-8 bg-brand-red rounded-lg flex items-center justify-center mr-3">
-                <span className="text-white font-bold">H</span>
+              <div className="bg-white rounded-xl p-2 mr-3">
+                <img
+                  src={logoPath}
+                  alt="HandyTech Solutions"
+                  className="h-16 w-auto object-contain"
+                />
               </div>
-              <h3 className="text-xl font-bold">
-                <span className="text-white">HandyTech</span>
-                <span className="text-brand-red ml-1 font-extrabold italic">Solutions</span>
-              </h3>
             </div>
-            <p className="text-gray-400 mb-4">
+            <p className="text-blue-100 mb-4">
               Family-owned professional handyman services and smart home technology solutions for homes and businesses. Fully insured for your peace of mind.
             </p>
             
@@ -26,12 +27,12 @@ export default function Footer() {
               <div className="bg-orange-600 text-white px-4 py-3 rounded-lg inline-flex items-center space-x-2">
                 <span className="font-bold text-sm">🔨 HOME DEPOT PRO</span>
               </div>
-              <p className="text-gray-400 text-sm mt-2">Trusted Home Depot Pro Partner</p>
+              <p className="text-blue-200 text-sm mt-2">Trusted Home Depot Pro Partner</p>
               <a 
                 href="https://www.homedepot.com/c/pro" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-orange-400 hover:text-orange-300 text-sm underline transition-colors"
+                className="text-orange-300 hover:text-orange-200 text-sm underline transition-colors"
               >
                 Learn about Home Depot Pro Services
               </a>
@@ -42,7 +43,7 @@ export default function Footer() {
                 href="https://facebook.com/handytechsolutions" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-brand-red transition-colors"
+                className="text-blue-200 hover:text-white transition-colors"
                 aria-label="Follow us on Facebook"
                 data-testid="link-facebook"
               >
@@ -52,7 +53,7 @@ export default function Footer() {
                 href="https://twitter.com/handytechsolutions" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-brand-red transition-colors"
+                className="text-blue-200 hover:text-white transition-colors"
                 aria-label="Follow us on Twitter"
                 data-testid="link-twitter"
               >
@@ -62,7 +63,7 @@ export default function Footer() {
                 href="https://linkedin.com/company/handytech-solutions" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-brand-red transition-colors"
+                className="text-blue-200 hover:text-white transition-colors"
                 aria-label="Connect with us on LinkedIn"
                 data-testid="link-linkedin"
               >
@@ -72,7 +73,7 @@ export default function Footer() {
                 href="https://instagram.com/handytechsolutions" 
                 target="_blank" 
                 rel="noopener noreferrer"
-                className="text-gray-400 hover:text-brand-red transition-colors"
+                className="text-blue-200 hover:text-white transition-colors"
                 aria-label="Follow us on Instagram"
                 data-testid="link-instagram"
               >
@@ -83,20 +84,20 @@ export default function Footer() {
 
           {/* Services */}
           <div>
-            <h4 className="font-semibold mb-4">Services</h4>
-            <ul className="space-y-2 text-gray-400">
+            <h4 className="font-semibold mb-4 text-brand-blue" style={{color: '#7BB3E8'}}>Services</h4>
+            <ul className="space-y-2 text-blue-100">
               <li><a href="#services" className="hover:text-white transition-colors">General Handyman</a></li>
               <li><a href="#services" className="hover:text-white transition-colors">Electrical Work</a></li>
               <li><a href="#services" className="hover:text-white transition-colors">Plumbing Services</a></li>
               <li><a href="#services" className="hover:text-white transition-colors">Smart Home Technology</a></li>
-              <li><a href="#services" className="hover:text-white transition-colors">Carpentry & Repairs</a></li>
+              <li><a href="#services" className="hover:text-white transition-colors">Carpentry &amp; Repairs</a></li>
             </ul>
           </div>
 
           {/* Company */}
           <div>
-            <h4 className="font-semibold mb-4">Company</h4>
-            <ul className="space-y-2 text-gray-400">
+            <h4 className="font-semibold mb-4" style={{color: '#7BB3E8'}}>Company</h4>
+            <ul className="space-y-2 text-blue-100">
               <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
               <li><Link href="/gallery" className="hover:text-white transition-colors" data-testid="link-gallery-footer">Project Gallery</Link></li>
               <li><a href="#" className="hover:text-white transition-colors">Our Team</a></li>
@@ -107,8 +108,8 @@ export default function Footer() {
 
           {/* Support */}
           <div>
-            <h4 className="font-semibold mb-4">Support</h4>
-            <ul className="space-y-2 text-gray-400">
+            <h4 className="font-semibold mb-4" style={{color: '#7BB3E8'}}>Support</h4>
+            <ul className="space-y-2 text-blue-100">
               <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
               <li><a href="/leave-review" className="hover:text-white transition-colors">Leave a Review</a></li>
               <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
@@ -119,8 +120,8 @@ export default function Footer() {
           </div>
         </div>
 
-        <div className="border-t border-gray-800 mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; 2024 HandyTech Solutions. All rights reserved.</p>
+        <div className="border-t border-blue-700 mt-8 pt-8 text-center text-blue-200">
+          <p>&copy; 2025 HandyTech Solutions. All rights reserved. | Handyman &bull; Tech Expert &bull; Renovation Specialist</p>
         </div>
       </div>
     </footer>
