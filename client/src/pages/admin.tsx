@@ -3,6 +3,7 @@ import { Helmet } from 'react-helmet';
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
 import { apiRequest } from "@/lib/queryClient";
 import { createCsrfHeaders } from "@/lib/csrf";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -290,6 +291,21 @@ function LiveChatManagement() {
   );
 }
 
+// Schema for the admin Add Appointment form
+const adminAddAppointmentSchema = z.object({
+  firstName: z.string().min(1, "First name is required"),
+  lastName: z.string().min(1, "Last name is required"),
+  phone: z.string().min(1, "Phone is required"),
+  email: z.string().email("Valid email is required"),
+  address: z.string().min(1, "Address is required"),
+  serviceType: z.string().min(1, "Service type is required"),
+  appointmentDate: z.string().min(1, "Date is required"),
+  appointmentTime: z.string().min(1, "Time is required"),
+  notes: z.string().optional(),
+  status: z.enum(["scheduled", "confirmed"]),
+});
+type AdminAddAppointmentForm = z.infer<typeof adminAddAppointmentSchema>;
+
 // AppointmentsTab component
 function AppointmentsTab({ 
   appointments, 
@@ -301,7 +317,40 @@ function AppointmentsTab({
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
+  const [addAppointmentOpen, setAddAppointmentOpen] = useState(false);
   const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const addAppointmentForm = useForm<AdminAddAppointmentForm>({
+    resolver: zodResolver(adminAddAppointmentSchema),
+    defaultValues: {
+      firstName: "",
+      lastName: "",
+      phone: "",
+      email: "",
+      address: "",
+      serviceType: "",
+      appointmentDate: "",
+      appointmentTime: "",
+      notes: "",
+      status: "scheduled",
+    },
+  });
+
+  const addAppointmentMutation = useMutation({
+    mutationFn: async (data: AdminAddAppointmentForm) => {
+      return await apiRequest("/api/admin/appointments", "POST", data);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/schedule"] });
+      setAddAppointmentOpen(false);
+      addAppointmentForm.reset();
+      toast({ title: "Appointment created", description: "The appointment has been added successfully." });
+    },
+    onError: () => {
+      toast({ title: "Error", description: "Failed to create appointment.", variant: "destructive" });
+    },
+  });
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -359,7 +408,7 @@ function AppointmentsTab({
               </CardTitle>
               <CardDescription>View and manage customer appointments</CardDescription>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Button
                 variant={viewMode === 'list' ? 'default' : 'outline'}
                 size="sm"
@@ -375,6 +424,15 @@ function AppointmentsTab({
                 data-testid="button-calendar-view"
               >
                 Calendar View
+              </Button>
+              <Button
+                size="sm"
+                className="bg-brand-blue hover:bg-brand-blue-dark text-white flex items-center gap-1"
+                onClick={() => setAddAppointmentOpen(true)}
+                data-testid="button-add-appointment"
+              >
+                <Plus className="h-4 w-4" />
+                Add Appointment
               </Button>
             </div>
           </div>
@@ -499,6 +557,216 @@ function AppointmentsTab({
         open={rescheduleDialogOpen}
         onOpenChange={setRescheduleDialogOpen}
       />
+
+      {/* Add Appointment Dialog */}
+      <Dialog open={addAppointmentOpen} onOpenChange={(open) => { setAddAppointmentOpen(open); if (!open) addAppointmentForm.reset(); }}>
+        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" />
+              Add Appointment
+            </DialogTitle>
+            <DialogDescription>
+              Create a new appointment. An existing customer will be matched by email, or a new one will be created.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...addAppointmentForm}>
+            <form
+              onSubmit={addAppointmentForm.handleSubmit((data) => addAppointmentMutation.mutate(data))}
+              className="space-y-4"
+            >
+              {/* Customer Name */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addAppointmentForm.control}
+                  name="firstName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>First Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="John" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addAppointmentForm.control}
+                  name="lastName"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Last Name</FormLabel>
+                      <FormControl>
+                        <Input placeholder="Smith" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Phone & Email */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addAppointmentForm.control}
+                  name="phone"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Phone</FormLabel>
+                      <FormControl>
+                        <Input placeholder="(314) 555-0100" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addAppointmentForm.control}
+                  name="email"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Email</FormLabel>
+                      <FormControl>
+                        <Input type="email" placeholder="john@example.com" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Address */}
+              <FormField
+                control={addAppointmentForm.control}
+                name="address"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service Address</FormLabel>
+                    <FormControl>
+                      <Input placeholder="123 Main St, Hazelwood, MO 63042" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Service Type */}
+              <FormField
+                control={addAppointmentForm.control}
+                name="serviceType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Service</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select a service" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="General Handyman">General Handyman</SelectItem>
+                        <SelectItem value="Plumbing Repair">Plumbing Repair</SelectItem>
+                        <SelectItem value="Electrical Work">Electrical Work</SelectItem>
+                        <SelectItem value="Smart Home Installation">Smart Home Installation</SelectItem>
+                        <SelectItem value="Carpentry & Repairs">Carpentry &amp; Repairs</SelectItem>
+                        <SelectItem value="Painting">Painting</SelectItem>
+                        <SelectItem value="Drywall Repair">Drywall Repair</SelectItem>
+                        <SelectItem value="Flooring">Flooring</SelectItem>
+                        <SelectItem value="Fixture Installation">Fixture Installation</SelectItem>
+                        <SelectItem value="Home Inspection">Home Inspection</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Date & Time */}
+              <div className="grid grid-cols-2 gap-4">
+                <FormField
+                  control={addAppointmentForm.control}
+                  name="appointmentDate"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Appointment Date</FormLabel>
+                      <FormControl>
+                        <Input type="date" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+                <FormField
+                  control={addAppointmentForm.control}
+                  name="appointmentTime"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel>Appointment Time</FormLabel>
+                      <FormControl>
+                        <Input type="time" {...field} />
+                      </FormControl>
+                      <FormMessage />
+                    </FormItem>
+                  )}
+                />
+              </div>
+
+              {/* Status */}
+              <FormField
+                control={addAppointmentForm.control}
+                name="status"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Status</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select status" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        <SelectItem value="scheduled">Scheduled</SelectItem>
+                        <SelectItem value="confirmed">Confirmed</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {/* Notes */}
+              <FormField
+                control={addAppointmentForm.control}
+                name="notes"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Notes (optional)</FormLabel>
+                    <FormControl>
+                      <Textarea placeholder="Any special instructions or details..." rows={3} {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              <div className="flex justify-end gap-3 pt-2">
+                <Button type="button" variant="outline" onClick={() => { setAddAppointmentOpen(false); addAppointmentForm.reset(); }}>
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="bg-brand-blue hover:bg-brand-blue-dark text-white"
+                  disabled={addAppointmentMutation.isPending}
+                  data-testid="button-submit-add-appointment"
+                >
+                  {addAppointmentMutation.isPending ? "Creating..." : "Create Appointment"}
+                </Button>
+              </div>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

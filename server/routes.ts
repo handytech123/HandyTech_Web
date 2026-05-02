@@ -1104,6 +1104,64 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin: Create a new appointment (admin-only)
+  app.post("/api/admin/appointments", requireAdmin, async (req, res) => {
+    try {
+      const {
+        firstName,
+        lastName,
+        phone,
+        email,
+        address,
+        serviceType,
+        appointmentDate,
+        appointmentTime,
+        notes,
+        status,
+      } = req.body;
+
+      if (!firstName || !lastName || !email || !serviceType || !appointmentDate || !appointmentTime) {
+        return res.status(400).json({ message: "Missing required fields: firstName, lastName, email, serviceType, appointmentDate, appointmentTime" });
+      }
+
+      // Find existing customer by email or create a new one
+      let customer = await storage.getCustomerByEmail(email);
+      if (!customer) {
+        customer = await storage.createCustomer({
+          firstName,
+          lastName,
+          email,
+          phone: phone || "",
+          company: "",
+          street: address || "",
+          city: "",
+          state: "MO",
+          zip: "",
+        });
+      }
+
+      const appointment = await storage.createAppointment({
+        customerId: customer.id,
+        firstName,
+        lastName,
+        email,
+        phone: phone || null,
+        serviceType,
+        appointmentDate: new Date(appointmentDate),
+        appointmentTime,
+        address: address || null,
+        notes: notes || null,
+        status: status || "scheduled",
+        source: "manual",
+      });
+
+      res.status(201).json(appointment);
+    } catch (error) {
+      console.error("Admin create appointment error:", error);
+      res.status(500).json({ message: "Failed to create appointment" });
+    }
+  });
+
   // Customer routes with admin authentication
   app.get("/api/customers", requireAdmin, async (req, res) => {
     try {
