@@ -302,7 +302,7 @@ const adminAddAppointmentSchema = z.object({
   appointmentDate: z.string().min(1, "Date is required"),
   appointmentTime: z.string().min(1, "Time is required"),
   notes: z.string().optional(),
-  status: z.enum(["scheduled", "confirmed"]),
+  status: z.enum(["new", "scheduled", "confirmed", "completed", "cancelled"]),
 });
 type AdminAddAppointmentForm = z.infer<typeof adminAddAppointmentSchema>;
 
@@ -333,7 +333,7 @@ function AppointmentsTab({
       appointmentDate: "",
       appointmentTime: "",
       notes: "",
-      status: "scheduled",
+      status: "new",
     },
   });
 
@@ -726,8 +726,11 @@ function AppointmentsTab({
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
+                        <SelectItem value="new">New</SelectItem>
                         <SelectItem value="scheduled">Scheduled</SelectItem>
                         <SelectItem value="confirmed">Confirmed</SelectItem>
+                        <SelectItem value="completed">Completed</SelectItem>
+                        <SelectItem value="cancelled">Cancelled</SelectItem>
                       </SelectContent>
                     </Select>
                     <FormMessage />
