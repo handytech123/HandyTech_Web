@@ -1,0 +1,118 @@
+SLICE: Homepage Conversion Improvements
+
+GOAL:
+Improve the public homepage so customers immediately understand HandyTech offers handyman services with smart home/tech capability, and make booking/calling easier.
+
+STRICT BOUNDARIES:
+- Do NOT change backend routes.
+- Do NOT change database schema.
+- Do NOT change admin dashboard.
+- Do NOT change appointment logic.
+- Do NOT change authentication.
+- Do NOT refactor the whole app.
+- Do NOT add new libraries unless already installed.
+- Keep existing booking flow working.
+- This slice is frontend/homepage only.
+
+TASK:
+Update the customer-facing homepage with these sections in this order:
+
+1. Hero Section
+Headline:
+“Handyman Services in St. Louis”
+
+Subheadline:
+“Fast, reliable repairs, installations, and smart home upgrades done right.”
+
+Body text:
+“From small repairs to modern tech installs, HandyTech helps homeowners get the job done professionally and on time.”
+
+Buttons:
+- Primary: “Book Service Now” → connect to existing booking flow
+- Secondary: “Call (314) 325-4575” → tel:3143254575
+
+Service area:
+“Serving Florissant, Hazelwood, St. Louis, and surrounding areas.”
+
+2. Trust Bar
+Add four trust points:
+- Fast Response
+- Reliable Service
+- Quality Workmanship
+- Local & Trusted
+
+3. Core Services Section
+Add service cards:
+- Faucet Replacement
+- Drywall Repair
+- TV Mounting
+- Door Repair
+- Grab Bar Installation
+- Light Fixture Replacement
+
+Each card:
+- short description
+- “Book Service” button connected to existing booking flow
+
+4. Smart Home & Tech Services Section
+Title:
+“Smart Home & Tech Services”
+
+Text:
+“Need help with modern home technology? We install and set up smart devices, TVs, cameras, WiFi equipment, and connected home systems.”
+
+Include:
+- TV Mounting & Setup
+- Smart Doorbells & Cameras
+- Smart Thermostats
+- WiFi / Network Setup
+- Home Audio / Video Setup
+
+Button:
+“Book Tech Service” → existing booking flow
+
+5. How It Works Section
+Steps:
+1. Book Your Service
+2. We Confirm & Show Up
+3. Job Completed Right
+
+6. Reviews Section
+Add 2–3 placeholder reviews that can be replaced later.
+
+7. Final CTA Section
+Headline:
+“Need a repair or installation done right?”
+
+Buttons:
+- “Schedule Your Appointment” → booking flow
+- “Call HandyTech” → tel:3143254575
+
+8. Affiliate Disclosure Section
+Text:
+“Prefer to purchase your own materials? Browse Home Depot here.”
+
+Use placeholder link:
+https://www.homedepot.com
+
+Disclosure:
+“Disclosure: Some links may be affiliate links. HandyTech may earn a commission at no extra cost to you.”
+
+DESIGN REQUIREMENTS:
+- Mobile-first layout
+- Clear visible buttons
+- Professional handyman feel
+- Do not make the site look like only a tech company
+- Handyman first, tech advantage second
+- Keep existing HandyTech branding
+
+VERIFY:
+- Homepage loads
+- Booking buttons still work
+- Call buttons work
+- Admin login still works
+- Existing API calls still work
+- No console errors
+- No TypeScript/build errors
+
+DO NOT continue into unrelated features.
