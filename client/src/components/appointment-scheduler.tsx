@@ -56,18 +56,6 @@ const SERVICE_CATEGORIES = {
 
 type CategoryKey = keyof typeof SERVICE_CATEGORIES;
 
-const SERVICE_TYPES = [
-  "General Handyman",
-  "Plumbing",
-  "Electrical",
-  "Carpentry",
-  "Technology Setup",
-  "Appliance Installation",
-  "Appliance Repair",
-  "Home Security",
-  "Custom Project"
-] as const;
-
 const bookingFormSchema = insertAppointmentSchema.pick({
   firstName: true,
   lastName: true,
@@ -128,7 +116,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     queryKey: ["/api/services"],
   });
 
-  const activeServices = services.filter(service => service.active);
+  const activeServices = services.filter(service => service.active || service.isActive);
 
   const servicesByCategory = activeServices.reduce((acc, service) => {
     if (!acc[service.category as CategoryKey]) {
@@ -566,18 +554,18 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                     <FormItem className="md:col-span-2">
                       <FormLabel>What do you need help with?</FormLabel>
                       <Select onValueChange={(value) => {
-                        const service = categoryServices.find(s => s.id === parseInt(value));
+                        const service = activeServices.find(s => s.id.toString() === value);
                         if (service) handleServiceSelect(service);
                       }} value={selectedService?.id.toString() || ""}>
                         <FormControl>
                           <SelectTrigger data-testid="select-service">
-                            <SelectValue placeholder="Choose a service from selected category" />
+                            <SelectValue placeholder="Choose a service" />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          {categoryServices.map((service) => (
+                          {activeServices.map((service) => (
                             <SelectItem key={service.id} value={service.id.toString()}>
-                              {service.name} ({service.suggestedHours}h)
+                              {service.name}{service.suggestedHours ? ` (${service.suggestedHours}h)` : ""}{service.description ? ` - Starting at ${service.description}` : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>
