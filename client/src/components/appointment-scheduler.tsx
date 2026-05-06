@@ -372,29 +372,31 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
 
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2 sm:space-x-4">
-            {[
-              { id: "category", label: "Category" },
-              { id: "contact", label: "Contact" },
-              { id: "date", label: "Date" },
-              { id: "time", label: "Time" }
-            ].map((step, index) => (
-              <div key={step.id} className="flex items-center">
-                <div 
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                    currentStep === step.id 
-                      ? "bg-brand-red text-white" 
-                      : (index < ["category", "contact", "date", "time"].indexOf(currentStep))
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-600"
-                  }`}
-                  data-testid={`step-${step.id}`}
-                >
-                  {index + 1}
+            {
+              [
+                { id: "category", label: "Category" },
+                { id: "contact", label: "Contact" },
+                { id: "date", label: "Date" },
+                { id: "time", label: "Time" }
+              ].map((step, index) => (
+                <div key={step.id} className="flex items-center">
+                  <div 
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                      currentStep === step.id 
+                        ? "bg-brand-red text-white" 
+                        : (index < ["category", "contact", "date", "time"].indexOf(currentStep))
+                          ? "bg-green-500 text-white"
+                          : "bg-gray-200 text-gray-600"
+                    }`}
+                    data-testid={`step-${step.id}`}
+                  >
+                    {index + 1}
+                  </div>
+                  <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600">{step.label}</span>
+                  {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
                 </div>
-                <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600">{step.label}</span>
-                {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
-              </div>
-            ))}
+              ))
+            }
           </div>
         </div>
 
@@ -437,38 +439,50 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
           )}
 
           {currentStep === "contact" && (
-            <Card data-testid="card-contact-details">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
+            <Card data-testid="card-contact-details" className="shadow-lg border-0 rounded-2xl">
+              <CardHeader className="pb-4">
+                <CardTitle className="flex items-center gap-2 text-xl">
                   <User className="h-5 w-5 text-brand-red" />
                   Step 2: Enter Your Contact Details
                 </CardTitle>
+                <p className="text-sm text-gray-600">We will confirm your appointment before arrival.</p>
               </CardHeader>
-              <CardContent>
-                <div className="mb-4">
-                  <Badge variant="outline" className="mb-2">
-                    Selected: {selectedCategory && SERVICE_CATEGORIES[selectedCategory].title}
-                  </Badge>
+              <CardContent className="space-y-5">
+                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-charcoal mb-2">
+                    <CheckCircle className="h-4 w-4 text-green-600" />
+                    Selected service
+                  </div>
+                  <div className="flex flex-wrap gap-2 items-center">
+                    {selectedService ? (
+                      <>
+                        <Badge variant="outline" className="bg-white border-brand-red text-brand-red">
+                          {selectedService.name}
+                        </Badge>
+                        <span className="text-sm text-gray-600">{selectedService.suggestedHours} hours</span>
+                      </>
+                    ) : (
+                      <span className="text-sm text-gray-500">Please choose a service before continuing.</span>
+                    )}
+                  </div>
                 </div>
 
                 <Form {...form}>
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <FormField control={form.control} name="firstName" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>First Name</FormLabel>
-                          <FormControl><Input {...field} data-testid="input-first-name" /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                      <FormField control={form.control} name="lastName" render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Last Name</FormLabel>
-                          <FormControl><Input {...field} data-testid="input-last-name" /></FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )} />
-                    </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField control={form.control} name="firstName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl><Input {...field} data-testid="input-first-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="lastName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl><Input {...field} data-testid="input-last-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <FormField control={form.control} name="email" render={({ field }) => (
                       <FormItem>
                         <FormLabel>Email Address</FormLabel>
@@ -484,13 +498,13 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                       </FormItem>
                     )} />
                     <FormField control={form.control} name="street" render={({ field }) => (
-                      <FormItem>
+                      <FormItem className="md:col-span-2">
                         <FormLabel>Street Address</FormLabel>
                         <FormControl><Input {...field} placeholder="123 Main Street" data-testid="input-street" value={field.value || ""} /></FormControl>
                         <FormMessage />
                       </FormItem>
                     )} />
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:col-span-2">
                       <FormField control={form.control} name="city" render={({ field }) => (
                         <FormItem>
                           <FormLabel>City</FormLabel>
@@ -513,8 +527,8 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                         </FormItem>
                       )} />
                     </div>
-                    <FormItem>
-                      <FormLabel>Select Specific Service</FormLabel>
+                    <FormItem className="md:col-span-2">
+                      <FormLabel>What do you need help with?</FormLabel>
                       <Select onValueChange={(value) => {
                         const service = categoryServices.find(s => s.id === parseInt(value));
                         if (service) handleServiceSelect(service);
@@ -527,17 +541,17 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                         <SelectContent>
                           {categoryServices.map((service) => (
                             <SelectItem key={service.id} value={service.id.toString()}>
-                              {service.name} ({service.suggestedHours}h) - {service.description}
+                              {service.name} ({service.suggestedHours}h)
                             </SelectItem>
                           ))}
                         </SelectContent>
                       </Select>
                     </FormItem>
                     <FormField control={form.control} name="notes" render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Additional Comments (Optional)</FormLabel>
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Optional notes</FormLabel>
                         <FormControl>
-                          <Textarea {...field} placeholder="Any specific details, preferences, or special instructions..." data-testid="textarea-notes" value={field.value || ""} />
+                          <Textarea {...field} placeholder="Add any details, access notes, or special requests..." data-testid="textarea-notes" value={field.value || ""} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -555,7 +569,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                         }
                       }}
                       disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !selectedService}
-                      className="w-full bg-brand-red hover:bg-red-700"
+                      className="w-full bg-brand-red hover:bg-red-700 md:col-span-2"
                       data-testid="button-proceed-to-date"
                     >
                       Continue to Date Selection
