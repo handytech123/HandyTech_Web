@@ -10,16 +10,17 @@ const techServices = [
 ];
 
 export default function SmartHomeSection() {
-  const scrollToContact = () => {
-    const el = document.getElementById('scheduler');
-    if (el) el.scrollIntoView({ behavior: 'smooth' });
+  const openBooking = () => {
+    const scheduler = document.getElementById("scheduler");
+    if (!scheduler) return;
+    scheduler.scrollIntoView({ behavior: "smooth" });
+    window.dispatchEvent(new CustomEvent("handytech:booking-service", { detail: { serviceName: "TV Mounting" } }));
   };
 
   return (
     <section id="tech-services" className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
-          {/* Left: copy */}
           <div>
             <div className="inline-block bg-brand-blue text-white text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-6">
               Tech Services
@@ -31,7 +32,7 @@ export default function SmartHomeSection() {
               Need help with modern home technology? We install and set up smart devices, TVs, cameras, WiFi equipment, and connected home systems.
             </p>
             <Button
-              onClick={scrollToContact}
+              onClick={openBooking}
               className="bg-brand-blue hover:bg-brand-blue-dark text-white font-bold px-8 py-4 rounded-xl text-base h-auto flex items-center gap-2"
             >
               Book Tech Service
@@ -39,7 +40,6 @@ export default function SmartHomeSection() {
             </Button>
           </div>
 
-          {/* Right: service list */}
           <div className="space-y-4">
             {techServices.map(({ icon: Icon, name, desc }) => (
               <div

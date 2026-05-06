@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -107,24 +107,6 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
-  const { data: services = [], isLoading: loadingServices, error: servicesError } = useQuery<Service[]>({
-    queryKey: ["/api/services"],
-  });
-
-  const activeServices = services.filter(service => service.active);
-
-  const servicesByCategory = activeServices.reduce((acc, service) => {
-    if (!acc[service.category as CategoryKey]) {
-      acc[service.category as CategoryKey] = [];
-    }
-    acc[service.category as CategoryKey].push(service);
-    return acc;
-  }, {} as Record<CategoryKey, Service[]>);
-
-  const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
-
-  const selectedDuration = selectedService?.suggestedHours.toString() || "";
-
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
     mode: "onChange",
@@ -141,6 +123,62 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
       notes: "",
     }
   });
+
+  const { data: services = [], isLoading: loadingServices, error: servicesError } = useQuery<Service[]>({
+    queryKey: ["/api/services"],
+  });
+
+  const activeServices = services.filter(service => service.active);
+
+  const servicesByCategory = activeServices.reduce((acc, service) => {
+    if (!acc[service.category as CategoryKey]) {
+      acc[service.category as CategoryKey] = [];
+    }
+    acc[service.category as CategoryKey].push(service);
+    return acc;
+  }, {} as Record<CategoryKey, Service[]>);
+
+  const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
+
+  useEffect(() => {
+    const applyServiceName = (serviceName?: string | null) => {
+      if (!serviceName || activeServices.length === 0) return;
+      const normalized = serviceName.toLowerCase();
+      const match = activeServices.find((service) => service.name.toLowerCase() === normalized) || activeServices.find((service) => service.name.toLowerCase().includes(normalized) || normalized.includes(service.name.toLowerCase()));
+      if (match) {
+        setSelectedService(match);
+        form.setValue("serviceType", match.name);
+        const matchingCategory = match.category as CategoryKey;
+        if (matchingCategory in SERVICE_CATEGORIES) {
+          setSelectedCategory(matchingCategory);
+        }
+        return;
+      }
+      const techMatch = activeServices.find((service) => /tv|tech|smart|wifi|camera|doorbell|audio|video/i.test(service.name));
+      if (techMatch && /tech/i.test(serviceName)) {
+        setSelectedService(techMatch);
+        form.setValue("serviceType", techMatch.name);
+        const matchingCategory = techMatch.category as CategoryKey;
+        if (matchingCategory in SERVICE_CATEGORIES) {
+          setSelectedCategory(matchingCategory);
+        }
+      }
+    };
+
+    if (defaultBookingMode && defaultServiceName) {
+      applyServiceName(defaultServiceName);
+    }
+
+    const handleBookingService = (event: Event) => {
+      const customEvent = event as CustomEvent<{ serviceName?: string | null }>;
+      applyServiceName(customEvent.detail?.serviceName);
+    };
+
+    window.addEventListener("handytech:booking-service", handleBookingService as EventListener);
+    return () => window.removeEventListener("handytech:booking-service", handleBookingService as EventListener);
+  }, [activeServices, defaultBookingMode, defaultServiceName, form]);
+
+  const selectedDuration = selectedService?.suggestedHours.toString() || "";
 
   const {
     data: availableSlots = [],
@@ -372,31 +410,29 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
 
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2 sm:space-x-4">
-            {
-              [
-                { id: "category", label: "Category" },
-                { id: "contact", label: "Contact" },
-                { id: "date", label: "Date" },
-                { id: "time", label: "Time" }
-              ].map((step, index) => (
-                <div key={step.id} className="flex items-center">
-                  <div 
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                      currentStep === step.id 
-                        ? "bg-brand-red text-white" 
-                        : (index < ["category", "contact", "date", "time"].indexOf(currentStep))
-                          ? "bg-green-500 text-white"
-                          : "bg-gray-200 text-gray-600"
-                    }`}
-                    data-testid={`step-${step.id}`}
-                  >
-                    {index + 1}
-                  </div>
-                  <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600">{step.label}</span>
-                  {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
+            {[
+              { id: "category", label: "Category" },
+              { id: "contact", label: "Contact" },
+              { id: "date", label: "Date" },
+              { id: "time", label: "Time" }
+            ].map((step, index) => (
+              <div key={step.id} className="flex items-center">
+                <div 
+                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                    currentStep === step.id 
+                      ? "bg-brand-red text-white" 
+                      : (index < ["category", "contact", "date", "time"].indexOf(currentStep))
+                        ? "bg-green-500 text-white"
+                        : "bg-gray-200 text-gray-600"
+                  }`}
+                  data-testid={`step-${step.id}`}
+                >
+                  {index + 1}
                 </div>
-              ))
-            }
+                <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600">{step.label}</span>
+                {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
+              </div>
+            ))}
           </div>
         </div>
 
