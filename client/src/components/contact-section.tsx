@@ -67,13 +67,13 @@ export default function ContactSection() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="bg-white text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
-            GET IN TOUCH
+            REQUEST ESTIMATE
           </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Ready to Start Your <span className="text-brand-red">Next Project?</span>
+            Need a <span className="text-brand-red">Custom Quote?</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            HandyTech Solutions: Your family-owned premier choice for home improvement. With 10+ years of experience and full insurance coverage, we ensure high-quality service from minor repairs to major renovations.
+            For larger projects or custom work, describe what you need and we'll get back to you with a detailed estimate. Ready to book now? <button onClick={() => { const el = document.getElementById('scheduler'); if (el) el.scrollIntoView({ behavior: 'smooth' }); }} className="text-brand-blue font-semibold underline hover:no-underline">Schedule your appointment directly above.</button>
           </p>
         </div>
         
@@ -91,7 +91,7 @@ export default function ContactSection() {
                 className="bg-brand-red hover:bg-brand-red-dark text-white px-12 py-6 rounded-lg text-2xl font-bold shadow-xl w-full"
                 data-testid="button-get-estimate"
               >
-                Get Free Estimate
+                Request Estimate
               </Button>
             </div>
             
@@ -144,7 +144,7 @@ export default function ContactSection() {
 
           {/* Contact Form */}
           <div className="bg-white rounded-2xl p-8 shadow-lg">
-            <h3 className="text-2xl font-bold text-charcoal mb-6">Request Your Quote</h3>
+            <h3 className="text-2xl font-bold text-charcoal mb-6">Request a Custom Estimate</h3>
             <form id="quote-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
                 <div>

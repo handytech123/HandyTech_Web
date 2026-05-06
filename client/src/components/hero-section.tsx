@@ -27,7 +27,7 @@ export default function HeroSection() {
 
           <div className="flex flex-col sm:flex-row gap-4 mb-10">
             <Button
-              onClick={() => scrollToSection('contact')}
+              onClick={() => scrollToSection('scheduler')}
               className="bg-brand-blue hover:bg-brand-blue-dark text-white text-lg font-bold px-8 py-4 rounded-xl shadow-xl flex items-center gap-2 justify-center h-auto"
             >
               <CalendarCheck className="h-5 w-5" />

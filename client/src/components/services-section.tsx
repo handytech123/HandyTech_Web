@@ -80,7 +80,7 @@ export default function ServicesSection() {
   });
 
   const scrollToBooking = () => {
-    const el = document.getElementById("contact");
+    const el = document.getElementById("scheduler");
     if (el) el.scrollIntoView({ behavior: "smooth" });
   };
 

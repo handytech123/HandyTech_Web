@@ -11,7 +11,7 @@ const techServices = [
 
 export default function SmartHomeSection() {
   const scrollToContact = () => {
-    const el = document.getElementById('contact');
+    const el = document.getElementById('scheduler');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
