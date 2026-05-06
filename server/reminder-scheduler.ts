@@ -68,10 +68,10 @@ export class ReminderScheduler {
     console.log('Starting appointment reminder scheduler...');
     this.isRunning = true;
     
-    // Check for reminders every 15 minutes
+    // Check for reminders every 10 minutes
     this.intervalId = setInterval(() => {
       this.checkAndSendReminders();
-    }, 15 * 60 * 1000); // 15 minutes
+    }, 10 * 60 * 1000); // 10 minutes
 
     // Run initial check
     this.checkAndSendReminders();
@@ -112,10 +112,10 @@ export class ReminderScheduler {
         
         console.log(`Appointment ${appointment.id}: ${hoursUntilAppointment.toFixed(1)} hours until appointment`);
         
-        // FIXED: 24-hour reminder (send between 23.5 and 24.5 hours before)
-        // Only send if appointment is still scheduled and reminder hasn't been sent
-        if (hoursUntilAppointment >= 23.5 && hoursUntilAppointment <= 24.5 && 
-            appointment.status === 'scheduled' && 
+        // 24-hour reminder: send for any upcoming appointment within next 24 hours
+        // that hasn't been reminded yet and isn't cancelled
+        if (hoursUntilAppointment > 0 && hoursUntilAppointment <= 24 &&
+            appointment.status !== 'cancelled' &&
             !appointment.reminder24hSent) {
           console.log(`Sending 24-hour reminder for appointment ${appointment.id}`);
           const emailSent = await this.send24HourReminder(appointment);

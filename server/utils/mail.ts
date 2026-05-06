@@ -918,20 +918,18 @@ export class EmailService {
         
         <p>Hi ${data.customerName},</p>
         
-        <p>Just a friendly reminder that your HandyTech appointment is scheduled for <strong>tomorrow</strong>!</p>
+        <p>Reminder: You have an upcoming appointment scheduled for <strong>${formattedDate}</strong> at <strong>${formattedTime}</strong>. If you need to reschedule, please contact HandyTech.</p>
         
         <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
-          <p style="margin: 0 0 10px 0;"><strong>Tomorrow:</strong> ${formattedDate}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
           <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
-          ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${data.description}</p>` : ''}
+          ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Notes:</strong> ${data.description}</p>` : ''}
         </div>
         
-        <p>Our technician will arrive within a 30-minute window of your scheduled time. Please ensure someone is available to provide access to the work area.</p>
+        <p>To reschedule or cancel, please call us at <strong>${this.businessPhone}</strong> as soon as possible.</p>
         
-        <p>If you need to reschedule, please call us at <strong>${this.businessPhone}</strong> as soon as possible.</p>
-        
-        <p>We're looking forward to helping you tomorrow!</p>
+        <p>Thank you for choosing ${this.businessName}!</p>
       `;
 
       const htmlEmail = this.getEmailTemplate(content);
@@ -939,7 +937,7 @@ export class EmailService {
       const mailOptions = {
         from: `"${this.businessName}" <${this.fromEmail}>`,
         to: data.customerEmail,
-        subject: `Reminder: Your HandyTech Appointment is Tomorrow`,
+        subject: `Appointment Reminder - HandyTech`,
         html: htmlEmail,
         headers: {
           'X-Mailer': `${this.businessName} Reminder System`,
