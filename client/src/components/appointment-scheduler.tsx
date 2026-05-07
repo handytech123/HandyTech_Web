@@ -130,10 +130,28 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
   const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
 
   useEffect(() => {
+    const aliasMap: Record<string, string[]> = {
+      "TV Mounting": ["TV Mounting & Setup"],
+      "Smart Home": ["Smart Home Installation"],
+      "Light Fixture Replacement": ["Fixture Installation"],
+    };
+
     const applyServiceName = (serviceName?: string | null) => {
       if (!serviceName || activeServices.length === 0) return;
       console.log("Selected service:", serviceName);
-      const match = activeServices.find((service) => service.name === serviceName);
+      const normalizedName = serviceName.trim();
+      const lowerName = normalizedName.toLowerCase();
+      let match = activeServices.find((service) => service.name === normalizedName);
+      if (!match) {
+        match = activeServices.find((service) => service.name.toLowerCase() === lowerName);
+      }
+      if (!match) {
+        match = activeServices.find((service) => service.name.toLowerCase().includes(lowerName) || lowerName.includes(service.name.toLowerCase()));
+      }
+      if (!match) {
+        const aliases = aliasMap[normalizedName] || [];
+        match = activeServices.find((service) => aliases.some((alias) => service.name === alias || service.name.toLowerCase() === alias.toLowerCase()));
+      }
       if (match) {
         setSelectedService(match);
         form.setValue("serviceType", match.name);
@@ -143,15 +161,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
         }
         return;
       }
-      const techMatch = activeServices.find((service) => /tv|tech|smart|wifi|camera|doorbell|audio|video/i.test(service.name));
-      if (techMatch && /tech/i.test(serviceName)) {
-        setSelectedService(techMatch);
-        form.setValue("serviceType", techMatch.name);
-        const matchingCategory = techMatch.category as CategoryKey;
-        if (matchingCategory in SERVICE_CATEGORIES) {
-          setSelectedCategory(matchingCategory);
-        }
-      }
+      console.warn("No matching service found for:", serviceName);
     };
 
     if (defaultBookingMode && defaultServiceName) {
