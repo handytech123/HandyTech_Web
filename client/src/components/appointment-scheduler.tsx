@@ -24,12 +24,16 @@ import { fromZonedTime, toZonedTime } from "date-fns-tz";
 interface Service {
   id: number;
   name: string;
+  basePrice?: number;
   suggestedHours: number;
   description: string;
   active: boolean;
   isActive?: boolean;
+  showOnHomepage?: boolean;
   category: string;
 }
+
+const isServiceActive = (service: Service) => service.isActive === true || service.active === true || service.isActive === undefined;
 
 const SERVICE_CATEGORIES = {
   A: {
@@ -117,7 +121,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     queryKey: ["/api/services"],
   });
 
-  const visibleServices = services.filter((service) => service.isActive ?? false);
+  const visibleServices = services.filter(isServiceActive);
 
   const servicesByCategory = visibleServices.reduce((acc, service) => {
     if (!acc[service.category as CategoryKey]) {

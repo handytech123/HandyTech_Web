@@ -17,6 +17,9 @@ import {
 import { useQuery } from "@tanstack/react-query";
 import type { Service } from "@shared/schema";
 
+const isServiceActive = (service: Service & { active?: boolean }) => service.isActive === true || service.active === true || service.isActive === undefined;
+const isVisibleOnHomepage = (service: Service) => isServiceActive(service) && service.showOnHomepage !== false;
+
 const categoryConfig = [
   { category: "essential", icon: Wrench, title: "Essential Repairs & Maintenance", subtitle: "🛠️ Service A", description: "Quick fixes and routine maintenance to keep your home in top shape." },
   { category: "improvement", icon: Shield, title: "Home Improvement & Remodeling", subtitle: "🏡 Service B", description: "Enhance and modernize your living spaces with our remodeling services." },
@@ -37,7 +40,14 @@ export default function ServicesSection() {
     queryKey: ["/api/services"],
   });
 
-  const visibleServices = services.filter((service) => service.isActive ?? false);
+  const activeServices = services.filter(isServiceActive);
+  const visibleServices = activeServices.filter((service) => service.showOnHomepage !== false);
+  const homepageServices = visibleServices.length > 0 ? visibleServices : activeServices.slice(0, 6);
+  if (process.env.NODE_ENV !== "production") {
+    console.log("[services] returned", services.length);
+    console.log("[services] shown on homepage", visibleServices.length);
+    console.log("[services] hidden", services.filter((service) => !isVisibleOnHomepage(service)).map((service) => service.name));
+  }
 
   const openBooking = (service?: Service, targetId = "scheduler") => {
     const target = document.getElementById(targetId);
@@ -47,7 +57,7 @@ export default function ServicesSection() {
   };
 
   const getServicesByCategory = (category: string) =>
-    visibleServices
+    activeServices
       .filter((s) => s.category === category)
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
@@ -71,7 +81,7 @@ export default function ServicesSection() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-          {visibleServices.map((service) => {
+          {homepageServices.map((service) => {
             const Icon = iconMap[service.name] || Wrench;
             return (
               <Card key={service.id} className="border border-gray-100 hover:border-brand-red hover:shadow-lg transition-all duration-300 group rounded-xl bg-white">

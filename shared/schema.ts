@@ -300,6 +300,7 @@ export const services = pgTable("services", {
   basePrice: real("base_price").notNull(),
   priceUnit: varchar("price_unit", { length: 50 }).default("per hour"), // 'per hour', 'flat rate', 'per square foot'
   isActive: boolean("is_active").default(true),
+  showOnHomepage: boolean("show_on_homepage").default(true),
   estimatedDuration: varchar("estimated_duration", { length: 50 }), // '1-2 hours', '2-4 hours', etc.
   skillLevel: varchar("skill_level", { length: 50 }).default("standard"), // 'basic', 'standard', 'expert'
   includedInQuoteCalculator: boolean("included_in_quote_calculator").default(true),

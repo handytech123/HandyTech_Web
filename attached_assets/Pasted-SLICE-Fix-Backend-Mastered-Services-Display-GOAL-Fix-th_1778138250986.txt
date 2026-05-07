@@ -1,0 +1,73 @@
+SLICE: Fix Backend-Mastered Services Display
+
+GOAL:
+Fix the homepage service display so the backend/admin services list is the source of truth, and add admin control for which active services show on the homepage.
+
+CURRENT ISSUE:
+Active services in Admin are no longer reliably showing on the main homepage after switching the frontend to use backend services as the master list.
+
+STRICT BOUNDARIES:
+- Do NOT roll back.
+- Do NOT refactor the whole app.
+- Do NOT change appointment creation logic.
+- Do NOT break admin services management.
+- Do NOT break booking flow.
+- Do NOT hardcode public service names again.
+- Keep backend/admin services as the master source.
+
+TASK 1 — FIX ACTIVE SERVICE FILTER:
+Find all frontend service filters using:
+service.isActive ?? false
+
+Replace with a safer helper:
+
+const isServiceActive = (service) =>
+  service.isActive === true || service.active === true || service.isActive === undefined;
+
+Use this helper anywhere services are filtered for display or booking.
+
+TASK 2 — ADD HOMEPAGE DISPLAY CONTROL:
+Add a new service field:
+
+showOnHomepage boolean default true
+
+Use it to control which active services display on the public homepage.
+
+Requirements:
+- Add showOnHomepage to services schema/model if needed.
+- Add it to the admin service create/edit form as a toggle:
+  “Show on Homepage”
+- Default should be true.
+- Existing services should behave as true unless explicitly false.
+
+TASK 3 — HOMEPAGE LOGIC:
+Homepage should show services where:
+- service is active
+AND
+- showOnHomepage is not false
+
+Booking dropdown should show all active services, even if showOnHomepage is false.
+
+This means:
+- Homepage = featured public services
+- Booking form = full active service list
+
+TASK 4 — PRESERVE BACKEND MASTER:
+Do not reintroduce hardcoded service names on homepage.
+Homepage service cards must be generated from /api/services.
+
+TASK 5 — DEBUG SAFETY:
+Add temporary console logs in development only:
+- number of services returned
+- number of services shown on homepage
+- names of services hidden because inactive or showOnHomepage=false
+
+VERIFY:
+- Active services from admin appear in booking dropdown.
+- Only services marked “Show on Homepage” appear on homepage.
+- Turning a service inactive hides it everywhere.
+- Turning “Show on Homepage” off hides it from homepage but keeps it in booking.
+- Service card Book button preselects that exact backend service.
+- Admin Services tab still creates/updates services.
+- No console errors.
+- No TypeScript/build errors.
