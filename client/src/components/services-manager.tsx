@@ -27,6 +27,7 @@ const serviceFormSchema = insertServiceSchema.extend({
 });
 
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
+type ServiceFormValues = Omit<ServiceFormData, "basePrice"> & { basePrice: string };
 
 const categories = [
   { value: "essential", label: "A — Essential Repairs & Maintenance" },
@@ -74,6 +75,8 @@ export default function ServicesManager() {
       displayOrder: 0,
     },
   });
+
+  const basePriceValue = form.watch("basePrice");
 
   const createService = useMutation({
     mutationFn: async (data: ServiceFormData) => {
@@ -164,10 +167,16 @@ export default function ServicesManager() {
   };
 
   const onSubmit = (data: ServiceFormData) => {
+    const payload = {
+      ...data,
+      basePrice: Number(data.basePrice),
+      displayOrder: Number(data.displayOrder ?? 0),
+      quickPickOrder: Number(data.quickPickOrder ?? 0),
+    };
     if (editingService) {
-      updateService.mutate({ id: editingService.id, data });
+      updateService.mutate({ id: editingService.id, data: payload });
     } else {
-      createService.mutate(data);
+      createService.mutate(payload);
     }
   };
 
@@ -236,7 +245,8 @@ export default function ServicesManager() {
                       <Input
                         type="number"
                         step="0.01"
-                        {...form.register("basePrice", { valueAsNumber: true })}
+                        value={basePriceValue ?? ""}
+                        onChange={(e) => form.setValue("basePrice", e.target.value as never, { shouldDirty: true, shouldValidate: true })}
                         placeholder="150.00"
                       />
                     </div>
