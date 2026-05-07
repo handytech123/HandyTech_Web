@@ -386,16 +386,20 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                       data-testid={`card-category-${key}`}
                     >
                       <CardContent className="p-6">
-                        <div className="flex items-center justify-between mb-4">
-                          <IconComponent className="h-8 w-8 text-brand-red" />
-                          <Badge variant="outline" className="text-brand-red border-brand-red">
-                            {category.subtitle}
-                          </Badge>
+                        <div className="flex items-center gap-4 mb-5">
+                          <div className="w-14 h-14 rounded-2xl bg-light-gray flex items-center justify-center shrink-0">
+                            <IconComponent className="h-7 w-7 text-brand-red" />
+                          </div>
+                          <div>
+                            <Badge variant="outline" className="text-brand-red border-brand-red mb-2">
+                              {category.subtitle}
+                            </Badge>
+                            <h4 className="text-lg font-semibold text-charcoal">{category.title}</h4>
+                          </div>
                         </div>
-                        <h4 className="text-lg font-semibold text-charcoal mb-2">{category.title}</h4>
-                        <p className="text-gray-600 text-sm mb-4">{category.description}</p>
+                        <p className="text-gray-600 text-sm mb-5 leading-relaxed">{category.description}</p>
                         <Button className="w-full bg-brand-red hover:bg-red-700" data-testid={`button-category-${key}`}>
-                          Select {category.subtitle}
+                          Book Service Now
                         </Button>
                       </CardContent>
                     </Card>
