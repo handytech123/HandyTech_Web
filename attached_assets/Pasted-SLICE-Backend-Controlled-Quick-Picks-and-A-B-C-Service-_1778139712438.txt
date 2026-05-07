@@ -1,0 +1,107 @@
+SLICE: Backend-Controlled Quick Picks and A/B/C Service Categories
+
+GOAL:
+Create two frontend service displays using backend/admin services as the source of truth:
+1. Quick Picks for common services at the top
+2. Compact A/B/C category list for browsing services by tier/category
+
+STRICT BOUNDARIES:
+- Do NOT hardcode service names.
+- Do NOT break booking flow.
+- Do NOT change appointment creation logic.
+- Do NOT remove admin services management.
+- Do NOT redesign the whole homepage.
+- Keep this slice focused on service display and selection only.
+
+TASK 1 — ADMIN SERVICE FIELDS:
+Add admin controls to each service:
+
+1. showAsQuickPick boolean
+Label in admin:
+“Show as Quick Pick”
+
+2. quickPickOrder number
+Label:
+“Quick Pick Order”
+
+3. category should continue to control A/B/C grouping.
+Use existing category field if present.
+
+If category currently uses values like:
+essential
+improvement
+specialized
+
+Map them visually as:
+A — Essential Repairs & Maintenance
+B — Home Improvement & Remodeling
+C — Specialized Installations & Tech Services
+
+Do not require the customer to see database category names.
+
+TASK 2 — QUICK PICKS SECTION:
+On the homepage near the top, show a compact Quick Picks section.
+
+Show only services where:
+- isActive === true
+- showAsQuickPick === true
+
+Sort by:
+quickPickOrder ascending
+
+Each quick pick should display:
+- service.name
+- optional starting price if available
+- Book button
+
+When clicked:
+- open/scroll to booking form
+- preselect that exact backend service
+
+TASK 3 — A/B/C CATEGORY LIST:
+Restore the compact 3-column A/B/C services list.
+
+Use backend services only.
+
+Display active services grouped into three columns:
+A — Essential Repairs & Maintenance
+B — Home Improvement & Remodeling
+C — Specialized Installations & Tech Services
+
+Each column should:
+- be compact
+- list service names
+- optionally show short pricing text
+- have each service clickable or have a Book button
+- clicking a service preselects that exact backend service in booking
+
+TASK 4 — BOOKING FORM:
+Booking form service dropdown should use all active backend services.
+
+Quick Pick clicks and A/B/C list clicks must pass the backend service id or exact backend service name, not hardcoded text.
+
+TASK 5 — FALLBACK:
+If no quick picks are selected:
+Show:
+“Popular services coming soon. Call (314) 325-4575 to schedule.”
+
+If no services exist in a category:
+Hide that category or show:
+“No active services in this category yet.”
+
+VERIFY:
+- Admin can choose which services appear as Quick Picks.
+- Admin can control Quick Pick order.
+- Admin category controls A/B/C display.
+- Quick Pick service click preselects the correct service.
+- A/B/C service click preselects the correct service.
+- Booking dropdown shows all active services.
+- Inactive services do not show publicly.
+- Admin Services tab still works.
+- Public booking still creates appointments.
+- No console errors.
+- No TypeScript/build errors.
+
+DO NOT add unrelated features.
+DO NOT add SMS changes.
+DO NOT redesign the whole homepage.
