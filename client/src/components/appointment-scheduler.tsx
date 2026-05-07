@@ -76,6 +76,15 @@ interface AvailableSlot {
   displayTime: string;
 }
 
+const QUICK_PICK_SERVICES = [
+  "Faucet Replacement",
+  "Drywall Repair",
+  "TV Mounting",
+  "Door Repair",
+  "Grab Bar Installation",
+  "Light Fixture Replacement",
+];
+
 interface AppointmentSchedulerProps {
   defaultBookingMode?: boolean;
   defaultServiceName?: string;
@@ -220,6 +229,21 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
         contactSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
       }
     }, 100);
+  };
+
+  const handleQuickPickSelect = (serviceName: string) => {
+    const service = activeServices.find((item) => item.name === serviceName);
+    if (service) {
+      setSelectedService(service);
+      form.setValue("serviceType", service.name);
+      setCurrentStep("contact");
+      setTimeout(() => {
+        const contactSection = document.querySelector('[data-testid="card-contact-details"]');
+        if (contactSection) {
+          contactSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+        }
+      }, 100);
+    }
   };
 
   const handleServiceSelect = (service: Service) => {
@@ -368,44 +392,67 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
         </div>
 
         <div className="space-y-6">
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <h3 className="text-2xl font-bold text-charcoal mb-2">Quick Picks</h3>
+              <p className="text-gray-600">Fast options for common jobs</p>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+              {QUICK_PICK_SERVICES.map((serviceName) => (
+                <Button
+                  key={serviceName}
+                  variant="outline"
+                  className="h-auto py-4 px-3 flex flex-col items-start text-left whitespace-normal border-gray-200 hover:border-brand-red hover:bg-red-50"
+                  onClick={() => handleQuickPickSelect(serviceName)}
+                >
+                  <span className="text-sm font-semibold text-charcoal">{serviceName}</span>
+                </Button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            <div className="text-center mb-8">
+              <Tag className="h-8 w-8 text-brand-red mx-auto mb-4" />
+              <h3 className="text-2xl font-bold text-charcoal mb-2">Step 1: Choose Your Service Category</h3>
+              <p className="text-gray-600">See what fits into A, B, and C before booking</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
+              {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
+                const IconComponent = category.icon;
+                return (
+                  <Card
+                    key={key}
+                    className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${selectedCategory === key ? 'ring-2 ring-brand-red bg-red-50' : 'hover:border-brand-red'}`}
+                    onClick={() => handleCategorySelect(key as CategoryKey)}
+                    data-testid={`card-category-${key}`}
+                  >
+                    <CardContent className="p-6">
+                      <div className="flex items-center gap-4 mb-5">
+                        <div className="w-14 h-14 rounded-2xl bg-light-gray flex items-center justify-center shrink-0">
+                          <IconComponent className="h-7 w-7 text-brand-red" />
+                        </div>
+                        <div>
+                          <Badge variant="outline" className="text-brand-red border-brand-red mb-2">
+                            {category.subtitle}
+                          </Badge>
+                          <h4 className="text-lg font-semibold text-charcoal">{category.title}</h4>
+                        </div>
+                      </div>
+                      <p className="text-gray-600 text-sm mb-5 leading-relaxed">{category.description}</p>
+                      <Button className="w-full bg-brand-red hover:bg-red-700" data-testid={`button-category-${key}`}>
+                        Book Service Now
+                      </Button>
+                    </CardContent>
+                  </Card>
+                );
+              })}
+            </div>
+          </div>
+
           {currentStep === "category" && (
             <div className="space-y-6">
-              <div className="text-center mb-8">
-                <Tag className="h-8 w-8 text-brand-red mx-auto mb-4" />
-                <h3 className="text-2xl font-bold text-charcoal mb-2">Step 1: Choose Your Service Category</h3>
-                <p className="text-gray-600">Select the category that best matches your project needs</p>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
-                  const IconComponent = category.icon;
-                  return (
-                    <Card
-                      key={key}
-                      className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${selectedCategory === key ? 'ring-2 ring-brand-red bg-red-50' : 'hover:border-brand-red'}`}
-                      onClick={() => handleCategorySelect(key as CategoryKey)}
-                      data-testid={`card-category-${key}`}
-                    >
-                      <CardContent className="p-6">
-                        <div className="flex items-center gap-4 mb-5">
-                          <div className="w-14 h-14 rounded-2xl bg-light-gray flex items-center justify-center shrink-0">
-                            <IconComponent className="h-7 w-7 text-brand-red" />
-                          </div>
-                          <div>
-                            <Badge variant="outline" className="text-brand-red border-brand-red mb-2">
-                              {category.subtitle}
-                            </Badge>
-                            <h4 className="text-lg font-semibold text-charcoal">{category.title}</h4>
-                          </div>
-                        </div>
-                        <p className="text-gray-600 text-sm mb-5 leading-relaxed">{category.description}</p>
-                        <Button className="w-full bg-brand-red hover:bg-red-700" data-testid={`button-category-${key}`}>
-                          Book Service Now
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              <div className="hidden" />
             </div>
           )}
 
