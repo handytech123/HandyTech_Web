@@ -27,6 +27,7 @@ interface Service {
   suggestedHours: number;
   description: string;
   active: boolean;
+  isActive?: boolean;
   category: string;
 }
 
@@ -116,7 +117,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     queryKey: ["/api/services"],
   });
 
-  const activeServices = services.filter(service => service.active || service.isActive);
+  const activeServices = services.filter((service) => service.active || service.isActive);
 
   const servicesByCategory = activeServices.reduce((acc, service) => {
     if (!acc[service.category as CategoryKey]) {
@@ -131,8 +132,8 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
   useEffect(() => {
     const applyServiceName = (serviceName?: string | null) => {
       if (!serviceName || activeServices.length === 0) return;
-      const normalized = serviceName.toLowerCase();
-      const match = activeServices.find((service) => service.name.toLowerCase() === normalized) || activeServices.find((service) => service.name.toLowerCase().includes(normalized) || normalized.includes(service.name.toLowerCase()));
+      console.log("Selected service:", serviceName);
+      const match = activeServices.find((service) => service.name === serviceName);
       if (match) {
         setSelectedService(match);
         form.setValue("serviceType", match.name);
@@ -554,7 +555,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                     <FormItem className="md:col-span-2">
                       <FormLabel>What do you need help with?</FormLabel>
                       <Select onValueChange={(value) => {
-                        const service = activeServices.find(s => s.id.toString() === value);
+                        const service = activeServices.find((s) => s.id.toString() === value);
                         if (service) handleServiceSelect(service);
                       }} value={selectedService?.id.toString() || ""}>
                         <FormControl>
@@ -565,7 +566,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                         <SelectContent>
                           {activeServices.map((service) => (
                             <SelectItem key={service.id} value={service.id.toString()}>
-                              {service.name}{service.suggestedHours ? ` (${service.suggestedHours}h)` : ""}{service.description ? ` - Starting at ${service.description}` : ""}
+                              {service.name}{service.suggestedHours ? ` (${service.suggestedHours}h)` : ""}
                             </SelectItem>
                           ))}
                         </SelectContent>
