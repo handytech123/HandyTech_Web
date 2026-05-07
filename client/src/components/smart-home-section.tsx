@@ -1,4 +1,6 @@
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import type { Service } from "@shared/schema";
 import { Wifi, Tv, Bell, Thermometer, Volume2, ArrowRight } from "lucide-react";
 
 const techServices = [
@@ -10,11 +12,20 @@ const techServices = [
 ];
 
 export default function SmartHomeSection() {
+  const { data: services = [] } = useQuery<Service[]>({
+    queryKey: ["/api/services"],
+  });
+
   const openBooking = () => {
     const scheduler = document.getElementById("scheduler");
     if (!scheduler) return;
     scheduler.scrollIntoView({ behavior: "smooth" });
-    window.dispatchEvent(new CustomEvent("handytech:booking-service", { detail: { serviceName: "TV Mounting" } }));
+    const techMatch = services.find((service) => {
+      const name = service.name.toLowerCase();
+      const category = (service.category || "").toLowerCase();
+      return service.isActive && (name.includes("tv") || name.includes("smart") || name.includes("tech") || name.includes("camera") || name.includes("thermostat") || name.includes("wifi") || name.includes("audio") || category.includes("specialized") || category.includes("tech"));
+    });
+    window.dispatchEvent(new CustomEvent("handytech:booking-service", { detail: { serviceName: techMatch?.name || null, serviceId: techMatch?.id || null } }));
   };
 
   return (

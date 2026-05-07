@@ -1,0 +1,75 @@
+SLICE: Make Backend Services the Master Source for Frontend
+
+GOAL:
+Remove hardcoded service names from the public homepage and booking flow. The backend/admin services list should be the master source of truth.
+
+STRICT BOUNDARIES:
+- Do NOT change backend routes.
+- Do NOT change database schema unless absolutely required.
+- Do NOT break admin services management.
+- Do NOT break booking submission.
+- Do NOT redesign unrelated sections.
+- Do NOT hardcode service names on the frontend.
+- Keep estimate/request quote flow intact.
+
+TASK:
+
+1. FRONTEND SERVICE DISPLAY:
+Update the homepage services section so service cards are generated from GET /api/services.
+
+Use only active services:
+isActive === true
+
+Display from backend:
+- service.name
+- service.description
+- service.basePrice
+- service.priceUnit
+- service.category
+
+2. SERVICE CARD BUTTONS:
+Each “Book Service” button must pass the backend service record to the booking form.
+
+Prefer passing:
+- service.id
+- service.name
+
+Do NOT rely on hardcoded text matching.
+
+3. BOOKING FORM:
+Update booking form service dropdown to use GET /api/services.
+
+Dropdown options should use backend services only.
+
+When a service card is clicked:
+- open/scroll to the booking form
+- preselect that exact backend service
+- use service.id if supported
+- otherwise use service.name from the backend
+
+4. SMART HOME SECTION:
+If Smart Home & Tech Services remains as a separate marketing section:
+- do not hardcode booking values
+- the “Book Tech Service” button should look for an active backend service with category or name related to tech/smart home
+- if no match exists, open booking form with no service preselected
+
+5. REMOVE DUPLICATE SERVICE LISTS:
+Remove hardcoded homepage service arrays where they conflict with backend services.
+
+6. FALLBACK:
+If /api/services fails or returns empty:
+- show a friendly message:
+“Services are temporarily unavailable. Please call (314) 325-4575.”
+- do not crash the page.
+
+VERIFY:
+- Admin Services tab controls the service names shown on homepage.
+- Changing a service name in admin changes it on homepage.
+- Active/inactive status controls visibility.
+- Homepage service card button preselects the exact clicked service.
+- Booking dropdown matches admin service list.
+- No hardcoded service mismatch remains.
+- Public booking still creates appointments.
+- Admin appointment list still works.
+- No console errors.
+- No TypeScript/build errors.
