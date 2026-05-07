@@ -63,7 +63,6 @@ export default function ServicesManager() {
       basePrice: 0,
       priceUnit: "per hour",
       isActive: true,
-      showOnHomepage: true,
       estimatedDuration: "",
       skillLevel: "standard",
       includedInQuoteCalculator: true,
@@ -160,7 +159,6 @@ export default function ServicesManager() {
       basePrice: service.basePrice,
       priceUnit: service.priceUnit ?? "per hour",
       isActive: service.isActive ?? true,
-      showOnHomepage: service.showOnHomepage ?? true,
       estimatedDuration: service.estimatedDuration ?? "",
       skillLevel: service.skillLevel ?? "standard",
       includedInQuoteCalculator: service.includedInQuoteCalculator ?? true,
@@ -310,13 +308,6 @@ export default function ServicesManager() {
                           onCheckedChange={(checked) => form.setValue("isActive", checked)}
                         />
                         <Label>Active</Label>
-                      </div>
-                      <div className="flex items-center space-x-2">
-                        <Switch
-                          checked={form.watch("showOnHomepage") ?? true}
-                          onCheckedChange={(checked) => form.setValue("showOnHomepage", checked)}
-                        />
-                        <Label>Show on Homepage</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Switch

@@ -1,9 +1,5 @@
 import { Button } from "@/components/ui/button";
-import { useQuery } from "@tanstack/react-query";
-import type { Service } from "@shared/schema";
 import { Wifi, Tv, Bell, Thermometer, Volume2, ArrowRight } from "lucide-react";
-
-const isServiceActive = (service: Service) => service.isActive === true || service.active === true || service.isActive === undefined;
 
 const techServices = [
   { icon: Tv, name: "TV Mounting & Setup", desc: "Wall-mounted, leveled, and fully set up — cables hidden." },
@@ -14,26 +10,16 @@ const techServices = [
 ];
 
 export default function SmartHomeSection() {
-  const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ["/api/services"],
-  });
-
-  const openBooking = () => {
-    const scheduler = document.getElementById("scheduler");
-    if (!scheduler) return;
-    scheduler.scrollIntoView({ behavior: "smooth" });
-    const techMatch = services.find((service) => {
-      const name = service.name.toLowerCase();
-      const category = (service.category || "").toLowerCase();
-      return isServiceActive(service) && (name.includes("tv") || name.includes("smart") || name.includes("tech") || name.includes("camera") || name.includes("thermostat") || name.includes("wifi") || name.includes("audio") || category.includes("specialized") || category.includes("tech"));
-    });
-    window.dispatchEvent(new CustomEvent("handytech:booking-service", { detail: { serviceName: techMatch?.name || null, serviceId: techMatch?.id || null } }));
+  const scrollToContact = () => {
+    const el = document.getElementById('scheduler');
+    if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
   return (
     <section id="tech-services" className="py-20 bg-gradient-to-br from-slate-900 to-slate-800 text-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid lg:grid-cols-2 gap-16 items-center">
+          {/* Left: copy */}
           <div>
             <div className="inline-block bg-brand-blue text-white text-xs font-bold uppercase tracking-widest px-4 py-2 rounded-full mb-6">
               Tech Services
@@ -45,7 +31,7 @@ export default function SmartHomeSection() {
               Need help with modern home technology? We install and set up smart devices, TVs, cameras, WiFi equipment, and connected home systems.
             </p>
             <Button
-              onClick={openBooking}
+              onClick={scrollToContact}
               className="bg-brand-blue hover:bg-brand-blue-dark text-white font-bold px-8 py-4 rounded-xl text-base h-auto flex items-center gap-2"
             >
               Book Tech Service
@@ -53,6 +39,7 @@ export default function SmartHomeSection() {
             </Button>
           </div>
 
+          {/* Right: service list */}
           <div className="space-y-4">
             {techServices.map(({ icon: Icon, name, desc }) => (
               <div

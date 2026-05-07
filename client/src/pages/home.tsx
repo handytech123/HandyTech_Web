@@ -28,6 +28,67 @@ export default function Home() {
         <meta property="og:url" content="https://handytech-solutions.com" />
         <meta name="twitter:card" content="summary_large_image" />
         <link rel="icon" href="/favicon.ico" />
+        
+        <script type="application/ld+json">
+          {`
+          {
+            "@context": "https://schema.org",
+            "@type": "LocalBusiness",
+            "name": "HandyTech Solutions",
+            "image": "https://handytech-solutions.com/logo.png",
+            "url": "https://handytech-solutions.com",
+            "telephone": "+1-314-325-4575",
+            "priceRange": "$$",
+            "address": {
+              "@type": "PostalAddress",
+              "streetAddress": "Serving St. Louis Metro Area",
+              "addressLocality": "Hazelwood",
+              "addressRegion": "MO",
+              "postalCode": "63042",
+              "addressCountry": "US"
+            },
+            "geo": {
+              "@type": "GeoCoordinates",
+              "latitude": 38.7692,
+              "longitude": -90.3702
+            },
+            "openingHours": "Mo-Fr 08:00-18:00",
+            "serviceArea": {
+              "@type": "GeoCircle",
+              "geoMidpoint": {
+                "@type": "GeoCoordinates",
+                "latitude": 38.7692,
+                "longitude": -90.3702
+              },
+              "geoRadius": "50000"
+            },
+            "areaServed": [
+              "St. Louis, MO",
+              "Florissant, MO",
+              "Hazelwood, MO",
+              "Ferguson, MO",
+              "Bridgeton, MO"
+            ],
+            "hasOfferCatalog": {
+              "@type": "OfferCatalog",
+              "name": "Handyman Services",
+              "itemListElement": [
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Faucet Replacement" } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Drywall Repair" } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "TV Mounting" } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Smart Home Installation" } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Plumbing Repairs" } },
+                { "@type": "Offer", "itemOffered": { "@type": "Service", "name": "Electrical Work" } }
+              ]
+            },
+            "aggregateRating": {
+              "@type": "AggregateRating",
+              "ratingValue": "4.9",
+              "reviewCount": "127"
+            }
+          }
+          `}
+        </script>
       </Helmet>
 
       <ThemeSwitcher />
@@ -35,16 +96,37 @@ export default function Home() {
       <ContactBanner />
 
       <main>
+        {/* 1. Hero */}
         <HeroSection />
+
+        {/* 2. Trust Bar */}
         <TrustBar />
+
+        {/* Badges / credibility */}
         <BadgesSection />
+
+        {/* 3. Core Services + Full Category Breakdown */}
         <ServicesSection />
+
+        {/* 4. Smart Home & Tech Services */}
         <SmartHomeSection />
+
+        {/* 5. How It Works */}
         <HowItWorksSection />
-        <AppointmentScheduler defaultBookingMode defaultServiceName="General Handyman" />
+
+        {/* 6. Reviews */}
         <TestimonialsSection />
+
+        {/* 7. Final CTA + Affiliate Disclosure (combined in one component) */}
         <FinalCtaSection />
+
+        {/* Booking form (existing) */}
+        <AppointmentScheduler />
+
+        {/* Maintenance plans (existing) */}
         <MaintenancePlans />
+
+        {/* 8. Quote / Contact form */}
         <ContactSection />
       </main>
 
