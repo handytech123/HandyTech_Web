@@ -303,6 +303,8 @@ export const services = pgTable("services", {
   estimatedDuration: varchar("estimated_duration", { length: 50 }), // '1-2 hours', '2-4 hours', etc.
   skillLevel: varchar("skill_level", { length: 50 }).default("standard"), // 'basic', 'standard', 'expert'
   includedInQuoteCalculator: boolean("included_in_quote_calculator").default(true),
+  showAsQuickPick: boolean("show_as_quick_pick").default(false),
+  quickPickOrder: integer("quick_pick_order").default(0),
   displayOrder: integer("display_order").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

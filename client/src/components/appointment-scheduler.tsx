@@ -29,6 +29,9 @@ interface Service {
   description: string;
   active: boolean;
   category: string;
+  displayOrder?: number;
+  showAsQuickPick?: boolean;
+  quickPickOrder?: number;
 }
 
 // Service categories configuration
@@ -108,11 +111,15 @@ export default function AppointmentScheduler() {
 
   // Fetch services from API
   const { data: services = [], isLoading: loadingServices, error: servicesError } = useQuery<Service[]>({
-    queryKey: ["/api/services"],
+    queryKey: ["/api/services", { active: "true" }],
   });
 
   // Filter active services only
-  const activeServices = services.filter(service => service.active);
+  const activeServices = services.filter(service => service.active !== false);
+  const quickPickServices = activeServices
+    .filter(service => service.showAsQuickPick)
+    .sort((a, b) => (a.quickPickOrder || 0) - (b.quickPickOrder || 0));
+  const allActiveServices = [...activeServices].sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
   // Group services by category
   const servicesByCategory = activeServices.reduce((acc, service) => {
@@ -286,6 +293,17 @@ export default function AppointmentScheduler() {
     setSelectedService(service);
     // Update serviceType to match the selected service
     form.setValue("serviceType", service.name);
+    form.setValue("serviceId", service.id);
+    form.setValue("durationHours", service.suggestedHours);
+  };
+
+  const handleServiceShortcut = (service: Service) => {
+    setSelectedCategory(service.category as CategoryKey);
+    handleServiceSelect(service);
+    setCurrentStep("contact");
+    setTimeout(() => {
+      document.getElementById("scheduler")?.scrollIntoView({ behavior: "smooth" });
+    }, 100);
   };
 
   // Handle date selection
@@ -455,6 +473,18 @@ export default function AppointmentScheduler() {
                   <h3 className="text-2xl font-bold text-charcoal mb-2">Step 1: Choose Your Service Category</h3>
                   <p className="text-gray-600">Select the category that best matches your project needs</p>
                 </div>
+                {quickPickServices.length > 0 && (
+                  <div className="space-y-3">
+                    <h4 className="text-center font-semibold text-charcoal">Quick Picks</h4>
+                    <div className="flex flex-wrap justify-center gap-3">
+                      {quickPickServices.map((service) => (
+                        <Button key={service.id} type="button" variant="outline" onClick={() => handleServiceShortcut(service)}>
+                          {service.name}
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
                 
                 <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
                   {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
@@ -489,7 +519,12 @@ export default function AppointmentScheduler() {
                             ))}
                           </ul>
                           <Button 
-                            onClick={() => handleCategorySelect(categoryKey)}
+                            onClick={() => {
+                              handleCategorySelect(categoryKey);
+                              if (categoryServices[0]) {
+                                handleServiceShortcut(categoryServices[0]);
+                              }
+                            }}
                             className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
                             data-testid={`button-category-${categoryKey}`}
                           >

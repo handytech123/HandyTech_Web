@@ -9,6 +9,8 @@ export interface Service {
   description: string;
   active: boolean;
   category: string;
+  showAsQuickPick?: boolean;
+  quickPickOrder?: number;
 }
 
 // Cache configuration
@@ -152,6 +154,10 @@ export function getServicesByCategory(category: string): Service[] {
     console.error(`Error getting services by category ${category}:`, error);
     return [];
   }
+}
+
+export function listServices(): Service[] {
+  return loadServices();
 }
 
 /**

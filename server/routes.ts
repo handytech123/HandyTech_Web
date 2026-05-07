@@ -2661,17 +2661,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/services", async (req, res) => {
     try {
       // Import service utilities
-      const { listActiveServices, getServicesByCategory } = await import("./utils/services");
+      const { listServices, getServiceById } = await import("./utils/services");
       
-      const { category } = req.query;
-      let services;
+      const { category, active, quickPick } = req.query;
+      let services = listServices();
       
+      if (active === "true") {
+        services = services.filter((service: any) => service.isActive);
+      }
+
       if (category && typeof category === 'string') {
-        // Filter active services by category
-        services = getServicesByCategory(category);
-      } else {
-        // Return all active services by default for public API
-        services = listActiveServices();
+        services = services.filter((service: any) => service.category === category);
+      }
+
+      if (quickPick === "true") {
+        services = services.filter((service: any) => service.isActive && service.showAsQuickPick);
       }
       
       // Add cache headers for performance

@@ -66,6 +66,8 @@ export default function ServicesManager() {
       estimatedDuration: "",
       skillLevel: "standard",
       includedInQuoteCalculator: true,
+      showAsQuickPick: false,
+      quickPickOrder: 0,
       displayOrder: 0,
     },
   });
@@ -162,6 +164,8 @@ export default function ServicesManager() {
       estimatedDuration: service.estimatedDuration ?? "",
       skillLevel: service.skillLevel ?? "standard",
       includedInQuoteCalculator: service.includedInQuoteCalculator ?? true,
+      showAsQuickPick: service.showAsQuickPick ?? false,
+      quickPickOrder: service.quickPickOrder ?? 0,
       displayOrder: service.displayOrder ?? 0,
     });
     setIsDialogOpen(true);
@@ -316,6 +320,21 @@ export default function ServicesManager() {
                         />
                         <Label>Include in Quote Calculator</Label>
                       </div>
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          checked={form.watch("showAsQuickPick") ?? false}
+                          onCheckedChange={(checked) => form.setValue("showAsQuickPick", checked)}
+                        />
+                        <Label>Show as Quick Pick</Label>
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="quickPickOrder">Quick Pick Order</Label>
+                        <Input
+                          type="number"
+                          {...form.register("quickPickOrder", { valueAsNumber: true })}
+                          placeholder="0"
+                        />
+                      </div>
                     </div>
                   </div>
 
@@ -363,6 +382,10 @@ export default function ServicesManager() {
                           </div>
                           <div className="text-xs text-gray-400 md:hidden mt-1">
                             {getCategoryLabel(service.category)} • ${service.basePrice} {service.priceUnit}
+                          </div>
+                          <div className="flex gap-2 mt-2 flex-wrap">
+                            <Badge variant="outline">{(service.isActive ?? true) ? "Active" : "Inactive"}</Badge>
+                            {(service.showAsQuickPick ?? false) && <Badge variant="secondary">Quick Pick</Badge>}
                           </div>
                         </div>
                       </TableCell>

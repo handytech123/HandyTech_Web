@@ -2,17 +2,10 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
-import { 
-  Laptop, 
-  Shield, 
-  Cloud, 
-  Network, 
-  Database, 
-  Wrench,
-  ArrowRight,
-  Eye 
-} from "lucide-react";
+import { ArrowRight, Eye, Network, Shield, Wrench } from "lucide-react";
 import type { Service } from "@shared/schema";
+
+type ServiceCategory = "essential" | "improvement" | "specialized";
 
 const categoryConfig = [
   {
@@ -40,12 +33,12 @@ const categoryConfig = [
 
 export default function ServicesSection() {
   const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ["/api/services"]
+    queryKey: ["/api/services", { active: "true" }],
   });
 
-  const getServicesByCategory = (category: string) => {
+  const getServicesByCategory = (category: ServiceCategory) => {
     return services
-      .filter(service => service.category === category && service.isActive)
+      .filter((service) => service.category === category && (service.isActive ?? true))
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
       .map(service => service.name);
   };
