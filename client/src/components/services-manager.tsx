@@ -21,7 +21,9 @@ import type { Service } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 const serviceFormSchema = insertServiceSchema.extend({
-  basePrice: z.number({ required_error: "Base price is required" }).min(0),
+  basePrice: z.coerce.number({ required_error: "Base price is required" }).min(0),
+  displayOrder: z.coerce.number().default(0),
+  quickPickOrder: z.coerce.number().default(0),
 });
 
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
@@ -202,8 +204,8 @@ export default function ServicesManager() {
                     <div className="space-y-2">
                       <Label htmlFor="category">Category</Label>
                       <Select
-                        value={form.watch("category")}
-                        onValueChange={(value) => form.setValue("category", value)}
+                        value={form.watch("category") || undefined}
+                        onValueChange={(value) => form.setValue("category", value, { shouldDirty: true, shouldValidate: true })}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder="Select category" />
@@ -241,8 +243,8 @@ export default function ServicesManager() {
                     <div className="space-y-2">
                       <Label htmlFor="priceUnit">Price Unit</Label>
                       <Select
-                        value={form.watch("priceUnit") || ""}
-                        onValueChange={(value) => form.setValue("priceUnit", value)}
+                        value={form.watch("priceUnit") || undefined}
+                        onValueChange={(value) => form.setValue("priceUnit", value, { shouldDirty: true, shouldValidate: true })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -269,8 +271,8 @@ export default function ServicesManager() {
                     <div className="space-y-2">
                       <Label htmlFor="skillLevel">Skill Level</Label>
                       <Select
-                        value={form.watch("skillLevel") || ""}
-                        onValueChange={(value) => form.setValue("skillLevel", value)}
+                        value={form.watch("skillLevel") || undefined}
+                        onValueChange={(value) => form.setValue("skillLevel", value, { shouldDirty: true, shouldValidate: true })}
                       >
                         <SelectTrigger>
                           <SelectValue />
@@ -299,21 +301,21 @@ export default function ServicesManager() {
                       <div className="flex items-center space-x-2">
                         <Switch
                           checked={form.watch("isActive") ?? false}
-                          onCheckedChange={(checked) => form.setValue("isActive", checked)}
+                          onCheckedChange={(checked) => form.setValue("isActive", checked, { shouldDirty: true, shouldValidate: true })}
                         />
                         <Label>Active</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Switch
                           checked={form.watch("includedInQuoteCalculator") ?? false}
-                          onCheckedChange={(checked) => form.setValue("includedInQuoteCalculator", checked)}
+                          onCheckedChange={(checked) => form.setValue("includedInQuoteCalculator", checked, { shouldDirty: true, shouldValidate: true })}
                         />
                         <Label>Include in Quote Calculator</Label>
                       </div>
                       <div className="flex items-center space-x-2">
                         <Switch
                           checked={form.watch("showAsQuickPick") ?? false}
-                          onCheckedChange={(checked) => form.setValue("showAsQuickPick", checked)}
+                          onCheckedChange={(checked) => form.setValue("showAsQuickPick", checked, { shouldDirty: true, shouldValidate: true })}
                         />
                         <Label>Show as Quick Pick</Label>
                       </div>

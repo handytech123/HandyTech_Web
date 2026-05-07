@@ -2728,13 +2728,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/services/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const validatedData = insertServiceSchema.partial().parse(req.body);
+      const validatedData = insertServiceSchema.partial().parse({
+        ...req.body,
+        basePrice: req.body.basePrice !== undefined ? Number(req.body.basePrice) : undefined,
+        displayOrder: req.body.displayOrder !== undefined ? Number(req.body.displayOrder) : undefined,
+        quickPickOrder: req.body.quickPickOrder !== undefined ? Number(req.body.quickPickOrder) : undefined,
+      });
       await storage.updateService(id, validatedData);
       res.json({ message: "Service updated successfully" });
     } catch (error) {
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid service data", errors: error.errors });
       } else {
+        console.error("Service update error:", error);
         res.status(500).json({ message: "Failed to update service" });
       }
     }
