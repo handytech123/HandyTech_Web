@@ -39,10 +39,10 @@ export default function ServicesSection() {
 
   const visibleServices = services.filter((service) => service.isActive ?? false);
 
-  const openBooking = (service?: Service) => {
-    const scheduler = document.getElementById("scheduler");
-    if (!scheduler) return;
-    scheduler.scrollIntoView({ behavior: "smooth" });
+  const openBooking = (service?: Service, targetId = "scheduler") => {
+    const target = document.getElementById(targetId);
+    if (!target) return;
+    target.scrollIntoView({ behavior: "smooth" });
     window.dispatchEvent(new CustomEvent("handytech:booking-service", { detail: { serviceName: service?.name || null, serviceId: service?.id || null } }));
   };
 
@@ -86,7 +86,7 @@ export default function ServicesSection() {
                   <h3 className="text-base font-bold text-charcoal mb-2">{service.name}</h3>
                   <p className="text-gray-500 text-sm leading-relaxed flex-1">{service.description}</p>
                   <div className="mt-3 text-sm font-medium text-charcoal">{service.basePrice ? `Starting at $${service.basePrice}` : "Call for pricing"}</div>
-                  <Button onClick={() => openBooking(service)} variant="outline" size="sm" className="mt-5 w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors">
+                  <Button onClick={() => openBooking(service, "scheduler")} variant="outline" size="sm" className="mt-5 w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors">
                     Book Service
                   </Button>
                 </CardContent>
@@ -121,7 +121,7 @@ export default function ServicesSection() {
                     ))}
                   </ul>
                   <div className="mt-6 pt-6 border-t border-gray-100">
-                    <Button onClick={() => openBooking(categoryServices[0])} variant="outline" className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors">
+                    <Button onClick={() => openBooking(categoryServices[0], "scheduler")} variant="outline" className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors">
                       Book This Service
                     </Button>
                   </div>

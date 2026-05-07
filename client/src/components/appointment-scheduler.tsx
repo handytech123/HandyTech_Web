@@ -257,6 +257,13 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     form.setValue("serviceType", service.name);
   };
 
+  const quickPickServices = visibleServices
+    .filter((service) => {
+      const name = service.name.toLowerCase();
+      return name.includes("faucet") || name.includes("drywall") || name.includes("tv") || name.includes("door") || name.includes("grab bar") || name.includes("light");
+    })
+    .slice(0, 6);
+
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
     if (date) {
@@ -359,6 +366,39 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
         </div>
 
         <div className="space-y-6">
+          {quickPickServices.length > 0 && (
+            <div className="rounded-2xl border border-gray-200 bg-gray-50 p-4 md:p-5">
+              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+                <div>
+                  <h3 className="text-lg font-bold text-charcoal">Quick selections</h3>
+                  <p className="text-sm text-gray-600">Tap one to jump straight into booking.</p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setCurrentStep("contact")} className="border-brand-red text-brand-red hover:bg-brand-red hover:text-white">
+                  Pick a service
+                </Button>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {quickPickServices.map((service) => (
+                  <button
+                    key={service.id}
+                    type="button"
+                    onClick={() => {
+                      handleServiceSelect(service);
+                      setSelectedCategory(service.category as CategoryKey);
+                      setCurrentStep("contact");
+                    }}
+                    className="text-left rounded-xl border border-gray-200 bg-white p-4 hover:border-brand-red hover:shadow-md transition-all"
+                    data-testid={`quick-pick-${service.id}`}
+                  >
+                    <div className="text-sm font-semibold text-brand-red mb-1">{service.category}</div>
+                    <div className="font-bold text-charcoal">{service.name}</div>
+                    <div className="text-sm text-gray-600 mt-1">{service.basePrice ? `From $${service.basePrice}` : "Call for pricing"}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {currentStep === "category" && (
             <div className="space-y-6">
               <div className="text-center mb-8">
