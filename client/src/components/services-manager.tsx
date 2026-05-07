@@ -18,6 +18,7 @@ import { Plus, Edit, Trash2, Settings, DollarSign, Clock, ToggleLeft, ToggleRigh
 import { insertServiceSchema } from "@shared/schema";
 import { z } from "zod";
 import type { Service } from "@shared/schema";
+import { apiRequest } from "@/lib/queryClient";
 
 const serviceFormSchema = insertServiceSchema.extend({
   basePrice: z.number({ required_error: "Base price is required" }).min(0),
@@ -74,12 +75,7 @@ export default function ServicesManager() {
 
   const createService = useMutation({
     mutationFn: async (data: ServiceFormData) => {
-      const response = await fetch("/api/services", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to create service");
+      const response = await apiRequest("/api/services", "POST", data);
       return response.json();
     },
     onSuccess: () => {
@@ -94,12 +90,7 @@ export default function ServicesManager() {
 
   const updateService = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: ServiceFormData }) => {
-      const response = await fetch(`/api/services/${id}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
-      if (!response.ok) throw new Error("Failed to update service");
+      const response = await apiRequest(`/api/services/${id}`, "PUT", data);
       return response.json();
     },
     onSuccess: () => {
@@ -114,8 +105,7 @@ export default function ServicesManager() {
 
   const deleteService = useMutation({
     mutationFn: async (id: number) => {
-      const response = await fetch(`/api/services/${id}`, { method: "DELETE" });
-      if (!response.ok) throw new Error("Failed to delete service");
+      const response = await apiRequest(`/api/services/${id}`, "DELETE");
       return response.json();
     },
     onSuccess: () => {
@@ -129,12 +119,7 @@ export default function ServicesManager() {
 
   const toggleServiceStatus = useMutation({
     mutationFn: async ({ id, isActive }: { id: number; isActive: boolean }) => {
-      const response = await fetch(`/api/services/${id}/toggle`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive }),
-      });
-      if (!response.ok) throw new Error("Failed to toggle service status");
+      const response = await apiRequest(`/api/services/${id}/toggle`, "PATCH", { isActive });
       return response.json();
     },
     onSuccess: () => {
@@ -171,6 +156,11 @@ export default function ServicesManager() {
     setIsDialogOpen(true);
   };
 
+  const onInvalid = () => {
+    console.log("Service form errors:", form.formState.errors);
+    toast({ title: "Error", description: "Please fix the highlighted fields and try again.", variant: "destructive" });
+  };
+
   const onSubmit = (data: ServiceFormData) => {
     if (editingService) {
       updateService.mutate({ id: editingService.id, data });
@@ -203,7 +193,7 @@ export default function ServicesManager() {
                 <DialogHeader>
                   <DialogTitle>{editingService ? "Edit Service" : "Add New Service"}</DialogTitle>
                 </DialogHeader>
-                <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="name">Service Name</Label>
