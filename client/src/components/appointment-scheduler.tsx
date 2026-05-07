@@ -122,6 +122,7 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
   });
 
   const visibleServices = services.filter(isServiceActive);
+  const quickPickServices = selectedCategory ? categoryServices : visibleServices.slice(0, 6);
 
   const servicesByCategory = visibleServices.reduce((acc, service) => {
     if (!acc[service.category as CategoryKey]) {
@@ -260,13 +261,6 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     setSelectedService(service);
     form.setValue("serviceType", service.name);
   };
-
-  const quickPickServices = visibleServices
-    .filter((service) => {
-      const name = service.name.toLowerCase();
-      return name.includes("faucet") || name.includes("drywall") || name.includes("tv") || name.includes("door") || name.includes("grab bar") || name.includes("light");
-    })
-    .slice(0, 6);
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);

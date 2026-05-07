@@ -80,31 +80,6 @@ export default function ServicesSection() {
           <p className="text-gray-500 text-lg max-w-2xl mx-auto">Your trusted home improvement experts. Over a decade of experience serving the St. Louis metro area.</p>
         </div>
 
-        <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-          {homepageServices.map((service) => {
-            const Icon = iconMap[service.name] || Wrench;
-            return (
-              <Card key={service.id} className="border border-gray-100 hover:border-brand-red hover:shadow-lg transition-all duration-300 group rounded-xl bg-white">
-                <CardContent className="p-6 flex flex-col h-full">
-                  <div className="bg-light-gray group-hover:bg-brand-red w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors duration-300">
-                    <Icon className="h-6 w-6 text-charcoal group-hover:text-white transition-colors duration-300" />
-                  </div>
-                  <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-brand-red uppercase tracking-widest">
-                    <span>{service.category}</span>
-                    {service.priceUnit ? <span>• {service.priceUnit}</span> : null}
-                  </div>
-                  <h3 className="text-base font-bold text-charcoal mb-2">{service.name}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed flex-1">{service.description}</p>
-                  <div className="mt-3 text-sm font-medium text-charcoal">{service.basePrice ? `Starting at $${service.basePrice}` : "Call for pricing"}</div>
-                  <Button onClick={() => openBooking(service, "scheduler")} variant="outline" size="sm" className="mt-5 w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors">
-                    Book Service
-                  </Button>
-                </CardContent>
-              </Card>
-            );
-          })}
-        </div>
-
         <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
           {categoryConfig.map((categoryInfo, index) => {
             const IconComponent = categoryInfo.icon;
@@ -139,6 +114,37 @@ export default function ServicesSection() {
               </Card>
             );
           })}
+        </div>
+
+        <div className="mt-16">
+          <div className="text-center mb-8">
+            <h3 className="text-2xl font-bold text-charcoal mb-2">Featured Services</h3>
+            <p className="text-gray-600">Popular options shown above the booking form.</p>
+          </div>
+          <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6">
+            {homepageServices.map((service) => {
+              const Icon = iconMap[service.name] || Wrench;
+              return (
+                <Card key={service.id} className="border border-gray-100 hover:border-brand-red hover:shadow-lg transition-all duration-300 group rounded-xl bg-white">
+                  <CardContent className="p-6 flex flex-col h-full">
+                    <div className="bg-light-gray group-hover:bg-brand-red w-12 h-12 rounded-xl flex items-center justify-center mb-4 transition-colors duration-300">
+                      <Icon className="h-6 w-6 text-charcoal group-hover:text-white transition-colors duration-300" />
+                    </div>
+                    <div className="flex items-center gap-2 mb-2 text-xs font-semibold text-brand-red uppercase tracking-widest">
+                      <span>{service.category}</span>
+                      {service.priceUnit ? <span>• {service.priceUnit}</span> : null}
+                    </div>
+                    <h3 className="text-base font-bold text-charcoal mb-2">{service.name}</h3>
+                    <p className="text-gray-500 text-sm leading-relaxed flex-1">{service.description}</p>
+                    <div className="mt-3 text-sm font-medium text-charcoal">{service.basePrice ? `Starting at $${service.basePrice}` : "Call for pricing"}</div>
+                    <Button onClick={() => openBooking(service, "scheduler")} variant="outline" size="sm" className="mt-5 w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors">
+                      Book Service
+                    </Button>
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
         </div>
 
         <div className="mt-16 text-center">
