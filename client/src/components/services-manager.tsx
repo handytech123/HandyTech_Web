@@ -27,8 +27,6 @@ const serviceFormSchema = insertServiceSchema.extend({
 });
 
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
-type ServiceFormValues = Omit<ServiceFormData, "basePrice"> & { basePrice: string };
-
 const categories = [
   { value: "essential", label: "A — Essential Repairs & Maintenance" },
   { value: "improvement", label: "B — Home Improvement & Remodeling" },
@@ -243,8 +241,8 @@ export default function ServicesManager() {
                     <div className="space-y-2">
                       <Label htmlFor="basePrice">Base Price ($)</Label>
                       <Input
-                        type="number"
-                        step="0.01"
+                        type="text"
+                        inputMode="decimal"
                         value={basePriceValue ?? ""}
                         onChange={(e) => form.setValue("basePrice", e.target.value as never, { shouldDirty: true, shouldValidate: true })}
                         placeholder="150.00"
