@@ -2025,8 +2025,23 @@ export class DatabaseStorage implements IStorage {
   }
 
   async updateService(id: number, updates: Partial<InsertService>): Promise<void> {
+    const existingUpdates: Record<string, unknown> = {
+      updatedAt: new Date(),
+    };
+
+    if (updates.name !== undefined) existingUpdates.name = updates.name;
+    if (updates.description !== undefined) existingUpdates.description = updates.description;
+    if (updates.category !== undefined) existingUpdates.category = updates.category;
+    if (updates.basePrice !== undefined) existingUpdates.basePrice = updates.basePrice;
+    if (updates.priceUnit !== undefined) existingUpdates.priceUnit = updates.priceUnit;
+    if (updates.isActive !== undefined) existingUpdates.isActive = updates.isActive;
+    if (updates.estimatedDuration !== undefined) existingUpdates.estimatedDuration = updates.estimatedDuration;
+    if (updates.skillLevel !== undefined) existingUpdates.skillLevel = updates.skillLevel;
+    if (updates.includedInQuoteCalculator !== undefined) existingUpdates.includedInQuoteCalculator = updates.includedInQuoteCalculator;
+    if (updates.displayOrder !== undefined) existingUpdates.displayOrder = updates.displayOrder;
+
     await db.update(services)
-      .set({ ...updates, updatedAt: new Date() })
+      .set(existingUpdates)
       .where(eq(services.id, id));
   }
 
