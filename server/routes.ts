@@ -19,6 +19,8 @@ import {
   updateCustomerProfileSchema,
   cancelMaintenancePlanSchema,
   portalCreateMaintenancePlanSchema,
+  serviceHistoryFiltersSchema,
+  publicReviewSubmissionSchema,
   type InsertCustomer,
   type InsertMaintenancePlan
 } from "@shared/schema";
