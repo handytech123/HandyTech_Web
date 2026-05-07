@@ -37,7 +37,7 @@ export default function ServicesSection() {
     queryKey: ["/api/services"],
   });
 
-  const activeServices = services.filter((service) => service.isActive ?? false);
+  const visibleServices = services.filter((service) => service.isActive ?? false);
 
   const openBooking = (service?: Service) => {
     const scheduler = document.getElementById("scheduler");
@@ -47,11 +47,11 @@ export default function ServicesSection() {
   };
 
   const getServicesByCategory = (category: string) =>
-    activeServices
+    visibleServices
       .filter((s) => s.category === category)
       .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
 
-  if (isError || (!isLoading && activeServices.length === 0)) {
+  if (isError || (!isLoading && visibleServices.length === 0)) {
     return (
       <section id="services" className="py-20 bg-white">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
@@ -71,7 +71,7 @@ export default function ServicesSection() {
         </div>
 
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
-          {activeServices.map((service) => {
+          {visibleServices.map((service) => {
             const Icon = iconMap[service.name] || Wrench;
             return (
               <Card key={service.id} className="border border-gray-100 hover:border-brand-red hover:shadow-lg transition-all duration-300 group rounded-xl bg-white">
@@ -147,48 +147,7 @@ export default function ServicesSection() {
                 </Button>
                 <div className="text-gray-500 text-sm">See real projects from real customers</div>
               </div>
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-12 pt-8 border-t border-gray-200">
-                {[
-                  { stat: "10+", label: "Years Experience" },
-                  { stat: "500+", label: "Projects Completed" },
-                  { stat: "100%", label: "Customer Satisfaction" },
-                  { stat: "Fully", label: "Insured & Bonded" },
-                ].map(({ stat, label }) => (
-                  <div key={label} className="text-center">
-                    <div className="text-2xl font-bold text-brand-red mb-1">{stat}</div>
-                    <div className="text-gray-600 text-sm">{label}</div>
-                  </div>
-                ))}
-              </div>
             </div>
-          </div>
-        </div>
-
-        <div className="mt-16 bg-orange-50 rounded-2xl p-8">
-          <div className="text-center mb-8">
-            <div className="bg-orange-600 text-white px-4 py-2 rounded-full text-sm font-semibold inline-block mb-4">Home Depot Pro Partner</div>
-            <h3 className="text-2xl font-bold text-charcoal mb-4">Professional Grade Materials & Service</h3>
-            <p className="text-gray-600 max-w-2xl mx-auto">As a trusted Home Depot Pro partner, I have access to professional-grade materials, bulk pricing, and exclusive resources.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-6">
-            {[
-              { emoji: "💰", title: "Bulk Pricing Savings", desc: "Pass savings directly to you with contractor bulk pricing on materials." },
-              { emoji: "⚡", title: "Priority Service", desc: "Faster project completion with priority access to materials and delivery." },
-              { emoji: "🏆", title: "Quality Guarantee", desc: "Professional-grade materials backed by Home Depot's quality standards." },
-            ].map(({ emoji, title, desc }) => (
-              <div key={title} className="text-center">
-                <div className="bg-orange-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-white text-2xl">{emoji}</span>
-                </div>
-                <h4 className="font-semibold text-charcoal mb-2">{title}</h4>
-                <p className="text-gray-600 text-sm">{desc}</p>
-              </div>
-            ))}
-          </div>
-          <div className="text-center mt-8">
-            <a href="https://www.homedepot.com/c/pro" target="_blank" rel="noopener noreferrer" className="inline-flex items-center bg-orange-600 hover:bg-orange-700 text-white px-6 py-3 rounded-lg font-semibold transition-colors">
-              Learn More About Home Depot Pro
-            </a>
           </div>
         </div>
       </div>

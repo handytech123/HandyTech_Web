@@ -23,7 +23,7 @@ export default function SmartHomeSection() {
     const techMatch = services.find((service) => {
       const name = service.name.toLowerCase();
       const category = (service.category || "").toLowerCase();
-      return service.isActive && (name.includes("tv") || name.includes("smart") || name.includes("tech") || name.includes("camera") || name.includes("thermostat") || name.includes("wifi") || name.includes("audio") || category.includes("specialized") || category.includes("tech"));
+      return (service.isActive ?? false) && (name.includes("tv") || name.includes("smart") || name.includes("tech") || name.includes("camera") || name.includes("thermostat") || name.includes("wifi") || name.includes("audio") || category.includes("specialized") || category.includes("tech"));
     });
     window.dispatchEvent(new CustomEvent("handytech:booking-service", { detail: { serviceName: techMatch?.name || null, serviceId: techMatch?.id || null } }));
   };
