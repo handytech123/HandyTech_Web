@@ -29,9 +29,9 @@ const serviceFormSchema = insertServiceSchema.extend({
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
 
 const categories = [
-  { value: "essential", label: "Essential Repairs & Maintenance" },
-  { value: "improvement", label: "Home Improvement & Remodeling" },
-  { value: "specialized", label: "Specialized Installations & Custom Projects" },
+  { value: "essential", label: "A — Essential Repairs & Maintenance" },
+  { value: "improvement", label: "B — Home Improvement & Remodeling" },
+  { value: "specialized", label: "C — Specialized Installations & Custom Projects" },
 ];
 
 const priceUnits = [
