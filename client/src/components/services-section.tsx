@@ -1,6 +1,7 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Link } from "wouter";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import {
   Droplets,
   Square,
@@ -105,6 +106,79 @@ export default function ServicesSection() {
           </p>
         </div>
 
+        <div className="mb-12">
+          <Tabs defaultValue="quick" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 max-w-md mx-auto">
+              <TabsTrigger value="quick">Quick Services</TabsTrigger>
+              <TabsTrigger value="categories">A / B / C</TabsTrigger>
+            </TabsList>
+            <TabsContent value="quick" className="mt-8">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {coreServices.map(({ name }) => (
+                  <Button
+                    key={name}
+                    variant="outline"
+                    onClick={() => {
+                      const el = document.getElementById("scheduler");
+                      if (el) el.scrollIntoView({ behavior: "smooth" });
+                    }}
+                    className="h-auto py-3 px-3 whitespace-normal border-gray-200 hover:border-brand-red hover:bg-red-50"
+                  >
+                    {name}
+                  </Button>
+                ))}
+              </div>
+            </TabsContent>
+            <TabsContent value="categories" className="mt-8">
+              <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
+                {categoryConfig.map((categoryInfo, index) => {
+                  const IconComponent = categoryInfo.icon;
+                  const categoryServices = getServicesByCategory(categoryInfo.category);
+                  return (
+                    <Card
+                      key={index}
+                      className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl"
+                    >
+                      <CardContent className="p-8">
+                        <div className="flex items-center mb-4">
+                          <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
+                            <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
+                          </div>
+                          <div>
+                            <div className="text-sm font-semibold text-brand-red mb-1">{categoryInfo.subtitle}</div>
+                            <h3 className="text-lg font-bold text-charcoal">{categoryInfo.title}</h3>
+                          </div>
+                        </div>
+                        <p className="text-gray-600 mb-6 leading-relaxed">{categoryInfo.description}</p>
+                        <ul className="text-sm text-gray-600 space-y-2">
+                          {categoryServices.map((serviceName, i) => (
+                            <li key={i} className="flex items-start">
+                              <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
+                              <span className="leading-relaxed">{serviceName}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="mt-6 pt-6 border-t border-gray-100">
+                          <Button
+                            onClick={() => {
+                              const el = document.getElementById("scheduler");
+                              if (el) el.scrollIntoView({ behavior: "smooth" });
+                            }}
+                            variant="outline"
+                            className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
+                          >
+                            Book This Service
+                          </Button>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            </TabsContent>
+          </Tabs>
+        </div>
+
         <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-16">
           {coreServices.map(({ icon: Icon, name, desc }) => (
             <Card
@@ -128,49 +202,6 @@ export default function ServicesSection() {
               </CardContent>
             </Card>
           ))}
-        </div>
-
-        <div className="grid md:grid-cols-1 lg:grid-cols-3 gap-8">
-          {categoryConfig.map((categoryInfo, index) => {
-            const IconComponent = categoryInfo.icon;
-            const categoryServices = getServicesByCategory(categoryInfo.category);
-            return (
-              <Card
-                key={index}
-                className="bg-white border-2 border-gray-100 hover:border-brand-red hover:shadow-xl transition-all duration-300 group rounded-xl"
-              >
-                <CardContent className="p-8">
-                  <div className="flex items-center mb-4">
-                    <div className="bg-light-gray w-16 h-16 rounded-full flex items-center justify-center mr-4 group-hover:bg-brand-red transition-colors duration-300">
-                      <IconComponent className="text-charcoal group-hover:text-white transition-colors duration-300" size={24} />
-                    </div>
-                    <div>
-                      <div className="text-sm font-semibold text-brand-red mb-1">{categoryInfo.subtitle}</div>
-                      <h3 className="text-lg font-bold text-charcoal">{categoryInfo.title}</h3>
-                    </div>
-                  </div>
-                  <p className="text-gray-600 mb-6 leading-relaxed">{categoryInfo.description}</p>
-                  <ul className="text-sm text-gray-600 space-y-2">
-                    {categoryServices.map((serviceName, i) => (
-                      <li key={i} className="flex items-start">
-                        <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
-                        <span className="leading-relaxed">{serviceName}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <div className="mt-6 pt-6 border-t border-gray-100">
-                    <Button
-                      onClick={scrollToBooking}
-                      variant="outline"
-                      className="w-full border-brand-red text-brand-red hover:bg-brand-red hover:text-white transition-colors"
-                    >
-                      Book This Service
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
         </div>
 
         <div className="mt-16 text-center">
