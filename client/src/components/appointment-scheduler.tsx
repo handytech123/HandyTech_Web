@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -26,12 +26,6 @@ interface Service {
   description: string;
   active: boolean;
   category: string;
-  basePrice?: number | null;
-  priceUnit?: string | null;
-  showAsQuickPick?: boolean | null;
-  quickPickOrder?: number | null;
-  displayOrder?: number | null;
-  estimatedDuration?: string | null;
 }
 
 const SERVICE_CATEGORIES = {
@@ -85,10 +79,9 @@ interface AvailableSlot {
 interface AppointmentSchedulerProps {
   defaultBookingMode?: boolean;
   defaultServiceName?: string;
-  defaultServiceId?: number;
 }
 
-export default function AppointmentScheduler({ defaultBookingMode = false, defaultServiceName, defaultServiceId }: AppointmentSchedulerProps) {
+export default function AppointmentScheduler({ defaultBookingMode = false, defaultServiceName }: AppointmentSchedulerProps) {
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
@@ -102,12 +95,11 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
   });
 
   const activeServices = services.filter(service => service.active);
-  const quickPickServices = activeServices
-    .filter(service => service.showAsQuickPick)
-    .sort((a, b) => (a.quickPickOrder ?? 0) - (b.quickPickOrder ?? 0));
 
   const servicesByCategory = activeServices.reduce((acc, service) => {
-    if (!acc[service.category as CategoryKey]) acc[service.category as CategoryKey] = [];
+    if (!acc[service.category as CategoryKey]) {
+      acc[service.category as CategoryKey] = [];
+    }
     acc[service.category as CategoryKey].push(service);
     return acc;
   }, {} as Record<CategoryKey, Service[]>);
@@ -129,50 +121,12 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     }
   });
 
-  useEffect(() => {
-    if (defaultBookingMode && defaultServiceName && activeServices.length > 0 && !selectedService) {
-      const matchedService = activeServices.find(service => service.name === defaultServiceName);
-      if (matchedService) {
-        setSelectedService(matchedService);
-        form.setValue("serviceType", matchedService.name);
-      }
-    }
-  }, [defaultBookingMode, defaultServiceName, activeServices, selectedService, form]);
-
-  useEffect(() => {
-    if (defaultBookingMode && defaultServiceId && activeServices.length > 0 && !selectedService) {
-      const matchedService = activeServices.find(service => service.id === defaultServiceId);
-      if (matchedService) {
-        setSelectedService(matchedService);
-        form.setValue("serviceType", matchedService.name);
-      }
-    }
-  }, [defaultBookingMode, defaultServiceId, activeServices, selectedService, form]);
-
-  const categoryFromService = (service: Service) => {
-    if (service.category === "essential") return "A" as const;
-    if (service.category === "improvement") return "B" as const;
-    return "C" as const;
-  };
-
-  const selectService = (service: Service) => {
-    setSelectedService(service);
-    setSelectedCategory(categoryFromService(service));
-    form.setValue("serviceType", service.name);
-  };
-
-  const handleQuickPickSelect = (service: Service) => {
-    selectService(service);
-    setCurrentStep("contact");
-    setTimeout(() => document.querySelector('[data-testid="card-contact-details"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
-  };
-
-  const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
-
   const { data: availableSlots = [], isLoading: loadingSlots, error: slotsError } = useQuery<string[]>({
     queryKey: ["/api/availability", selectedDate?.toISOString(), selectedService?.id, selectedService?.suggestedHours],
     queryFn: async () => {
-      if (!selectedDate || !selectedService) throw new Error("Missing date or service selection");
+      if (!selectedDate || !selectedService) {
+        throw new Error("Missing date or service selection");
+      }
       const centralTz = 'America/Chicago';
       const startOfDay = fromZonedTime(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 0, 0, 0), centralTz);
       const endOfDay = fromZonedTime(new Date(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate(), 23, 59, 59, 999), centralTz);
@@ -183,7 +137,10 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
         serviceId: selectedService.id.toString()
       });
       const response = await fetch(`/api/availability?${queryParams}`);
-      if (!response.ok) throw new Error(`Failed to fetch slots: ${response.status}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Failed to fetch slots: ${response.status} ${errorText}`);
+      }
       const data = await response.json();
       return data.slots || [];
     },
@@ -220,10 +177,17 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     onSuccess: () => {
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
-      toast({ title: "Appointment Booked!", description: "Your appointment has been successfully scheduled. You'll receive a confirmation email shortly." });
+      toast({
+        title: "Appointment Booked!",
+        description: "Your appointment has been successfully scheduled. You'll receive a confirmation email shortly."
+      });
     },
     onError: (error: Error) => {
-      toast({ title: "Booking Failed", description: error.message, variant: "destructive" });
+      toast({
+        title: "Booking Failed",
+        description: error.message,
+        variant: "destructive"
+      });
     }
   });
 
@@ -233,14 +197,35 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
       try {
         const utcDate = parseISO(slot);
         const centralDate = toZonedTime(utcDate, centralTz);
-        return { time: slot, displayTime: format(centralDate, "h:mm a") };
-      } catch {
+        return {
+          time: slot,
+          displayTime: format(centralDate, "h:mm a"),
+        };
+      } catch (error) {
+        console.error("Error formatting time slot:", slot, error);
         return null;
       }
-    }).filter(Boolean) as AvailableSlot[];
+    }).filter(slot => slot !== null) as AvailableSlot[];
   };
 
   const formattedSlots = formatTimeSlots(availableSlots);
+
+  const handleCategorySelect = (category: CategoryKey) => {
+    setSelectedCategory(category);
+    setCurrentStep("contact");
+    setSelectedService(undefined);
+    setTimeout(() => {
+      const contactSection = document.querySelector('[data-testid="card-contact-details"]');
+      if (contactSection) {
+        contactSection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      }
+    }, 100);
+  };
+
+  const handleServiceSelect = (service: Service) => {
+    setSelectedService(service);
+    form.setValue("serviceType", service.name);
+  };
 
   const handleDateSelect = (date: Date | undefined) => {
     setSelectedDate(date);
@@ -258,17 +243,57 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     }
     form.setValue("appointmentDate", selectedDate!);
     form.setValue("appointmentTime", timeSlot);
-    setTimeout(() => document.querySelector('[data-testid="card-appointment-summary"]')?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 100);
+    setTimeout(() => {
+      const summarySection = document.querySelector('[data-testid="card-appointment-summary"]');
+      if (summarySection) {
+        summarySection.scrollIntoView({ behavior: 'smooth', block: 'start', inline: 'nearest' });
+      }
+    }, 100);
   };
 
-  const onSubmit = (data: BookingFormData) => bookAppointmentMutation.mutate(data);
+  const onSubmit = (data: BookingFormData) => {
+    bookAppointmentMutation.mutate(data);
+  };
 
   const isReadyToSubmit = () => {
     const formData = form.getValues();
-    return selectedService && selectedDate && selectedTimeSlot && formData.firstName && formData.lastName && formData.email && formData.phone && !form.formState.errors.firstName && !form.formState.errors.lastName && !form.formState.errors.email && !form.formState.errors.phone;
+    return (
+      selectedService &&
+      selectedDate &&
+      selectedTimeSlot &&
+      formData.firstName &&
+      formData.lastName &&
+      formData.email &&
+      formData.phone &&
+      !form.formState.errors.firstName &&
+      !form.formState.errors.lastName &&
+      !form.formState.errors.email &&
+      !form.formState.errors.phone
+    );
   };
 
-  const handleManualSubmit = () => form.handleSubmit(onSubmit)();
+  const handleManualSubmit = () => {
+    form.handleSubmit(onSubmit)();
+  };
+
+  const resetToStep = (step: "category" | "contact" | "date" | "time") => {
+    setCurrentStep(step);
+    if (step === "category") {
+      setSelectedCategory(undefined);
+      setSelectedService(undefined);
+      setSelectedDate(undefined);
+      setSelectedTimeSlot("");
+    } else if (step === "contact") {
+      setSelectedService(undefined);
+      setSelectedDate(undefined);
+      setSelectedTimeSlot("");
+    } else if (step === "date") {
+      setSelectedDate(undefined);
+      setSelectedTimeSlot("");
+    } else if (step === "time") {
+      setSelectedTimeSlot("");
+    }
+  };
 
   if (isSubmitted) {
     return (
@@ -277,9 +302,17 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
           <Card className="w-full max-w-md mx-auto">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-              <h2 className="text-xl font-semibold mb-2">Appointment Booked!</h2>
-              <p className="text-gray-600 mb-4">Your appointment has been successfully scheduled. You'll receive a confirmation email with all the details shortly.</p>
-              <Button onClick={() => { setIsSubmitted(false); setSelectedCategory(undefined); setSelectedService(undefined); setSelectedDate(undefined); setSelectedTimeSlot(""); setCurrentStep("category"); }}>
+              <h2 className="text-xl font-semibold mb-2" data-testid="text-booking-success">Appointment Booked!</h2>
+              <p className="text-gray-600 mb-4">
+                Your appointment has been successfully scheduled. You'll receive a confirmation email with all the details shortly.
+              </p>
+              <Button 
+                onClick={() => {
+                  setIsSubmitted(false);
+                  resetToStep("category");
+                }}
+                data-testid="button-book-another"
+              >
                 Book Another Appointment
               </Button>
             </CardContent>
@@ -289,76 +322,48 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
     );
   }
 
-  const categoryLabel = (category: CategoryKey) => SERVICE_CATEGORIES[category].title;
-
   return (
     <section id="scheduler" className="py-20 bg-white">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-8">
-          <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-4">SCHEDULE SERVICE</div>
-          <h2 className="text-4xl font-bold text-charcoal mb-3">Book Your <span className="text-brand-red">HandyTech Appointment</span></h2>
-          <p className="text-lg text-gray-600 max-w-3xl mx-auto">Choose a time block that fits your project. Materials billed separately. Travel included within 20 miles of Hazelwood, MO.</p>
+        <div className="text-center mb-16">
+          <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
+            SCHEDULE SERVICE
+          </div>
+          <h2 className="text-4xl font-bold text-charcoal mb-4">
+            Book Your <span className="text-brand-red">HandyTech Appointment</span>
+          </h2>
+          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
+            Choose a time block that fits your project. Materials billed separately. Travel included within 20 miles of Hazelwood, MO.
+          </p>
         </div>
 
-        <div className="space-y-6 mb-8">
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal">Quick Picks</h3>
-            </div>
-            {loadingServices ? (
-              <div className="text-sm text-gray-500">Loading popular services...</div>
-            ) : quickPickServices.length === 0 ? (
-              <p className="text-sm text-gray-500">Popular services coming soon. Call (314) 325-4575 to schedule.</p>
-            ) : (
-              <div className="flex flex-wrap gap-2">
-                {quickPickServices.map((service) => (
-                  <button
-                    key={service.id}
-                    type="button"
-                    onClick={() => handleQuickPickSelect(service)}
-                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-charcoal hover:border-brand-red hover:text-brand-red"
-                    data-testid={`quick-pick-${service.id}`}
+        <div className="flex justify-center mb-8">
+          <div className="flex space-x-2 sm:space-x-4">
+            {
+              [
+                { id: "category", label: "Category" },
+                { id: "contact", label: "Contact" },
+                { id: "date", label: "Date" },
+                { id: "time", label: "Time" }
+              ].map((step, index) => (
+                <div key={step.id} className="flex items-center">
+                  <div 
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                      currentStep === step.id 
+                        ? "bg-brand-red text-white" 
+                        : (index < ["category", "contact", "date", "time"].indexOf(currentStep))
+                          ? "bg-green-500 text-white"
+                          : "bg-gray-200 text-gray-600"
+                    }`}
+                    data-testid={`step-${step.id}`}
                   >
-                    <span>{service.name}</span>
-                    <span className="text-xs text-gray-500">{service.basePrice ? `$${service.basePrice}` : ""}</span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div>
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-charcoal">A / B / C Service Menu</h3>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {(Object.keys(SERVICE_CATEGORIES) as CategoryKey[]).map((category) => {
-                const servicesInCategory = servicesByCategory[category] || [];
-                return (
-                  <div key={category} className="rounded-xl border border-gray-200 bg-white p-4">
-                    <h4 className="text-sm font-semibold text-charcoal mb-2">{SERVICE_CATEGORIES[category].title}</h4>
-                    <div className="space-y-2">
-                      {servicesInCategory.length === 0 ? (
-                        <p className="text-sm text-gray-500">No active services in this category yet.</p>
-                      ) : (
-                        servicesInCategory.map((service) => (
-                          <button
-                            key={service.id}
-                            type="button"
-                            onClick={() => handleQuickPickSelect(service)}
-                            className="flex w-full items-center justify-between rounded-lg px-2 py-1 text-left text-sm hover:bg-gray-50"
-                            data-testid={`category-service-${service.id}`}
-                          >
-                            <span className="text-charcoal">{service.name}</span>
-                            <span className="text-xs text-gray-500">{service.basePrice ? `$${service.basePrice}` : ""}</span>
-                          </button>
-                        ))
-                      )}
-                    </div>
+                    {index + 1}
                   </div>
-                );
-              })}
-            </div>
+                  <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600">{step.label}</span>
+                  {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
+                </div>
+              ))
+            }
           </div>
         </div>
 
@@ -371,34 +376,27 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                 <p className="text-gray-600">Select the category that best matches your project needs</p>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                {(Object.entries(SERVICE_CATEGORIES) as [CategoryKey, typeof SERVICE_CATEGORIES[CategoryKey]][]).map(([key, category]) => {
+                {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
                   const IconComponent = category.icon;
-                  const categoryServices = servicesByCategory[key] || [];
                   return (
-                    <Card key={key} className="bg-white border-2 border-gray-100 rounded-xl">
-                      <CardContent className="p-5">
-                        <div className="flex items-center mb-3">
-                          <div className="bg-light-gray w-11 h-11 rounded-full flex items-center justify-center mr-3">
-                            <IconComponent className="text-charcoal" size={20} />
-                          </div>
-                          <div>
-                            <h3 className="text-base font-bold text-charcoal">{category.title}</h3>
-                          </div>
+                    <Card
+                      key={key}
+                      className={`cursor-pointer transition-all duration-300 hover:shadow-lg hover:scale-105 ${selectedCategory === key ? 'ring-2 ring-brand-red bg-red-50' : 'hover:border-brand-red'}`}
+                      onClick={() => handleCategorySelect(key as CategoryKey)}
+                      data-testid={`card-category-${key}`}
+                    >
+                      <CardContent className="p-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <IconComponent className="h-8 w-8 text-brand-red" />
+                          <Badge variant="outline" className="text-brand-red border-brand-red">
+                            {category.subtitle}
+                          </Badge>
                         </div>
-                        <ul className="text-sm text-gray-600 space-y-1">
-                          {categoryServices.length === 0 ? (
-                            <li>No active services in this category yet.</li>
-                          ) : (
-                            categoryServices.map((service) => (
-                              <li key={service.id} className="flex items-center justify-between gap-2">
-                                <button type="button" onClick={() => handleQuickPickSelect(service)} className="text-left hover:text-brand-red">
-                                  {service.name}
-                                </button>
-                                <span className="text-xs text-gray-500">{service.basePrice ? `$${service.basePrice}` : ""}</span>
-                              </li>
-                            ))
-                          )}
-                        </ul>
+                        <h4 className="text-lg font-semibold text-charcoal mb-2">{category.title}</h4>
+                        <p className="text-gray-600 text-sm mb-4">{category.description}</p>
+                        <Button className="w-full bg-brand-red hover:bg-red-700" data-testid={`button-category-${key}`}>
+                          Select {category.subtitle}
+                        </Button>
                       </CardContent>
                     </Card>
                   );
@@ -425,7 +423,9 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
                   <div className="flex flex-wrap gap-2 items-center">
                     {selectedService ? (
                       <>
-                        <Badge variant="outline" className="bg-white border-brand-red text-brand-red">{selectedService.name}</Badge>
+                        <Badge variant="outline" className="bg-white border-brand-red text-brand-red">
+                          {selectedService.name}
+                        </Badge>
                         <span className="text-sm text-gray-600">{selectedService.suggestedHours} hours</span>
                       </>
                     ) : (
@@ -436,41 +436,114 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
 
                 <Form {...form}>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <FormField control={form.control} name="firstName" render={({ field }) => (<FormItem><FormLabel>First Name</FormLabel><FormControl><Input {...field} data-testid="input-first-name" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="lastName" render={({ field }) => (<FormItem><FormLabel>Last Name</FormLabel><FormControl><Input {...field} data-testid="input-last-name" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="email" render={({ field }) => (<FormItem><FormLabel>Email Address</FormLabel><FormControl><Input type="email" {...field} data-testid="input-email" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="phone" render={({ field }) => (<FormItem><FormLabel>Phone Number</FormLabel><FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-phone" placeholder="(314) 325-4575" /></FormControl><FormMessage /></FormItem>)} />
-                    <FormField control={form.control} name="street" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Street Address</FormLabel><FormControl><Input {...field} placeholder="123 Main Street" data-testid="input-street" value={field.value || ""} /></FormControl><FormMessage /></FormItem>)} />
+                    <FormField control={form.control} name="firstName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>First Name</FormLabel>
+                        <FormControl><Input {...field} data-testid="input-first-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="lastName" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Last Name</FormLabel>
+                        <FormControl><Input {...field} data-testid="input-last-name" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="email" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl><Input type="email" {...field} data-testid="input-email" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="phone" render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number</FormLabel>
+                        <FormControl><Input type="tel" {...field} value={field.value || ""} data-testid="input-phone" placeholder="(314) 325-4575" /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <FormField control={form.control} name="street" render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Street Address</FormLabel>
+                        <FormControl><Input {...field} placeholder="123 Main Street" data-testid="input-street" value={field.value || ""} /></FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 md:col-span-2">
-                      <FormField control={form.control} name="city" render={({ field }) => (<FormItem><FormLabel>City</FormLabel><FormControl><Input {...field} placeholder="Hazelwood" data-testid="input-city" value={field.value || ""} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="state" render={({ field }) => (<FormItem><FormLabel>State</FormLabel><FormControl><Input {...field} placeholder="MO" data-testid="input-state" value={field.value || ""} /></FormControl><FormMessage /></FormItem>)} />
-                      <FormField control={form.control} name="zip" render={({ field }) => (<FormItem><FormLabel>ZIP Code</FormLabel><FormControl><Input {...field} placeholder="63042" data-testid="input-zip" value={field.value || ""} /></FormControl><FormMessage /></FormItem>)} />
+                      <FormField control={form.control} name="city" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>City</FormLabel>
+                          <FormControl><Input {...field} placeholder="Hazelwood" data-testid="input-city" value={field.value || ""} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="state" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>State</FormLabel>
+                          <FormControl><Input {...field} placeholder="MO" data-testid="input-state" value={field.value || ""} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
+                      <FormField control={form.control} name="zip" render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>ZIP Code</FormLabel>
+                          <FormControl><Input {...field} placeholder="63042" data-testid="input-zip" value={field.value || ""} /></FormControl>
+                          <FormMessage />
+                        </FormItem>
+                      )} />
                     </div>
                     <FormItem className="md:col-span-2">
                       <FormLabel>What do you need help with?</FormLabel>
                       <Select onValueChange={(value) => {
                         const service = activeServices.find(s => s.id === parseInt(value));
                         if (service) {
-                          selectService(service);
-                          if (defaultBookingMode && currentStep === "contact") return;
+                          setSelectedService(service);
+                          form.setValue("serviceType", service.name);
                         }
                       }} value={selectedService?.id.toString() || ""}>
-                        <FormControl><SelectTrigger data-testid="select-service"><SelectValue placeholder="Choose a service" /></SelectTrigger></FormControl>
+                        <FormControl>
+                          <SelectTrigger data-testid="select-service">
+                            <SelectValue placeholder="Choose a service" />
+                          </SelectTrigger>
+                        </FormControl>
                         <SelectContent>
-                          {activeServices.map((service) => (<SelectItem key={service.id} value={service.id.toString()}>{service.name} ({service.suggestedHours}h)</SelectItem>))}
+                          {activeServices.map((service) => (
+                            <SelectItem key={service.id} value={service.id.toString()}>
+                              {service.name} ({service.suggestedHours}h)
+                            </SelectItem>
+                          ))}
                         </SelectContent>
                       </Select>
                     </FormItem>
-                    <FormField control={form.control} name="notes" render={({ field }) => (<FormItem className="md:col-span-2"><FormLabel>Optional notes</FormLabel><FormControl><Textarea {...field} placeholder="Add any details, access notes, or special requests..." data-testid="textarea-notes" value={field.value || ""} /></FormControl><FormMessage /></FormItem>)} />
-                    <Button onClick={() => {
-                      const formData = form.getValues();
-                      if (formData.firstName && formData.lastName && formData.email && selectedService) {
-                        const isValid = form.formState.isValid || (!form.formState.errors.firstName && !form.formState.errors.lastName && !form.formState.errors.email);
-                        if (isValid) setCurrentStep("date");
-                        else form.trigger(["firstName", "lastName", "email"]);
-                      }
-                    }} disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !selectedService} className="w-full bg-brand-red hover:bg-red-700 md:col-span-2" data-testid="button-proceed-to-date">
-                      Continue to Date Selection <ArrowRight className="ml-2 h-4 w-4" />
+                    <FormField control={form.control} name="notes" render={({ field }) => (
+                      <FormItem className="md:col-span-2">
+                        <FormLabel>Optional notes</FormLabel>
+                        <FormControl>
+                          <Textarea {...field} placeholder="Add any details, access notes, or special requests..." data-testid="textarea-notes" value={field.value || ""} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )} />
+                    <Button
+                      onClick={() => {
+                        const formData = form.getValues();
+                        if (formData.firstName && formData.lastName && formData.email && selectedService) {
+                          const isValid = form.formState.isValid || (!form.formState.errors.firstName && !form.formState.errors.lastName && !form.formState.errors.email);
+                          if (isValid) {
+                            setCurrentStep("date");
+                          } else {
+                            form.trigger(["firstName", "lastName", "email"]);
+                          }
+                        }
+                      }}
+                      disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !selectedService}
+                      className="w-full bg-brand-red hover:bg-red-700 md:col-span-2"
+                      data-testid="button-proceed-to-date"
+                    >
+                      Continue to Date Selection
+                      <ArrowRight className="ml-2 h-4 w-4" />
                     </Button>
                   </div>
                 </Form>
@@ -478,9 +551,95 @@ export default function AppointmentScheduler({ defaultBookingMode = false, defau
             </Card>
           )}
 
-          {currentStep === "date" && (<Card data-testid="card-date-selection"><CardHeader><CardTitle className="flex items-center gap-2"><CalendarDays className="h-5 w-5 text-brand-red" />Step 3: Select Date</CardTitle></CardHeader><CardContent><div className="mb-4"><Badge variant="outline" className="mb-2">Selected: {selectedService?.name} ({selectedService?.suggestedHours}h)</Badge></div><Calendar mode="single" selected={selectedDate} onSelect={handleDateSelect} disabled={(date) => date < addHours(new Date(), 12) || date.getDay() === 0} className="rounded-md border w-full" data-testid="calendar-date-picker" /><p className="text-sm text-gray-500 mt-2">Appointments must be booked at least 12 hours in advance. Sundays are not available.</p></CardContent></Card>)}
+          {currentStep === "date" && (
+            <Card data-testid="card-date-selection">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <CalendarDays className="h-5 w-5 text-brand-red" />
+                  Step 3: Select Date
+                  <Button variant="outline" size="sm" onClick={() => setCurrentStep("contact")} data-testid="button-change-contact">
+                    Change Details
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4">
+                  <Badge variant="outline" className="mb-2">
+                    Selected: {selectedService?.name} ({selectedService?.suggestedHours}h)
+                  </Badge>
+                </div>
+                <Calendar
+                  mode="single"
+                  selected={selectedDate}
+                  onSelect={handleDateSelect}
+                  disabled={(date) => date < addHours(new Date(), 12) || date.getDay() === 0}
+                  className="rounded-md border w-full"
+                  data-testid="calendar-date-picker"
+                />
+                <p className="text-sm text-gray-500 mt-2">
+                  Appointments must be booked at least 12 hours in advance. Sundays are not available.
+                </p>
+              </CardContent>
+            </Card>
+          )}
 
-          {currentStep === "time" && (<Card data-testid="card-time-selection"><CardHeader><CardTitle className="flex items-center gap-2"><Clock className="h-5 w-5 text-brand-red" />Step 4: Choose Time</CardTitle></CardHeader><CardContent><div className="mb-4 space-y-2"><Badge variant="outline">Service: {selectedService?.name} ({selectedService?.suggestedHours}h)</Badge><Badge variant="outline">Date: {selectedDate && format(selectedDate, "EEEE, MMMM do, yyyy")}</Badge></div>{loadingSlots ? (<div className="flex items-center justify-center py-8"><Loader2 className="h-6 w-6 animate-spin text-brand-red" /><span className="ml-2 text-gray-600">Loading available times...</span></div>) : slotsError ? (<Alert variant="destructive"><AlertCircle className="h-4 w-4" /><AlertDescription>Failed to load available times. Please try selecting a different date.</AlertDescription></Alert>) : formattedSlots.length === 0 ? (<Alert><AlertCircle className="h-4 w-4" /><AlertDescription>No available times for this date. Please try a weekday (Monday-Friday) between now and next month. If you continue to see this message, please contact us directly.</AlertDescription></Alert>) : (<div className="grid grid-cols-2 sm:grid-cols-3 gap-2">{formattedSlots.map((slot) => (<Button key={slot.time} onClick={() => handleTimeSelect(slot.time)} variant="outline" className="w-full hover:bg-brand-red hover:text-white" data-testid={`button-time-${slot.displayTime.replace(/[^\w]/g, '-')}`}>{slot.displayTime}</Button>))}</div>)}</CardContent></Card>)}
+          {currentStep === "time" && (
+            <Card data-testid="card-time-selection">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Clock className="h-5 w-5 text-brand-red" />
+                  Step 4: Choose Time
+                  <Button variant="outline" size="sm" onClick={() => setCurrentStep("date")} data-testid="button-change-date">
+                    Change Date
+                  </Button>
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="mb-4 space-y-2">
+                  <Badge variant="outline">
+                    Service: {selectedService?.name} ({selectedService?.suggestedHours}h)
+                  </Badge>
+                  <Badge variant="outline">
+                    Date: {selectedDate && format(selectedDate, "EEEE, MMMM do, yyyy")}
+                  </Badge>
+                </div>
+                {loadingSlots ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
+                    <span className="ml-2 text-gray-600">Loading available times...</span>
+                  </div>
+                ) : slotsError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      Failed to load available times. Please try selecting a different date.
+                    </AlertDescription>
+                  </Alert>
+                ) : formattedSlots.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      No available times for this date. Please try a weekday (Monday-Friday) between now and next month. If you continue to see this message, please contact us directly.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {formattedSlots.map((slot) => (
+                      <Button
+                        key={slot.time}
+                        onClick={() => handleTimeSelect(slot.time)}
+                        variant="outline"
+                        className="w-full hover:bg-brand-red hover:text-white"
+                        data-testid={`button-time-${slot.displayTime.replace(/[^\w]/g, '-')}`}
+                      >
+                        {slot.displayTime}
+                      </Button>
+                    ))}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </section>
