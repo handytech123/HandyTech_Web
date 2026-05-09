@@ -90,7 +90,8 @@ function LiveChatManagement() {
     queryKey: ['chat-conversations'],
     queryFn: async () => {
       const response = await apiRequest('/api/admin/chat/conversations', 'GET');
-      return (response?.conversations || []) as ChatConversation[];
+      const data = await response.json();
+      return (data?.conversations || []) as ChatConversation[];
     },
     refetchInterval: 5000
   });
@@ -101,7 +102,8 @@ function LiveChatManagement() {
     queryFn: async () => {
       if (!selectedConversation) return [];
       const response = await apiRequest(`/api/admin/chat/history/${selectedConversation}`, 'GET');
-      return (response?.messages || []) as ChatMessage[];
+      const data = await response.json();
+      return (data?.messages || []) as ChatMessage[];
     },
     enabled: !!selectedConversation
   });
@@ -2038,7 +2040,7 @@ function GalleryTab() {
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
+                <SelectItem value="">All Categories</SelectItem>
                 <SelectItem value="plumbing">Plumbing</SelectItem>
                 <SelectItem value="electrical">Electrical</SelectItem>
                 <SelectItem value="carpentry">Carpentry</SelectItem>
@@ -2421,7 +2423,7 @@ function AuthenticatedDashboard() {
 
   const updateAppointmentStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
-      await apiRequest(`/api/admin/appointments/${id}/status`, "PATCH", { status });
+      await apiRequest(`/api/admin/appointments/${id}/status`, "PUT", { status });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schedule"] });
