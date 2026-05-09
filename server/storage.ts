@@ -2038,6 +2038,8 @@ export class DatabaseStorage implements IStorage {
     if (updates.estimatedDuration !== undefined) existingUpdates.estimatedDuration = updates.estimatedDuration;
     if (updates.skillLevel !== undefined) existingUpdates.skillLevel = updates.skillLevel;
     if (updates.includedInQuoteCalculator !== undefined) existingUpdates.includedInQuoteCalculator = updates.includedInQuoteCalculator;
+    if (updates.showAsQuickPick !== undefined) existingUpdates.showAsQuickPick = updates.showAsQuickPick;
+    if (updates.quickPickOrder !== undefined) existingUpdates.quickPickOrder = updates.quickPickOrder;
     if (updates.displayOrder !== undefined) existingUpdates.displayOrder = updates.displayOrder;
 
     await db.update(services)

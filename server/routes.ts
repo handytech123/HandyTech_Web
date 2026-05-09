@@ -2660,26 +2660,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Public Services catalog endpoint
   app.get("/api/services", async (req, res) => {
     try {
-      // Import service utilities
-      const { listServices, getServiceById } = await import("./utils/services");
-      
       const { category, active, quickPick } = req.query;
-      let services = listServices();
-      
+      let services = await storage.getAllServices();
+
       if (active === "true") {
-        services = services.filter((service: any) => service.isActive);
+        services = services.filter((s) => s.isActive);
       }
 
       if (category && typeof category === 'string') {
-        services = services.filter((service: any) => service.category === category);
+        services = services.filter((s) => s.category === category);
       }
 
       if (quickPick === "true") {
-        services = services.filter((service: any) => service.isActive && service.showAsQuickPick);
+        services = services.filter((s) => s.isActive && s.showAsQuickPick);
       }
-      
-      // Add cache headers for performance
-      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
+
       res.json(services);
     } catch (error) {
       console.error('Services endpoint error:', error);
@@ -2689,21 +2684,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/services/:id", async (req, res) => {
     try {
-      // Import service utilities
-      const { getServiceById } = await import("./utils/services");
-      
       const id = parseInt(req.params.id);
       if (isNaN(id)) {
         return res.status(400).json({ message: "Invalid service ID" });
       }
-      
-      const service = getServiceById(id);
+
+      const service = await storage.getService(id);
       if (!service) {
-        return res.status(404).json({ message: "Service not found or not active" });
+        return res.status(404).json({ message: "Service not found" });
       }
-      
-      // Add cache headers for performance
-      res.setHeader('Cache-Control', 'public, max-age=300'); // 5 minutes
+
       res.json(service);
     } catch (error) {
       console.error('Service by ID endpoint error:', error);
