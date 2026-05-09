@@ -21,17 +21,32 @@ import { z } from "zod";
 import { format, parseISO, isAfter, addHours } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
-// Service interface
+// Service interface — matches actual API/DB fields
 interface Service {
   id: number;
   name: string;
-  suggestedHours: number;
   description: string;
-  active: boolean;
+  isActive: boolean;
   category: string;
+  basePrice?: number;
+  priceUnit?: string;
+  estimatedDuration?: string;
   displayOrder?: number;
   showAsQuickPick?: boolean;
   quickPickOrder?: number;
+}
+
+// Parse estimatedDuration string ("2-3 hours") to a usable number for scheduling
+function parseDurationHours(estimatedDuration?: string | null): number {
+  if (!estimatedDuration) return 2;
+  const nums = estimatedDuration.match(/\d+/g);
+  if (nums && nums.length > 0) {
+    const maxHours = Math.max(...nums.map(Number));
+    if (maxHours <= 2) return 2;
+    if (maxHours <= 4) return 4;
+    return 6;
+  }
+  return 2;
 }
 
 // Service categories configuration
@@ -115,7 +130,7 @@ export default function AppointmentScheduler() {
   });
 
   // Filter active services only
-  const activeServices = services.filter(service => service.active !== false);
+  const activeServices = services.filter(service => service.isActive !== false);
   const quickPickServices = activeServices
     .filter(service => service.showAsQuickPick)
     .sort((a, b) => (a.quickPickOrder || 0) - (b.quickPickOrder || 0));
@@ -134,7 +149,7 @@ export default function AppointmentScheduler() {
   const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
 
   // Get selected duration from service
-  const selectedDuration = selectedService?.suggestedHours.toString() || "";
+  const selectedDuration = selectedService ? parseDurationHours(selectedService.estimatedDuration).toString() : "";
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
@@ -181,7 +196,7 @@ export default function AppointmentScheduler() {
     if (first) {
       form.setValue("serviceType", first.name);
       form.setValue("serviceId", first.id);
-      form.setValue("durationHours", first.suggestedHours);
+      form.setValue("durationHours", parseDurationHours(first.estimatedDuration));
     }
   }, [services, servicesByCategory, form]);
 
@@ -192,7 +207,7 @@ export default function AppointmentScheduler() {
     error: slotsError,
     refetch: refetchSlots
   } = useQuery<string[]>({
-    queryKey: ["/api/availability", selectedDate?.toISOString(), selectedService?.id, selectedService?.suggestedHours],
+    queryKey: ["/api/availability", selectedDate?.toISOString(), selectedService?.id, selectedService?.estimatedDuration],
     queryFn: async () => {      
       if (!selectedDate || !selectedService) {
         throw new Error("Missing date or service selection");
@@ -215,7 +230,7 @@ export default function AppointmentScheduler() {
       const queryParams = new URLSearchParams({
         from: startOfDay.toISOString(),
         to: endOfDay.toISOString(),
-        hours: selectedService.suggestedHours.toString(),
+        hours: parseDurationHours(selectedService.estimatedDuration).toString(),
         serviceId: selectedService.id.toString()
       });
       
@@ -229,7 +244,7 @@ export default function AppointmentScheduler() {
       const data = await response.json();
       return data.slots || [];
     },
-    enabled: !!selectedDate && !!selectedService && selectedService.suggestedHours > 0,
+    enabled: !!selectedDate && !!selectedService,
     retry: 2,
     staleTime: 1000 * 60 * 5, // 5 minutes
   });
@@ -326,7 +341,7 @@ export default function AppointmentScheduler() {
     // Update serviceType to match the selected service
     form.setValue("serviceType", service.name);
     form.setValue("serviceId", service.id);
-    form.setValue("durationHours", service.suggestedHours);
+    form.setValue("durationHours", parseDurationHours(service.estimatedDuration));
   };
 
   const handleServiceShortcut = (service: Service) => {
@@ -354,7 +369,7 @@ export default function AppointmentScheduler() {
     // Set form values but don't auto-submit - user will manually click submit
     if (selectedService) {
       form.setValue("serviceId", selectedService.id);
-      form.setValue("durationHours", selectedService.suggestedHours);
+      form.setValue("durationHours", parseDurationHours(selectedService.estimatedDuration));
     }
     form.setValue("appointmentDate", selectedDate!);
     form.setValue("appointmentTime", timeSlot);
@@ -759,7 +774,7 @@ export default function AppointmentScheduler() {
                 <CardContent>
                   <div className="mb-4">
                     <Badge variant="outline" className="mb-2">
-                      Selected: {selectedService?.name} ({selectedService?.suggestedHours}h)
+                      Selected: {selectedService?.name} {selectedService?.estimatedDuration ? `(${selectedService.estimatedDuration})` : ""}
                     </Badge>
                   </div>
                   <Calendar
@@ -800,7 +815,7 @@ export default function AppointmentScheduler() {
                 <CardContent>
                   <div className="mb-4 space-y-2">
                     <Badge variant="outline">
-                      Service: {selectedService?.name} ({selectedService?.suggestedHours}h)
+                      Service: {selectedService?.name} {selectedService?.estimatedDuration ? `(${selectedService.estimatedDuration})` : ""}
                     </Badge>
                     <Badge variant="outline">
                       Date: {selectedDate && format(selectedDate, "EEEE, MMMM do, yyyy")}
@@ -881,7 +896,7 @@ export default function AppointmentScheduler() {
                           ✅ {selectedService.name}
                         </Badge>
                         <p className="text-xs text-gray-500 mt-1">
-                          Duration: {selectedService.suggestedHours} hours
+                          Duration: {selectedService.estimatedDuration || "~2 hours"}
                         </p>
                       </>
                     ) : (
