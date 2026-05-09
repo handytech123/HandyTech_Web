@@ -86,11 +86,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4 text-brand-blue" style={{color: '#7BB3E8'}}>Services</h4>
             <ul className="space-y-2 text-blue-100">
-              <li><a href="#services" className="hover:text-white transition-colors">General Handyman</a></li>
-              <li><a href="#services" className="hover:text-white transition-colors">Electrical Work</a></li>
-              <li><a href="#services" className="hover:text-white transition-colors">Plumbing Services</a></li>
-              <li><a href="#services" className="hover:text-white transition-colors">Smart Home Technology</a></li>
-              <li><a href="#services" className="hover:text-white transition-colors">Carpentry &amp; Repairs</a></li>
+              <li><a href="/#services" className="hover:text-white transition-colors">General Handyman</a></li>
+              <li><a href="/#services" className="hover:text-white transition-colors">Electrical Work</a></li>
+              <li><a href="/#services" className="hover:text-white transition-colors">Plumbing Services</a></li>
+              <li><a href="/#services" className="hover:text-white transition-colors">Smart Home Technology</a></li>
+              <li><a href="/#services" className="hover:text-white transition-colors">Carpentry &amp; Repairs</a></li>
             </ul>
           </div>
 
@@ -98,11 +98,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4" style={{color: '#7BB3E8'}}>Company</h4>
             <ul className="space-y-2 text-blue-100">
-              <li><a href="#" className="hover:text-white transition-colors">About Us</a></li>
+              <li><a href="/#testimonials" className="hover:text-white transition-colors">About Us</a></li>
               <li><Link href="/gallery" className="hover:text-white transition-colors" data-testid="link-gallery-footer">Project Gallery</Link></li>
-              <li><a href="#" className="hover:text-white transition-colors">Our Team</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Careers</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Contact</a></li>
+              <li><a href="/#testimonials" className="hover:text-white transition-colors">Our Team</a></li>
+              <li><a href="/#contact" className="hover:text-white transition-colors">Careers</a></li>
+              <li><a href="/#contact" className="hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
 
@@ -110,12 +110,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4" style={{color: '#7BB3E8'}}>Support</h4>
             <ul className="space-y-2 text-blue-100">
-              <li><a href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</a></li>
-              <li><a href="/leave-review" className="hover:text-white transition-colors">Leave a Review</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Documentation</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Help Center</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Privacy Policy</a></li>
-              <li><a href="#" className="hover:text-white transition-colors">Terms of Service</a></li>
+              <li><Link href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</Link></li>
+              <li><Link href="/leave-review" className="hover:text-white transition-colors">Leave a Review</Link></li>
+              <li><a href="/#contact" className="hover:text-white transition-colors">Help Center</a></li>
+              <li><a href="/#contact" className="hover:text-white transition-colors">Privacy Policy</a></li>
+              <li><a href="/#contact" className="hover:text-white transition-colors">Terms of Service</a></li>
             </ul>
           </div>
         </div>
