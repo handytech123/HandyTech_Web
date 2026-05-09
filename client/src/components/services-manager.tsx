@@ -87,6 +87,8 @@ export default function ServicesManager() {
   });
 
   const basePriceValue = form.watch("basePrice");
+  const selectedCategory = form.watch("category");
+  const selectedCategoryInfo = categories.find(c => c.value === selectedCategory);
 
   const createService = useMutation({
     mutationFn: async (data: ServiceFormData) => {
@@ -237,14 +239,11 @@ export default function ServicesManager() {
                           ))}
                         </SelectContent>
                       </Select>
-                      {form.watch("category") && (() => {
-                        const cat = categories.find(c => c.value === form.watch("category"));
-                        return cat ? (
-                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                            <span className="font-medium">Includes:</span> {cat.description}
-                          </p>
-                        ) : null;
-                      })()}
+                      {selectedCategoryInfo && (
+                        <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                          <span className="font-medium">Includes:</span> {selectedCategoryInfo.description}
+                        </p>
+                      )}
                     </div>
                   </div>
 

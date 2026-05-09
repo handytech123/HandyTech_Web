@@ -1,6 +1,7 @@
 import { Helmet } from 'react-helmet';
 import Navigation from "@/components/navigation";
 import HeroSection from "@/components/hero-section";
+import ServicesSection from "@/components/services-section";
 import AppointmentScheduler from "@/components/appointment-scheduler";
 import MaintenancePlans from "@/components/maintenance-plans";
 import GalleryPreview from "@/components/gallery-preview";
@@ -108,6 +109,7 @@ export default function Home() {
       <BadgesSection />
       <main>
         <HeroSection />
+        <ServicesSection />
         <AppointmentScheduler />
         <MaintenancePlans />
         <GalleryPreview />
