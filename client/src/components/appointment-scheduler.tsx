@@ -105,7 +105,7 @@ export default function AppointmentScheduler() {
   const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | undefined>(undefined);
-  const [currentStep, setCurrentStep] = useState<"category" | "contact" | "date" | "time">("category");
+  const [currentStep, setCurrentStep] = useState<"contact" | "date" | "time">("contact");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
 
@@ -403,14 +403,10 @@ export default function AppointmentScheduler() {
   };
 
   // Reset to step
-  const resetToStep = (step: "category" | "contact" | "date" | "time") => {
+  const resetToStep = (step: "contact" | "date" | "time") => {
     setCurrentStep(step);
-    if (step === "category") {
+    if (step === "contact") {
       setSelectedCategory(undefined);
-      setSelectedService(undefined);
-      setSelectedDate(undefined);
-      setSelectedTimeSlot("");
-    } else if (step === "contact") {
       setSelectedService(undefined);
       setSelectedDate(undefined);
       setSelectedTimeSlot("");
@@ -437,7 +433,7 @@ export default function AppointmentScheduler() {
               <Button 
                 onClick={() => {
                   setIsSubmitted(false);
-                  resetToStep("category");
+                  resetToStep("contact");
                 }}
                 data-testid="button-book-another"
               >
@@ -469,7 +465,6 @@ export default function AppointmentScheduler() {
         <div className="flex justify-center mb-8">
           <div className="flex space-x-2 sm:space-x-4">
             {[
-              { id: "category", label: "Category" },
               { id: "contact", label: "Contact" },
               { id: "date", label: "Date" },
               { id: "time", label: "Time" }
@@ -479,7 +474,7 @@ export default function AppointmentScheduler() {
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                     currentStep === step.id 
                       ? "bg-brand-red text-white" 
-                      : (index < ["category", "contact", "date", "time"].indexOf(currentStep))
+                      : (index < ["contact", "date", "time"].indexOf(currentStep))
                         ? "bg-green-500 text-white"
                         : "bg-gray-200 text-gray-600"
                   }`}
@@ -488,7 +483,7 @@ export default function AppointmentScheduler() {
                   {index + 1}
                 </div>
                 <span className="ml-1 sm:ml-2 text-xs sm:text-sm font-medium text-gray-600">{step.label}</span>
-                {index < 3 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
+                {index < 2 && <ArrowRight className="ml-2 sm:ml-4 h-3 w-3 sm:h-4 sm:w-4 text-gray-400" />}
               </div>
             ))}
           </div>
@@ -497,102 +492,21 @@ export default function AppointmentScheduler() {
         {/* Main Content - Selection Steps */}
         <div className="space-y-6">
 
-            {/* Step 1: Category Selection */}
-            {currentStep === "category" && (
-              <div className="space-y-6">
-                <div className="text-center mb-8">
-                  <Tag className="h-8 w-8 text-brand-red mx-auto mb-4" />
-                  <h3 className="text-2xl font-bold text-charcoal mb-2">Step 1: Choose Your Service Category</h3>
-                  <p className="text-gray-600">Select the category that best matches your project needs</p>
-                </div>
-                {quickPickServices.length > 0 && (
-                  <div className="space-y-3">
-                    <h4 className="text-center font-semibold text-charcoal">Quick Picks</h4>
-                    <div className="flex flex-wrap justify-center gap-3">
-                      {quickPickServices.map((service) => (
-                        <Button key={service.id} type="button" variant="outline" onClick={() => handleServiceShortcut(service)}>
-                          {service.name}
-                        </Button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-8">
-                  {Object.entries(SERVICE_CATEGORIES).map(([key, category]) => {
-                    const categoryKey = key as CategoryKey;
-                    const categoryServices = servicesByCategory[categoryKey] || [];
-                    const IconComponent = category.icon;
-                    const isSelected = selectedCategory === categoryKey;
-                    
-                    return (
-                      <Card 
-                        key={categoryKey} 
-                        className={`relative hover:shadow-lg transition-shadow bg-white border-2 border-brand-red ${
-                          isSelected ? 'shadow-xl' : ''
-                        }`}
-                        data-testid={`card-category-${categoryKey}`}
-                      >
-                        <CardContent className="p-8">
-                          <div className="text-center mb-8">
-                            <div className="w-16 h-16 bg-white rounded-full flex items-center justify-center mx-auto mb-4">
-                              <IconComponent className="text-brand-red" size={24} />
-                            </div>
-                            <div className="text-sm font-semibold text-brand-red mb-1">{category.subtitle}</div>
-                            <h3 className="text-xl font-bold text-charcoal mb-2">{category.title}</h3>
-                            <p className="text-gray-600">{category.description}</p>
-                          </div>
-                          <ul className="space-y-3 mb-6">
-                            {categoryServices.map((service, serviceIndex) => (
-                              <li key={serviceIndex} className="flex items-start">
-                                <div className="w-2 h-2 bg-brand-red rounded-full mr-3 mt-2 flex-shrink-0"></div>
-                                <span className="text-sm text-gray-700 leading-relaxed">{service.name}</span>
-                              </li>
-                            ))}
-                          </ul>
-                          <Button 
-                            onClick={() => {
-                              handleCategorySelect(categoryKey);
-                              if (categoryServices[0]) {
-                                handleServiceShortcut(categoryServices[0]);
-                              }
-                            }}
-                            className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
-                            data-testid={`button-category-${categoryKey}`}
-                          >
-                            Select {category.title}
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              </div>
-            )}
-
-            {/* Step 2: Contact Information & Service Selection */}
+            {/* Step 1: Contact Information & Service Selection */}
             {currentStep === "contact" && (
               <Card data-testid="card-contact-details">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5 text-brand-red" />
-                    Step 2: Contact Information & Service Selection
-                    <Button 
-                      variant="outline" 
-                      size="sm" 
-                      onClick={() => setCurrentStep("category")}
-                      data-testid="button-change-category"
-                    >
-                      Change Category
-                    </Button>
+                    Step 1: Your Information & Service Selection
+                    {selectedCategory && (
+                      <Badge variant="outline" className="ml-2">
+                        {SERVICE_CATEGORIES[selectedCategory].subtitle}
+                      </Badge>
+                    )}
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
-                  <div className="mb-4">
-                    <Badge variant="outline" className="mb-2">
-                      Selected: {selectedCategory && SERVICE_CATEGORIES[selectedCategory].title}
-                    </Badge>
-                  </div>
                   
                   <Form {...form}>
                     <div className="space-y-4">
@@ -731,22 +645,49 @@ export default function AppointmentScheduler() {
                       </div>
 
                       <FormItem>
-                        <FormLabel>Select Specific Service</FormLabel>
+                        <FormLabel>Select Job Type</FormLabel>
                         <Select onValueChange={(value) => {
-                          const service = categoryServices.find(s => s.id === parseInt(value));
-                          if (service) handleServiceSelect(service);
+                          const service = allActiveServices.find(s => s.id === parseInt(value));
+                          if (service) {
+                            setSelectedCategory(service.category as CategoryKey);
+                            handleServiceSelect(service);
+                          }
                         }} value={selectedService?.id.toString() || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-service">
-                              <SelectValue placeholder="Choose a service from selected category" />
+                              <SelectValue placeholder="Choose your job type" />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {categoryServices.map((service) => (
-                              <SelectItem key={service.id} value={service.id.toString()}>
-                                {service.name} ({service.suggestedHours}h) - {service.description}
-                              </SelectItem>
-                            ))}
+                            {selectedCategory ? (
+                              <>
+                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  {SERVICE_CATEGORIES[selectedCategory].title}
+                                </div>
+                                {categoryServices.map((service) => (
+                                  <SelectItem key={service.id} value={service.id.toString()}>
+                                    {service.name}
+                                  </SelectItem>
+                                ))}
+                                <div className="border-t my-1" />
+                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                  All Other Services
+                                </div>
+                                {allActiveServices
+                                  .filter(s => s.category !== selectedCategory)
+                                  .map((service) => (
+                                    <SelectItem key={service.id} value={service.id.toString()}>
+                                      {service.name}
+                                    </SelectItem>
+                                  ))}
+                              </>
+                            ) : (
+                              allActiveServices.map((service) => (
+                                <SelectItem key={service.id} value={service.id.toString()}>
+                                  {service.name}
+                                </SelectItem>
+                              ))
+                            )}
                           </SelectContent>
                         </Select>
                       </FormItem>
