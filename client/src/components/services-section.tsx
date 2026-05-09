@@ -43,7 +43,7 @@ export default function ServicesSection() {
   };
 
   const bookService = (category: ServiceCategory) => {
-    window.dispatchEvent(new CustomEvent("bookServiceCategory", { detail: { category } }));
+    sessionStorage.setItem("bookingCategory", category);
     setTimeout(() => {
       const element = document.getElementById("scheduler");
       if (element) element.scrollIntoView({ behavior: "smooth" });
