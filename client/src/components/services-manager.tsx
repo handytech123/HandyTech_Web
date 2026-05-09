@@ -28,9 +28,21 @@ const serviceFormSchema = insertServiceSchema.extend({
 
 type ServiceFormData = z.infer<typeof serviceFormSchema>;
 const categories = [
-  { value: "essential", label: "A — Essential Repairs & Maintenance" },
-  { value: "improvement", label: "B — Home Improvement & Remodeling" },
-  { value: "specialized", label: "C — Specialized Installations & Custom Projects" },
+  {
+    value: "essential",
+    label: "A — Essential Repairs & Maintenance",
+    description: "Smart thermostat & lighting, security cameras, home automation, plumbing repairs, electrical fixtures & outlets, drywall, appliance repairs, furniture assembly, pressure washing",
+  },
+  {
+    value: "improvement",
+    label: "B — Home Improvement & Remodeling",
+    description: "Interior painting & surface prep, kitchen & bathroom renovations, basement finishing, garage improvements",
+  },
+  {
+    value: "specialized",
+    label: "C — Specialized Installations & Custom Projects",
+    description: "Home theater & audio wiring, network cabling & TV mounting, deck rebuilding, shed construction, gutter installation, vanity installations, lighting fixture upgrades",
+  },
 ];
 
 const priceUnits = [
@@ -225,6 +237,14 @@ export default function ServicesManager() {
                           ))}
                         </SelectContent>
                       </Select>
+                      {form.watch("category") && (() => {
+                        const cat = categories.find(c => c.value === form.watch("category"));
+                        return cat ? (
+                          <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                            <span className="font-medium">Includes:</span> {cat.description}
+                          </p>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
 
@@ -356,6 +376,16 @@ export default function ServicesManager() {
           </div>
         </CardHeader>
         <CardContent className="overflow-x-auto">
+          {/* Category legend */}
+          <div className="mb-4 grid grid-cols-1 sm:grid-cols-3 gap-2">
+            {categories.map((cat) => (
+              <div key={cat.value} className="rounded-lg border bg-muted/40 px-3 py-2">
+                <p className="text-xs font-semibold text-foreground mb-0.5">{cat.label}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{cat.description}</p>
+              </div>
+            ))}
+          </div>
+
           {services.length > 0 ? (
             <div className="min-w-full">
               <Table>
