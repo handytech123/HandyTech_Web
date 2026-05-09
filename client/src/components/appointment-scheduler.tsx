@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -152,6 +152,35 @@ export default function AppointmentScheduler() {
       notes: "",
     }
   });
+
+  // Listen for "Book This Service" clicks from the services section above
+  useEffect(() => {
+    const categoryMap: Record<string, CategoryKey> = {
+      essential: "A",
+      improvement: "B",
+      specialized: "C",
+    };
+
+    const handler = (e: Event) => {
+      const { category } = (e as CustomEvent).detail as { category: string };
+      const key = categoryMap[category];
+      if (!key) return;
+      setSelectedCategory(key);
+      setCurrentStep("contact");
+      setSelectedService(undefined);
+      setTimeout(() => {
+        const first = (servicesByCategory[key] || [])[0];
+        if (first) {
+          form.setValue("serviceType", first.name);
+          form.setValue("serviceId", first.id);
+          form.setValue("durationHours", first.suggestedHours);
+        }
+      }, 0);
+    };
+
+    window.addEventListener("bookServiceCategory", handler);
+    return () => window.removeEventListener("bookServiceCategory", handler);
+  }, [servicesByCategory, form]);
 
   // Fetch available time slots for selected date and service
   const {

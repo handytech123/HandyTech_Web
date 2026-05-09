@@ -42,9 +42,12 @@ export default function ServicesSection() {
       .map((service) => service.name);
   };
 
-  const scrollToScheduler = () => {
-    const element = document.getElementById("scheduler");
-    if (element) element.scrollIntoView({ behavior: "smooth" });
+  const bookService = (category: ServiceCategory) => {
+    window.dispatchEvent(new CustomEvent("bookServiceCategory", { detail: { category } }));
+    setTimeout(() => {
+      const element = document.getElementById("scheduler");
+      if (element) element.scrollIntoView({ behavior: "smooth" });
+    }, 50);
   };
 
   return (
@@ -91,7 +94,7 @@ export default function ServicesSection() {
                   </ul>
 
                   <Button
-                    onClick={scrollToScheduler}
+                    onClick={() => bookService(categoryInfo.category)}
                     className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
                   >
                     Book This Service
