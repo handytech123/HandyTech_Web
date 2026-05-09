@@ -51,21 +51,21 @@ function parseDurationHours(estimatedDuration?: string | null): number {
 
 // Service categories configuration
 const SERVICE_CATEGORIES = {
-  A: { 
+  essential: { 
     icon: Wrench,
     title: "2-Hour Tech & Quick Jobs",
     subtitle: "🛠️ Service A",
     description: "Smart installs, swaps, setups — same size as faucet/light jobs",
     hours: 2 
   },
-  B: { 
+  improvement: { 
     icon: Shield,
     title: "4-Hour Medium Jobs", 
     subtitle: "🏡 Service B",
     description: "Half-day projects or multi-device tech setups",
     hours: 4 
   },
-  C: { 
+  specialized: { 
     icon: Network,
     title: "6-Hour Large Jobs",
     subtitle: "🧰 Service C", 
@@ -173,13 +173,8 @@ export default function AppointmentScheduler() {
     const preSelected = sessionStorage.getItem("bookingCategory");
     if (!preSelected) return;
 
-    const categoryMap: Record<string, CategoryKey> = {
-      essential: "A",
-      improvement: "B",
-      specialized: "C",
-    };
-    const key = categoryMap[preSelected];
-    if (!key) {
+    const key = preSelected as CategoryKey;
+    if (!SERVICE_CATEGORIES[key]) {
       sessionStorage.removeItem("bookingCategory");
       return;
     }
