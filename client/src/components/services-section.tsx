@@ -64,7 +64,7 @@ export default function ServicesSection() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-3 gap-8 mb-12">
           {categoryConfig.map((categoryInfo, index) => {
             const categoryServices = getServicesByCategory(categoryInfo.category);
 
@@ -103,6 +103,21 @@ export default function ServicesSection() {
               </Card>
             );
           })}
+        </div>
+
+        {/* Quote CTA */}
+        <div className="text-center bg-light-gray rounded-2xl py-10 px-6">
+          <p className="text-lg font-semibold text-charcoal mb-2">Don't see the service you need?</p>
+          <p className="text-gray-600 mb-6">We handle all kinds of home projects. Tell us what you've got and we'll get you a custom quote.</p>
+          <button
+            onClick={() => {
+              const el = document.getElementById("contact");
+              if (el) el.scrollIntoView({ behavior: "smooth" });
+            }}
+            className="inline-flex items-center px-8 py-3 bg-brand-red text-white font-semibold rounded-lg hover:bg-red-800 transition-colors"
+          >
+            Request a Custom Quote
+          </button>
         </div>
       </div>
     </section>

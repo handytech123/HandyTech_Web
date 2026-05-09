@@ -669,35 +669,11 @@ export default function AppointmentScheduler() {
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
-                            {selectedCategory ? (
-                              <>
-                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  {SERVICE_CATEGORIES[selectedCategory].title}
-                                </div>
-                                {categoryServices.map((service) => (
-                                  <SelectItem key={service.id} value={service.id.toString()}>
-                                    {service.name}
-                                  </SelectItem>
-                                ))}
-                                <div className="border-t my-1" />
-                                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                  All Other Services
-                                </div>
-                                {allActiveServices
-                                  .filter(s => s.category !== selectedCategory)
-                                  .map((service) => (
-                                    <SelectItem key={service.id} value={service.id.toString()}>
-                                      {service.name}
-                                    </SelectItem>
-                                  ))}
-                              </>
-                            ) : (
-                              allActiveServices.map((service) => (
-                                <SelectItem key={service.id} value={service.id.toString()}>
-                                  {service.name}
-                                </SelectItem>
-                              ))
-                            )}
+                            {(selectedCategory ? categoryServices : allActiveServices).map((service) => (
+                              <SelectItem key={service.id} value={service.id.toString()}>
+                                {service.name}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </FormItem>
