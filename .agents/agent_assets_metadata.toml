@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "47yCsEhjb2QtixZoKtXfo"
+uri = "file://handytech-deployment-2026-05-10.zip"
+type = "unspecified"
+title = "HandyTech Full Deployment - May 10, 2026"
