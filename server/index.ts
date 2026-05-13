@@ -4,6 +4,7 @@ import { setupVite, serveStatic, log } from "./vite";
 import { setupSecurity, rlPublic, useCSRF, sanitizeInput } from "./security";
 import { reminderScheduler } from "./reminder-scheduler";
 import { seedEssentialData } from "./utils/seed-data";
+import { runProductionMigration } from "./utils/migrate-production";
 import { validateDatabaseConnection } from "./utils/database-validation";
 import { validateEnvironmentVariables } from "./utils/environment-validation";
 import { validateUploadConfiguration } from "./utils/upload";
@@ -109,6 +110,9 @@ app.use((req, res, next) => {
     process.exit(1);
   }
   
+  // Run production compatibility migration (safe, idempotent)
+  await runProductionMigration();
+
   // Seed essential data (availability rules, etc.)
   await seedEssentialData();
   
