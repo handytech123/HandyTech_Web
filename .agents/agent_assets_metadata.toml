@@ -12,3 +12,9 @@ id = "-ywKPzjjLaXebw5znGBXk"
 uri = "file://handytech-dist-update.zip"
 type = "unspecified"
 title = "HandyTech - Built Files Update (606KB)"
+
+[[outputs]]
+id = "hvOR_BL8fg9aiVFErzn5J"
+uri = "file://handytech-complete-20260513.zip"
+type = "unspecified"
+title = "HandyTech Complete Deployment (All Files)"
