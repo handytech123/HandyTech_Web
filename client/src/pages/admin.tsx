@@ -18,7 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit, Image, Upload, Eye, Calendar, MapPin as Location, Bot, UserCheck, Send, RefreshCw } from "lucide-react";
+import { CheckCircle, Clock, DollarSign, Users, Star, LogOut, MessageSquare, Home, CalendarDays, User, Phone, Mail, RotateCcw, Filter, Plus, Trash2, UserPlus, MapPin, Edit, Image, Upload, Eye, Calendar, MapPin as Location, Bot, UserCheck, Send, RefreshCw, Camera, X } from "lucide-react";
 import { Link } from "wouter";
 import { useToast } from "@/hooks/use-toast";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -1375,6 +1375,7 @@ function GalleryTab() {
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [optimizingImages, setOptimizingImages] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
   const [finishedImagePreviews, setFinishedImagePreviews] = useState<string[]>([]);
@@ -1435,11 +1436,11 @@ function GalleryTab() {
 
   // File upload validation
   const validateFile = (file: File): string | null => {
-    const maxSize = 10 * 1024 * 1024; // 10MB
+    const maxSize = 25 * 1024 * 1024; // Large phone photos are compressed before upload
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
     
     if (file.size > maxSize) {
-      return 'File size must be less than 10MB';
+      return 'File size must be less than 25MB';
     }
     if (!allowedTypes.includes(file.type)) {
       return 'Only JPEG, PNG and WebP images are allowed';
@@ -1447,18 +1448,37 @@ function GalleryTab() {
     return null;
   };
 
+  const optimizeImageForUpload = async (file: File): Promise<File> => {
+    if (file.size <= 2 * 1024 * 1024) return file;
+    try {
+      const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+      const maxDimension = 1920;
+      const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(bitmap.width * scale);
+      canvas.height = Math.round(bitmap.height * scale);
+      const context = canvas.getContext("2d");
+      if (!context) return file;
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+      bitmap.close();
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+      if (!blob || blob.size >= file.size) return file;
+      return new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp", lastModified: file.lastModified });
+    } catch {
+      return file;
+    }
+  };
+
   // Handle file selection and preview
-  const handleFileSelect = (files: FileList | null, type: 'main' | 'before' | 'finished') => {
+  const handleFileSelect = async (files: FileList | null, type: 'main' | 'before' | 'finished') => {
     if (!files || files.length === 0) return;
-    
-    console.log(`[Preview] Handling ${files.length} file(s) for type: ${type}`);
-    
+    setOptimizingImages(true);
+    try {
     if (type === 'finished') {
-      // Handle multiple finished images
-      const fileArray = Array.from(files);
+      const remainingSlots = 10 - selectedImages.finished.length - (selectedImages.before ? 1 : 0) - (selectedImages.main ? 1 : 0);
+      const fileArray = Array.from(files).slice(0, Math.max(0, remainingSlots));
+      if (files.length > remainingSlots) toast({ title: "Photo limit", description: "A project can contain up to 10 photos." });
       const validFiles: File[] = [];
-      const previews: string[] = [];
-      
       for (const file of fileArray) {
         const error = validateFile(file);
         if (error) {
@@ -1469,34 +1489,14 @@ function GalleryTab() {
           });
           continue;
         }
-        validFiles.push(file);
+        validFiles.push(await optimizeImageForUpload(file));
       }
-      
       if (validFiles.length === 0) return;
-      
-      // Generate previews for valid files
-      validFiles.forEach((file, index) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const result = e.target?.result as string;
-          previews.push(result);
-          
-          // Update state when all previews are loaded
-          if (previews.length === validFiles.length) {
-            setFinishedImagePreviews(prev => [...prev, ...previews]);
-            setSelectedImages(prev => ({ 
-              ...prev, 
-              finished: [...prev.finished, ...validFiles] 
-            }));
-          }
-        };
-        reader.readAsDataURL(file);
-      });
+      setFinishedImagePreviews(prev => [...prev, ...validFiles.map(file => URL.createObjectURL(file))]);
+      setSelectedImages(prev => ({ ...prev, finished: [...prev.finished, ...validFiles] }));
     } else {
-      // Handle single main or before image
       const file = files[0];
       const error = validateFile(file);
-      
       if (error) {
         toast({
           title: "Invalid File",
@@ -1505,30 +1505,18 @@ function GalleryTab() {
         });
         return;
       }
-
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        const result = e.target?.result as string;
-        console.log(`[Preview] Loaded ${type} image, data URL length: ${result?.length}`);
-        if (type === 'main') {
-          setImagePreview(result);
-          setSelectedImages(prev => ({ ...prev, main: file }));
-          console.log('[Preview] Main image preview set');
-        } else {
-          setBeforeImagePreview(result);
-          setSelectedImages(prev => ({ ...prev, before: file }));
-          console.log('[Preview] Before image preview set');
-        }
-      };
-      reader.onerror = (error) => {
-        console.error('[Preview] FileReader error:', error);
-        toast({
-          title: "Preview Error",
-          description: "Failed to load image preview",
-          variant: "destructive",
-        });
-      };
-      reader.readAsDataURL(file);
+      const optimizedFile = await optimizeImageForUpload(file);
+      const preview = URL.createObjectURL(optimizedFile);
+      if (type === 'main') {
+        setImagePreview(preview);
+        setSelectedImages(prev => ({ ...prev, main: optimizedFile }));
+      } else {
+        setBeforeImagePreview(preview);
+        setSelectedImages(prev => ({ ...prev, before: optimizedFile }));
+      }
+    }
+    } finally {
+      setOptimizingImages(false);
     }
   };
 
@@ -1702,17 +1690,17 @@ function GalleryTab() {
 
     const formData = new FormData();
     
-    // Add all images
-    if (selectedImages.main) {
-      formData.append('images', selectedImages.main);
-    }
+    // The server expects cover, optional before, then additional photos.
+    const coverImage = selectedImages.main || selectedImages.finished[0];
+    if (coverImage) formData.append('images', coverImage);
     if (selectedImages.before) {
       formData.append('images', selectedImages.before);
     }
-    // Add all finished images
-    selectedImages.finished.forEach(file => {
+    const additionalImages = selectedImages.main ? selectedImages.finished : selectedImages.finished.slice(1);
+    additionalImages.forEach(file => {
       formData.append('images', file);
     });
+    formData.append('hasBeforeImage', selectedImages.before ? 'true' : 'false');
     
     // Add metadata
     formData.append('title', data.title);
@@ -1769,15 +1757,15 @@ function GalleryTab() {
             <Dialog open={uploadDialogOpen} onOpenChange={setUploadDialogOpen}>
               <DialogTrigger asChild>
                 <Button className="flex items-center gap-2" data-testid="button-upload-photo">
-                  <Upload className="h-4 w-4" />
-                  Submit
+                  <Camera className="h-4 w-4" />
+                  Add Project Photos
                 </Button>
               </DialogTrigger>
-              <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
+              <DialogContent className="h-[100dvh] max-h-[100dvh] w-screen max-w-none overflow-y-auto rounded-none p-4 sm:h-auto sm:max-h-[92vh] sm:max-w-[680px] sm:rounded-lg sm:p-6">
                 <DialogHeader>
-                  <DialogTitle>Upload New Photo</DialogTitle>
+                  <DialogTitle>Add a Project</DialogTitle>
                   <DialogDescription>
-                    Add a new project photo with details and metadata.
+                    Select several photos from your phone at once. The first project photo becomes the gallery cover.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="max-h-[70vh] overflow-y-auto pr-2">
@@ -1788,7 +1776,7 @@ function GalleryTab() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-medium mb-2">
-                          Main Image *
+                          Cover Photo (Optional)
                         </label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                           <Input
@@ -1805,7 +1793,8 @@ function GalleryTab() {
                             ) : (
                               <div className="flex flex-col items-center">
                                 <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                                <p className="text-sm text-gray-500">Click to upload main image</p>
+                                <p className="text-sm font-medium text-gray-700">Choose a specific cover photo</p>
+                                <p className="mt-1 text-xs text-gray-400">Otherwise, your first project photo is used</p>
                               </div>
                             )}
                           </label>
@@ -1840,7 +1829,7 @@ function GalleryTab() {
 
                       <div>
                         <label className="block text-sm font-medium mb-2">
-                          Finished Result Images (Multiple Upload)
+                          Project Photos *
                         </label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                           <Input
@@ -1854,16 +1843,16 @@ function GalleryTab() {
                           />
                           <label htmlFor="finished-images-upload" className="cursor-pointer">
                             <div className="flex flex-col items-center">
-                              <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                              <p className="text-sm text-gray-500">Click to upload finished result images</p>
-                              <p className="text-xs text-gray-400 mt-1">You can select multiple images at once</p>
+                              <Camera className="h-8 w-8 text-brand-blue mb-2" />
+                              <p className="text-sm font-semibold text-gray-700">Choose photos from your phone</p>
+                              <p className="text-xs text-gray-500 mt-1">Select several at once · up to 10 photos</p>
                             </div>
                           </label>
                         </div>
                         
                         {/* Finished images preview grid */}
                         {finishedImagePreviews.length > 0 && (
-                          <div className="grid grid-cols-3 gap-2 mt-4">
+                          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
                             {finishedImagePreviews.map((preview, index) => (
                               <div key={index} className="relative group">
                                 <img 
@@ -1874,11 +1863,14 @@ function GalleryTab() {
                                 <button
                                   type="button"
                                   onClick={() => removeFinishedImage(index)}
-                                  className="absolute top-1 right-1 bg-red-500 text-white rounded-full w-6 h-6 flex items-center justify-center text-xs opacity-0 group-hover:opacity-100 transition-opacity"
+                                  className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/85 text-white shadow sm:h-7 sm:w-7"
                                   data-testid={`button-remove-finished-${index}`}
                                 >
-                                  ×
+                                  <X className="h-4 w-4" />
                                 </button>
+                                {index === 0 && !selectedImages.main && (
+                                  <span className="absolute bottom-1 left-1 rounded bg-brand-blue px-2 py-1 text-[10px] font-bold text-white">COVER</span>
+                                )}
                               </div>
                             ))}
                           </div>
@@ -1886,7 +1878,7 @@ function GalleryTab() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <FormField
                         control={uploadForm.control}
                         name="title"
@@ -1940,7 +1932,7 @@ function GalleryTab() {
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-4 sm:grid-cols-2">
                       <FormField
                         control={uploadForm.control}
                         name="location"
@@ -1997,6 +1989,7 @@ function GalleryTab() {
                       )}
                     />
 
+                    {optimizingImages && <div className="rounded-lg bg-sky-50 p-3 text-sm text-brand-blue">Optimizing photos for a faster mobile upload…</div>}
                     {uploading && (
                       <div className="space-y-2">
                         <div className="flex justify-between text-sm">
@@ -2019,10 +2012,10 @@ function GalleryTab() {
                       </Button>
                       <Button
                         type="submit"
-                        disabled={uploading || uploadMutation.isPending}
+                        disabled={optimizingImages || uploading || uploadMutation.isPending}
                         data-testid="button-submit-upload"
                       >
-                        {uploading ? "Uploading..." : "Submit"}
+                        {optimizingImages ? "Preparing photos..." : uploading ? "Uploading..." : "Publish Project"}
                       </Button>
                     </div>
                   </form>

@@ -3003,8 +3003,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Organize images by type (main, before, and multiple finished images)
+      // Organize images by type. The client sends the cover first, followed by an
+      // optional before photo, then any additional finished photos.
       const imageUrls = processedImages.map(img => img.sizes.large.url);
+      const hasBeforeImage = req.body.hasBeforeImage === 'true' || req.body.hasBeforeImage === true;
+      const additionalImagesStart = hasBeforeImage ? 2 : 1;
       
       // Validate form fields
       const formData = {
@@ -3015,8 +3018,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completionDate: req.body.completionDate ? new Date(req.body.completionDate) : new Date(),
         featured: req.body.featured === 'true' || req.body.featured === true,
         imageUrl: processedImages[0].sizes.large.url, // Use first image as main image
-        beforeImageUrl: processedImages[1]?.sizes.large.url || null, // Use second image as before image if provided
-        imageUrls: processedImages.length > 2 ? imageUrls.slice(2) : undefined // Store remaining images as finished results
+        beforeImageUrl: hasBeforeImage ? processedImages[1]?.sizes.large.url || null : null,
+        imageUrls: processedImages.length > additionalImagesStart ? imageUrls.slice(additionalImagesStart) : undefined
       };
 
       // Validate using schema
