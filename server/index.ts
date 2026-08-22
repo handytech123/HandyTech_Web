@@ -1,7 +1,7 @@
 import express, { type Request, Response, NextFunction } from "express";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
-import { setupSecurity, rlPublic, useCSRF, sanitizeInput } from "./security";
+import { setupSecurity, rlPublic, useCSRF, useSession, sanitizeInput } from "./security";
 import { reminderScheduler } from "./reminder-scheduler";
 import { seedEssentialData } from "./utils/seed-data";
 import { runProductionMigration } from "./utils/migrate-production";
@@ -149,12 +149,22 @@ app.use((req, res, next) => {
     }
   });
 
+  // Reuse the Express session for Socket.IO so privileged real-time actions
+  // are authorized by the same server-side admin session as the HTTP API.
+  io.engine.use(useSession as any);
+
   // Socket.IO connection handling for AI-powered chat with human handoff
   io.on('connection', (socket) => {
     log(`Socket connected: ${socket.id}`);
     
     // Handle different roles
     const role = socket.handshake.auth?.role || 'visitor';
+
+    if (role === 'admin' && (socket.request as any).session?.isAdmin !== true) {
+      console.warn(`[SECURITY] Rejected unauthorized admin socket: ${socket.id}`);
+      socket.disconnect(true);
+      return;
+    }
     
     if (role === 'visitor') {
       // Customer/visitor connection

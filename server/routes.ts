@@ -1280,7 +1280,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/customers/:id/maintenance-plans", async (req, res) => {
+  app.get("/api/customers/:id/maintenance-plans", requireAdmin, async (req, res) => {
     try {
       const customerId = parseInt(req.params.id);
       const plans = await storage.getMaintenancePlansByCustomer(customerId);
@@ -1581,7 +1581,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/reviews/:id/approve", async (req, res) => {
+  app.patch("/api/reviews/:id/approve", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.approveReview(id);
@@ -1726,7 +1726,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Quote routes
-  app.get("/api/quotes", async (req, res) => {
+  app.get("/api/quotes", requireAdmin, async (req, res) => {
     try {
       const quotes = await storage.getAllQuotes();
       res.json(quotes);
@@ -2000,7 +2000,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/appointments", async (req, res) => {
+  app.get("/api/appointments", requireAdmin, async (req, res) => {
     try {
       const appointments = await storage.getAllAppointments();
       res.json(appointments);
@@ -2208,7 +2208,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email campaign routes
-  app.post("/api/email-campaigns", async (req, res) => {
+  app.post("/api/email-campaigns", requireAdmin, async (req, res) => {
     try {
       const campaignData = insertEmailCampaignSchema.parse(req.body);
       const campaign = await storage.createEmailCampaign(campaignData);
@@ -2226,7 +2226,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/customers/:id/email-campaigns", async (req, res) => {
+  app.get("/api/customers/:id/email-campaigns", requireAdmin, async (req, res) => {
     try {
       const customerId = parseInt(req.params.id);
       const campaigns = await storage.getEmailCampaignsByCustomer(customerId);
@@ -2237,7 +2237,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Email automation endpoint
-  app.post("/api/email-automation/send-batch", async (req, res) => {
+  app.post("/api/email-automation/send-batch", requireAdmin, rlSensitive, async (req, res) => {
     try {
       const customers = await storage.getAllCustomers();
       const sentEmails = [];
@@ -2356,15 +2356,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // ====================================
 
   // Admin chat authentication
-  app.post("/api/admin/chat/login", (req, res) => {
+  app.post("/api/admin/chat/login", rlAuth, (req, res) => {
     const { password } = req.body || {};
-    if (!password || password !== (process.env.ADMIN_PASSWORD || 'changeme')) {
+    const adminPassword = process.env.ADMIN_PASSWORD;
+
+    if (!adminPassword) {
+      console.error("ADMIN_PASSWORD environment variable is not set");
+      return res.status(500).json({ ok: false, message: "Server configuration error" });
+    }
+
+    if (!password || password !== adminPassword) {
       return res.status(401).json({ ok: false, message: "Invalid password" });
     }
-    
-    const token = Math.random().toString(36).slice(2) + Date.now().toString(36);
-    // Store admin token (in production, use Redis or database)
-    res.json({ ok: true, token });
+
+    (req.session as any).isAdmin = true;
+    res.json({ ok: true, token: "session" });
   });
 
   // Get all chat conversations for admin (exclude terminated)
@@ -2470,7 +2476,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
 
-  app.get("/api/appointments/upcoming", async (req, res) => {
+  app.get("/api/appointments/upcoming", requireAdmin, async (req, res) => {
     try {
       const appointments = await storage.getUpcomingAppointments();
       res.json(appointments);
@@ -2523,7 +2529,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/gallery", async (req, res) => {
+  app.post("/api/gallery", requireAdmin, async (req, res) => {
     try {
       const projectData = insertProjectGallerySchema.parse(req.body);
       const project = await storage.createProjectGalleryItem(projectData);
@@ -2547,7 +2553,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/blocked-times", async (req, res) => {
+  app.post("/api/blocked-times", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertBlockedTimeSchema.parse(req.body);
       const blockedTime = await storage.createBlockedTime(validatedData);
@@ -2561,7 +2567,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/blocked-times/:id", async (req, res) => {
+  app.delete("/api/blocked-times/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteBlockedTime(id);
@@ -2611,7 +2617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/availability-rules", async (req, res) => {
+  app.post("/api/availability-rules", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertAvailabilityRuleSchema.parse(req.body);
       const rule = await storage.createAvailabilityRule(validatedData);
@@ -2625,7 +2631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/availability-rules/:id", async (req, res) => {
+  app.patch("/api/availability-rules/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const updates = req.body;
@@ -2636,7 +2642,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/availability-rules/:id", async (req, res) => {
+  app.delete("/api/availability-rules/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteAvailabilityRule(id);
@@ -2646,7 +2652,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/availability-rules/:id/toggle", async (req, res) => {
+  app.patch("/api/availability-rules/:id/toggle", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { active } = req.body;
@@ -2701,7 +2707,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services", async (req, res) => {
+  app.post("/api/services", requireAdmin, async (req, res) => {
     try {
       const validatedData = insertServiceSchema.parse(req.body);
       const service = await storage.createService(validatedData);
@@ -2715,7 +2721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/services/:id", async (req, res) => {
+  app.put("/api/services/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertServiceSchema.partial().parse({
@@ -2736,7 +2742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/services/:id", async (req, res) => {
+  app.delete("/api/services/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteService(id);
@@ -2746,7 +2752,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/services/:id/toggle", async (req, res) => {
+  app.patch("/api/services/:id/toggle", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const { isActive } = req.body;
@@ -2768,7 +2774,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/services/:serviceId/addons", async (req, res) => {
+  app.post("/api/services/:serviceId/addons", requireAdmin, async (req, res) => {
     try {
       const serviceId = parseInt(req.params.serviceId);
       const validatedData = insertServiceAddonSchema.parse({ ...req.body, serviceId });
@@ -2783,7 +2789,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.put("/api/service-addons/:id", async (req, res) => {
+  app.put("/api/service-addons/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       const validatedData = insertServiceAddonSchema.partial().parse(req.body);
@@ -2798,7 +2804,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/service-addons/:id", async (req, res) => {
+  app.delete("/api/service-addons/:id", requireAdmin, async (req, res) => {
     try {
       const id = parseInt(req.params.id);
       await storage.deleteServiceAddon(id);

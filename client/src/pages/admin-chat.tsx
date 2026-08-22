@@ -21,6 +21,7 @@ import {
 import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import { format } from "date-fns";
+import { apiRequest } from "@/lib/queryClient";
 
 interface ChatMessage {
   id: string;
@@ -54,15 +55,7 @@ export default function AdminChat() {
   // Login mutation
   const loginMutation = useMutation({
     mutationFn: async (password: string) => {
-      const response = await fetch('/api/admin/chat/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ password })
-      });
-      
-      if (!response.ok) {
-        throw new Error('Invalid password');
-      }
+      const response = await apiRequest('/api/admin/chat/login', 'POST', { password });
       
       return response.json();
     },
