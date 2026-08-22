@@ -1,123 +1,60 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
-import { Check } from "lucide-react";
+import { Check, Hammer, HousePlus, Wrench } from "lucide-react";
 import type { Service } from "@shared/schema";
 
 type ServiceCategory = "essential" | "improvement" | "specialized";
 
 const categoryConfig = [
-  {
-    category: "essential" as ServiceCategory,
-    icon: "🛠️",
-    title: "Essential Repairs & Maintenance",
-    subtitle: "Service A",
-    description: "Quick fixes and routine maintenance to keep your home in top shape.",
-  },
-  {
-    category: "improvement" as ServiceCategory,
-    icon: "🏡",
-    title: "Home Improvement & Remodeling",
-    subtitle: "Service B",
-    description: "Enhance and modernize your living spaces with our remodeling services.",
-  },
-  {
-    category: "specialized" as ServiceCategory,
-    icon: "🧰",
-    title: "Specialized Installations & Custom Projects",
-    subtitle: "Service C",
-    description: "Tailored solutions for unique home projects and installations.",
-  },
+  { category: "essential" as ServiceCategory, icon: Wrench, title: "Repairs & Maintenance", subtitle: "KEEP THINGS WORKING", description: "Quick fixes and routine maintenance that help prevent bigger problems." },
+  { category: "improvement" as ServiceCategory, icon: HousePlus, title: "Home Improvement & Remodeling", subtitle: "IMPROVE YOUR SPACE", description: "Thoughtful updates that make your rooms more useful, comfortable, and polished." },
+  { category: "specialized" as ServiceCategory, icon: Hammer, title: "Smart Home & Specialty Projects", subtitle: "SOLVE THE UNUSUAL", description: "Technology installs and custom solutions for projects that need a versatile expert." },
 ];
 
 export default function ServicesSection() {
-  const { data: services = [] } = useQuery<Service[]>({
-    queryKey: ["/api/services", { active: "true" }],
-  });
-
-  const getServicesByCategory = (category: ServiceCategory) => {
-    return services
-      .filter((service) => service.category === category && (service.isActive ?? true))
-      .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0))
-      .map((service) => service.name);
-  };
-
+  const { data: services = [] } = useQuery<Service[]>({ queryKey: ["/api/services", { active: "true" }] });
+  const getServicesByCategory = (category: ServiceCategory) => services.filter((service) => service.category === category && (service.isActive ?? true)).sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
   const bookService = (category: ServiceCategory) => {
     sessionStorage.setItem("bookingCategory", category);
-    setTimeout(() => {
-      const element = document.getElementById("scheduler");
-      if (element) element.scrollIntoView({ behavior: "smooth" });
-    }, 50);
+    setTimeout(() => document.getElementById("scheduler")?.scrollIntoView({ behavior: "smooth" }), 50);
   };
 
   return (
-    <section id="services" className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
-            OUR SERVICES
-          </div>
-          <h2 className="text-4xl font-bold text-charcoal mb-4">Expert HandyTech Services</h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Your trusted home improvement experts. With over a decade of experience, we specialize in smart home
-            technology, electrical, plumbing, and general maintenance services.
-          </p>
+    <section id="services" className="bg-white py-16 lg:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <div className="mb-5 inline-block rounded-full bg-sky-50 px-4 py-2 text-xs font-bold tracking-[0.16em] text-brand-blue">OUR SERVICES</div>
+          <h2 className="mb-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Practical help for the whole home</h2>
+          <p className="text-lg leading-8 text-slate-600">Choose a category to see the services currently available, then book a time or request a custom quote.</p>
         </div>
-
-        <div className="grid md:grid-cols-3 gap-8 mb-12">
-          {categoryConfig.map((categoryInfo, index) => {
+        <div className="mb-12 grid gap-6 lg:grid-cols-3">
+          {categoryConfig.map((categoryInfo) => {
             const categoryServices = getServicesByCategory(categoryInfo.category);
-
+            const Icon = categoryInfo.icon;
             return (
-              <Card
-                key={index}
-                className="relative bg-light-gray hover:shadow-lg transition-shadow"
-              >
-                <CardContent className="p-8">
-                  <div className="text-center mb-8">
-                    <div className="text-3xl mb-4">{categoryInfo.icon}</div>
-                    <div className="text-sm font-semibold text-brand-red mb-1">{categoryInfo.subtitle}</div>
-                    <h3 className="text-xl font-bold text-charcoal mb-2">{categoryInfo.title}</h3>
-                    <p className="text-gray-600">{categoryInfo.description}</p>
+              <Card key={categoryInfo.category} className="overflow-hidden border-slate-200 bg-white shadow-sm transition-all hover:-translate-y-1 hover:shadow-xl">
+                <CardContent className="flex h-full flex-col p-7">
+                  <div className="mb-7">
+                    <div className="mb-5 flex h-12 w-12 items-center justify-center rounded-xl bg-slate-950 text-white"><Icon className="h-6 w-6" /></div>
+                    <div className="mb-2 text-xs font-bold tracking-[0.14em] text-brand-blue">{categoryInfo.subtitle}</div>
+                    <h3 className="mb-2 text-xl font-bold text-slate-950">{categoryInfo.title}</h3>
+                    <p className="leading-6 text-slate-600">{categoryInfo.description}</p>
                   </div>
-
-                  <ul className="space-y-3 mb-6">
-                    {categoryServices.map((serviceName, serviceIndex) => (
-                      <li key={serviceIndex} className="flex items-start">
-                        <Check className="text-brand-red mr-3 mt-0.5 flex-shrink-0" size={16} />
-                        <span className="text-sm text-gray-700">{serviceName}</span>
-                      </li>
-                    ))}
-                    {categoryServices.length === 0 && (
-                      <li className="text-sm text-gray-400 italic">Loading services...</li>
-                    )}
+                  <ul className="mb-7 flex-1 space-y-3">
+                    {categoryServices.map((service) => <li key={service.id} className="flex items-start"><Check className="mr-3 mt-0.5 h-4 w-4 flex-shrink-0 text-brand-blue" /><span className="text-sm text-slate-700">{service.name}</span></li>)}
+                    {categoryServices.length === 0 && <li className="text-sm text-slate-500">Services are temporarily unavailable. Please request a quote below.</li>}
                   </ul>
-
-                  <Button
-                    onClick={() => bookService(categoryInfo.category)}
-                    className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
-                  >
-                    Book This Service
-                  </Button>
+                  <Button onClick={() => bookService(categoryInfo.category)} className="w-full bg-brand-blue text-white hover:bg-brand-blue-dark">Book This Service</Button>
                 </CardContent>
               </Card>
             );
           })}
         </div>
-
-        {/* Quote CTA */}
-        <div className="text-center bg-light-gray rounded-2xl py-10 px-6">
-          <p className="text-lg font-semibold text-charcoal mb-2">Don't see the service you need?</p>
-          <p className="text-gray-600 mb-6">We handle all kinds of home projects. Tell us what you've got and we'll get you a custom quote.</p>
-          <button
-            onClick={() => {
-              const el = document.getElementById("contact");
-              if (el) el.scrollIntoView({ behavior: "smooth" });
-            }}
-            className="inline-flex items-center px-8 py-3 bg-brand-red text-white font-semibold rounded-lg hover:bg-red-800 transition-colors"
-          >
-            Request a Custom Quote
-          </button>
+        <div className="rounded-2xl bg-slate-950 px-6 py-9 text-center text-white">
+          <p className="mb-2 text-lg font-semibold">Don't see the service you need?</p>
+          <p className="mb-6 text-slate-300">Tell us what you have in mind. We will confirm whether it is a fit and prepare a custom quote.</p>
+          <button onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })} className="inline-flex items-center rounded-lg bg-white px-8 py-3 font-semibold text-slate-950 transition-colors hover:bg-sky-50">Request a Custom Quote</button>
         </div>
       </div>
     </section>

@@ -1,197 +1,62 @@
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { ChevronDown, ChevronUp, Quote, Star } from "lucide-react";
+import { type Review } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Star, ChevronDown, ChevronUp } from "lucide-react";
-import { type Review, type Customer } from "@shared/schema";
-import { useState } from "react";
 
-const homeDepotProTestimonials = [
-  {
-    name: "Ardell Henderson Jr",
-    role: "Berkeley, MO - Grab Bar Installation",
-    content: "The professionalism was amazing!! He communicated with me every step of the installation to make sure it was exactly like I wanted. I've had to clean up behind other installers before. But not Lou, he left my bathroom just as clean as it was when he started.",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  },
-  {
-    name: "Pro Referral Customer", 
-    role: "Saint Louis, MO - Screen Door Installation",
-    content: "Lou was fantastic. Would highly recommend.",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  },
-  {
-    name: "Pro Referral Customer",
-    role: "Manchester, MO - Dishwasher Installation", 
-    content: "Our installation was done professionally and timely.",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1580489944761-15a19d654956?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  },
-  {
-    name: "Nautica Emberton",
-    role: "Saint Louis, MO - Television Mount",
-    content: "He is so amazing and kind! 10/10 experience, will be rehiring!",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1494790108755-2616b612b47c?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  },
-  {
-    name: "Tammy Shannon", 
-    role: "Saint Peters, MO - Microwave Installation",
-    content: "Lou went out of his way, and did a great job 👍",
-    rating: 5,
-    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100"
-  }
+const proTestimonials = [
+  { name: "Ardell Henderson Jr", role: "Berkeley, MO · Grab bar installation", content: "The professionalism was amazing!! He communicated with me every step of the installation to make sure it was exactly like I wanted. He left my bathroom just as clean as it was when he started.", rating: 5 },
+  { name: "Pro Referral Customer", role: "St. Louis, MO · Screen door installation", content: "Lou was fantastic. Would highly recommend.", rating: 5 },
+  { name: "Pro Referral Customer", role: "Manchester, MO · Dishwasher installation", content: "Our installation was done professionally and timely.", rating: 5 },
+  { name: "Nautica Emberton", role: "St. Louis, MO · Television mount", content: "He is so amazing and kind! 10/10 experience, will be rehiring!", rating: 5 },
+  { name: "Tammy Shannon", role: "St. Peters, MO · Microwave installation", content: "Lou went out of his way and did a great job.", rating: 5 },
 ];
 
 export default function TestimonialsSection() {
   const [showAll, setShowAll] = useState(false);
-
-  const { data: reviews = [], isLoading: reviewsLoading, error: reviewsError } = useQuery<Review[]>({
+  const { data: reviews = [], isLoading } = useQuery<Review[]>({
     queryKey: ["/api/reviews"],
-    queryFn: () => fetch("/api/reviews").then(res => {
-      if (!res.ok) throw new Error('Failed to fetch reviews');
-      return res.json();
-    }),
+    queryFn: async () => {
+      const response = await fetch("/api/reviews");
+      if (!response.ok) throw new Error("Failed to fetch reviews");
+      return response.json();
+    },
   });
-
-  const { data: customers = [], isLoading: customersLoading } = useQuery<Customer[]>({
-    queryKey: ["/api/customers"],
-    queryFn: () => fetch("/api/customers").then(res => {
-      if (!res.ok) throw new Error('Failed to fetch customers');
-      return res.json();
-    }),
-  });
-
-  // Combine reviews with customer data
-  const customerTestimonials = reviews.map(review => {
-    const customer = customers.find(c => c.id === review.customerId);
-    return {
-      name: customer ? `${customer.firstName} ${customer.lastName}` : "Customer",
-      role: customer?.company ? `${customer.company}` : "Valued Customer",
-      content: review.content,
-      rating: review.rating,
-      image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&auto=format&fit=crop&w=100&h=100",
-      source: "customer" as const
-    };
-  });
-
-  // Add source identifier to Home Depot testimonials
-  const homeDepotTestimonialsWithSource = homeDepotProTestimonials.map(testimonial => ({
-    ...testimonial,
-    source: "homeDepot" as const
-  }));
-
-  // Always combine customer reviews with Home Depot Pro testimonials
-  const allTestimonials = [...customerTestimonials, ...homeDepotTestimonialsWithSource];
-  
-  // Display logic: show first 4 testimonials or all based on showAll state
-  const displayTestimonials = showAll ? allTestimonials : allTestimonials.slice(0, 4);
-  const hasMoreReviews = allTestimonials.length > 4;
-
-  console.log('Debug testimonials:', { 
-    reviews: reviews.length, 
-    customers: customers.length, 
-    customerTestimonials: customerTestimonials.length,
-    allTestimonials: allTestimonials.length,
-    displayTestimonials: displayTestimonials.length,
-    reviewsError
-  });
+  const siteReviews = reviews.map((review) => ({ name: "Verified Customer", role: "HandyTech customer review", content: review.content, rating: review.rating }));
+  const allTestimonials = [...siteReviews, ...proTestimonials];
+  const displayTestimonials = showAll ? allTestimonials : allTestimonials.slice(0, 3);
 
   return (
-    <section id="testimonials" className="py-20 bg-white">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center mb-16">
-          <h2 className="text-4xl font-bold text-charcoal mb-4">What Our Clients Say</h2>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Don't just take our word for it. Here's what our satisfied customers have to say about our services.
-          </p>
+    <section id="testimonials" className="bg-slate-50 py-16 lg:py-20">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto mb-12 max-w-3xl text-center">
+          <p className="mb-4 text-xs font-bold tracking-[0.16em] text-brand-blue">CUSTOMER REVIEWS</p>
+          <h2 className="mb-4 text-3xl font-bold tracking-tight text-slate-950 sm:text-4xl">Trusted in homes across the St. Louis area</h2>
+          <p className="text-lg text-slate-600">Real feedback from customers who hired HandyTech for repairs, installations, and home projects.</p>
         </div>
-
-        {reviewsLoading || customersLoading ? (
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            {[...Array(4)].map((_, index) => (
-              <Card key={index} className="bg-light-gray animate-pulse">
-                <CardContent className="p-6">
-                  <div className="h-4 bg-gray-300 rounded mb-4"></div>
-                  <div className="h-16 bg-gray-300 rounded mb-4"></div>
-                  <div className="flex items-center">
-                    <div className="w-12 h-12 bg-gray-300 rounded-full mr-3"></div>
-                    <div>
-                      <div className="h-4 w-24 bg-gray-300 rounded mb-2"></div>
-                      <div className="h-3 w-32 bg-gray-300 rounded"></div>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+        {isLoading ? (
+          <div className="grid gap-6 md:grid-cols-3">{[0, 1, 2].map((index) => <div key={index} className="h-72 animate-pulse rounded-2xl bg-slate-200" />)}</div>
         ) : (
           <>
-            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {displayTestimonials.map((testimonial, index) => (
-                <Card key={`${testimonial.source}-${index}`} className="bg-light-gray hover:shadow-lg transition-shadow" data-testid={`testimonial-card-${index}`}>
-                  <CardContent className="p-6">
-                    <div className="flex items-center mb-4">
-                      <div className="flex text-yellow-400">
-                        {[...Array(testimonial.rating)].map((_, i) => (
-                          <Star key={i} className="h-4 w-4 fill-current" />
-                        ))}
-                      </div>
-                      <span className="ml-2 text-gray-600 text-sm">{testimonial.rating}.0</span>
-                      {testimonial.source === "customer" && (
-                        <span className="ml-2 px-2 py-1 text-xs bg-blue-100 text-blue-800 rounded-full">Customer Review</span>
-                      )}
-                    </div>
-                    <p className="text-gray-700 mb-4 italic">"{testimonial.content}"</p>
-                    <div className="flex items-center">
-                      <img 
-                        src={testimonial.image}
-                        alt={testimonial.name}
-                        className="w-12 h-12 rounded-full mr-3 object-cover"
-                      />
-                      <div>
-                        <h4 className="font-semibold text-charcoal">{testimonial.name}</h4>
-                        <p className="text-sm text-gray-600">{testimonial.role}</p>
-                      </div>
+                <Card key={`${testimonial.name}-${index}`} className="border-slate-200 bg-white shadow-sm" data-testid={`testimonial-card-${index}`}>
+                  <CardContent className="flex h-full flex-col p-7">
+                    <div className="mb-5 flex items-center justify-between"><div className="flex text-amber-400">{Array.from({ length: testimonial.rating }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}</div><Quote className="h-7 w-7 text-sky-100" /></div>
+                    <p className="mb-7 flex-1 leading-7 text-slate-700">“{testimonial.content}”</p>
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-11 w-11 items-center justify-center rounded-full bg-slate-950 text-sm font-bold text-white">{testimonial.name.split(" ").filter(Boolean).slice(0, 2).map((word) => word[0]).join("")}</div>
+                      <div><h3 className="font-semibold text-slate-950">{testimonial.name}</h3><p className="text-sm text-slate-500">{testimonial.role}</p></div>
                     </div>
                   </CardContent>
                 </Card>
               ))}
             </div>
-            
-            {hasMoreReviews && (
-              <div className="text-center mt-12">
-                <Button 
-                  onClick={() => setShowAll(!showAll)}
-                  variant="outline"
-                  size="lg"
-                  className="bg-white hover:bg-blue-50 border-blue-500 text-blue-600 hover:text-blue-700"
-                  data-testid="button-see-more-reviews"
-                >
-                  {showAll ? (
-                    <>
-                      <ChevronUp className="mr-2 h-4 w-4" />
-                      Show Less Reviews
-                    </>
-                  ) : (
-                    <>
-                      <ChevronDown className="mr-2 h-4 w-4" />
-                      See More Reviews ({allTestimonials.length - 4} more)
-                    </>
-                  )}
-                </Button>
-              </div>
-            )}
+            {allTestimonials.length > 3 && <div className="mt-10 text-center"><Button onClick={() => setShowAll(!showAll)} variant="outline" size="lg">{showAll ? <><ChevronUp className="mr-2 h-4 w-4" />Show fewer reviews</> : <><ChevronDown className="mr-2 h-4 w-4" />Read more reviews</>}</Button></div>}
           </>
         )}
-        
-        {customerTestimonials.length > 0 && (
-          <div className="text-center mt-8">
-            <p className="text-sm text-gray-600">
-              Showing {customerTestimonials.length} customer review{customerTestimonials.length !== 1 ? 's' : ''} and {homeDepotProTestimonials.length} Home Depot Pro testimonials
-            </p>
-          </div>
-        )}
+        <p className="mt-8 text-center text-xs text-slate-500">Selected testimonials also appear on the HandyTech Home Depot Pro Referral profile.</p>
       </div>
     </section>
   );

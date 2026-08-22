@@ -8,7 +8,6 @@ import GalleryPreview from "@/components/gallery-preview";
 import TestimonialsSection from "@/components/testimonials-section";
 import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
-import ThemeSwitcher from "@/components/theme-switcher";
 import ContactBanner from "@/components/contact-banner";
 import BadgesSection from "@/components/badges-section";
 
@@ -93,22 +92,17 @@ export default function Home() {
                 }
               ]
             },
-            "aggregateRating": {
-              "@type": "AggregateRating",
-              "ratingValue": "4.9",
-              "reviewCount": "127"
-            }
+            "sameAs": ["https://proreferral.homedepot.com/public-profile/885948"]
           }
           `}
         </script>
       </Helmet>
       
-      <ThemeSwitcher />
-      <Navigation />
       <ContactBanner />
-      <BadgesSection />
+      <Navigation />
       <main>
         <HeroSection />
+        <BadgesSection />
         <ServicesSection />
         <AppointmentScheduler />
         <MaintenancePlans />

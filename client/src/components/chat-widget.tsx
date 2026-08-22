@@ -189,12 +189,13 @@ export function ChatWidget() {
   return (
     <>
       {/* Chat Widget Button */}
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-4 right-4 z-50 sm:bottom-6 sm:right-6">
         {!isOpen && (
           <Button
             onClick={toggleChat}
-            className="h-14 w-14 rounded-full bg-brand-red hover:bg-brand-red-dark shadow-lg transition-all duration-200 hover:scale-105"
+            className="h-12 w-12 rounded-full bg-brand-blue shadow-lg transition-all duration-200 hover:scale-105 hover:bg-brand-blue-dark"
             data-testid="chat-widget-button"
+            aria-label="Open HandyTech chat"
           >
             <MessageCircle className="h-6 w-6 text-white" />
           </Button>
@@ -203,7 +204,7 @@ export function ChatWidget() {
 
       {/* Chat Panel */}
       {isOpen && (
-        <div className="fixed bottom-6 right-6 w-96 h-[500px] z-50 shadow-2xl">
+        <div className="fixed bottom-3 left-3 right-3 z-50 h-[min(500px,calc(100vh-1.5rem))] shadow-2xl sm:bottom-6 sm:left-auto sm:right-6 sm:w-96">
           <Card className="h-full flex flex-col bg-white border-gray-300">
             {/* Header */}
             <CardHeader className="bg-brand-red text-white p-4 rounded-t-lg">
