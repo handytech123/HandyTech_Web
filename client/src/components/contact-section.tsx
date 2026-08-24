@@ -1,4 +1,6 @@
+import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
+import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertQuoteSchema } from "@shared/schema";
@@ -6,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Phone, Mail, Clock } from "lucide-react";
@@ -13,12 +16,14 @@ import { z } from "zod";
 
 const quoteFormSchema = insertQuoteSchema.extend({
   serviceNeeded: z.string().min(1, "Please select a service"),
+  smsConsent: z.boolean().default(false),
 });
 
 type QuoteFormData = z.infer<typeof quoteFormSchema>;
 
 export default function ContactSection() {
   const { toast } = useToast();
+  const [smsConsent, setSmsConsent] = useState(false);
 
   const form = useForm<QuoteFormData>({
     resolver: zodResolver(quoteFormSchema),
@@ -34,6 +39,7 @@ export default function ContactSection() {
       zip: "",
       serviceNeeded: "",
       message: "",
+      smsConsent: false,
     },
   });
 
@@ -50,6 +56,7 @@ export default function ContactSection() {
     onSuccess: () => {
       toast({ title: "Quote request submitted successfully!" });
       form.reset();
+      setSmsConsent(false);
     },
     onError: () => {
       toast({ title: "Failed to submit quote request", variant: "destructive" });
@@ -59,7 +66,7 @@ export default function ContactSection() {
 
 
   const onSubmit = (data: QuoteFormData) => {
-    submitQuote.mutate(data);
+    submitQuote.mutate({ ...data, smsConsent });
   };
 
   return (
@@ -203,6 +210,26 @@ export default function ContactSection() {
                 {form.formState.errors.phone && (
                   <p className="text-red-500 text-sm mt-1">{form.formState.errors.phone.message}</p>
                 )}
+                <div className="mt-4 rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div className="flex items-start gap-3">
+                    <Checkbox
+                      id="quote-sms-consent"
+                      checked={smsConsent}
+                      onCheckedChange={(checked) => {
+                        const consented = checked === true;
+                        setSmsConsent(consented);
+                        form.setValue("smsConsent", consented);
+                      }}
+                      data-testid="checkbox-quote-sms-consent"
+                    />
+                    <Label htmlFor="quote-sms-consent" className="cursor-pointer text-sm font-normal leading-6 text-slate-700">
+                      I agree to receive appointment confirmations, reminders, and service updates by text message from HandyTech Solutions at the number provided. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. View our{" "}
+                      <Link href="/terms" className="font-medium text-brand-blue underline">Terms</Link> and{" "}
+                      <Link href="/privacy-policy" className="font-medium text-brand-blue underline">Privacy Policy</Link>.
+                    </Label>
+                  </div>
+                  <p className="mt-2 pl-7 text-xs text-slate-500">Optional - leave unchecked if you prefer phone or email contact only.</p>
+                </div>
               </div>
               
               <div>

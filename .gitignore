@@ -122,6 +122,7 @@ Thumbs.db
 *.tmp
 *.temp
 temp_*
+tmp/
 cookies.txt
 
 # Deployment artifacts

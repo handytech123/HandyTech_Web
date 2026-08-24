@@ -19,7 +19,7 @@ import {
 import { db } from "./db";
 import { eq, desc, and, gte, lte, isNull, count } from "drizzle-orm";
 import crypto from "crypto";
-import { fromZonedTime } from "date-fns-tz";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { withDatabaseRetry, withGracefulFailure, checkDatabaseHealth } from "./utils/database-error-handling";
 
 // Security utility functions for token hashing
@@ -104,7 +104,7 @@ export interface IStorage {
   getProjectGalleryByCategory(category: string): Promise<ProjectGallery[]>;
   getFeaturedProjects(): Promise<ProjectGallery[]>;
   createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery>;
-  updateProjectGalleryItem(id: number, updates: Partial<InsertProjectGallery>): Promise<void>;
+  updateProjectGalleryItem(id: number, updates: ProjectGalleryUpdate): Promise<void>;
   deleteProjectGalleryItem(id: number): Promise<ProjectGallery | undefined>;
   getProjectGalleryPaginated(page: number, limit: number, category?: string): Promise<{items: ProjectGallery[], total: number}>;
 
@@ -163,7 +163,12 @@ export interface IStorage {
 
 }
 
-export class MemStorage implements IStorage {
+type ProjectGalleryUpdate = Partial<Omit<InsertProjectGallery, 'beforeImageUrl' | 'imageUrls'>> & {
+  beforeImageUrl?: string | null;
+  imageUrls?: string[] | null;
+};
+
+export class MemStorage {
   private users: Map<number, User> = new Map();
   private customers: Map<number, Customer> = new Map();
   private maintenancePlans: Map<number, MaintenancePlan> = new Map();
@@ -271,6 +276,7 @@ export class MemStorage implements IStorage {
       category: "tech",
       imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      imageUrls: null,
       completionDate: new Date("2024-02-15"),
       location: "Springfield",
       featured: true,
@@ -285,6 +291,7 @@ export class MemStorage implements IStorage {
       category: "electrical",
       imageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
+      imageUrls: null,
       completionDate: new Date("2024-01-10"),
       location: "Downtown",
       featured: true,
@@ -299,6 +306,7 @@ export class MemStorage implements IStorage {
       category: "plumbing",
       imageUrl: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: null,
+      imageUrls: null,
       completionDate: new Date("2024-03-05"),
       location: "Riverside",
       featured: false,
@@ -330,7 +338,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      smsConsent: false, smsConsentAt: null, smsConsentSource: null, smsDisclosureVersion: null, smsConsentIp: null, smsConsentUserAgent: null,
       googleEventId: null,
       notes: "Resolved network connectivity issues and updated system security. Installed new antivirus software and configured automatic backups.",
       reminder24hSent: null,
@@ -363,7 +371,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      smsConsent: false, smsConsentAt: null, smsConsentSource: null, smsDisclosureVersion: null, smsConsentIp: null, smsConsentUserAgent: null,
       googleEventId: null,
       notes: "Complete network infrastructure setup including router configuration, Wi-Fi optimization, and cable management.",
       reminder24hSent: null,
@@ -396,7 +404,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      smsConsent: false, smsConsentAt: null, smsConsentSource: null, smsDisclosureVersion: null, smsConsentIp: null, smsConsentUserAgent: null,
       googleEventId: null,
       notes: "Installed smart thermostats, door locks, and lighting system. Set up central control hub and mobile app configuration.",
       reminder24hSent: null,
@@ -429,7 +437,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      smsConsent: false, smsConsentAt: null, smsConsentSource: null, smsDisclosureVersion: null, smsConsentIp: null, smsConsentUserAgent: null,
       googleEventId: null,
       notes: "Performed regular system maintenance including software updates, disk cleanup, and security patches.",
       reminder24hSent: null,
@@ -462,7 +470,7 @@ export class MemStorage implements IStorage {
       sequence: 0,
       status: "completed",
       source: "manual",
-
+      smsConsent: false, smsConsentAt: null, smsConsentSource: null, smsDisclosureVersion: null, smsConsentIp: null, smsConsentUserAgent: null,
       googleEventId: null,
       notes: "Successfully recovered data from corrupted hard drive and set up automated backup system.",
       reminder24hSent: null,
@@ -795,6 +803,12 @@ export class MemStorage implements IStorage {
       sequence: insertAppointment.sequence || 0,
       source: insertAppointment.source || "manual",
       status: "scheduled",
+      smsConsent: insertAppointment.smsConsent ?? false,
+      smsConsentAt: insertAppointment.smsConsentAt || null,
+      smsConsentSource: insertAppointment.smsConsentSource || null,
+      smsDisclosureVersion: insertAppointment.smsDisclosureVersion || null,
+      smsConsentIp: insertAppointment.smsConsentIp || null,
+      smsConsentUserAgent: insertAppointment.smsConsentUserAgent || null,
       googleEventId: insertAppointment.googleEventId || null,
       reminder24hSent: null,
       reminder2hSent: null,
@@ -976,10 +990,13 @@ export class MemStorage implements IStorage {
   }
 
   async createProjectGalleryItem(insertItem: InsertProjectGallery): Promise<ProjectGallery> {
+    if (!insertItem.imageUrl) throw new Error('A primary gallery image is required');
     const item: ProjectGallery = {
       ...insertItem,
+      imageUrl: insertItem.imageUrl,
       id: this.currentProjectGalleryId++,
       beforeImageUrl: insertItem.beforeImageUrl || null,
+      imageUrls: insertItem.imageUrls || null,
       location: insertItem.location || null,
       featured: insertItem.featured || false,
       createdAt: new Date(),
@@ -988,10 +1005,16 @@ export class MemStorage implements IStorage {
     return item;
   }
 
-  async updateProjectGalleryItem(id: number, updates: Partial<InsertProjectGallery>): Promise<void> {
+  async updateProjectGalleryItem(id: number, updates: ProjectGalleryUpdate): Promise<void> {
     const item = this.projectGallery.get(id);
     if (item) {
-      const updatedItem = { ...item, ...updates };
+      const updatedItem: ProjectGallery = {
+        ...item,
+        ...updates,
+        imageUrl: updates.imageUrl ?? item.imageUrl,
+        beforeImageUrl: updates.beforeImageUrl === undefined ? item.beforeImageUrl : updates.beforeImageUrl,
+        imageUrls: updates.imageUrls === undefined ? item.imageUrls : updates.imageUrls,
+      };
       this.projectGallery.set(id, updatedItem);
     }
   }
@@ -1347,6 +1370,12 @@ const appointmentColumns = {
   source: appointments.source,
   notes: appointments.notes,
   googleEventId: appointments.googleEventId,
+  smsConsent: appointments.smsConsent,
+  smsConsentAt: appointments.smsConsentAt,
+  smsConsentSource: appointments.smsConsentSource,
+  smsDisclosureVersion: appointments.smsDisclosureVersion,
+  smsConsentIp: appointments.smsConsentIp,
+  smsConsentUserAgent: appointments.smsConsentUserAgent,
   reminder24hSent: appointments.reminder24hSent,
   reminder2hSent: appointments.reminder2hSent,
   followUpSent: appointments.followUpSent,
@@ -1687,9 +1716,18 @@ export class DatabaseStorage implements IStorage {
     rescheduleToken?: string, 
     rescheduleExpires?: Date
   ): Promise<void> {
+    const localStart = toZonedTime(startTimestamptz, 'America/Chicago');
+    const localHours = localStart.getHours();
+    const localMinutes = localStart.getMinutes();
+    const period = localHours >= 12 ? 'PM' : 'AM';
+    const displayHours = localHours === 0 ? 12 : localHours > 12 ? localHours - 12 : localHours;
     const updateData: any = {
       startTimestamptz,
       endTimestamptz,
+      appointmentDate: localStart,
+      appointmentTime: `${displayHours}:${localMinutes.toString().padStart(2, '0')} ${period}`,
+      reminder24hSent: null,
+      reminder2hSent: null,
     };
 
     // Get current appointment to increment sequence
@@ -1733,8 +1771,9 @@ export class DatabaseStorage implements IStorage {
     const [currentAppointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
     
     // Format time in 12-hour format for appointmentTime
-    const hours = startTimestamptz.getHours();
-    const minutes = startTimestamptz.getMinutes();
+    const localStart = toZonedTime(startTimestamptz, 'America/Chicago');
+    const hours = localStart.getHours();
+    const minutes = localStart.getMinutes();
     const period = hours >= 12 ? 'PM' : 'AM';
     const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
     const appointmentTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
@@ -1747,11 +1786,13 @@ export class DatabaseStorage implements IStorage {
     const updateData = {
       startTimestamptz,
       endTimestamptz,
-      appointmentDate: startTimestamptz, // Update legacy field for compatibility
+      appointmentDate: localStart, // Update legacy field for compatibility
       appointmentTime,
       rescheduleToken,
       rescheduleExpires,
-      sequence: (currentAppointment?.sequence || 0) + 1
+      sequence: (currentAppointment?.sequence || 0) + 1,
+      reminder24hSent: null,
+      reminder2hSent: null
     };
     
     await db.update(appointments).set(updateData).where(eq(appointments.id, id));
@@ -1812,11 +1853,12 @@ export class DatabaseStorage implements IStorage {
   }
 
   async createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery> {
-    const [created] = await db.insert(projectGallery).values(item).returning();
+    if (!item.imageUrl) throw new Error('A primary gallery image is required');
+    const [created] = await db.insert(projectGallery).values({ ...item, imageUrl: item.imageUrl }).returning();
     return created;
   }
 
-  async updateProjectGalleryItem(id: number, updates: Partial<InsertProjectGallery>): Promise<void> {
+  async updateProjectGalleryItem(id: number, updates: ProjectGalleryUpdate): Promise<void> {
     return await withDatabaseRetry(
       async () => {
         // Sanitize updates by removing undefined values to prevent null writes
@@ -1899,7 +1941,7 @@ export class DatabaseStorage implements IStorage {
         ]);
         
         // Properly coerce total count
-        const total = Number(totalResult.count ?? 0);
+        const total = Number(totalResult[0]?.count ?? 0);
         
         console.log(`[DatabaseStorage] Retrieved ${items.length} project gallery items (total: ${total})`);
         
@@ -1909,8 +1951,7 @@ export class DatabaseStorage implements IStorage {
         };
       },
       { items: [], total: 0 }, // Fallback for graceful failure
-      'getProjectGalleryPaginated',
-      { page, limit, category }
+      'getProjectGalleryPaginated'
     );
   }
 

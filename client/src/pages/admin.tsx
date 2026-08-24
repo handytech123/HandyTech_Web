@@ -28,6 +28,7 @@ import BlockedDatesManager from "@/components/blocked-dates-manager";
 import ServicesManager from "@/components/services-manager";
 import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
+import AppointmentDetailsDialog from "@/components/appointment-details-dialog";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -2362,8 +2363,11 @@ function GalleryTab() {
 function AuthenticatedDashboard() {
   const queryClient = useQueryClient();
   const { logout } = useAdminAuth();
+  const { toast } = useToast();
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
+  const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
+  const [selectedAppointmentForDetails, setSelectedAppointmentForDetails] = useState<Appointment | null>(null);
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -2373,6 +2377,13 @@ function AuthenticatedDashboard() {
 
   const { data: reviews = [] } = useQuery<Review[]>({
     queryKey: ["/api/admin/reviews"]
+  });
+
+  const { data: pendingReviewRequests } = useQuery<{
+    count: number;
+    customers: Array<{ customerId: number; customerName: string; email: string; serviceType: string; completedAt: string }>;
+  }>({
+    queryKey: ["/api/admin/review-requests/pending"]
   });
 
   const { data: customers = [] } = useQuery<Customer[]>({
@@ -2389,6 +2400,14 @@ function AuthenticatedDashboard() {
   }>({
     queryKey: ["/api/admin/schedule"]
   });
+
+  const { data: googleCalendarStatus, refetch: refetchGoogleCalendarStatus, isFetching: checkingGoogleCalendar } = useQuery<{
+    connected: boolean;
+    calendarId?: string;
+    calendarName?: string;
+    timeZone?: string;
+    message?: string;
+  }>({ queryKey: ["/api/admin/google/status"] });
   
   const appointments = scheduleData?.appointments || [];
 
@@ -2402,6 +2421,23 @@ function AuthenticatedDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/reviews"] });
+    }
+  });
+
+  const sendReviewRequestsMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/admin/review-requests/send", "POST", {});
+      return response.json() as Promise<{ sent: number; failed: number; remaining: number }>;
+    },
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/review-requests/pending"] });
+      toast({
+        title: "Review requests sent",
+        description: `${result.sent} email${result.sent === 1 ? "" : "s"} delivered${result.failed ? `; ${result.failed} failed and can be retried` : ""}.`,
+      });
+    },
+    onError: () => {
+      toast({ title: "Review requests failed", description: "No customers were marked as contacted. Please retry.", variant: "destructive" });
     }
   });
 
@@ -2420,6 +2456,10 @@ function AuthenticatedDashboard() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schedule"] });
+      setDetailsDialogOpen(false);
+    },
+    onError: () => {
+      toast({ title: "Status update failed", description: "Please try again.", variant: "destructive" });
     }
   });
 
@@ -2532,12 +2572,32 @@ function AuthenticatedDashboard() {
           </TabsList>
 
           <TabsContent value="calendar">
+            <Card className="mb-4">
+              <CardContent className="flex flex-col gap-3 pt-6 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-start gap-3">
+                  <CalendarDays className={`mt-0.5 h-5 w-5 ${googleCalendarStatus?.connected ? "text-green-600" : "text-amber-600"}`} />
+                  <div>
+                    <p className="font-semibold">Google Calendar</p>
+                    <p className="text-sm text-muted-foreground">
+                      {googleCalendarStatus?.connected
+                        ? `Connected to ${googleCalendarStatus.calendarName || "Google Calendar"} · ${googleCalendarStatus.timeZone || "America/Chicago"}`
+                        : googleCalendarStatus?.message || "Not connected — appointments currently appear only in this admin calendar."}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button variant="outline" size="sm" onClick={() => refetchGoogleCalendarStatus()} disabled={checkingGoogleCalendar}>
+                    <RefreshCw className={`mr-2 h-4 w-4 ${checkingGoogleCalendar ? "animate-spin" : ""}`} />Check connection
+                  </Button>
+                  {!googleCalendarStatus?.connected && <Button asChild size="sm"><a href="/api/admin/google/auth" target="_blank" rel="noreferrer">Connect Google Calendar</a></Button>}
+                </div>
+              </CardContent>
+            </Card>
             <CalendarView 
               appointments={appointments} 
               onEventClick={(appointment) => {
-                // Open reschedule dialog directly
-                setSelectedAppointmentForReschedule(appointment);
-                setRescheduleDialogOpen(true);
+                setSelectedAppointmentForDetails(appointment);
+                setDetailsDialogOpen(true);
               }} 
             />
           </TabsContent>
@@ -2622,8 +2682,36 @@ function AuthenticatedDashboard() {
           <TabsContent value="reviews">
             <Card>
               <CardHeader>
-                <CardTitle>Customer Reviews</CardTitle>
-                <CardDescription>Manage customer feedback and testimonials</CardDescription>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                  <div>
+                    <CardTitle>Customer Reviews</CardTitle>
+                    <CardDescription>Manage feedback and request reviews from eligible completed customers</CardDescription>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button disabled={!pendingReviewRequests?.count || sendReviewRequestsMutation.isPending}>
+                        <Send className="h-4 w-4 mr-2" />
+                        {sendReviewRequestsMutation.isPending
+                          ? "Sending…"
+                          : `Send Review Requests (${pendingReviewRequests?.count || 0})`}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent>
+                      <AlertDialogHeader>
+                        <AlertDialogTitle>Send review request emails?</AlertDialogTitle>
+                        <AlertDialogDescription>
+                          This will email {pendingReviewRequests?.count || 0} completed customer{pendingReviewRequests?.count === 1 ? "" : "s"} who has not submitted a review and has not already received a request. Successful sends will not be repeated.
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter>
+                        <AlertDialogCancel>Cancel</AlertDialogCancel>
+                        <AlertDialogAction onClick={() => sendReviewRequestsMutation.mutate()}>
+                          Send Emails
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -2679,6 +2767,21 @@ function AuthenticatedDashboard() {
       </div>
       
       {/* Reschedule Appointment Dialog */}
+      <AppointmentDetailsDialog
+        appointment={selectedAppointmentForDetails}
+        open={detailsDialogOpen}
+        busy={updateAppointmentStatusMutation.isPending}
+        onOpenChange={setDetailsDialogOpen}
+        onStatusChange={async (id, status) => {
+          await updateAppointmentStatusMutation.mutateAsync({ id, status });
+        }}
+        onReschedule={(appointment) => {
+          setDetailsDialogOpen(false);
+          setSelectedAppointmentForReschedule(appointment);
+          setRescheduleDialogOpen(true);
+        }}
+      />
+
       <RescheduleAppointmentDialog
         appointment={selectedAppointmentForReschedule}
         open={rescheduleDialogOpen}

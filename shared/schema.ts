@@ -100,6 +100,13 @@ export const appointments = pgTable("appointments", {
   source: text("source").notNull().default("manual"), // 'manual', 'chatbot'
   notes: text("notes"),
   googleEventId: text("google_event_id"), // Google Calendar event ID for sync functionality
+  // Auditable SMS consent. Consent is optional and never required to book.
+  smsConsent: boolean("sms_consent").default(false).notNull(),
+  smsConsentAt: timestamp("sms_consent_at", { withTimezone: true }),
+  smsConsentSource: text("sms_consent_source"),
+  smsDisclosureVersion: text("sms_disclosure_version"),
+  smsConsentIp: text("sms_consent_ip"),
+  smsConsentUserAgent: text("sms_consent_user_agent"),
   // Reminder tracking fields to prevent duplicates
   reminder24hSent: timestamp("reminder_24h_sent"),
   reminder2hSent: timestamp("reminder_2h_sent"), 
@@ -214,7 +221,6 @@ export const insertEmailCampaignSchema = createInsertSchema(emailCampaigns).omit
 export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
-  status: true,
 }).extend({
   appointmentDate: z.coerce.date(),
   startTimestamptz: z.coerce.date().optional(),
@@ -227,6 +233,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   city: z.string().min(1, "City is required"),
   state: z.string().min(1, "State is required"),
   zip: z.string().min(1, "ZIP code is required"),
+  smsConsent: z.boolean().optional().default(false),
 });
 
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
@@ -254,6 +261,7 @@ export const updateProjectGallerySchema = createInsertSchema(projectGallery)
       errorMap: () => ({ message: "Category must be one of: plumbing, electrical, carpentry, tech, general" })
     }).optional(),
     completionDate: z.coerce.date().optional(),
+    imageUrls: z.array(z.string()).optional(),
     location: z.string().optional(),
     featured: z.boolean().optional(),
   })

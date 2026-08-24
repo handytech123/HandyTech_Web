@@ -22,7 +22,8 @@ import {
   serviceHistoryFiltersSchema,
   publicReviewSubmissionSchema,
   type InsertCustomer,
-  type InsertMaintenancePlan
+  type InsertMaintenancePlan,
+  type Appointment
 } from "@shared/schema";
 import { z } from "zod";
 import OpenAI from "openai";
@@ -35,6 +36,7 @@ import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
 import { handleImageUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
 
@@ -744,7 +746,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           searchEnd, 
           durationMinutes,
           30, // 30-minute steps
-          15  // 15-minute buffer
+          15, // 15-minute buffer
+          appointmentId
         );
         
         // Check if the requested time slot is available
@@ -812,6 +815,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
             new Date(originalStart),
             new Date(originalEnd)
           );
+          if (updatedAppointment.smsConsent && updatedAppointment.phone) {
+            await smsService.sendRescheduleConfirmation(
+              updatedAppointment.phone,
+              new Date(updatedAppointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+              updatedAppointment.appointmentTime
+            );
+          }
           console.log(`[PORTAL_RESCHEDULE] Confirmation email sent for appointment ${appointmentId}`);
         } catch (emailError) {
           console.error(`[PORTAL_RESCHEDULE] Failed to send confirmation email for appointment ${appointmentId}:`, emailError);
@@ -848,6 +858,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
     } catch (error) {
       console.error("Portal appointment reschedule error:", error);
+      if ((error as any)?.code === "23P01") {
+        return res.status(409).json({
+          success: false,
+          message: "That time was just taken. Please choose another available time."
+        });
+      }
       res.status(500).json({ 
         success: false, 
         message: "Failed to reschedule appointment. Please try again." 
@@ -894,7 +910,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { status, notes } = req.body;
 
       // Validate status
-      const validStatuses = ["scheduled", "completed", "cancelled", "no-show", "in-progress"];
+      const validStatuses = ["scheduled", "confirmed", "in-progress", "completed", "cancelled", "no-show"];
       if (!validStatuses.includes(status)) {
         return res.status(400).json({ 
           message: "Invalid status. Must be one of: " + validStatuses.join(", ") 
@@ -910,6 +926,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Update appointment status
       await storage.adminUpdateAppointmentStatus(appointmentId, status, notes);
 
+      if (status === "cancelled" && appointment.status !== "cancelled") {
+        if (appointment.googleEventId) {
+          try {
+            await deleteEvent(appointment.googleEventId);
+            await storage.updateAppointmentGoogleEventId(appointmentId, null);
+          } catch (googleError) {
+            console.error(`Google Calendar cancellation failed for appointment ${appointmentId}:`, googleError);
+          }
+        }
+        try {
+          await getEmailService().sendAppointmentCancellation({ ...appointment, status: "cancelled" });
+          if (appointment.smsConsent && appointment.phone) {
+            await smsService.sendCancellationConfirmation(appointment.phone, new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }), appointment.appointmentTime);
+          }
+        } catch (emailError) {
+          console.error(`Cancellation email failed for appointment ${appointmentId}:`, emailError);
+        }
+      }
+
       res.json({ 
         success: true, 
         message: `Appointment status updated to ${status}${notes ? ' with notes' : ''}` 
@@ -924,7 +959,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.put("/api/admin/appointments/:id/reschedule", requireAdmin, async (req, res) => {
     try {
       const appointmentId = parseInt(req.params.id);
-      const { startTime, endTime, checkAvailability = true } = req.body;
+      const { startTime, endTime } = req.body;
 
       // Validate input
       if (!startTime || !endTime) {
@@ -951,8 +986,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Appointment not found" });
       }
 
-      // Optional availability check (admin can override)
-      if (checkAvailability) {
+      // Always protect the calendar from overlapping active appointments.
+      {
         const durationMinutes = (endTimestamp.getTime() - startTimestamp.getTime()) / (1000 * 60);
         const searchStart = new Date(startTimestamp.getTime() - (24 * 60 * 60 * 1000));
         const searchEnd = new Date(startTimestamp.getTime() + (24 * 60 * 60 * 1000));
@@ -964,7 +999,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             searchEnd,
             durationMinutes,
             30, // 30-minute steps
-            15  // 15-minute buffer
+            15, // 15-minute buffer
+            appointmentId
           );
 
           // Check if the requested time slot is available
@@ -976,12 +1012,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
           if (!isAvailable) {
             return res.status(409).json({ 
-              message: "Time slot is not available. Use 'checkAvailability: false' to override." 
+              message: "Time slot is not available because it overlaps working limits, blocked time, or another appointment."
             });
           }
         } catch (availabilityError) {
           console.warn("Availability check failed:", availabilityError);
-          // Continue with reschedule even if availability check fails
+          return res.status(503).json({ message: "Unable to safely verify availability. Please try again." });
         }
       }
 
@@ -1009,12 +1045,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       }
 
+      const updatedAppointment = await storage.getAppointment(appointmentId);
+      if (updatedAppointment) {
+        try {
+          const oldStart = appointment.startTimestamptz || appointment.appointmentDate;
+          const oldEnd = appointment.endTimestamptz || new Date(new Date(oldStart).getTime() + 2 * 60 * 60 * 1000);
+          await getEmailService().sendRescheduleConfirmation(updatedAppointment, new Date(oldStart), new Date(oldEnd));
+          if (updatedAppointment.smsConsent && updatedAppointment.phone) {
+            await smsService.sendRescheduleConfirmation(
+              updatedAppointment.phone,
+              new Date(updatedAppointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+              updatedAppointment.appointmentTime
+            );
+          }
+        } catch (emailError) {
+          console.error(`Admin reschedule confirmation email failed for appointment ${appointmentId}:`, emailError);
+        }
+      }
+
       res.json({ 
         success: true, 
         message: "Appointment rescheduled successfully" 
       });
     } catch (error) {
       console.error("Admin appointment reschedule error:", error);
+      if ((error as any)?.code === "23P01") {
+        return res.status(409).json({ message: "That time overlaps another active appointment." });
+      }
       res.status(500).json({ message: "Failed to reschedule appointment" });
     }
   });
@@ -1052,6 +1109,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } else {
         // Cancel the appointment (change status)
         await storage.adminCancelAppointment(appointmentId);
+        try {
+          await getEmailService().sendAppointmentCancellation({ ...appointment, status: "cancelled" });
+          if (appointment.smsConsent && appointment.phone) {
+            await smsService.sendCancellationConfirmation(appointment.phone, new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }), appointment.appointmentTime);
+          }
+        } catch (emailError) {
+          console.error(`Cancellation email failed for appointment ${appointmentId}:`, emailError);
+        }
         res.json({ 
           success: true, 
           message: "Appointment cancelled" 
@@ -1150,6 +1215,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         appointmentDate: new Date(appointmentDate),
         appointmentTime,
         address: address || null,
+        street: address || "Not provided",
+        city: "Not provided",
+        state: "MO",
+        zip: "Not provided",
+        smsConsent: false,
         notes: notes || null,
         status: status || "scheduled",
         source: "manual",
@@ -1602,6 +1672,88 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  const getPendingReviewRequests = async () => {
+    const [appointments, reviews, customers] = await Promise.all([
+      storage.getAllAppointments(),
+      storage.getAllReviews(),
+      storage.getAllCustomers(),
+    ]);
+    const reviewedCustomerIds = new Set(reviews.map((review) => review.customerId));
+    const previouslyRequestedCustomerIds = new Set(
+      appointments
+        .filter((appointment) => appointment.status === 'completed' && appointment.followUpSent && appointment.customerId)
+        .map((appointment) => appointment.customerId as number)
+    );
+    const customerById = new Map(customers.map((customer) => [customer.id, customer]));
+    const latestByCustomer = new Map<number, Appointment>();
+
+    for (const appointment of appointments) {
+      if (appointment.status !== 'completed' || !appointment.customerId) continue;
+      if (reviewedCustomerIds.has(appointment.customerId) || previouslyRequestedCustomerIds.has(appointment.customerId)) continue;
+      const existing = latestByCustomer.get(appointment.customerId);
+      const appointmentTime = new Date(appointment.endTimestamptz || appointment.startTimestamptz || appointment.appointmentDate).getTime();
+      const existingTime = existing
+        ? new Date(existing.endTimestamptz || existing.startTimestamptz || existing.appointmentDate).getTime()
+        : 0;
+      if (!existing || appointmentTime > existingTime) latestByCustomer.set(appointment.customerId, appointment);
+    }
+
+    return Array.from(latestByCustomer.values()).flatMap((appointment) => {
+      const customer = customerById.get(appointment.customerId as number);
+      if (!customer?.email) return [];
+      return [{ appointment, customer }];
+    });
+  };
+
+  app.get("/api/admin/review-requests/pending", requireAdmin, async (_req, res) => {
+    try {
+      const pending = await getPendingReviewRequests();
+      res.json({
+        count: pending.length,
+        customers: pending.map(({ appointment, customer }) => ({
+          customerId: customer.id,
+          customerName: `${customer.firstName} ${customer.lastName}`,
+          email: customer.email,
+          serviceType: appointment.serviceType,
+          completedAt: appointment.endTimestamptz || appointment.appointmentDate,
+        })),
+      });
+    } catch (error) {
+      console.error('Pending review request lookup failed:', error);
+      res.status(500).json({ message: 'Failed to identify pending review requests' });
+    }
+  });
+
+  app.post("/api/admin/review-requests/send", requireAdmin, rlSensitive, async (_req, res) => {
+    try {
+      const pending = await getPendingReviewRequests();
+      let sent = 0;
+      const failed: number[] = [];
+
+      for (const { appointment, customer } of pending.slice(0, 50)) {
+        const delivered = await getEmailService().sendFollowUpEmail({
+          customerName: `${customer.firstName} ${customer.lastName}`,
+          customerEmail: customer.email,
+          appointmentDate: new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+          appointmentTime: appointment.appointmentTime,
+          serviceType: appointment.serviceType,
+          description: appointment.notes || undefined,
+        });
+        if (delivered) {
+          await storage.markFollowUpSent(appointment.id);
+          sent += 1;
+        } else {
+          failed.push(customer.id);
+        }
+      }
+
+      res.json({ sent, failed: failed.length, remaining: Math.max(0, pending.length - sent) });
+    } catch (error) {
+      console.error('Review request batch failed:', error);
+      res.status(500).json({ message: 'Failed to send review requests' });
+    }
+  });
+
   // Customer review submission endpoint
   app.post("/api/reviews/submit", async (req, res) => {
     try {
@@ -1906,7 +2058,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
       } catch (availabilityError) {
         console.error('Availability check failed:', availabilityError);
-        // Continue with appointment creation but log the error
+        return res.status(503).json({
+          ok: false,
+          error: "AVAILABILITY_CHECK_FAILED",
+          message: "We could not safely verify that time. Please try again in a moment."
+        });
       }
       
       // Create appointment with computed timestamps and reschedule token
@@ -1918,7 +2074,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rescheduleExpires,
         sequence: 0,
         status: "scheduled" as const,
-        source: appointmentData.source || "manual" as const
+        source: "website" as const,
+        smsConsent: appointmentData.smsConsent === true,
+        smsConsentAt: appointmentData.smsConsent === true ? new Date() : null,
+        smsConsentSource: appointmentData.smsConsent === true ? "website-appointment-form" : null,
+        smsDisclosureVersion: appointmentData.smsConsent === true ? "2026-08-24" : null,
+        smsConsentIp: appointmentData.smsConsent === true ? req.ip : null,
+        smsConsentUserAgent: appointmentData.smsConsent === true
+          ? String(req.get("user-agent") || "unknown").slice(0, 500)
+          : null,
       };
       
       // Auto-create customer if they don't exist (BEFORE creating appointment)
@@ -1952,7 +2116,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           ].filter(Boolean).join("\n"),
           start: new Date(startTimestamptz),
           end: new Date(endTimestamptz),
-          attendees: [appointmentData.email]
+          attendees: [appointmentData.email],
+          appointmentId: appointment.id
         });
 
         // Update appointment with Google event ID
@@ -1970,6 +2135,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         
         // Send admin notification with appointment details
         await getEmailService().sendAdminNotification(appointment);
+
+        if (appointment.smsConsent && appointment.phone) {
+          await smsService.sendAppointmentConfirmation(
+            appointment.phone,
+            new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+            appointment.appointmentTime
+          );
+        }
         
         console.log(`Appointment ${appointment.id} created successfully with emails sent`);
       } catch (emailError) {
@@ -1979,7 +2152,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json({
         ...appointment,
-        rescheduleToken, // Include reschedule token in response
         duration: durationHours,
         serviceInfo // Include service catalog info if available
       });
@@ -1992,6 +2164,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       } else {
         console.error("Appointment creation error:", error);
+        if ((error as any)?.code === "23P01") {
+          return res.status(409).json({
+            ok: false,
+            error: "TIME_UNAVAILABLE",
+            message: "That time was just taken. Please choose another available time."
+          });
+        }
         res.status(500).json({ 
           message: "Failed to create appointment",
           error: error instanceof Error ? error.message : "Unknown error"
@@ -2117,7 +2296,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           searchEnd, 
           durationMinutes,
           30, // 30-minute steps
-          15  // 15-minute buffer
+          15, // 15-minute buffer
+          appointment.id
         );
         
         // FIXED: Require exact match with available slots instead of 30-minute tolerance
@@ -2174,6 +2354,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
           // Do NOT fail the reschedule; log only
         }
       }
+
+      const updatedAppointment = await storage.getAppointment(appointment.id);
+      if (updatedAppointment) {
+        try {
+          const oldStart = appointment.startTimestamptz || appointment.appointmentDate;
+          const oldEnd = appointment.endTimestamptz || new Date(new Date(oldStart).getTime() + durationMs);
+          await getEmailService().sendRescheduleConfirmation(updatedAppointment, new Date(oldStart), new Date(oldEnd));
+          await getEmailService().sendAdminRescheduleNotification(updatedAppointment, new Date(oldStart), new Date(oldEnd));
+          if (updatedAppointment.smsConsent && updatedAppointment.phone) {
+            await smsService.sendRescheduleConfirmation(
+              updatedAppointment.phone,
+              new Date(updatedAppointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+              updatedAppointment.appointmentTime
+            );
+          }
+        } catch (emailError) {
+          console.error(`Reschedule notification failed for appointment ${appointment.id}:`, emailError);
+        }
+      }
       
       // Enhanced response with updated appointment details
       res.json({
@@ -2184,14 +2383,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
           newStartTime: newStartTime.toISOString(),
           newEndTime: newEndTime.toISOString(),
           serviceType: appointment.serviceType,
-          customerName: `${appointment.firstName} ${appointment.lastName}`,
-          rescheduleToken: newRescheduleToken,
-          rescheduleExpires: newRescheduleExpires.toISOString()
+          customerName: `${appointment.firstName} ${appointment.lastName}`
         }
       });
       
     } catch (error) {
       console.error("Reschedule error:", error);
+      if ((error as any)?.code === "23P01") {
+        return res.status(409).json({ message: "That time was just taken. Please choose another available time." });
+      }
       res.status(500).json({ message: "Failed to reschedule appointment" });
     }
   });

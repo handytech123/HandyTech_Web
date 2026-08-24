@@ -263,7 +263,7 @@ async function validateTableStructures(client: any, existingTables: string[]): P
       `;
       
       const columnResult = await client.query(columnQuery, [tableName]);
-      const existingColumns = columnResult.rows.map(row => row.column_name);
+      const existingColumns = columnResult.rows.map((row: { column_name: string }) => row.column_name);
       const missingColumns = tableInfo.required.filter(col => !existingColumns.includes(col));
       
       if (missingColumns.length > 0) {

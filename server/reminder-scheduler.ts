@@ -1,11 +1,14 @@
 import { storage } from './storage';
 import { EmailService } from './utils/mail';
 import type { Appointment } from '../shared/schema';
+import { smsService } from './utils/sms-service';
+import { createEvent, findEventByAppointmentId } from './utils/google.js';
 
 export class ReminderScheduler {
   private emailService: EmailService;
   private isRunning: boolean = false;
   private intervalId?: NodeJS.Timeout;
+  private checkInProgress = false;
 
   constructor() {
     this.emailService = new EmailService();
@@ -92,11 +95,23 @@ export class ReminderScheduler {
   }
 
   private async checkAndSendReminders() {
+    if (this.checkInProgress) {
+      console.log('Reminder and calendar recovery check is already running');
+      return;
+    }
+    this.checkInProgress = true;
     try {
       console.log('Checking for appointment reminders...');
       
       const now = new Date();
       const appointments = await storage.getAllAppointments();
+      const reviews = await storage.getAllReviews();
+      const reviewedCustomerIds = new Set(reviews.map((review) => review.customerId));
+      const reviewRequestedCustomerIds = new Set(
+        appointments
+          .filter((appointment) => appointment.status === 'completed' && appointment.followUpSent && appointment.customerId)
+          .map((appointment) => appointment.customerId as number)
+      );
       
       for (const appointment of appointments) {
         // FIXED: Use robust date/time parsing that handles multiple formats
@@ -112,10 +127,45 @@ export class ReminderScheduler {
         
         console.log(`Appointment ${appointment.id}: ${hoursUntilAppointment.toFixed(1)} hours until appointment`);
         
-        // FIXED: 24-hour reminder (send between 23.5 and 24.5 hours before)
-        // Only send if appointment is still scheduled and reminder hasn't been sent
-        if (hoursUntilAppointment >= 23.5 && hoursUntilAppointment <= 24.5 && 
-            appointment.status === 'scheduled' && 
+        const isActiveAppointment = ['scheduled', 'confirmed'].includes(appointment.status);
+
+        // Recover calendar synchronization after a temporary Google outage or
+        // authorization lapse. The private appointment property lets us find an
+        // event created just before a database update failed, preventing duplicates.
+        if (hoursUntilAppointment > 0 &&
+            ['scheduled', 'confirmed', 'in-progress'].includes(appointment.status) &&
+            !appointment.googleEventId) {
+          try {
+            const existingEvent = await findEventByAppointmentId(appointment.id);
+            const event = existingEvent || await createEvent({
+              summary: `${appointment.serviceType} — ${appointment.firstName} ${appointment.lastName}`,
+              description: [
+                `Customer: ${appointment.firstName} ${appointment.lastName}`,
+                appointment.phone ? `Phone: ${appointment.phone}` : null,
+                appointment.email ? `Email: ${appointment.email}` : null,
+                appointment.notes ? `Notes: ${appointment.notes}` : null,
+                `HandyTech appointment ID: ${appointment.id}`,
+              ].filter(Boolean).join('\n'),
+              start: appointmentDateTime,
+              end: appointment.endTimestamptz
+                ? new Date(appointment.endTimestamptz)
+                : new Date(appointmentDateTime.getTime() + 60 * 60 * 1000),
+              attendees: [],
+              appointmentId: appointment.id,
+            });
+            if (event.id) {
+              await storage.updateAppointmentGoogleEventId(appointment.id, event.id);
+              console.log(`Google Calendar recovery synced appointment ${appointment.id}`);
+            }
+          } catch (calendarError) {
+            console.warn(`Google Calendar recovery deferred for appointment ${appointment.id}:`, calendarError instanceof Error ? calendarError.message : calendarError);
+          }
+        }
+
+        // Send once during the 24-to-2-hour window. This catches up safely if the
+        // server was restarting at the exact 24-hour mark.
+        if (hoursUntilAppointment > 2 && hoursUntilAppointment <= 24 &&
+            isActiveAppointment &&
             !appointment.reminder24hSent) {
           console.log(`Sending 24-hour reminder for appointment ${appointment.id}`);
           const emailSent = await this.send24HourReminder(appointment);
@@ -129,10 +179,9 @@ export class ReminderScheduler {
           }
         }
         
-        // FIXED: 2-hour reminder (send between 1.5 and 2.5 hours before)
-        // Only send if appointment is still scheduled and reminder hasn't been sent
-        else if (hoursUntilAppointment >= 1.5 && hoursUntilAppointment <= 2.5 && 
-                 appointment.status === 'scheduled' && 
+        // Send once during the final two hours before the appointment.
+        else if (hoursUntilAppointment > 0 && hoursUntilAppointment <= 2 &&
+                 isActiveAppointment &&
                  !appointment.reminder2hSent) {
           console.log(`Sending 2-hour reminder for appointment ${appointment.id}`);
           const emailSent = await this.send2HourReminder(appointment);
@@ -146,10 +195,11 @@ export class ReminderScheduler {
           }
         }
         
-        // FIXED: Follow-up email (send 24 hours after appointment)
-        // Send for completed or cancelled appointments that haven't had follow-up sent
-        else if (hoursUntilAppointment <= -23.5 && hoursUntilAppointment >= -24.5 && 
-                 ['completed', 'cancelled'].includes(appointment.status) && 
+        // Follow up only after completed work. Cancelled/no-show appointments must
+        // never receive the same review request as a completed customer.
+        else if (hoursUntilAppointment <= -24 &&
+                 appointment.status === 'completed' &&
+                 (!appointment.customerId || (!reviewedCustomerIds.has(appointment.customerId) && !reviewRequestedCustomerIds.has(appointment.customerId))) &&
                  !appointment.followUpSent) {
           console.log(`Sending follow-up email for appointment ${appointment.id}`);
           const emailSent = await this.sendFollowUpEmail(appointment);
@@ -157,6 +207,7 @@ export class ReminderScheduler {
           // FIXED: Only mark as sent if email was successfully delivered
           if (emailSent) {
             await storage.markFollowUpSent(appointment.id);
+            if (appointment.customerId) reviewRequestedCustomerIds.add(appointment.customerId);
             console.log(`Follow-up email marked as sent for appointment ${appointment.id}`);
           } else {
             console.warn(`Follow-up email failed for appointment ${appointment.id} - will retry next cycle`);
@@ -165,6 +216,8 @@ export class ReminderScheduler {
       }
     } catch (error) {
       console.error('Error in reminder scheduler:', error);
+    } finally {
+      this.checkInProgress = false;
     }
   }
 
@@ -186,6 +239,13 @@ export class ReminderScheduler {
 
       if (emailSent) {
         console.log(`24-hour reminder successfully sent for appointment ${appointment.id}`);
+        if (appointment.smsConsent && appointment.phone) {
+          await smsService.sendAppointmentReminder(
+            appointment.phone,
+            new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+            appointment.appointmentTime
+          );
+        }
       }
       
       return emailSent;
@@ -213,6 +273,13 @@ export class ReminderScheduler {
 
       if (emailSent) {
         console.log(`2-hour reminder successfully sent for appointment ${appointment.id}`);
+        if (appointment.smsConsent && appointment.phone) {
+          await smsService.sendAppointmentReminder(
+            appointment.phone,
+            new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+            appointment.appointmentTime
+          );
+        }
       }
       
       return emailSent;

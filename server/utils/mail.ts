@@ -156,9 +156,26 @@ export class EmailService {
   }
 
   private formatTime(timeString: string): string {
-    const [hours, minutes] = timeString.split(':');
+    const normalized = timeString.trim();
+    const twelveHourMatch = normalized.match(/^(\d{1,2}):(\d{2})\s*(AM|PM)$/i);
+    if (twelveHourMatch) {
+      const hour = Number(twelveHourMatch[1]);
+      const minute = Number(twelveHourMatch[2]);
+      const period = twelveHourMatch[3].toUpperCase();
+      if (hour >= 1 && hour <= 12 && minute >= 0 && minute <= 59) {
+        return `${hour}:${minute.toString().padStart(2, '0')} ${period}`;
+      }
+    }
+
+    const twentyFourHourMatch = normalized.match(/^(\d{1,2}):(\d{2})$/);
+    if (!twentyFourHourMatch) return normalized;
+
+    const hours = Number(twentyFourHourMatch[1]);
+    const minutes = Number(twentyFourHourMatch[2]);
+    if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return normalized;
+
     const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
+    date.setHours(hours, minutes, 0, 0);
     return date.toLocaleTimeString('en-US', {
       hour: 'numeric',
       minute: '2-digit',
@@ -419,6 +436,47 @@ export class EmailService {
       return true;
     } catch (error) {
       console.error('Failed to send reschedule confirmation email:', error);
+      return false;
+    }
+  }
+
+  async sendAppointmentCancellation(appointment: Appointment): Promise<boolean> {
+    if (!this.isConfigured) {
+      console.log('Email service not configured, skipping appointment cancellation');
+      return false;
+    }
+
+    try {
+      const appointmentData = this.createAppointmentEmailData(appointment);
+      const formattedDate = this.formatDate(appointmentData.appointmentDate);
+      const formattedTime = this.formatTime(appointmentData.appointmentTime);
+      const content = `
+        <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Cancelled</h2>
+        <p>Dear ${appointmentData.firstName},</p>
+        <p>Your HandyTech Solutions appointment has been cancelled.</p>
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+          <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
+          ${this.getServiceDetailsHtml(appointmentData)}
+        </div>
+        <p>If this was unexpected or you would like another time, call us at ${this.businessPhone} or visit ${this.baseUrl}.</p>
+      `;
+      const icsAttachment = this.createIcsAttachment(appointmentData, 'CANCEL');
+      await this.transporter.sendMail({
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: appointmentData.email,
+        subject: `Cancelled: ${appointmentData.serviceName || appointmentData.serviceType} — ${formattedDate}`,
+        html: this.getEmailTemplate(content),
+        attachments: [{
+          filename: icsAttachment.filename,
+          content: icsAttachment.content,
+          contentType: icsAttachment.contentType
+        }]
+      });
+      console.log(`Appointment cancellation email sent to ${appointmentData.email}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send appointment cancellation email:', error);
       return false;
     }
   }

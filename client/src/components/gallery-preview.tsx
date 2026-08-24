@@ -1,14 +1,23 @@
 import { Link } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { format } from "date-fns";
-import { ArrowRight, Calendar, Images, MapPin } from "lucide-react";
+import { ArrowRight, Calendar, MapPin } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import type { ProjectGallery } from "@shared/schema";
+import davisAfterDesk from "@assets/davis-office/after-desk.webp";
+import davisAfterEntry from "@assets/davis-office/after-entry.webp";
+import davisAfterWide from "@assets/davis-office/after-wide.webp";
 
 interface GalleryResponse { projects: ProjectGallery[]; totalCount: number; }
+
+const DAVIS_OFFICE_PREVIEW = [
+  { src: davisAfterDesk, alt: "Davis Office custom desk and open shelving" },
+  { src: davisAfterEntry, alt: "Completed Davis Office viewed from the entry" },
+  { src: davisAfterWide, alt: "Wide view of the Davis Office transformation" },
+];
 
 function ProjectCard({ project }: { project: ProjectGallery }) {
   return (
@@ -47,11 +56,26 @@ export default function GalleryPreview() {
             <div className="mt-10 text-center"><Button asChild size="lg" className="bg-brand-blue text-white hover:bg-brand-blue-dark"><Link href="/gallery">View All Projects<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></div>
           </>
         ) : (
-          <div className="mx-auto max-w-3xl rounded-2xl border border-slate-200 bg-slate-50 px-6 py-10 text-center">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm"><Images className="h-7 w-7 text-brand-blue" /></div>
-            <h3 className="text-xl font-bold text-slate-950">The project gallery is being updated</h3>
-            <p className="mx-auto mt-2 max-w-xl text-slate-600">We are organizing recent project photos so you can see the finished details clearly. Have a similar project in mind? Tell us about it today.</p>
-            <Button onClick={() => document.getElementById("contact")?.scrollIntoView({ behavior: "smooth" })} className="mt-6 bg-brand-blue text-white hover:bg-brand-blue-dark">Discuss Your Project<ArrowRight className="ml-2 h-4 w-4" /></Button>
+          <div>
+            <Link href="/gallery" className="group block overflow-hidden rounded-2xl border border-slate-200 bg-slate-950 shadow-sm">
+              <div className="grid sm:grid-cols-3">
+                {DAVIS_OFFICE_PREVIEW.map((photo) => (
+                  <div key={photo.alt} className="aspect-[4/3] overflow-hidden bg-slate-800">
+                    <img src={photo.src} alt={photo.alt} className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" loading="lazy" />
+                  </div>
+                ))}
+              </div>
+              <div className="flex flex-col gap-4 px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
+                <div>
+                  <Badge className="mb-3 bg-brand-red text-white">Featured Before &amp; After</Badge>
+                  <h3 className="text-2xl font-bold">Davis Office Transformation</h3>
+                  <p className="mt-2 max-w-2xl text-slate-300">A compact room transformed with custom work surfaces, open shelving, a feature wall, and refreshed flooring.</p>
+                </div>
+                <Button asChild size="lg" className="shrink-0 bg-white text-slate-950 hover:bg-slate-100">
+                  <span>View Project<ArrowRight className="ml-2 h-4 w-4" /></span>
+                </Button>
+              </div>
+            </Link>
           </div>
         )}
       </div>

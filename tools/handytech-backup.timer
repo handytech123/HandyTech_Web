@@ -1,0 +1,11 @@
+[Unit]
+Description=Run HandyTech backup every night
+
+[Timer]
+OnCalendar=*-*-* 03:15:00 America/Chicago
+Persistent=true
+RandomizedDelaySec=10m
+Unit=handytech-backup.service
+
+[Install]
+WantedBy=timers.target

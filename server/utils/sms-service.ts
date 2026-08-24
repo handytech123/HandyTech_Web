@@ -6,10 +6,12 @@ export class SMSService {
   private fromNumber: string;
   private adminNumber: string;
   private isConfigured: boolean = false;
+  private customerMessagingEnabled: boolean = false;
 
   constructor() {
     this.fromNumber = process.env.TWILIO_FROM || '';
     this.adminNumber = process.env.ADMIN_SMS_TO || '';
+    this.customerMessagingEnabled = process.env.TWILIO_CUSTOMER_MESSAGING_ENABLED === 'true';
 
     if (
       process.env.TWILIO_ACCOUNT_SID &&
@@ -51,6 +53,50 @@ export class SMSService {
       console.error('Failed to send SMS:', error);
       return false;
     }
+  }
+
+  private normalizeUsNumber(phone: string): string | null {
+    const digits = phone.replace(/\D/g, '');
+    if (digits.length === 10) return `+1${digits}`;
+    if (digits.length === 11 && digits.startsWith('1')) return `+${digits}`;
+    return phone.startsWith('+') && digits.length >= 10 ? `+${digits}` : null;
+  }
+
+  async sendCustomerMessage(phone: string, message: string): Promise<boolean> {
+    if (!this.customerMessagingEnabled) {
+      console.log('[SMS] Customer message skipped - approval switch is disabled');
+      return false;
+    }
+    if (!this.isConfigured || !this.client) return false;
+    const to = this.normalizeUsNumber(phone);
+    if (!to) {
+      console.warn('[SMS] Customer message skipped - invalid phone number');
+      return false;
+    }
+    try {
+      const result = await this.client.messages.create({ body: message.slice(0, 1500), from: this.fromNumber, to });
+      console.log(`Customer SMS sent successfully: ${result.sid}`);
+      return true;
+    } catch (error) {
+      console.error('Failed to send customer SMS:', error);
+      return false;
+    }
+  }
+
+  sendAppointmentConfirmation(phone: string, date: string, time: string): Promise<boolean> {
+    return this.sendCustomerMessage(phone, `HandyTech Solutions: Your appointment is scheduled for ${date} at ${time}. Message frequency varies. Msg & data rates may apply. Reply HELP for help or STOP to unsubscribe.`);
+  }
+
+  sendAppointmentReminder(phone: string, date: string, time: string): Promise<boolean> {
+    return this.sendCustomerMessage(phone, `HandyTech Solutions reminder: Your appointment is ${date} at ${time}. Reply HELP for help or STOP to unsubscribe.`);
+  }
+
+  sendRescheduleConfirmation(phone: string, date: string, time: string): Promise<boolean> {
+    return this.sendCustomerMessage(phone, `HandyTech Solutions: Your appointment has been rescheduled to ${date} at ${time}. Reply HELP for help or STOP to unsubscribe.`);
+  }
+
+  sendCancellationConfirmation(phone: string, date: string, time: string): Promise<boolean> {
+    return this.sendCustomerMessage(phone, `HandyTech Solutions: Your appointment for ${date} at ${time} has been cancelled. Reply HELP for help or STOP to unsubscribe.`);
   }
 
   async sendHandoffAlert(sessionId: string, customerMessage: string): Promise<boolean> {

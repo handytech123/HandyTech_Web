@@ -14,6 +14,8 @@ import AdminChat from "@/pages/admin-chat";
 import LeaveReview from "@/pages/leave-review";
 import ReschedulePage from "@/pages/reschedule";
 import NotFound from "@/pages/not-found";
+import PrivacyPolicy from "@/pages/privacy-policy";
+import Terms from "@/pages/terms";
 
 function Router() {
   return (
@@ -28,6 +30,8 @@ function Router() {
       <Route path="/admin/chat" component={AdminChat} />
       <Route path="/leave-review" component={LeaveReview} />
       <Route path="/reschedule/:token" component={ReschedulePage} />
+      <Route path="/privacy-policy" component={PrivacyPolicy} />
+      <Route path="/terms" component={Terms} />
       <Route component={NotFound} />
     </Switch>
   );

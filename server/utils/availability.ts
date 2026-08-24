@@ -38,7 +38,8 @@ export async function getOpenSlots(
   to: Date,
   blockMinutes: number,
   stepMinutes: number = 30,
-  bufferMinutes: number = 15
+  bufferMinutes: number = 15,
+  excludeAppointmentId?: number
 ): Promise<string[]> {
   try {
     // Validate input parameters
@@ -57,7 +58,8 @@ export async function getOpenSlots(
     ]);
 
     // Filter appointments to only include those in our date range
-    const relevantAppointments = filterAppointmentsInRange(allAppointments, from, to);
+    const relevantAppointments = filterAppointmentsInRange(allAppointments, from, to)
+      .filter(appointment => appointment.id !== excludeAppointmentId);
 
     // Build busy intervals from appointments and blocked times
     const busyIntervals = buildBusyIntervals(relevantAppointments, blockedTimes, bufferMinutes);
@@ -125,7 +127,7 @@ function filterAppointmentsInRange(appointments: Appointment[], from: Date, to: 
 
     // Check if appointment overlaps with our search range and should be treated as busy
     // Include scheduled and confirmed appointments to prevent double-booking
-    const busyStatuses = ["scheduled", "confirmed"];
+    const busyStatuses = ["scheduled", "confirmed", "in-progress"];
     return appointmentStart < to && appointmentEnd > from && busyStatuses.includes(appointment.status);
   });
 }

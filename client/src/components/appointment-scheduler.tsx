@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Link } from "wouter";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
@@ -105,7 +107,8 @@ const bookingFormSchema = insertAppointmentSchema.pick({
   appointmentDate: z.date({ required_error: "Please select a date" }),
   appointmentTime: z.string().min(1, "Please select a time slot"),
   serviceId: z.number({ required_error: "Please select a service" }),
-  durationHours: z.number().min(1).max(12)
+  durationHours: z.number().min(1).max(12),
+  smsConsent: z.boolean().default(false)
 });
 
 type BookingFormData = z.infer<typeof bookingFormSchema>;
@@ -165,6 +168,7 @@ export default function AppointmentScheduler() {
       zip: "",
       serviceType: "General Handyman",
       notes: "",
+      smsConsent: false,
     }
   });
 
@@ -256,6 +260,7 @@ export default function AppointmentScheduler() {
         lastName: appointmentData.lastName,
         email: appointmentData.email,
         phone: appointmentData.phone || null,
+        smsConsent: appointmentData.smsConsent,
         street: appointmentData.street || null,
         city: appointmentData.city || null,
         state: appointmentData.state || null,
@@ -573,6 +578,33 @@ export default function AppointmentScheduler() {
                               <Input type="tel" {...field} value={field.value || ""} data-testid="input-phone" placeholder="(314) 325-4575" />
                             </FormControl>
                             <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="smsConsent"
+                        render={({ field }) => (
+                          <FormItem className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                            <div className="flex items-start gap-3">
+                              <FormControl>
+                                <Checkbox
+                                  id="appointment-sms-consent"
+                                  checked={field.value}
+                                  onCheckedChange={(checked) => field.onChange(checked === true)}
+                                  data-testid="checkbox-appointment-sms-consent"
+                                />
+                              </FormControl>
+                              <div>
+                                <FormLabel htmlFor="appointment-sms-consent" className="cursor-pointer text-sm font-normal leading-6 text-slate-700">
+                                  I agree to receive appointment confirmations, reminders, and service updates by text message from HandyTech Solutions at the number provided. Message frequency varies. Message and data rates may apply. Reply STOP to opt out or HELP for help. Consent is not a condition of purchase. View our{" "}
+                                  <Link href="/terms" className="font-medium text-brand-blue underline">Terms</Link> and{" "}
+                                  <Link href="/privacy-policy" className="font-medium text-brand-blue underline">Privacy Policy</Link>.
+                                </FormLabel>
+                                <p className="mt-2 text-xs text-slate-500">Optional - booking is available without SMS consent.</p>
+                              </div>
+                            </div>
                           </FormItem>
                         )}
                       />

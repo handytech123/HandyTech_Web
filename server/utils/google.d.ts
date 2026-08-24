@@ -7,6 +7,7 @@ export interface GoogleCalendarEventData {
   start: Date | string;
   end: Date | string;
   attendees?: string[];
+  appointmentId?: number;
 }
 
 // Google Calendar API response data
@@ -28,5 +29,6 @@ export interface GoogleTokens {
 export declare function getOAuth2Client(): OAuth2Client;
 export declare function saveTokens(tokens: GoogleTokens): void;
 export declare function createEvent(eventData: GoogleCalendarEventData): Promise<GoogleCalendarEventResponse>;
+export declare function findEventByAppointmentId(appointmentId: number): Promise<GoogleCalendarEventResponse | null>;
 export declare function updateEvent(eventId: string, eventData: GoogleCalendarEventData): Promise<GoogleCalendarEventResponse>;
 export declare function deleteEvent(eventId: string): Promise<void>;

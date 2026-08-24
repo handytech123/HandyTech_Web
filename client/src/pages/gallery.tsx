@@ -7,9 +7,19 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon, Home } from "lucide-react";
+import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon, Home, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { ProjectGallery } from "@shared/schema";
+import davisBeforeVideo from "@assets/davis-office/davis-office-before.mp4";
+import davisBeforePoster from "@assets/davis-office/davis-office-before.jpg";
+import davisAfterVideo from "@assets/davis-office/davis-office-after.mp4";
+import davisAfterPoster from "@assets/davis-office/davis-office-after.jpg";
+import davisBeforeAlcove from "@assets/davis-office/before-alcove.webp";
+import davisBeforeRoom from "@assets/davis-office/before-room.webp";
+import davisBeforeWorkspace from "@assets/davis-office/before-workspace.webp";
+import davisAfterDesk from "@assets/davis-office/after-desk.webp";
+import davisAfterEntry from "@assets/davis-office/after-entry.webp";
+import davisAfterWide from "@assets/davis-office/after-wide.webp";
 
 interface GalleryResponse {
   projects: ProjectGallery[];
@@ -29,6 +39,103 @@ const CATEGORIES = [
 ];
 
 const ITEMS_PER_PAGE = 12;
+
+const DAVIS_OFFICE_VIDEOS = [
+  {
+    label: "Before",
+    src: davisBeforeVideo,
+    poster: davisBeforePoster,
+    description: "The original office space before the custom workspace build-out.",
+  },
+  {
+    label: "After",
+    src: davisAfterVideo,
+    poster: davisAfterPoster,
+    description: "The completed Davis Office with a custom desk, shelving, accent wall, and finished flooring.",
+  },
+];
+
+const DAVIS_OFFICE_PHOTOS = [
+  { src: davisBeforeAlcove, label: "Before", alt: "Davis Office empty wall alcove before renovation" },
+  { src: davisBeforeRoom, label: "Before", alt: "Davis Office room before the custom workspace build" },
+  { src: davisBeforeWorkspace, label: "Before", alt: "Davis Office original workspace before remodeling" },
+  { src: davisAfterDesk, label: "After", alt: "Completed Davis Office custom desk and shelving" },
+  { src: davisAfterEntry, label: "After", alt: "Completed Davis Office viewed from the entry" },
+  { src: davisAfterWide, label: "After", alt: "Wide view of the completed Davis Office transformation" },
+];
+
+function DavisOfficeProject() {
+  return (
+    <section className="mb-12 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" aria-labelledby="davis-office-title">
+      <div className="border-b border-border bg-gradient-to-r from-slate-950 to-slate-800 px-6 py-7 text-white sm:px-8">
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge className="bg-brand-red text-white">Featured Before &amp; After</Badge>
+          <span className="flex items-center gap-1 text-sm text-slate-300">
+            <Calendar className="h-4 w-4" /> Completed July 2026
+          </span>
+        </div>
+        <h2 id="davis-office-title" className="mt-4 text-3xl font-bold">Davis Office Transformation</h2>
+        <p className="mt-2 max-w-3xl text-slate-200">
+          A compact room transformed into a practical custom office with built-in work surfaces, open shelving,
+          a feature wall, and refreshed flooring. Play both clips to see the full change.
+        </p>
+      </div>
+
+      <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-2">
+        {DAVIS_OFFICE_VIDEOS.map((video) => (
+          <article key={video.label} className="overflow-hidden rounded-xl border border-border bg-slate-50">
+            <div className="relative mx-auto aspect-[9/16] max-h-[36rem] bg-black">
+              <video
+                className="h-full w-full object-contain"
+                controls
+                playsInline
+                preload="metadata"
+                poster={video.poster}
+                aria-label={`Davis Office ${video.label} video`}
+              >
+                <source src={video.src} type="video/mp4" />
+                Your browser does not support embedded video.
+              </video>
+            </div>
+            <div className="p-5">
+              <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
+                <PlayCircle className="h-5 w-5 text-brand-red" /> {video.label}
+              </h3>
+              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{video.description}</p>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <div className="border-t border-border px-5 pb-6 pt-2 sm:px-8 sm:pb-8">
+        <div className="mb-4 flex items-end justify-between gap-4">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-red">Selected details</p>
+            <h3 className="mt-1 text-2xl font-bold text-foreground">From blank room to built-in workspace</h3>
+          </div>
+          <p className="hidden max-w-md text-right text-sm text-muted-foreground md:block">
+            Six project views highlight the layout, finishes, and custom-built result without repeating the full video tour.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
+          {DAVIS_OFFICE_PHOTOS.map((photo) => (
+            <figure key={photo.src} className="group relative aspect-[4/5] overflow-hidden rounded-lg bg-slate-200">
+              <img
+                src={photo.src}
+                alt={photo.alt}
+                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+                loading="lazy"
+              />
+              <figcaption className={`absolute bottom-2 left-2 rounded-full px-2.5 py-1 text-xs font-bold text-white shadow ${photo.label === "After" ? "bg-emerald-600" : "bg-slate-800"}`}>
+                {photo.label}
+              </figcaption>
+            </figure>
+          ))}
+        </div>
+      </div>
+    </section>
+  );
+}
 
 function GallerySkeletonGrid() {
   return (
@@ -380,6 +487,8 @@ export default function Gallery() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <DavisOfficeProject />
+
         {/* Category Filters */}
         <div className="mb-8">
           <div className="flex flex-wrap justify-center gap-2">

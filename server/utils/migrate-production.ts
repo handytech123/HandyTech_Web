@@ -59,6 +59,12 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true`,
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_at TIMESTAMPTZ`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_source TEXT`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_disclosure_version TEXT`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_ip TEXT`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_user_agent TEXT`,
     ];
 
     for (const migration of columnMigrations) {
@@ -73,6 +79,29 @@ export async function runProductionMigration(): Promise<void> {
       }
     }
     console.log("  ✅ Column migration complete");
+
+    // Friendly availability checks happen in the application; this constraint is
+    // the final guard against two simultaneous requests taking overlapping slots.
+    try {
+      await db.execute(sql.raw(`
+        ALTER TABLE appointments
+        ADD CONSTRAINT appointments_no_live_overlap
+        EXCLUDE USING gist (
+          tstzrange(start_timestamptz, end_timestamptz, '[)') WITH &&
+        )
+        WHERE (
+          status IN ('scheduled', 'confirmed', 'in-progress')
+          AND start_timestamptz IS NOT NULL
+          AND end_timestamptz IS NOT NULL
+        )
+      `));
+      console.log("  ✅ Appointment overlap protection enabled");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (!msg.includes("already exists")) {
+        console.warn(`  ⚠️  Appointment overlap protection warning: ${msg.slice(0, 180)}`);
+      }
+    }
 
     // Step 2: Fix wrong category values — remap old values to valid ones
     for (const [oldVal, newVal] of Object.entries(CATEGORY_MAP)) {

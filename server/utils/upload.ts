@@ -198,7 +198,7 @@ async function processImageSizes(
     try {
       // Calculate dimensions maintaining aspect ratio
       const aspectRatio = originalDimensions.width / originalDimensions.height;
-      let targetWidth = config.width;
+      let targetWidth: number = config.width;
       let targetHeight = Math.round(targetWidth / aspectRatio);
 
       // Don't upscale images smaller than target size
