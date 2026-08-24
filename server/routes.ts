@@ -3226,6 +3226,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (item.imageUrls && Array.isArray(item.imageUrls)) {
       urls.push(...item.imageUrls);
     }
+    if (item.videoUrls && Array.isArray(item.videoUrls)) {
+      urls.push(...item.videoUrls);
+    }
     return urls;
   }
 
@@ -3266,6 +3269,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const imageUrls = processedImages.map(img => img.sizes.large.url);
       const hasBeforeImage = req.body.hasBeforeImage === 'true' || req.body.hasBeforeImage === true;
       const additionalImagesStart = hasBeforeImage ? 2 : 1;
+      let videoUrls: string[] | undefined;
+      if (req.body.videoUrls) {
+        try {
+          const parsed = typeof req.body.videoUrls === 'string' ? JSON.parse(req.body.videoUrls) : req.body.videoUrls;
+          if (Array.isArray(parsed)) videoUrls = parsed.filter((url) => typeof url === 'string' && url.trim()).map((url) => url.trim());
+        } catch {
+          return res.status(400).json({ success: false, error: 'INVALID_VIDEO_URLS', message: 'Video URLs must be a valid list.' });
+        }
+      }
       
       // Validate form fields
       const formData = {
@@ -3277,7 +3289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         featured: req.body.featured === 'true' || req.body.featured === true,
         imageUrl: processedImages[0].sizes.large.url, // Use first image as main image
         beforeImageUrl: hasBeforeImage ? processedImages[1]?.sizes.large.url || null : null,
-        imageUrls: processedImages.length > additionalImagesStart ? imageUrls.slice(additionalImagesStart) : undefined
+        imageUrls: processedImages.length > additionalImagesStart ? imageUrls.slice(additionalImagesStart) : undefined,
+        videoUrls,
       };
 
       // Validate using schema

@@ -163,9 +163,10 @@ export interface IStorage {
 
 }
 
-type ProjectGalleryUpdate = Partial<Omit<InsertProjectGallery, 'beforeImageUrl' | 'imageUrls'>> & {
+type ProjectGalleryUpdate = Partial<Omit<InsertProjectGallery, 'beforeImageUrl' | 'imageUrls' | 'videoUrls'>> & {
   beforeImageUrl?: string | null;
   imageUrls?: string[] | null;
+  videoUrls?: string[] | null;
 };
 
 export class MemStorage {
@@ -277,6 +278,7 @@ export class MemStorage {
       imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       imageUrls: null,
+      videoUrls: null,
       completionDate: new Date("2024-02-15"),
       location: "Springfield",
       featured: true,
@@ -292,6 +294,7 @@ export class MemStorage {
       imageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       imageUrls: null,
+      videoUrls: null,
       completionDate: new Date("2024-01-10"),
       location: "Downtown",
       featured: true,
@@ -307,6 +310,7 @@ export class MemStorage {
       imageUrl: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: null,
       imageUrls: null,
+      videoUrls: null,
       completionDate: new Date("2024-03-05"),
       location: "Riverside",
       featured: false,
@@ -991,12 +995,18 @@ export class MemStorage {
 
   async createProjectGalleryItem(insertItem: InsertProjectGallery): Promise<ProjectGallery> {
     if (!insertItem.imageUrl) throw new Error('A primary gallery image is required');
+    if (insertItem.featured) {
+      this.projectGallery.forEach((project, id) => {
+        this.projectGallery.set(id, { ...project, featured: false });
+      });
+    }
     const item: ProjectGallery = {
       ...insertItem,
       imageUrl: insertItem.imageUrl,
       id: this.currentProjectGalleryId++,
       beforeImageUrl: insertItem.beforeImageUrl || null,
       imageUrls: insertItem.imageUrls || null,
+      videoUrls: insertItem.videoUrls || null,
       location: insertItem.location || null,
       featured: insertItem.featured || false,
       createdAt: new Date(),
@@ -1008,12 +1018,18 @@ export class MemStorage {
   async updateProjectGalleryItem(id: number, updates: ProjectGalleryUpdate): Promise<void> {
     const item = this.projectGallery.get(id);
     if (item) {
+      if (updates.featured) {
+        this.projectGallery.forEach((project, projectId) => {
+          if (projectId !== id) this.projectGallery.set(projectId, { ...project, featured: false });
+        });
+      }
       const updatedItem: ProjectGallery = {
         ...item,
         ...updates,
         imageUrl: updates.imageUrl ?? item.imageUrl,
         beforeImageUrl: updates.beforeImageUrl === undefined ? item.beforeImageUrl : updates.beforeImageUrl,
         imageUrls: updates.imageUrls === undefined ? item.imageUrls : updates.imageUrls,
+        videoUrls: updates.videoUrls === undefined ? item.videoUrls : updates.videoUrls,
       };
       this.projectGallery.set(id, updatedItem);
     }
@@ -1854,8 +1870,12 @@ export class DatabaseStorage implements IStorage {
 
   async createProjectGalleryItem(item: InsertProjectGallery): Promise<ProjectGallery> {
     if (!item.imageUrl) throw new Error('A primary gallery image is required');
-    const [created] = await db.insert(projectGallery).values({ ...item, imageUrl: item.imageUrl }).returning();
-    return created;
+    const imageUrl = item.imageUrl;
+    return await db.transaction(async (tx) => {
+      if (item.featured) await tx.update(projectGallery).set({ featured: false });
+      const [created] = await tx.insert(projectGallery).values({ ...item, imageUrl }).returning();
+      return created;
+    });
   }
 
   async updateProjectGalleryItem(id: number, updates: ProjectGalleryUpdate): Promise<void> {
@@ -1873,7 +1893,12 @@ export class DatabaseStorage implements IStorage {
           return;
         }
         
-        await db.update(projectGallery).set(sanitizedUpdates).where(eq(projectGallery.id, id));
+        await db.transaction(async (tx) => {
+          if (sanitizedUpdates.featured === true) {
+            await tx.update(projectGallery).set({ featured: false });
+          }
+          await tx.update(projectGallery).set(sanitizedUpdates).where(eq(projectGallery.id, id));
+        });
         console.log(`[DatabaseStorage] Successfully updated project gallery item ${id}`);
       },
       'updateProjectGalleryItem',
@@ -1935,7 +1960,7 @@ export class DatabaseStorage implements IStorage {
             .select()
             .from(projectGallery)
             .where(whereClause)
-            .orderBy(desc(projectGallery.createdAt)) // Explicit ordering for consistency
+            .orderBy(desc(projectGallery.featured), desc(projectGallery.createdAt))
             .limit(validatedLimit)
             .offset(offset)
         ]);

@@ -65,6 +65,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_disclosure_version TEXT`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_ip TEXT`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_user_agent TEXT`,
+      `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
     ];
 
     for (const migration of columnMigrations) {
@@ -117,6 +118,38 @@ export async function runProductionMigration(): Promise<void> {
       )
     );
     console.log("  ✅ Category values normalised");
+
+    // Move the original Davis Office showcase into the database-managed gallery.
+    // This insert is idempotent and never overwrites later admin edits.
+    await db.execute(sql.raw(`
+      INSERT INTO project_gallery (
+        title, description, category, image_url, before_image_url, image_urls,
+        video_urls, completion_date, location, featured
+      )
+      SELECT
+        'Davis Office Transformation',
+        'A compact room transformed into a practical custom office with built-in work surfaces, open shelving, a feature wall, and refreshed flooring.',
+        'carpentry',
+        '/uploads/davis-office/after-desk.webp',
+        '/uploads/davis-office/before-workspace.webp',
+        ARRAY[
+          '/uploads/davis-office/before-alcove.webp',
+          '/uploads/davis-office/before-room.webp',
+          '/uploads/davis-office/after-entry.webp',
+          '/uploads/davis-office/after-wide.webp'
+        ],
+        ARRAY[
+          '/uploads/davis-office/davis-office-before.mp4',
+          '/uploads/davis-office/davis-office-after.mp4'
+        ],
+        '2026-07-31T12:00:00Z',
+        'St. Louis Metro Area',
+        true
+      WHERE NOT EXISTS (
+        SELECT 1 FROM project_gallery WHERE title = 'Davis Office Transformation'
+      )
+    `));
+    console.log("  ✅ Database-managed gallery seed verified");
 
     // Step 4: Seed services only if table is empty
     const countResult = await db.execute(sql`SELECT COUNT(*) AS count FROM services`);

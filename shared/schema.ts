@@ -122,6 +122,7 @@ export const projectGallery = pgTable("project_gallery", {
   imageUrl: text("image_url").notNull(),
   beforeImageUrl: text("before_image_url"),
   imageUrls: text("image_urls").array(), // Array of multiple finished result images
+  videoUrls: text("video_urls").array(), // Optional project videos, usually before/after clips
   completionDate: timestamp("completion_date").notNull(),
   location: text("location"),
   featured: boolean("featured").default(false).notNull(),
@@ -243,6 +244,7 @@ export const insertProjectGallerySchema = createInsertSchema(projectGallery).omi
   imageUrl: z.string().optional(), // Allow imageUrl for backend processing
   beforeImageUrl: z.string().optional(), // Allow beforeImageUrl for backend processing  
   imageUrls: z.array(z.string()).optional(), // Allow array of image URLs for multiple finished images
+  videoUrls: z.array(z.string()).optional(),
 });
 
 // Partial update schema for PATCH operations on project gallery items
@@ -262,6 +264,7 @@ export const updateProjectGallerySchema = createInsertSchema(projectGallery)
     }).optional(),
     completionDate: z.coerce.date().optional(),
     imageUrls: z.array(z.string()).optional(),
+    videoUrls: z.array(z.string()).optional(),
     location: z.string().optional(),
     featured: z.boolean().optional(),
   })

@@ -1419,6 +1419,7 @@ function GalleryTab() {
       location: "",
       completionDate: new Date(),
       featured: false,
+      videoUrls: [],
     },
   });
 
@@ -1432,6 +1433,7 @@ function GalleryTab() {
       location: "",
       completionDate: new Date(),
       featured: false,
+      videoUrls: [],
     },
   });
 
@@ -1710,6 +1712,7 @@ function GalleryTab() {
     if (data.location) formData.append('location', data.location);
     formData.append('completionDate', data.completionDate.toISOString());
     formData.append('featured', (data.featured || false).toString());
+    formData.append('videoUrls', JSON.stringify(data.videoUrls || []));
 
     uploadMutation.mutate(formData);
   };
@@ -1728,6 +1731,7 @@ function GalleryTab() {
       location: item.location || "",
       completionDate: new Date(item.completionDate),
       featured: item.featured,
+      videoUrls: item.videoUrls || [],
     });
     setEditDialogOpen(true);
   };
@@ -1990,6 +1994,26 @@ function GalleryTab() {
                       )}
                     />
 
+                    <FormField
+                      control={uploadForm.control}
+                      name="videoUrls"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>Project Video URLs (Optional)</FormLabel>
+                          <FormControl>
+                            <Textarea
+                              value={(field.value || []).join('\n')}
+                              onChange={(event) => field.onChange(event.target.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))}
+                              placeholder="One uploaded or hosted MP4 URL per line"
+                              rows={3}
+                            />
+                          </FormControl>
+                          <FormDescription>Add before and after video links in display order.</FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+
                     {optimizingImages && <div className="rounded-lg bg-sky-50 p-3 text-sm text-brand-blue">Optimizing photos for a faster mobile upload…</div>}
                     {uploading && (
                       <div className="space-y-2">
@@ -2097,6 +2121,7 @@ function GalleryTab() {
                     <p className="text-sm text-gray-600 dark:text-gray-300 mb-3 line-clamp-2" data-testid={`text-description-${item.id}`}>
                       {item.description}
                     </p>
+                    {!!item.videoUrls?.length && <Badge variant="secondary" className="mb-3">{item.videoUrls.length} video{item.videoUrls.length === 1 ? '' : 's'}</Badge>}
                     <div className="flex items-center gap-4 text-xs text-gray-500 mb-3">
                       {item.location && (
                         <div className="flex items-center gap-1">
@@ -2331,6 +2356,26 @@ function GalleryTab() {
                         This project will be highlighted on the main gallery
                       </FormDescription>
                     </div>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={editForm.control}
+                name="videoUrls"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Project Video URLs</FormLabel>
+                    <FormControl>
+                      <Textarea
+                        value={(field.value || []).join('\n')}
+                        onChange={(event) => field.onChange(event.target.value.split(/\r?\n/).map((value) => value.trim()).filter(Boolean))}
+                        placeholder="One video URL per line"
+                        rows={3}
+                      />
+                    </FormControl>
+                    <FormDescription>Videos are displayed in the featured project section when this project is selected as Featured.</FormDescription>
+                    <FormMessage />
                   </FormItem>
                 )}
               />

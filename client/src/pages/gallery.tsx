@@ -10,16 +10,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon, Home, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { ProjectGallery } from "@shared/schema";
-import davisBeforeVideo from "@assets/davis-office/davis-office-before.mp4";
-import davisBeforePoster from "@assets/davis-office/davis-office-before.jpg";
-import davisAfterVideo from "@assets/davis-office/davis-office-after.mp4";
-import davisAfterPoster from "@assets/davis-office/davis-office-after.jpg";
-import davisBeforeAlcove from "@assets/davis-office/before-alcove.webp";
-import davisBeforeRoom from "@assets/davis-office/before-room.webp";
-import davisBeforeWorkspace from "@assets/davis-office/before-workspace.webp";
-import davisAfterDesk from "@assets/davis-office/after-desk.webp";
-import davisAfterEntry from "@assets/davis-office/after-entry.webp";
-import davisAfterWide from "@assets/davis-office/after-wide.webp";
 
 interface GalleryResponse {
   projects: ProjectGallery[];
@@ -40,89 +30,65 @@ const CATEGORIES = [
 
 const ITEMS_PER_PAGE = 12;
 
-const DAVIS_OFFICE_VIDEOS = [
-  {
-    label: "Before",
-    src: davisBeforeVideo,
-    poster: davisBeforePoster,
-    description: "The original office space before the custom workspace build-out.",
-  },
-  {
-    label: "After",
-    src: davisAfterVideo,
-    poster: davisAfterPoster,
-    description: "The completed Davis Office with a custom desk, shelving, accent wall, and finished flooring.",
-  },
-];
-
-const DAVIS_OFFICE_PHOTOS = [
-  { src: davisBeforeAlcove, label: "Before", alt: "Davis Office empty wall alcove before renovation" },
-  { src: davisBeforeRoom, label: "Before", alt: "Davis Office room before the custom workspace build" },
-  { src: davisBeforeWorkspace, label: "Before", alt: "Davis Office original workspace before remodeling" },
-  { src: davisAfterDesk, label: "After", alt: "Completed Davis Office custom desk and shelving" },
-  { src: davisAfterEntry, label: "After", alt: "Completed Davis Office viewed from the entry" },
-  { src: davisAfterWide, label: "After", alt: "Wide view of the completed Davis Office transformation" },
-];
-
-function DavisOfficeProject() {
+function FeaturedProject({ project }: { project: ProjectGallery }) {
+  const photos = [
+    ...(project.beforeImageUrl ? [{ src: project.beforeImageUrl, label: "Before" }] : []),
+    { src: project.imageUrl, label: "After" },
+    ...(project.imageUrls || []).map((src) => ({ src, label: "After" })),
+  ];
+  const videos = project.videoUrls || [];
   return (
-    <section className="mb-12 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" aria-labelledby="davis-office-title">
+    <section className="mb-12 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" aria-labelledby={`featured-project-${project.id}`}>
       <div className="border-b border-border bg-gradient-to-r from-slate-950 to-slate-800 px-6 py-7 text-white sm:px-8">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge className="bg-brand-red text-white">Featured Before &amp; After</Badge>
+          <Badge className="bg-brand-red text-white">Featured Project</Badge>
           <span className="flex items-center gap-1 text-sm text-slate-300">
-            <Calendar className="h-4 w-4" /> Completed July 2026
+            <Calendar className="h-4 w-4" /> Completed {format(new Date(project.completionDate), "MMMM yyyy")}
           </span>
+          {project.location && <span className="flex items-center gap-1 text-sm text-slate-300"><MapPin className="h-4 w-4" />{project.location}</span>}
         </div>
-        <h2 id="davis-office-title" className="mt-4 text-3xl font-bold">Davis Office Transformation</h2>
-        <p className="mt-2 max-w-3xl text-slate-200">
-          A compact room transformed into a practical custom office with built-in work surfaces, open shelving,
-          a feature wall, and refreshed flooring. Play both clips to see the full change.
-        </p>
+        <h2 id={`featured-project-${project.id}`} className="mt-4 text-3xl font-bold">{project.title}</h2>
+        <p className="mt-2 max-w-3xl text-slate-200">{project.description}</p>
       </div>
 
-      <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-2">
-        {DAVIS_OFFICE_VIDEOS.map((video) => (
-          <article key={video.label} className="overflow-hidden rounded-xl border border-border bg-slate-50">
+      {videos.length > 0 && <div className="grid gap-6 p-5 sm:p-8 lg:grid-cols-2">
+        {videos.map((src, index) => (
+          <article key={src} className="overflow-hidden rounded-xl border border-border bg-slate-50">
             <div className="relative mx-auto aspect-[9/16] max-h-[36rem] bg-black">
               <video
                 className="h-full w-full object-contain"
                 controls
                 playsInline
                 preload="metadata"
-                poster={video.poster}
-                aria-label={`Davis Office ${video.label} video`}
+                poster={index === 0 ? project.beforeImageUrl || project.imageUrl : project.imageUrl}
+                aria-label={`${project.title} video ${index + 1}`}
               >
-                <source src={video.src} type="video/mp4" />
+                <source src={src} type="video/mp4" />
                 Your browser does not support embedded video.
               </video>
             </div>
             <div className="p-5">
               <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
-                <PlayCircle className="h-5 w-5 text-brand-red" /> {video.label}
+                <PlayCircle className="h-5 w-5 text-brand-red" /> {index === 0 && videos.length > 1 ? "Before" : index === 1 ? "After" : `Project Video ${index + 1}`}
               </h3>
-              <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{video.description}</p>
             </div>
           </article>
         ))}
-      </div>
+      </div>}
 
-      <div className="border-t border-border px-5 pb-6 pt-2 sm:px-8 sm:pb-8">
+      {photos.length > 0 && <div className="border-t border-border px-5 pb-6 pt-6 sm:px-8 sm:pb-8">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
             <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-red">Selected details</p>
-            <h3 className="mt-1 text-2xl font-bold text-foreground">From blank room to built-in workspace</h3>
+            <h3 className="mt-1 text-2xl font-bold text-foreground">Project photos</h3>
           </div>
-          <p className="hidden max-w-md text-right text-sm text-muted-foreground md:block">
-            Six project views highlight the layout, finishes, and custom-built result without repeating the full video tour.
-          </p>
         </div>
         <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          {DAVIS_OFFICE_PHOTOS.map((photo) => (
+          {photos.map((photo, index) => (
             <figure key={photo.src} className="group relative aspect-[4/5] overflow-hidden rounded-lg bg-slate-200">
               <img
                 src={photo.src}
-                alt={photo.alt}
+                alt={`${project.title} ${photo.label.toLowerCase()} view ${index + 1}`}
                 className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 loading="lazy"
               />
@@ -132,7 +98,7 @@ function DavisOfficeProject() {
             </figure>
           ))}
         </div>
-      </div>
+      </div>}
     </section>
   );
 }
@@ -445,6 +411,8 @@ export default function Gallery() {
 
   const hasMore = data?.hasMore || false;
   const isLoadingMore = isLoading && page > 1;
+  const featuredProject = selectedCategory === "all" ? allProjects.find((project) => project.featured) : undefined;
+  const gridProjects = featuredProject ? allProjects.filter((project) => project.id !== featuredProject.id) : allProjects;
 
   return (
     <div className="min-h-screen bg-background">
@@ -487,7 +455,7 @@ export default function Gallery() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <DavisOfficeProject />
+        {featuredProject && <FeaturedProject project={featuredProject} />}
 
         {/* Category Filters */}
         <div className="mb-8">
@@ -553,10 +521,10 @@ export default function Gallery() {
         )}
 
         {/* Gallery Grid */}
-        {!isLoading && allProjects.length > 0 && (
+        {!isLoading && gridProjects.length > 0 && (
           <div className="space-y-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" data-testid="gallery-grid">
-              {allProjects.map((project) => (
+              {gridProjects.map((project) => (
                 <ProjectCard
                   key={project.id}
                   project={project}
