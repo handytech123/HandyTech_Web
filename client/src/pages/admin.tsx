@@ -2368,6 +2368,11 @@ function AuthenticatedDashboard() {
   const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false);
   const [selectedAppointmentForDetails, setSelectedAppointmentForDetails] = useState<Appointment | null>(null);
+  const [manualReviewDialogOpen, setManualReviewDialogOpen] = useState(false);
+  const [manualReviewName, setManualReviewName] = useState("");
+  const [manualReviewEmail, setManualReviewEmail] = useState("");
+  const [manualReviewService, setManualReviewService] = useState("");
+  const [manualReviewMessage, setManualReviewMessage] = useState("");
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -2439,6 +2444,28 @@ function AuthenticatedDashboard() {
     onError: () => {
       toast({ title: "Review requests failed", description: "No customers were marked as contacted. Please retry.", variant: "destructive" });
     }
+  });
+
+  const sendManualReviewRequestMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/admin/review-requests/send-manual", "POST", {
+        customerName: manualReviewName,
+        customerEmail: manualReviewEmail,
+        serviceType: manualReviewService,
+        personalMessage: manualReviewMessage,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      setManualReviewDialogOpen(false);
+      setManualReviewName(""); setManualReviewEmail(""); setManualReviewService(""); setManualReviewMessage("");
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/review-requests/pending"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
+      toast({ title: "Review request sent", description: "The manual request was delivered and recorded." });
+    },
+    onError: (error: any) => {
+      toast({ title: "Review request not sent", description: error?.message || "Please check the details and retry.", variant: "destructive" });
+    },
   });
 
   const updateQuoteStatusMutation = useMutation({
@@ -2687,6 +2714,25 @@ function AuthenticatedDashboard() {
                     <CardTitle>Customer Reviews</CardTitle>
                     <CardDescription>Manage feedback and request reviews from eligible completed customers</CardDescription>
                   </div>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                  <Dialog open={manualReviewDialogOpen} onOpenChange={setManualReviewDialogOpen}>
+                    <DialogTrigger asChild><Button variant="outline"><Mail className="h-4 w-4 mr-2" />Manual Request</Button></DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Send a Manual Review Request</DialogTitle>
+                        <DialogDescription>Use this for completed work that was not booked through the website.</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div><label className="text-sm font-medium">Customer name</label><Input value={manualReviewName} onChange={(event) => setManualReviewName(event.target.value)} placeholder="Customer name" /></div>
+                        <div><label className="text-sm font-medium">Customer email</label><Input type="email" value={manualReviewEmail} onChange={(event) => setManualReviewEmail(event.target.value)} placeholder="customer@example.com" /></div>
+                        <div><label className="text-sm font-medium">Service or job</label><Input value={manualReviewService} onChange={(event) => setManualReviewService(event.target.value)} placeholder="Describe the completed work" /></div>
+                        <div><label className="text-sm font-medium">Personal note (optional)</label><Textarea value={manualReviewMessage} onChange={(event) => setManualReviewMessage(event.target.value)} placeholder="Thank the customer or mention a project detail" rows={4} /></div>
+                        <Button className="w-full" disabled={!manualReviewName.trim() || !manualReviewEmail.trim() || !manualReviewService.trim() || sendManualReviewRequestMutation.isPending} onClick={() => sendManualReviewRequestMutation.mutate()}>
+                          <Send className="h-4 w-4 mr-2" />{sendManualReviewRequestMutation.isPending ? "Sending…" : "Send and Record Request"}
+                        </Button>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
                   <AlertDialog>
                     <AlertDialogTrigger asChild>
                       <Button disabled={!pendingReviewRequests?.count || sendReviewRequestsMutation.isPending}>
@@ -2711,6 +2757,7 @@ function AuthenticatedDashboard() {
                       </AlertDialogFooter>
                     </AlertDialogContent>
                   </AlertDialog>
+                  </div>
                 </div>
               </CardHeader>
               <CardContent>

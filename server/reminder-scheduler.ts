@@ -105,13 +105,19 @@ export class ReminderScheduler {
       
       const now = new Date();
       const appointments = await storage.getAllAppointments();
-      const reviews = await storage.getAllReviews();
+      const [reviews, emailCampaigns] = await Promise.all([
+        storage.getAllReviews(),
+        storage.getAllEmailCampaigns(),
+      ]);
       const reviewedCustomerIds = new Set(reviews.map((review) => review.customerId));
       const reviewRequestedCustomerIds = new Set(
         appointments
           .filter((appointment) => appointment.status === 'completed' && appointment.followUpSent && appointment.customerId)
           .map((appointment) => appointment.customerId as number)
       );
+      for (const campaign of emailCampaigns) {
+        if (campaign.campaignType === 'review_request') reviewRequestedCustomerIds.add(campaign.customerId);
+      }
       
       for (const appointment of appointments) {
         // FIXED: Use robust date/time parsing that handles multiple formats

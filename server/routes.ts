@@ -1673,10 +1673,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   const getPendingReviewRequests = async () => {
-    const [appointments, reviews, customers] = await Promise.all([
+    const [appointments, reviews, customers, campaigns] = await Promise.all([
       storage.getAllAppointments(),
       storage.getAllReviews(),
       storage.getAllCustomers(),
+      storage.getAllEmailCampaigns(),
     ]);
     const reviewedCustomerIds = new Set(reviews.map((review) => review.customerId));
     const previouslyRequestedCustomerIds = new Set(
@@ -1684,6 +1685,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         .filter((appointment) => appointment.status === 'completed' && appointment.followUpSent && appointment.customerId)
         .map((appointment) => appointment.customerId as number)
     );
+    for (const campaign of campaigns) {
+      if (campaign.campaignType === 'review_request') previouslyRequestedCustomerIds.add(campaign.customerId);
+    }
     const customerById = new Map(customers.map((customer) => [customer.id, customer]));
     const latestByCustomer = new Map<number, Appointment>();
 
@@ -1751,6 +1755,60 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error('Review request batch failed:', error);
       res.status(500).json({ message: 'Failed to send review requests' });
+    }
+  });
+
+  app.post("/api/admin/review-requests/send-manual", requireAdmin, rlSensitive, async (req, res) => {
+    try {
+      const input = z.object({
+        customerName: z.string().trim().min(2).max(120),
+        customerEmail: z.string().trim().email().max(254),
+        serviceType: z.string().trim().min(2).max(160),
+        personalMessage: z.string().trim().max(800).optional().default(''),
+      }).parse(req.body);
+      const [firstName, ...lastNameParts] = input.customerName.split(/\s+/);
+      let customer = await storage.getCustomerByEmail(input.customerEmail.toLowerCase());
+      if (!customer) {
+        customer = await storage.createCustomer({
+          firstName,
+          lastName: lastNameParts.join(' ') || 'Customer',
+          email: input.customerEmail.toLowerCase(),
+          phone: '', company: '', street: '', city: '', state: '', zip: '',
+        });
+      }
+
+      const [existingReviews, campaigns] = await Promise.all([
+        storage.getReviewsByCustomer(customer.id),
+        storage.getEmailCampaignsByCustomer(customer.id),
+      ]);
+      if (existingReviews.length > 0) {
+        return res.status(409).json({ message: 'This customer has already submitted a review.' });
+      }
+      if (campaigns.some((campaign) => campaign.campaignType === 'review_request')) {
+        return res.status(409).json({ message: 'A review request has already been sent to this customer.' });
+      }
+
+      const delivered = await getEmailService().sendFollowUpEmail({
+        customerName: input.customerName,
+        customerEmail: input.customerEmail,
+        appointmentDate: '',
+        appointmentTime: '',
+        serviceType: input.serviceType,
+        personalMessage: input.personalMessage,
+      });
+      if (!delivered) return res.status(502).json({ message: 'The email provider did not accept the review request.' });
+
+      await storage.createEmailCampaign({
+        customerId: customer.id,
+        subject: 'How Was Your HandyTech Service?',
+        content: JSON.stringify({ serviceType: input.serviceType, personalMessage: input.personalMessage }),
+        campaignType: 'review_request',
+      });
+      res.json({ success: true, customerId: customer.id });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Please check the customer and service details.', errors: error.errors });
+      console.error('Manual review request failed:', error);
+      res.status(500).json({ message: 'Failed to send the review request.' });
     }
   });
 

@@ -1070,7 +1070,7 @@ export class EmailService {
     }
   }
 
-  async sendFollowUpEmail(data: { customerName: string; customerEmail: string; appointmentDate: string; appointmentTime: string; serviceType: string; description?: string }): Promise<boolean> {
+  async sendFollowUpEmail(data: { customerName: string; customerEmail: string; appointmentDate: string; appointmentTime: string; serviceType: string; description?: string; personalMessage?: string }): Promise<boolean> {
     if (!this.isConfigured) {
       console.log('Email service not configured, skipping follow-up email');
       return false;
@@ -1078,13 +1078,21 @@ export class EmailService {
 
     try {
       const reviewUrl = `${this.baseUrl}/leave-review`;
+      const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
+      }[character] || character));
+      const customerName = escapeHtml(data.customerName);
+      const serviceType = escapeHtml(data.serviceType);
+      const personalMessage = data.personalMessage?.trim() ? escapeHtml(data.personalMessage.trim()) : null;
       
       const content = `
         <h2 style="color: #BB0000; margin-bottom: 20px;">How Was Your HandyTech Service?</h2>
         
-        <p>Hi ${data.customerName},</p>
+        <p>Hi ${customerName},</p>
         
-        <p>We hope you're satisfied with the <strong>${data.serviceType}</strong> service we completed for you. Your feedback is important to us!</p>
+        <p>We hope you're satisfied with the <strong>${serviceType}</strong> service we completed for you. Your feedback is important to us!</p>
+
+        ${personalMessage ? `<div style="background-color: #fff7ed; border-left: 4px solid #BB0000; padding: 14px 16px; margin: 20px 0;"><strong>A note from HandyTech:</strong><br>${personalMessage}</div>` : ''}
         
         <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0; color: #333;">Please take a moment to:</h3>
