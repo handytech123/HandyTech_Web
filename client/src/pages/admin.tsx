@@ -1373,7 +1373,7 @@ function GalleryTab() {
   const [editingItem, setEditingItem] = useState<ProjectGallery | null>(null);
   const [deleteItemId, setDeleteItemId] = useState<number | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
-  const [categoryFilter, setCategoryFilter] = useState<string>("");
+  const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
   const [optimizingImages, setOptimizingImages] = useState(false);
@@ -1394,7 +1394,7 @@ function GalleryTab() {
       const params = new URLSearchParams({
         page: currentPage.toString(),
         limit: pageSize.toString(),
-        ...(categoryFilter && { category: categoryFilter })
+        ...(categoryFilter !== "all" && { category: categoryFilter })
       });
       const response = await fetch(`/api/admin/gallery?${params}`, {
         credentials: "include"
@@ -2034,7 +2034,7 @@ function GalleryTab() {
                 <SelectValue placeholder="Filter by category" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Categories</SelectItem>
+                <SelectItem value="all">All Categories</SelectItem>
                 <SelectItem value="plumbing">Plumbing</SelectItem>
                 <SelectItem value="electrical">Electrical</SelectItem>
                 <SelectItem value="carpentry">Carpentry</SelectItem>
