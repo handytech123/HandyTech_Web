@@ -10,14 +10,11 @@ import { useToast } from "@/hooks/use-toast";
 import { createCsrfHeaders } from "@/lib/csrf";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertReviewSchema } from "@shared/schema";
+import { publicReviewSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
 
 // Extended schema to include customer information fields not in the base review schema
-const reviewFormSchema = insertReviewSchema.extend({
-  firstName: z.string().min(1, "First name is required"),
-  lastName: z.string().min(1, "Last name is required"),
-  email: z.string().email("Please enter a valid email address"),
+const reviewFormSchema = publicReviewSubmissionSchema.extend({
   serviceType: z.string().min(1, "Please select a service type"),
 });
 
@@ -102,6 +99,14 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
     submitReviewMutation.mutate(data);
   };
 
+  const onInvalid = () => {
+    toast({
+      title: "Please complete the highlighted fields",
+      description: "The form has moved to the first item that still needs your attention.",
+      variant: "destructive",
+    });
+  };
+
   const addPhotos = (files: FileList | null) => {
     if (!files) return;
     const selected = Array.from(files).filter((file) => file.type.startsWith("image/"));
@@ -166,7 +171,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+          <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
           {/* Customer Information */}
           <div className="space-y-4">
             <h3 className="text-lg font-semibold text-charcoal">Your Information</h3>
