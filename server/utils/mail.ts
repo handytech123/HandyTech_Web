@@ -440,6 +440,55 @@ export class EmailService {
     }
   }
 
+  async sendPreparedQuote(data: {
+    quoteNumber: string;
+    customerName: string;
+    customerEmail: string;
+    serviceAddress: string;
+    lineItems: Array<{ description: string; quantity: number; rate: number }>;
+    discount: number;
+    taxRate: number;
+    subtotal: number;
+    tax: number;
+    total: number;
+    validDays: number;
+    notes: string;
+  }): Promise<void> {
+    if (!this.isConfigured) throw new Error("Email service is not configured");
+    const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+    }[character] || character));
+    const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    const expires = new Date();
+    expires.setDate(expires.getDate() + data.validDays);
+    const rows = data.lineItems.map((item) => `
+      <tr>
+        <td style="padding:12px;border-bottom:1px solid #e5e7eb">${escapeHtml(item.description)}</td>
+        <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right">${item.quantity}</td>
+        <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right">${money(item.rate)}</td>
+        <td style="padding:12px;border-bottom:1px solid #e5e7eb;text-align:right">${money(item.quantity * item.rate)}</td>
+      </tr>`).join("");
+
+    await this.transporter.sendMail({
+      from: `"${this.businessName}" <${this.fromEmail}>`,
+      to: data.customerEmail,
+      replyTo: this.fromEmail,
+      subject: `${data.quoteNumber} — Quote from ${this.businessName}`,
+      html: `
+        <div style="margin:0 auto;max-width:720px;font-family:Arial,sans-serif;color:#172033">
+          <div style="background:#991b1b;color:white;padding:28px"><h1 style="margin:0">${this.businessName}</h1><p style="margin:8px 0 0">Professional Service Quote</p></div>
+          <div style="padding:28px;border:1px solid #e5e7eb;border-top:0">
+            <div style="display:flex;justify-content:space-between;gap:20px"><div><strong>Prepared for</strong><br>${escapeHtml(data.customerName)}${data.serviceAddress ? `<br>${escapeHtml(data.serviceAddress)}` : ""}</div><div style="text-align:right"><strong>${escapeHtml(data.quoteNumber)}</strong><br>Valid through ${expires.toLocaleDateString("en-US")}</div></div>
+            <table style="width:100%;border-collapse:collapse;margin-top:28px"><thead><tr style="background:#f3f4f6"><th style="padding:12px;text-align:left">Description</th><th style="padding:12px;text-align:right">Qty/Hours</th><th style="padding:12px;text-align:right">Rate</th><th style="padding:12px;text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+            <div style="margin:20px 0 20px auto;max-width:320px"><p style="display:flex;justify-content:space-between"><span>Subtotal</span><strong>${money(data.subtotal)}</strong></p>${data.discount ? `<p style="display:flex;justify-content:space-between"><span>Discount</span><strong>-${money(data.discount)}</strong></p>` : ""}${data.tax ? `<p style="display:flex;justify-content:space-between"><span>Tax (${data.taxRate}%)</span><strong>${money(data.tax)}</strong></p>` : ""}<p style="display:flex;justify-content:space-between;border-top:2px solid #172033;padding-top:12px;font-size:20px"><span>Total</span><strong>${money(data.total)}</strong></p></div>
+            ${data.notes ? `<div style="background:#f8fafc;padding:16px;border-radius:6px"><strong>Scope and notes</strong><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(data.notes)}</p></div>` : ""}
+            <p style="margin-top:24px">Questions or ready to approve? Reply to this email or call ${escapeHtml(this.businessPhone)}.</p>
+            <p style="font-size:12px;color:#64748b">This quote covers only the listed scope and is valid for ${data.validDays} days. Changes require approval and may affect price or scheduling.</p>
+          </div>
+        </div>`,
+    });
+  }
+
   async sendAppointmentCancellation(appointment: Appointment): Promise<boolean> {
     if (!this.isConfigured) {
       console.log('Email service not configured, skipping appointment cancellation');

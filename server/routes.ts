@@ -2653,6 +2653,55 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ok: true, token: "session" });
   });
 
+  app.post("/api/admin/quotes/:id/send", requireAdmin, async (req, res) => {
+    const preparedQuoteSchema = z.object({
+      lineItems: z.array(z.object({
+        description: z.string().trim().min(1).max(240),
+        quantity: z.coerce.number().positive().max(10000),
+        rate: z.coerce.number().min(0).max(1000000),
+      })).min(1).max(50),
+      discount: z.coerce.number().min(0).max(1000000).default(0),
+      taxRate: z.coerce.number().min(0).max(30).default(0),
+      validDays: z.coerce.number().int().min(1).max(90).default(14),
+      notes: z.string().trim().max(4000).default(""),
+    });
+
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const prepared = preparedQuoteSchema.parse(req.body);
+      const subtotal = prepared.lineItems.reduce((sum, item) => sum + item.quantity * item.rate, 0);
+      const discountedSubtotal = Math.max(0, subtotal - prepared.discount);
+      const tax = discountedSubtotal * prepared.taxRate / 100;
+      const total = discountedSubtotal + tax;
+      if (total <= 0) return res.status(400).json({ message: "Quote total must be greater than zero" });
+
+      const quoteNumber = `HT-${new Date().getFullYear()}-${String(quote.id).padStart(4, "0")}`;
+      await getEmailService().sendPreparedQuote({
+        quoteNumber,
+        customerName: `${quote.firstName} ${quote.lastName}`,
+        customerEmail: quote.email,
+        serviceAddress: [quote.street, quote.city, quote.state, quote.zip].filter(Boolean).join(", "),
+        lineItems: prepared.lineItems,
+        discount: prepared.discount,
+        taxRate: prepared.taxRate,
+        subtotal,
+        tax,
+        total,
+        validDays: prepared.validDays,
+        notes: prepared.notes,
+      });
+      await storage.updateQuoteStatus(id, "sent");
+      res.json({ message: "Quote sent", quoteNumber, total });
+    } catch (error) {
+      console.error("Send prepared quote error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the quote line items and totals", errors: error.errors });
+      res.status(500).json({ message: "The quote could not be emailed. Check email service settings and retry." });
+    }
+  });
+
   // Get all chat conversations for admin (exclude terminated)
   app.get("/api/admin/chat/conversations", requireAdmin, async (req, res) => {
     try {

@@ -29,6 +29,7 @@ import ServicesManager from "@/components/services-manager";
 import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import AppointmentDetailsDialog from "@/components/appointment-details-dialog";
+import AdminQuoteBuilder from "@/components/admin-quote-builder";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -2815,7 +2816,8 @@ function AuthenticatedDashboard() {
                         <p className="text-sm"><strong>Service:</strong> {quote.serviceNeeded}</p>
                         {quote.message && <p className="text-sm mt-1"><strong>Message:</strong> {quote.message}</p>}
                       </div>
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <AdminQuoteBuilder quote={quote} />
                         <Button 
                           size="sm" 
                           onClick={() => updateQuoteStatusMutation.mutate({ id: quote.id, status: "contacted" })}
