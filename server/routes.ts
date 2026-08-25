@@ -1610,7 +1610,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/reviews", async (req, res) => {
     try {
       const reviews = await storage.getApprovedReviews();
-      res.json(reviews);
+      const publicReviews = await Promise.all(reviews.map(async (review) => {
+        const customer = await storage.getCustomer(review.customerId);
+        const firstName = customer?.firstName?.trim() || "Verified";
+        const lastInitial = customer?.lastName?.trim()?.charAt(0).toUpperCase();
+        return {
+          ...review,
+          customerName: lastInitial ? `${firstName} ${lastInitial}.` : firstName,
+        };
+      }));
+      res.json(publicReviews);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch reviews" });
     }

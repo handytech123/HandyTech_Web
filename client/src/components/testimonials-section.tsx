@@ -6,6 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
 type Testimonial = { name: string; role: string; content: string; rating: number; photoUrls?: string[]; videoUrl?: string | null };
+type PublicReview = Review & { customerName?: string };
 
 const proTestimonials: Testimonial[] = [
   { name: "Ardell Henderson Jr", role: "Berkeley, MO · Grab bar installation", content: "The professionalism was amazing!! He communicated with me every step of the installation to make sure it was exactly like I wanted. He left my bathroom just as clean as it was when he started.", rating: 5 },
@@ -17,7 +18,7 @@ const proTestimonials: Testimonial[] = [
 
 export default function TestimonialsSection() {
   const [showAll, setShowAll] = useState(false);
-  const { data: reviews = [], isLoading } = useQuery<Review[]>({
+  const { data: reviews = [], isLoading } = useQuery<PublicReview[]>({
     queryKey: ["/api/reviews"],
     queryFn: async () => {
       const response = await fetch("/api/reviews");
@@ -25,7 +26,14 @@ export default function TestimonialsSection() {
       return response.json();
     },
   });
-  const siteReviews: Testimonial[] = reviews.map((review) => ({ name: "Verified Customer", role: "HandyTech customer review", content: review.content, rating: review.rating, photoUrls: review.photoUrls || [], videoUrl: review.videoUrl }));
+  const siteReviews: Testimonial[] = reviews.map((review) => ({
+    name: review.customerName || "Verified Customer",
+    role: [review.city, review.state].filter(Boolean).join(", ") || "HandyTech customer review",
+    content: review.content,
+    rating: review.rating,
+    photoUrls: review.photoUrls || [],
+    videoUrl: review.videoUrl,
+  }));
   const allTestimonials = [...siteReviews, ...proTestimonials];
   const displayTestimonials = showAll ? allTestimonials : allTestimonials.slice(0, 3);
 
