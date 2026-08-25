@@ -67,6 +67,7 @@ export const quotes = pgTable("quotes", {
   estimatedPrice: real("estimated_price"),
   photoUrls: text("photo_urls").array(),
   videoUrl: text("video_url"),
+  videoUrls: text("video_urls").array(),
   message: text("message"),
   status: text("status").notNull().default("pending"), // 'pending', 'contacted', 'converted', 'declined'
   createdAt: timestamp("created_at").defaultNow().notNull(),

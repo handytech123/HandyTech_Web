@@ -2818,6 +2818,8 @@ function AuthenticatedDashboard() {
                       <div className="mb-3">
                         <p className="text-sm"><strong>Service:</strong> {quote.serviceNeeded}</p>
                         {quote.message && <p className="text-sm mt-1"><strong>Message:</strong> {quote.message}</p>}
+                        {quote.photoUrls && quote.photoUrls.length > 0 && <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-5">{quote.photoUrls.map((url, index) => <a key={url} href={url} target="_blank" rel="noreferrer"><img src={url} alt={`Quote project ${index + 1}`} className="aspect-square w-full rounded object-cover" /></a>)}</div>}
+                        {quote.videoUrls && quote.videoUrls.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{quote.videoUrls.map((url, index) => <video key={url} src={url} controls preload="metadata" className="max-h-64 w-full rounded bg-black" aria-label={`Quote project video ${index + 1}`} />)}</div>}
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <AdminQuoteBuilder quote={quote} />

@@ -720,6 +720,7 @@ export class MemStorage {
       estimatedPrice: insertQuote.estimatedPrice ?? null,
       photoUrls: insertQuote.photoUrls || null,
       videoUrl: insertQuote.videoUrl || null,
+      videoUrls: insertQuote.videoUrls || null,
       status: "pending",
       createdAt: new Date(),
     };

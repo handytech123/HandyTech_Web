@@ -13,6 +13,7 @@ import AdminDashboard from "@/pages/admin";
 import AdminChat from "@/pages/admin-chat";
 import LeaveReview from "@/pages/leave-review";
 import ReviewThankYou from "@/pages/review-thank-you";
+import QuoteThankYou from "@/pages/quote-thank-you";
 import ReschedulePage from "@/pages/reschedule";
 import NotFound from "@/pages/not-found";
 import PrivacyPolicy from "@/pages/privacy-policy";
@@ -31,6 +32,7 @@ function Router() {
       <Route path="/admin/chat" component={AdminChat} />
       <Route path="/leave-review" component={LeaveReview} />
       <Route path="/review-thank-you" component={ReviewThankYou} />
+      <Route path="/quote-thank-you" component={QuoteThankYou} />
       <Route path="/reschedule/:token" component={ReschedulePage} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms" component={Terms} />

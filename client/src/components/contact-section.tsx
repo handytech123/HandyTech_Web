@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertQuoteSchema, type Service } from "@shared/schema";
@@ -12,7 +12,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { createCsrfHeaders } from "@/lib/csrf";
-import { Phone, Mail, Clock, ImagePlus, Video, X } from "lucide-react";
+import { Phone, Mail, Clock, ImagePlus, Maximize2, Video, X } from "lucide-react";
 import { z } from "zod";
 
 const quoteFormSchema = insertQuoteSchema.extend({
@@ -24,12 +24,16 @@ type QuoteFormData = z.infer<typeof quoteFormSchema>;
 
 export default function ContactSection() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [smsConsent, setSmsConsent] = useState(false);
   const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
-  const [video, setVideo] = useState<File | null>(null);
-  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [videos, setVideos] = useState<File[]>([]);
+  const [videoPreviews, setVideoPreviews] = useState<string[]>([]);
+  const [expandedMedia, setExpandedMedia] = useState<{ type: "photo" | "video"; url: string } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [submissionError, setSubmissionError] = useState("");
   const { data: services = [] } = useQuery<Service[]>({ queryKey: ["/api/services"] });
   const quoteServices = services.filter((service) => service.isActive && service.includedInQuoteCalculator && service.basePrice > 0);
   const selectedServices = quoteServices.filter((service) => selectedServiceIds.includes(service.id));
@@ -55,16 +59,27 @@ export default function ContactSection() {
 
   const submitQuote = useMutation({
     mutationFn: async (data: QuoteFormData) => {
+      setSubmissionError("");
+      setUploadProgress(1);
       const body = new FormData();
       body.append("quote", JSON.stringify(data));
       photos.forEach((photo) => body.append("photos", photo));
-      if (video) body.append("video", video);
+      videos.forEach((video) => body.append("videos", video));
       const headers = await createCsrfHeaders();
-      const response = await fetch("/api/quotes", {
-        method: "POST",
-        headers,
-        body,
-        credentials: "include",
+      const response = await new Promise<{ ok: boolean; json: () => Promise<any> }>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("POST", "/api/quotes");
+        request.withCredentials = true;
+        Object.entries(headers).forEach(([name, value]) => request.setRequestHeader(name, value));
+        request.upload.onprogress = (event) => event.lengthComputable && setUploadProgress(Math.max(1, Math.round((event.loaded / event.total) * 90)));
+        request.onload = () => {
+          setUploadProgress(100);
+          resolve({ ok: request.status >= 200 && request.status < 300, json: async () => { try { return JSON.parse(request.responseText); } catch { return {}; } } });
+        };
+        request.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
+        request.ontimeout = () => reject(new Error("The upload took too long. Try shorter videos or a stronger connection."));
+        request.timeout = 20 * 60 * 1000;
+        request.send(body);
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Failed to submit quote" }));
@@ -73,15 +88,18 @@ export default function ContactSection() {
       return response.json();
     },
     onSuccess: () => {
-      toast({ title: "Quote request submitted successfully!" });
       form.reset();
       setSmsConsent(false);
       setSelectedServiceIds([]);
       photoPreviews.forEach((url) => URL.revokeObjectURL(url));
-      if (videoPreview) URL.revokeObjectURL(videoPreview);
-      setPhotos([]); setPhotoPreviews([]); setVideo(null); setVideoPreview(null);
+      videoPreviews.forEach((url) => URL.revokeObjectURL(url));
+      setPhotos([]); setPhotoPreviews([]); setVideos([]); setVideoPreviews([]);
+      setUploadProgress(0); setSubmissionError("");
+      setLocation("/quote-thank-you");
     },
     onError: (error: Error) => {
+      setUploadProgress(0);
+      setSubmissionError(error.message);
       toast({ title: "Failed to submit quote request", description: error.message, variant: "destructive" });
     },
   });
@@ -96,6 +114,51 @@ export default function ContactSection() {
       selectedServices: selectedServices.length ? selectedServices.map((service) => service.name) : [data.serviceNeeded],
       estimatedPrice: selectedServices.length ? estimatedPrice : undefined,
     });
+  };
+
+  const optimizeQuotePhoto = async (file: File): Promise<File> => {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height); bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+    return blob ? new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp" }) : file;
+  };
+
+  const addQuotePhotos = async (files: FileList | null) => {
+    if (!files) return;
+    const selected = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    const available = Math.max(0, 10 - photos.length);
+    const accepted = await Promise.all(selected.slice(0, available).map(optimizeQuotePhoto));
+    if (selected.length > available) toast({ title: "Ten-photo maximum", description: "You can attach up to ten project photos.", variant: "destructive" });
+    setPhotos((current) => [...current, ...accepted]);
+    setPhotoPreviews((current) => [...current, ...accepted.map((file) => URL.createObjectURL(file))]);
+  };
+
+  const removeQuotePhoto = (index: number) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotos((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setPhotoPreviews((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const addQuoteVideos = (files: FileList | null) => {
+    if (!files) return;
+    const selected = Array.from(files).filter((file) => file.type.startsWith("video/"));
+    const available = Math.max(0, 2 - videos.length);
+    const accepted = selected.filter((file) => {
+      if (file.size <= 100 * 1024 * 1024) return true;
+      toast({ title: `${file.name} is too large`, description: "Each video must be smaller than 100 MB.", variant: "destructive" }); return false;
+    }).slice(0, available);
+    if (selected.length > available) toast({ title: "Two-video maximum", description: "You can attach up to two project videos.", variant: "destructive" });
+    setVideos((current) => [...current, ...accepted]);
+    setVideoPreviews((current) => [...current, ...accepted.map((file) => URL.createObjectURL(file))]);
+  };
+
+  const removeQuoteVideo = (index: number) => {
+    URL.revokeObjectURL(videoPreviews[index]);
+    setVideos((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    setVideoPreviews((current) => current.filter((_, itemIndex) => itemIndex !== index));
   };
 
   return (
@@ -362,44 +425,46 @@ export default function ContactSection() {
                 />
               </div>
 
-              <div>
-                <Label htmlFor="photos" className="text-charcoal">Project Photos (Optional)</Label>
-                <div className="mt-2 border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-brand-red transition-colors">
-                  <input 
-                    type="file"
-                    id="photos"
-                    multiple
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => {
-                      const files = e.target.files;
-                      if (files && files.length > 0) {
-                        const fileNames = Array.from(files).map(f => f.name).join(', ');
-                        console.log('Files selected:', fileNames);
-                      }
-                    }}
-                  />
-                  <label htmlFor="photos" className="cursor-pointer">
-                    <div className="space-y-2">
-                      <div className="mx-auto w-12 h-12 bg-light-gray rounded-full flex items-center justify-center">
-                        <svg className="w-6 h-6 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                        </svg>
-                      </div>
-                      <div>
-                        <p className="text-gray-600">
-                          <span className="font-medium text-brand-red">Click to upload photos</span> or drag and drop
-                        </p>
-                        <p className="text-sm text-gray-500">PNG, JPG up to 10MB each</p>
-                      </div>
-                    </div>
-                  </label>
-                </div>
-                <p className="text-sm text-gray-600 mt-2">Upload photos of your project area to help us provide a more accurate quote</p>
+              <div className="space-y-3">
+                <div><Label className="text-charcoal">Project Photos (Optional)</Label><p className="text-sm text-gray-600">Add up to 10 photos. They are resized automatically before uploading.</p></div>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+                  <ImagePlus className="h-5 w-5" /><span>{photos.length >= 10 ? "Ten photos selected" : `Choose photos (${photos.length}/10)`}</span>
+                  <Input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={photos.length >= 10} className="sr-only" onChange={(event) => { addQuotePhotos(event.target.files); event.target.value = ""; }} />
+                </label>
+                {photoPreviews.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{photoPreviews.map((preview, index) => (
+                  <div key={preview} className="relative aspect-square overflow-hidden rounded-lg border bg-gray-100">
+                    <button type="button" className="h-full w-full" onClick={() => setExpandedMedia({ type: "photo", url: preview })} aria-label={`Preview quote photo ${index + 1}`}><img src={preview} alt={`Selected quote photo ${index + 1}`} className="h-full w-full object-cover" /></button>
+                    <button type="button" onClick={() => removeQuotePhoto(index)} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white" aria-label={`Remove photo ${index + 1}`}><X className="h-4 w-4" /></button>
+                  </div>
+                ))}</div>}
+
+                <div className="pt-3"><Label className="text-charcoal">Project Videos (Optional)</Label><p className="text-sm text-gray-600">Add up to 2 videos, maximum 100 MB each. Videos are compressed by the website.</p></div>
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+                  <Video className="h-5 w-5" /><span>{videos.length >= 2 ? "Two videos selected" : `Choose videos (${videos.length}/2)`}</span>
+                  <Input type="file" accept="video/mp4,video/quicktime,video/webm" multiple disabled={videos.length >= 2} className="sr-only" onChange={(event) => { addQuoteVideos(event.target.files); event.target.value = ""; }} />
+                </label>
+                {videoPreviews.length > 0 && <div className="grid gap-3 sm:grid-cols-2">{videoPreviews.map((preview, index) => (
+                  <div key={preview} className="relative overflow-hidden rounded-lg border bg-black">
+                    <video src={preview} controls preload="metadata" className="max-h-64 w-full" aria-label={`Selected quote video ${index + 1}`} />
+                    <button type="button" onClick={() => setExpandedMedia({ type: "video", url: preview })} className="absolute left-2 top-2 flex items-center gap-1 rounded bg-black/75 px-2 py-1 text-xs text-white"><Maximize2 className="h-3.5 w-3.5" />Expand</button>
+                    <button type="button" onClick={() => removeQuoteVideo(index)} className="absolute right-2 top-2 rounded-full bg-black/75 p-1.5 text-white" aria-label={`Remove video ${index + 1}`}><X className="h-4 w-4" /></button>
+                  </div>
+                ))}</div>}
               </div>
+
+              {submitQuote.isPending && <div className="rounded-lg border border-blue-200 bg-blue-50 p-3" role="status" aria-live="polite">
+                <div className="mb-2 flex justify-between text-sm font-medium text-blue-900"><span>{uploadProgress < 90 ? "Uploading project files…" : "Processing and saving your request…"}</span><span>{uploadProgress}%</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-blue-100"><div className="h-full bg-blue-600 transition-all" style={{ width: `${uploadProgress}%` }} /></div>
+                <p className="mt-2 text-xs text-blue-800">Keep this page open until you see the confirmation page.</p>
+              </div>}
+              {submissionError && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800" role="alert">{submissionError}</div>}
               
               <Button 
-                type="submit" 
+                type="button"
+                onClick={form.handleSubmit(onSubmit, () => {
+                  setSubmissionError("Please complete the highlighted contact, address, and service fields.");
+                  document.getElementById("quote-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
+                })}
                 disabled={submitQuote.isPending}
                 className="w-full bg-brand-red text-white hover:bg-brand-red-dark py-4 text-lg font-semibold"
                 data-testid="button-submit-quote"
@@ -409,6 +474,10 @@ export default function ContactSection() {
             </form>
           </div>
         </div>
+        {expandedMedia && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-label="Project media preview" onClick={() => setExpandedMedia(null)}>
+          <button type="button" onClick={() => setExpandedMedia(null)} className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white" aria-label="Close preview"><X className="h-6 w-6" /></button>
+          {expandedMedia.type === "photo" ? <img src={expandedMedia.url} alt="Full-size selected project preview" className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(event) => event.stopPropagation()} /> : <video src={expandedMedia.url} controls autoPlay className="max-h-[90vh] max-w-[95vw]" onClick={(event) => event.stopPropagation()} />}
+        </div>}
       </div>
     </section>
   );

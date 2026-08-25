@@ -640,3 +640,58 @@ export function handleOptionalReviewMediaUpload() {
     },
   ];
 }
+
+/** Accept up to ten quote photos and two short project videos. */
+export function handleOptionalQuoteMediaUpload() {
+  const quoteMediaUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 100 * 1024 * 1024, files: 12 },
+    fileFilter: (_req, file, callback) => {
+      const allowed = UPLOAD_CONFIG.allowedMimeTypes.includes(file.mimetype) || Boolean(REVIEW_VIDEO_TYPES[file.mimetype]);
+      if (!allowed) return callback(new UploadError("Use JPG, PNG, WebP, MP4, MOV, or WebM files.", "INVALID_MEDIA_TYPE", 400));
+      if (!file.originalname || file.originalname.includes("..") || file.originalname.includes("/")) return callback(new UploadError("Invalid media filename.", "INVALID_FILENAME", 400));
+      callback(null, true);
+    },
+  });
+
+  return [
+    quoteMediaUpload.fields([{ name: "photos", maxCount: 10 }, { name: "videos", maxCount: 2 }]),
+    async (req: Request, res: Response, next: NextFunction) => {
+      const files = (req.files as Record<string, Express.Multer.File[]> | undefined) || {};
+      const processedImages: ProcessedImage[] = [];
+      const savedVideoUrls: string[] = [];
+      try {
+        for (const file of files.photos || []) processedImages.push(await processUploadedImage(file.buffer, file.originalname, file.mimetype));
+        for (const videoFile of files.videos || []) {
+          const extension = REVIEW_VIDEO_TYPES[videoFile.mimetype];
+          const looksLikeMp4 = ["video/mp4", "video/quicktime"].includes(videoFile.mimetype) && videoFile.buffer.subarray(4, 8).toString("ascii") === "ftyp";
+          const looksLikeWebm = videoFile.mimetype === "video/webm" && videoFile.buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+          if (!looksLikeMp4 && !looksLikeWebm) throw new UploadError("A video file appears invalid or corrupted.", "INVALID_VIDEO", 400);
+
+          const uploadPath = path.join("quotes", getDateBasedPath());
+          const uploadDirectory = path.join(UPLOAD_CONFIG.uploadDir, uploadPath);
+          await ensureDirectoryExists(uploadDirectory);
+          const secureName = generateSecureFilename();
+          const temporaryInput = path.join(uploadDirectory, `${secureName}-source.${extension}`);
+          const filename = `${secureName}.mp4`;
+          const outputPath = path.join(uploadDirectory, filename);
+          await fs.writeFile(temporaryInput, videoFile.buffer);
+          try {
+            await execFileAsync("ffmpeg", ["-y", "-loglevel", "error", "-i", temporaryInput, "-vf", "scale='min(1280,iw)':-2", "-c:v", "libx264", "-preset", "veryfast", "-crf", "28", "-c:a", "aac", "-b:a", "96k", "-movflags", "+faststart", outputPath], { timeout: 15 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
+          } finally {
+            await fs.unlink(temporaryInput).catch(() => undefined);
+          }
+          savedVideoUrls.push(`/uploads/${uploadPath}/${filename}`.replace(/\\/g, "/"));
+        }
+        (req as any).processedImages = processedImages;
+        (req as any).processedQuoteVideoUrls = savedVideoUrls;
+        next();
+      } catch (error) {
+        if (processedImages.length) await cleanupUploadedFiles(processedImages);
+        await Promise.all(savedVideoUrls.map((url) => fs.unlink(path.join(UPLOAD_CONFIG.uploadDir, url.replace(/^\/uploads\//, ""))).catch(() => undefined)));
+        const uploadError = error instanceof UploadError ? error : new UploadError("Failed to process quote media.", "PROCESSING_FAILED", 500);
+        res.status(uploadError.statusCode).json({ success: false, error: uploadError.code, message: uploadError.message });
+      }
+    },
+  ];
+}

@@ -71,6 +71,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS estimated_price REAL`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS photo_urls TEXT[]`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS video_url TEXT`,
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS before_image_urls TEXT[]`,
     ];

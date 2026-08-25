@@ -35,7 +35,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
-import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMediaUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMediaUpload, handleOptionalQuoteMediaUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
@@ -1964,15 +1964,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/quotes", handleOptionalReviewMediaUpload(), async (req: Request, res: Response) => {
+  app.post("/api/quotes", handleOptionalQuoteMediaUpload(), async (req: Request, res: Response) => {
     const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
-    const processedVideoUrl = ((req as any).processedReviewVideoUrl || null) as string | null;
+    const processedVideoUrls = ((req as any).processedQuoteVideoUrls || []) as string[];
     try {
       const rawQuote = typeof req.body.quote === "string" ? JSON.parse(req.body.quote) : req.body;
       const quoteData = insertQuoteSchema.parse({
         ...rawQuote,
         photoUrls: processedImages.map((image) => image.sizes.large.url),
-        videoUrl: processedVideoUrl,
+        videoUrl: processedVideoUrls[0] || null,
+        videoUrls: processedVideoUrls,
       });
       const quote = await storage.createQuote(quoteData);
       
@@ -2011,10 +2012,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(quote);
     } catch (error) {
       if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
-      if (processedVideoUrl) {
-        const relativeVideoPath = processedVideoUrl.replace(/^\/uploads\//, "");
-        await fs.unlink(path.join(process.cwd(), "server", "public", "uploads", relativeVideoPath)).catch(() => undefined);
-      }
+      await Promise.all(processedVideoUrls.map((videoUrl) => fs.unlink(path.join(process.cwd(), "server", "public", "uploads", videoUrl.replace(/^\/uploads\//, ""))).catch(() => undefined)));
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid quote data", errors: error.errors });
       } else {
