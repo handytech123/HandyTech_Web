@@ -1189,6 +1189,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Missing required fields: firstName, lastName, email, serviceType, appointmentDate, appointmentTime" });
       }
 
+      // Admins can make same-day bookings, but cannot create an appointment in the past.
+      // This route is admin-only; public booking lead-time rules remain unchanged.
+      const requestedStart = fromZonedTime(
+        `${appointmentDate}T${appointmentTime.length === 5 ? `${appointmentTime}:00` : appointmentTime}`,
+        "America/Chicago",
+      );
+      if (Number.isNaN(requestedStart.getTime())) {
+        return res.status(400).json({ message: "Enter a valid appointment date and time." });
+      }
+      if (requestedStart.getTime() <= Date.now()) {
+        return res.status(400).json({ message: "Admin appointments must be scheduled for a future time." });
+      }
+
       // Find existing customer by email or create a new one
       let customer = await storage.getCustomerByEmail(email);
       if (!customer) {

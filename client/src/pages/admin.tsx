@@ -327,6 +327,10 @@ function AppointmentsTab({
   const [addAppointmentOpen, setAddAppointmentOpen] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const todayInCentralTime = format(
+    toZonedTime(new Date(), "America/Chicago"),
+    "yyyy-MM-dd",
+  );
 
   const addAppointmentForm = useForm<AdminAddAppointmentForm>({
     resolver: zodResolver(adminAddAppointmentSchema),
@@ -354,8 +358,8 @@ function AppointmentsTab({
       addAppointmentForm.reset();
       toast({ title: "Appointment created", description: "The appointment has been added successfully." });
     },
-    onError: () => {
-      toast({ title: "Error", description: "Failed to create appointment.", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Error", description: error.message || "Failed to create appointment.", variant: "destructive" });
     },
   });
 
@@ -690,6 +694,26 @@ function AppointmentsTab({
               />
 
               {/* Date & Time */}
+              <div className="flex items-center justify-between gap-3 rounded-md border border-blue-200 bg-blue-50 p-3">
+                <div>
+                  <p className="text-sm font-medium text-blue-950">Need to book work today?</p>
+                  <p className="text-xs text-blue-800">Same-day booking is available here in the admin only.</p>
+                </div>
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="outline"
+                  className="shrink-0 border-blue-300 bg-white"
+                  onClick={() => {
+                    addAppointmentForm.setValue("appointmentDate", todayInCentralTime, {
+                      shouldDirty: true,
+                      shouldValidate: true,
+                    });
+                  }}
+                >
+                  Book Today
+                </Button>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={addAppointmentForm.control}
@@ -698,7 +722,7 @@ function AppointmentsTab({
                     <FormItem>
                       <FormLabel>Appointment Date</FormLabel>
                       <FormControl>
-                        <Input type="date" {...field} />
+                        <Input type="date" min={todayInCentralTime} {...field} />
                       </FormControl>
                       <FormMessage />
                     </FormItem>
