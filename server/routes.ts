@@ -3207,7 +3207,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         serviceId: z.string().refine((val) => {
           const parsed = parseInt(val);
           return !isNaN(parsed) && parsed > 0;
-        }, { message: "Service ID must be a positive integer" }).optional()
+        }, { message: "Service ID must be a positive integer" }).optional(),
+        excludeAppointmentId: z.string().refine((val) => {
+          const parsed = parseInt(val);
+          return !isNaN(parsed) && parsed > 0;
+        }, { message: "Appointment ID must be a positive integer" }).optional()
       }).refine((data) => {
         // Require either hours OR serviceId
         return data.hours || data.serviceId;
@@ -3272,6 +3276,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Use default values as specified
       const stepMinutes = 30;
       const bufferMinutes = 15;
+      // Only an authenticated administrator may exclude an appointment while
+      // calculating availability (used when moving that same appointment).
+      const excludeAppointmentId = (req.session as any)?.isAdmin === true && validatedQuery.excludeAppointmentId
+        ? parseInt(validatedQuery.excludeAppointmentId)
+        : undefined;
       
       // Get available slots using the availability engine
       const slots = await getOpenSlots(
@@ -3280,7 +3289,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         toDate,
         blockMinutes,
         stepMinutes,
-        bufferMinutes
+        bufferMinutes,
+        excludeAppointmentId
       );
       
       // Enhanced response with service information
