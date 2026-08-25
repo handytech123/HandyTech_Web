@@ -35,7 +35,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
-import { handleImageUpload, handleOptionalImageUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import { handleImageUpload, handleOptionalReviewMediaUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
@@ -1813,8 +1813,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer review submission endpoint
-  app.post("/api/reviews/submit", handleOptionalImageUpload("photos", 4), async (req: Request, res: Response) => {
+  app.post("/api/reviews/submit", handleOptionalReviewMediaUpload(), async (req: Request, res: Response) => {
     const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
+    const processedVideoUrl = ((req as any).processedReviewVideoUrl || null) as string | null;
     try {
       // Parse and validate review data using publicReviewSubmissionSchema
       const rawReview = typeof req.body.review === "string" ? JSON.parse(req.body.review) : req.body;
@@ -1845,6 +1846,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         city: validatedData.city,
         state: validatedData.state,
         photoUrls: processedImages.map((image) => image.sizes.large.url),
+        videoUrl: processedVideoUrl,
       };
 
       const review = await storage.createReview(reviewData);
@@ -1869,6 +1871,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(review);
     } catch (error) {
       if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
+      if (processedVideoUrl) {
+        const relativeVideoPath = processedVideoUrl.replace(/^\/uploads\//, "");
+        await fs.unlink(path.join(process.cwd(), "server", "public", "uploads", relativeVideoPath)).catch(() => undefined);
+      }
       if (error instanceof z.ZodError) {
         res.status(400).json({ 
           message: "Invalid review data", 

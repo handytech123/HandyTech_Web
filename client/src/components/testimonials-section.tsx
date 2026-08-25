@@ -5,7 +5,7 @@ import { type Review } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-type Testimonial = { name: string; role: string; content: string; rating: number; photoUrls?: string[] };
+type Testimonial = { name: string; role: string; content: string; rating: number; photoUrls?: string[]; videoUrl?: string | null };
 
 const proTestimonials: Testimonial[] = [
   { name: "Ardell Henderson Jr", role: "Berkeley, MO · Grab bar installation", content: "The professionalism was amazing!! He communicated with me every step of the installation to make sure it was exactly like I wanted. He left my bathroom just as clean as it was when he started.", rating: 5 },
@@ -25,7 +25,7 @@ export default function TestimonialsSection() {
       return response.json();
     },
   });
-  const siteReviews: Testimonial[] = reviews.map((review) => ({ name: "Verified Customer", role: "HandyTech customer review", content: review.content, rating: review.rating, photoUrls: review.photoUrls || [] }));
+  const siteReviews: Testimonial[] = reviews.map((review) => ({ name: "Verified Customer", role: "HandyTech customer review", content: review.content, rating: review.rating, photoUrls: review.photoUrls || [], videoUrl: review.videoUrl }));
   const allTestimonials = [...siteReviews, ...proTestimonials];
   const displayTestimonials = showAll ? allTestimonials : allTestimonials.slice(0, 3);
 
@@ -51,6 +51,9 @@ export default function TestimonialsSection() {
                           <img key={photoUrl} src={photoUrl} alt="Customer project" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
                         ))}
                       </div>
+                    )}
+                    {testimonial.videoUrl && (
+                      <video src={testimonial.videoUrl} controls preload="metadata" className="-mx-7 -mt-7 mb-6 w-[calc(100%+3.5rem)] max-h-72 bg-black object-contain" aria-label="Customer project video" />
                     )}
                     <div className="mb-5 flex items-center justify-between"><div className="flex text-amber-400">{Array.from({ length: testimonial.rating }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}</div><Quote className="h-7 w-7 text-sky-100" /></div>
                     <p className="mb-7 flex-1 leading-7 text-slate-700">“{testimonial.content}”</p>

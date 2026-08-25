@@ -2836,6 +2836,9 @@ function AuthenticatedDashboard() {
                           ))}
                         </div>
                       )}
+                      {review.videoUrl && (
+                        <video src={review.videoUrl} controls preload="metadata" className="mb-4 max-h-96 w-full rounded-lg bg-black" aria-label="Customer review video" />
+                      )}
                       {!review.isApproved && (
                         <Button 
                           size="sm"

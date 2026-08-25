@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, Star, X } from "lucide-react";
+import { ImagePlus, Star, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -32,6 +32,8 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
   const queryClient = useQueryClient();
   const [photos, setPhotos] = useState<File[]>([]);
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [video, setVideo] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
 
   const form = useForm<ReviewFormData>({
     resolver: zodResolver(reviewFormSchema),
@@ -53,6 +55,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       const body = new FormData();
       body.append("review", JSON.stringify(data));
       photos.forEach((photo) => body.append("photos", photo));
+      if (video) body.append("video", video);
       const headers = await createCsrfHeaders();
       const response = await fetch("/api/reviews/submit", {
         method: "POST",
@@ -77,6 +80,9 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       photoPreviews.forEach((url) => URL.revokeObjectURL(url));
       setPhotos([]);
       setPhotoPreviews([]);
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+      setVideo(null);
+      setVideoPreview(null);
       
       // Refresh reviews
       queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
@@ -112,6 +118,23 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
     URL.revokeObjectURL(photoPreviews[index]);
     setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
     setPhotoPreviews((current) => current.filter((_, photoIndex) => photoIndex !== index));
+  };
+
+  const selectVideo = (file: File | undefined) => {
+    if (!file) return;
+    if (file.size > 60 * 1024 * 1024) {
+      toast({ title: "Video is too large", description: "Please choose a video smaller than 60 MB.", variant: "destructive" });
+      return;
+    }
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideo(file);
+    setVideoPreview(URL.createObjectURL(file));
+  };
+
+  const removeVideo = () => {
+    if (videoPreview) URL.revokeObjectURL(videoPreview);
+    setVideo(null);
+    setVideoPreview(null);
   };
 
   const serviceTypes = [
@@ -371,6 +394,28 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
                 ))}
               </div>
             )}
+            <div className="pt-2">
+              {!videoPreview ? (
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+                  <Video className="h-5 w-5" />
+                  <span>Add one short project video (maximum 60 MB)</span>
+                  <Input
+                    type="file"
+                    accept="video/mp4,video/quicktime,video/webm"
+                    className="sr-only"
+                    onChange={(event) => { selectVideo(event.target.files?.[0]); event.target.value = ""; }}
+                    data-testid="input-review-video"
+                  />
+                </label>
+              ) : (
+                <div className="relative overflow-hidden rounded-lg border bg-black">
+                  <video src={videoPreview} controls preload="metadata" className="max-h-80 w-full" aria-label="Selected review video" />
+                  <button type="button" onClick={removeVideo} className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white" aria-label="Remove video">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="pt-4 border-t">

@@ -236,6 +236,7 @@ export class MemStorage {
       city: "Springfield",
       state: "IL",
       photoUrls: null,
+      videoUrl: null,
       isApproved: true,
       createdAt: new Date("2024-03-01"),
     };
@@ -250,6 +251,7 @@ export class MemStorage {
       city: "Chicago",
       state: "IL",
       photoUrls: null,
+      videoUrl: null,
       isApproved: true,
       createdAt: new Date("2024-03-15"),
     };
@@ -678,6 +680,7 @@ export class MemStorage {
     const review: Review = {
       ...insertReview,
       photoUrls: insertReview.photoUrls ?? null,
+      videoUrl: insertReview.videoUrl ?? null,
       id: this.currentReviewId++,
       isApproved: false,
       createdAt: new Date(),

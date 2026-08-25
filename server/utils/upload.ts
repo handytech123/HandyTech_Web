@@ -558,3 +558,67 @@ export function handleOptionalImageUpload(fieldName: string, maxFiles: number) {
     },
   ];
 }
+
+const REVIEW_VIDEO_TYPES: Record<string, string> = {
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+};
+
+/** Accept up to four review photos and one short review video. */
+export function handleOptionalReviewMediaUpload() {
+  const reviewMediaUpload = multer({
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 60 * 1024 * 1024, files: 5 },
+    fileFilter: (_req, file, callback) => {
+      const allowed = UPLOAD_CONFIG.allowedMimeTypes.includes(file.mimetype) || Boolean(REVIEW_VIDEO_TYPES[file.mimetype]);
+      if (!allowed) return callback(new UploadError("Use JPG, PNG, WebP, MP4, MOV, or WebM files.", "INVALID_MEDIA_TYPE", 400));
+      if (!file.originalname || file.originalname.includes("..") || file.originalname.includes("/")) {
+        return callback(new UploadError("Invalid media filename.", "INVALID_FILENAME", 400));
+      }
+      callback(null, true);
+    },
+  });
+
+  return [
+    reviewMediaUpload.fields([{ name: "photos", maxCount: 4 }, { name: "video", maxCount: 1 }]),
+    async (req: Request, res: Response, next: NextFunction) => {
+      const files = (req.files as Record<string, Express.Multer.File[]> | undefined) || {};
+      const photoFiles = files.photos || [];
+      const videoFile = files.video?.[0];
+      const processedImages: ProcessedImage[] = [];
+      let savedVideoUrl: string | null = null;
+
+      try {
+        for (const file of photoFiles) {
+          processedImages.push(await processUploadedImage(file.buffer, file.originalname, file.mimetype));
+        }
+
+        if (videoFile) {
+          const extension = REVIEW_VIDEO_TYPES[videoFile.mimetype];
+          const looksLikeMp4 = ["video/mp4", "video/quicktime"].includes(videoFile.mimetype)
+            && videoFile.buffer.subarray(4, 8).toString("ascii") === "ftyp";
+          const looksLikeWebm = videoFile.mimetype === "video/webm"
+            && videoFile.buffer.subarray(0, 4).equals(Buffer.from([0x1a, 0x45, 0xdf, 0xa3]));
+          if (!looksLikeMp4 && !looksLikeWebm) throw new UploadError("The video file appears invalid or corrupted.", "INVALID_VIDEO", 400);
+
+          const uploadPath = path.join("reviews", getDateBasedPath());
+          const uploadDirectory = path.join(UPLOAD_CONFIG.uploadDir, uploadPath);
+          await ensureDirectoryExists(uploadDirectory);
+          const filename = `${generateSecureFilename()}.${extension}`;
+          await fs.writeFile(path.join(uploadDirectory, filename), videoFile.buffer);
+          savedVideoUrl = `/uploads/${uploadPath}/${filename}`.replace(/\\/g, "/");
+        }
+
+        (req as any).processedImages = processedImages;
+        (req as any).processedReviewVideoUrl = savedVideoUrl;
+        next();
+      } catch (error) {
+        if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
+        if (savedVideoUrl) await fs.unlink(path.join(UPLOAD_CONFIG.uploadDir, savedVideoUrl.replace(/^\/uploads\//, ""))).catch(() => undefined);
+        const uploadError = error instanceof UploadError ? error : new UploadError("Failed to process review media.", "PROCESSING_FAILED", 500);
+        res.status(uploadError.statusCode).json({ success: false, error: uploadError.code, message: uploadError.message });
+      }
+    },
+  ];
+}
