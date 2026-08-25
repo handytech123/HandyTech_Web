@@ -3299,6 +3299,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         featured: req.body.featured === 'true' || req.body.featured === true,
         imageUrl: processedImages[0].sizes.large.url, // Use first image as main image
         beforeImageUrl: hasBeforeImage ? processedImages[1]?.sizes.large.url || null : null,
+        beforeImageUrls: hasBeforeImage && processedImages[1] ? [processedImages[1].sizes.large.url] : undefined,
         imageUrls: processedImages.length > additionalImagesStart ? imageUrls.slice(additionalImagesStart) : undefined,
         videoUrls,
       };
@@ -3523,19 +3524,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       let imageIndex = 0;
-      const updateData: { imageUrl?: string; beforeImageUrl?: string | null } = {};
+      const updateData: { imageUrl?: string; beforeImageUrl?: string | null; beforeImageUrls?: string[] } = {};
       const oldImageUrls: string[] = [];
+      const beforeClassifications = new Set(existingItem.beforeImageUrls || (existingItem.beforeImageUrl ? [existingItem.beforeImageUrl] : []));
       if (replaceMain) {
-        updateData.imageUrl = processedImages[imageIndex++].sizes.large.url;
+        const newMainUrl = processedImages[imageIndex++].sizes.large.url;
+        if (beforeClassifications.delete(existingItem.imageUrl)) beforeClassifications.add(newMainUrl);
+        updateData.imageUrl = newMainUrl;
         oldImageUrls.push(existingItem.imageUrl);
       }
       if (replaceBefore) {
-        updateData.beforeImageUrl = processedImages[imageIndex++].sizes.large.url;
+        const newBeforeUrl = processedImages[imageIndex++].sizes.large.url;
+        if (existingItem.beforeImageUrl) beforeClassifications.delete(existingItem.beforeImageUrl);
+        beforeClassifications.add(newBeforeUrl);
+        updateData.beforeImageUrl = newBeforeUrl;
         if (existingItem.beforeImageUrl) oldImageUrls.push(existingItem.beforeImageUrl);
       } else if (removeBefore) {
+        if (existingItem.beforeImageUrl) beforeClassifications.delete(existingItem.beforeImageUrl);
         updateData.beforeImageUrl = null;
         if (existingItem.beforeImageUrl) oldImageUrls.push(existingItem.beforeImageUrl);
       }
+      updateData.beforeImageUrls = Array.from(beforeClassifications);
 
       // Update database with new image URLs
       await storage.updateProjectGalleryItem(id, updateData);

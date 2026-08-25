@@ -1424,6 +1424,7 @@ function GalleryTab() {
       location: "",
       completionDate: new Date(),
       featured: false,
+      beforeImageUrls: [],
       videoUrls: [],
     },
   });
@@ -1438,6 +1439,7 @@ function GalleryTab() {
       location: "",
       completionDate: new Date(),
       featured: false,
+      beforeImageUrls: [],
       videoUrls: [],
     },
   });
@@ -1643,6 +1645,7 @@ function GalleryTab() {
   // Edit mutation
   const editMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ProjectGallery> }) => {
+      const metadataResponse = await apiRequest(`/api/admin/gallery/${id}`, "PATCH", data);
       if (editMainImage || editBeforeImage || removeEditBefore) {
         const media = new FormData();
         if (editMainImage) media.append('images', editMainImage);
@@ -1657,7 +1660,7 @@ function GalleryTab() {
           throw new Error(error.message || 'Image replacement failed');
         }
       }
-      return apiRequest(`/api/admin/gallery/${id}`, "PATCH", data);
+      return metadataResponse;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
@@ -1773,6 +1776,7 @@ function GalleryTab() {
       location: item.location || "",
       completionDate: new Date(item.completionDate),
       featured: item.featured,
+      beforeImageUrls: item.beforeImageUrls || (item.beforeImageUrl ? [item.beforeImageUrl] : []),
       videoUrls: item.videoUrls || [],
     });
     setEditDialogOpen(true);
@@ -2310,6 +2314,33 @@ function GalleryTab() {
                   {editBeforePreview && !removeEditBefore && <Button type="button" variant="ghost" size="sm" className="w-full text-red-600" onClick={() => { setEditBeforeImage(null); setEditBeforePreview(null); setRemoveEditBefore(true); }}>Remove Before Photo</Button>}
                 </div>
               </div>
+
+              {editingItem && (() => {
+                const photoUrls = Array.from(new Set([editingItem.beforeImageUrl, editingItem.imageUrl, ...(editingItem.imageUrls || [])].filter((url): url is string => Boolean(url))));
+                const selectedBefore = new Set(editForm.watch('beforeImageUrls') || []);
+                return (
+                  <div className="space-y-3 rounded-lg border bg-slate-50 p-3">
+                    <div>
+                      <FormLabel>Classify Every Photo</FormLabel>
+                      <p className="text-xs text-muted-foreground">Tap Before or After under each photo. This controls the labels shown in the public gallery.</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                      {photoUrls.map((photoUrl) => {
+                        const isBefore = selectedBefore.has(photoUrl);
+                        return (
+                          <div key={photoUrl} className="overflow-hidden rounded-lg border bg-white p-2">
+                            <img src={photoUrl} alt="Project classification" className="aspect-square w-full rounded object-cover" />
+                            <div className="mt-2 grid grid-cols-2 gap-1">
+                              <Button type="button" size="sm" variant={isBefore ? 'default' : 'outline'} className={isBefore ? 'bg-slate-800 hover:bg-slate-900' : ''} onClick={() => editForm.setValue('beforeImageUrls', Array.from(new Set([...(editForm.getValues('beforeImageUrls') || []), photoUrl])), { shouldDirty: true })}>Before</Button>
+                              <Button type="button" size="sm" variant={!isBefore ? 'default' : 'outline'} className={!isBefore ? 'bg-emerald-600 hover:bg-emerald-700' : ''} onClick={() => editForm.setValue('beforeImageUrls', (editForm.getValues('beforeImageUrls') || []).filter((url) => url !== photoUrl), { shouldDirty: true })}>After</Button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })()}
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}

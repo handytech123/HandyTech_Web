@@ -31,11 +31,11 @@ const CATEGORIES = [
 const ITEMS_PER_PAGE = 12;
 
 function FeaturedProject({ project }: { project: ProjectGallery }) {
-  const photos = [
-    ...(project.beforeImageUrl ? [{ src: project.beforeImageUrl, label: "Before" }] : []),
-    { src: project.imageUrl, label: "After" },
-    ...(project.imageUrls || []).map((src) => ({ src, label: "After" })),
-  ];
+  const beforePhotos = new Set(project.beforeImageUrls || (project.beforeImageUrl ? [project.beforeImageUrl] : []));
+  const photoUrls = Array.from(new Set([project.beforeImageUrl, project.imageUrl, ...(project.imageUrls || [])].filter((url): url is string => Boolean(url))));
+  const photos = photoUrls
+    .map((src) => ({ src, label: beforePhotos.has(src) ? "Before" : "After" }))
+    .sort((a, b) => (a.label === b.label ? 0 : a.label === "Before" ? -1 : 1));
   const videos = project.videoUrls || [];
   return (
     <section className="mb-12 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" aria-labelledby={`featured-project-${project.id}`}>

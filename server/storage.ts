@@ -163,9 +163,10 @@ export interface IStorage {
 
 }
 
-type ProjectGalleryUpdate = Partial<Omit<InsertProjectGallery, 'beforeImageUrl' | 'imageUrls' | 'videoUrls'>> & {
+type ProjectGalleryUpdate = Partial<Omit<InsertProjectGallery, 'beforeImageUrl' | 'imageUrls' | 'beforeImageUrls' | 'videoUrls'>> & {
   beforeImageUrl?: string | null;
   imageUrls?: string[] | null;
+  beforeImageUrls?: string[] | null;
   videoUrls?: string[] | null;
 };
 
@@ -282,6 +283,7 @@ export class MemStorage {
       imageUrl: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: "https://images.unsplash.com/photo-1586023492125-27b2c045efd7?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       imageUrls: null,
+      beforeImageUrls: null,
       videoUrls: null,
       completionDate: new Date("2024-02-15"),
       location: "Springfield",
@@ -298,6 +300,7 @@ export class MemStorage {
       imageUrl: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       imageUrls: null,
+      beforeImageUrls: null,
       videoUrls: null,
       completionDate: new Date("2024-01-10"),
       location: "Downtown",
@@ -314,6 +317,7 @@ export class MemStorage {
       imageUrl: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?ixlib=rb-4.0.3&auto=format&fit=crop&w=800&h=600",
       beforeImageUrl: null,
       imageUrls: null,
+      beforeImageUrls: null,
       videoUrls: null,
       completionDate: new Date("2024-03-05"),
       location: "Riverside",
@@ -1012,6 +1016,7 @@ export class MemStorage {
       id: this.currentProjectGalleryId++,
       beforeImageUrl: insertItem.beforeImageUrl || null,
       imageUrls: insertItem.imageUrls || null,
+      beforeImageUrls: insertItem.beforeImageUrls || (insertItem.beforeImageUrl ? [insertItem.beforeImageUrl] : null),
       videoUrls: insertItem.videoUrls || null,
       location: insertItem.location || null,
       featured: insertItem.featured || false,
@@ -1035,6 +1040,7 @@ export class MemStorage {
         imageUrl: updates.imageUrl ?? item.imageUrl,
         beforeImageUrl: updates.beforeImageUrl === undefined ? item.beforeImageUrl : updates.beforeImageUrl,
         imageUrls: updates.imageUrls === undefined ? item.imageUrls : updates.imageUrls,
+        beforeImageUrls: updates.beforeImageUrls === undefined ? item.beforeImageUrls : updates.beforeImageUrls,
         videoUrls: updates.videoUrls === undefined ? item.videoUrls : updates.videoUrls,
       };
       this.projectGallery.set(id, updatedItem);

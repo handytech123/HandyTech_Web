@@ -68,6 +68,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_urls TEXT[]`,
       `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS video_url TEXT`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
+      `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS before_image_urls TEXT[]`,
     ];
 
     for (const migration of columnMigrations) {
@@ -152,6 +153,17 @@ export async function runProductionMigration(): Promise<void> {
       )
     `));
     console.log("  ✅ Database-managed gallery seed verified");
+
+    // Preserve the known Davis Office Before photos while allowing later admin edits.
+    await db.execute(sql.raw(`
+      UPDATE project_gallery
+      SET before_image_urls = ARRAY[
+        '/uploads/davis-office/before-workspace.webp',
+        '/uploads/davis-office/before-alcove.webp',
+        '/uploads/davis-office/before-room.webp'
+      ]
+      WHERE title = 'Davis Office Transformation' AND before_image_urls IS NULL
+    `));
 
     // Step 4: Seed services only if table is empty
     const countResult = await db.execute(sql`SELECT COUNT(*) AS count FROM services`);
