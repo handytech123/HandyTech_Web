@@ -40,7 +40,7 @@ async function ensureAuthed() {
   return client;
 }
 
-async function createEvent({ summary, description, start, end, attendees = [], appointmentId }) {
+async function createEvent({ summary, description, location, start, end, attendees = [], appointmentId }) {
   const auth = await ensureAuthed();
   const cal = calendarClient(auth);
   const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
@@ -50,6 +50,7 @@ async function createEvent({ summary, description, start, end, attendees = [], a
     requestBody: {
       summary,
       description,
+      location,
       start: { dateTime: toRFC3339(start), timeZone: TZ },
       end:   { dateTime: toRFC3339(end),   timeZone: TZ },
       attendees: attendees.map(e => ({ email: e })),
@@ -76,7 +77,7 @@ async function findEventByAppointmentId(appointmentId) {
   return data.items?.[0] || null;
 }
 
-async function updateEvent(eventId, { summary, description, start, end, attendees = [] }) {
+async function updateEvent(eventId, { summary, description, location, start, end, attendees = [] }) {
   const auth = await ensureAuthed();
   const cal = calendarClient(auth);
   const calendarId = process.env.GOOGLE_CALENDAR_ID || "primary";
@@ -87,6 +88,7 @@ async function updateEvent(eventId, { summary, description, start, end, attendee
     requestBody: {
       summary,
       description,
+      location,
       start: { dateTime: toRFC3339(start), timeZone: TZ },
       end:   { dateTime: toRFC3339(end),   timeZone: TZ },
       attendees: attendees.map(e => ({ email: e }))

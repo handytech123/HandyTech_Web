@@ -40,6 +40,20 @@ import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
 
+function formatServiceAddress(data: {
+  street?: string | null;
+  address?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+}): string {
+  const meaningful = (value?: string | null) => value && value !== "Not provided" ? value : "";
+  const street = meaningful(data.street) || meaningful(data.address);
+  const city = meaningful(data.city);
+  const stateZip = [meaningful(data.state), meaningful(data.zip)].filter(Boolean).join(" ");
+  return [street, [city, stateZip].filter(Boolean).join(", ")].filter(Boolean).join(", ");
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount Google Calendar admin routes
   const { default: googleAdminRoutes } = await import("./routes/google-admin.js");
@@ -790,8 +804,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             summary: `${appointment.serviceType} — ${Math.round(durationMs / (1000 * 60 * 60))}h Block`,
             description: [
               `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
+              formatServiceAddress(appointment) ? `Service address: ${formatServiceAddress(appointment)}` : null,
               appointment.notes ? `Notes: ${appointment.notes}` : null
             ].filter(Boolean).join("\n"),
+            location: formatServiceAddress(appointment) || undefined,
             start: newStartTime,
             end: newEndTime,
             attendees: [appointment.email]
@@ -1036,8 +1052,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             summary: `${appointment.serviceType} — ${Math.round(durationMs / (1000 * 60 * 60))}h Block`,
             description: [
               `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
+              formatServiceAddress(appointment) ? `Service address: ${formatServiceAddress(appointment)}` : null,
               appointment.notes ? `Notes: ${appointment.notes}` : null
             ].filter(Boolean).join("\n"),
+            location: formatServiceAddress(appointment) || undefined,
             start: startTimestamp,
             end: endTimestamp,
             attendees: [appointment.email]
@@ -1241,6 +1259,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status || "scheduled",
         source: "manual",
       });
+
+      // Admin-created appointments should reach Google Calendar immediately,
+      // with a navigable service location just like customer-created bookings.
+      try {
+        const event = await createEvent({
+          summary: `${serviceType} — 2h Block`,
+          description: [
+            `Customer: ${firstName} ${lastName} (${email}${phone ? `, ${phone}` : ""})`,
+            address ? `Service address: ${address}` : null,
+            notes ? `Notes: ${notes}` : null,
+          ].filter(Boolean).join("\n"),
+          location: address || undefined,
+          start: appointment.startTimestamptz || requestedStart,
+          end: appointment.endTimestamptz || new Date(requestedStart.getTime() + 2 * 60 * 60 * 1000),
+          attendees: [email],
+          appointmentId: appointment.id,
+        });
+        if (event.id) await storage.updateAppointmentGoogleEventId(appointment.id, event.id);
+      } catch (googleError) {
+        console.error("Admin appointment Google Calendar sync failed:", googleError instanceof Error ? googleError.message : googleError);
+      }
 
       res.status(201).json(appointment);
     } catch (error) {
@@ -2230,8 +2269,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           summary: `${appointmentData.serviceType} — ${durationHours}h Block`,
           description: [
             `Customer: ${appointmentData.firstName} ${appointmentData.lastName} (${appointmentData.email}${appointmentData.phone ? ", " + appointmentData.phone : ""})`,
+            formatServiceAddress(appointmentData) ? `Service address: ${formatServiceAddress(appointmentData)}` : null,
             appointmentData.notes ? `Notes: ${appointmentData.notes}` : null
           ].filter(Boolean).join("\n"),
+          location: formatServiceAddress(appointmentData) || undefined,
           start: new Date(startTimestamptz),
           end: new Date(endTimestamptz),
           attendees: [appointmentData.email],
@@ -2460,8 +2501,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
             summary: `${appointment.serviceType} — ${durationHours}h Block`,
             description: [
               `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
+              formatServiceAddress(appointment) ? `Service address: ${formatServiceAddress(appointment)}` : null,
               appointment.notes ? `Notes: ${appointment.notes}` : null
             ].filter(Boolean).join("\n"),
+            location: formatServiceAddress(appointment) || undefined,
             start: newStartTime,
             end: newEndTime,
             attendees: [appointment.email]

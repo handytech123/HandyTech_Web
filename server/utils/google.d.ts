@@ -4,6 +4,7 @@ import { OAuth2Client } from 'googleapis-common';
 export interface GoogleCalendarEventData {
   summary: string;
   description?: string;
+  location?: string;
   start: Date | string;
   end: Date | string;
   attendees?: string[];

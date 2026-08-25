@@ -142,6 +142,14 @@ export class ReminderScheduler {
             ['scheduled', 'confirmed', 'in-progress'].includes(appointment.status) &&
             !appointment.googleEventId) {
           try {
+            const street = appointment.street && appointment.street !== "Not provided"
+              ? appointment.street
+              : appointment.address && appointment.address !== "Not provided" ? appointment.address : "";
+            const city = appointment.city && appointment.city !== "Not provided" ? appointment.city : "";
+            const state = appointment.state && appointment.state !== "Not provided" ? appointment.state : "";
+            const zip = appointment.zip && appointment.zip !== "Not provided" ? appointment.zip : "";
+            const serviceAddress = [street, [city, [state, zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")]
+              .filter(Boolean).join(", ");
             const existingEvent = await findEventByAppointmentId(appointment.id);
             const event = existingEvent || await createEvent({
               summary: `${appointment.serviceType} — ${appointment.firstName} ${appointment.lastName}`,
@@ -149,9 +157,11 @@ export class ReminderScheduler {
                 `Customer: ${appointment.firstName} ${appointment.lastName}`,
                 appointment.phone ? `Phone: ${appointment.phone}` : null,
                 appointment.email ? `Email: ${appointment.email}` : null,
+                serviceAddress ? `Service address: ${serviceAddress}` : null,
                 appointment.notes ? `Notes: ${appointment.notes}` : null,
                 `HandyTech appointment ID: ${appointment.id}`,
               ].filter(Boolean).join('\n'),
+              location: serviceAddress || undefined,
               start: appointmentDateTime,
               end: appointment.endTimestamptz
                 ? new Date(appointment.endTimestamptz)
