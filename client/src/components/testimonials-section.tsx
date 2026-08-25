@@ -28,7 +28,7 @@ export default function TestimonialsSection() {
   });
   const siteReviews: Testimonial[] = reviews.map((review) => ({
     name: review.customerName || "Verified Customer",
-    role: [review.city, review.state].filter(Boolean).join(", ") || "HandyTech customer review",
+    role: [review.city?.trim(), review.state?.trim().toUpperCase()].filter(Boolean).join(", ") || "HandyTech customer review",
     content: review.content,
     rating: review.rating,
     photoUrls: review.photoUrls || [],
