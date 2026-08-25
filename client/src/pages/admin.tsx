@@ -1381,6 +1381,11 @@ function GalleryTab() {
   const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
   const [finishedImagePreviews, setFinishedImagePreviews] = useState<string[]>([]);
   const [selectedImages, setSelectedImages] = useState<{ main: File | null; before: File | null; finished: File[] }>({ main: null, before: null, finished: [] });
+  const [editMainImage, setEditMainImage] = useState<File | null>(null);
+  const [editBeforeImage, setEditBeforeImage] = useState<File | null>(null);
+  const [editMainPreview, setEditMainPreview] = useState<string | null>(null);
+  const [editBeforePreview, setEditBeforePreview] = useState<string | null>(null);
+  const [removeEditBefore, setRemoveEditBefore] = useState(false);
   
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -1638,12 +1643,27 @@ function GalleryTab() {
   // Edit mutation
   const editMutation = useMutation({
     mutationFn: async ({ id, data }: { id: number; data: Partial<ProjectGallery> }) => {
+      if (editMainImage || editBeforeImage || removeEditBefore) {
+        const media = new FormData();
+        if (editMainImage) media.append('images', editMainImage);
+        if (editBeforeImage) media.append('images', editBeforeImage);
+        media.append('replaceMain', String(Boolean(editMainImage)));
+        media.append('replaceBefore', String(Boolean(editBeforeImage)));
+        media.append('removeBefore', String(removeEditBefore));
+        const headers = await createCsrfHeaders();
+        const response = await fetch(`/api/admin/gallery/${id}/image`, { method: 'PUT', headers, body: media, credentials: 'include' });
+        if (!response.ok) {
+          const error = await response.json().catch(() => ({ message: 'Image replacement failed' }));
+          throw new Error(error.message || 'Image replacement failed');
+        }
+      }
       return apiRequest(`/api/admin/gallery/${id}`, "PATCH", data);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
       setEditDialogOpen(false);
       setEditingItem(null);
+      setEditMainImage(null); setEditBeforeImage(null); setEditMainPreview(null); setEditBeforePreview(null); setRemoveEditBefore(false);
       editForm.reset();
       toast({
         title: "Success",
@@ -1722,8 +1742,30 @@ function GalleryTab() {
     editMutation.mutate({ id: editingItem.id, data });
   };
 
+  const handleEditImageSelect = async (files: FileList | null, type: 'main' | 'before') => {
+    const file = files?.[0];
+    if (!file) return;
+    const error = validateFile(file);
+    if (error) return toast({ title: 'Invalid File', description: error, variant: 'destructive' });
+    setOptimizingImages(true);
+    try {
+      const optimized = await optimizeImageForUpload(file);
+      const preview = URL.createObjectURL(optimized);
+      if (type === 'main') {
+        if (editMainPreview?.startsWith('blob:')) URL.revokeObjectURL(editMainPreview);
+        setEditMainImage(optimized); setEditMainPreview(preview);
+      } else {
+        if (editBeforePreview?.startsWith('blob:')) URL.revokeObjectURL(editBeforePreview);
+        setEditBeforeImage(optimized); setEditBeforePreview(preview); setRemoveEditBefore(false);
+      }
+    } finally { setOptimizingImages(false); }
+  };
+
   const handleEditItem = (item: ProjectGallery) => {
     setEditingItem(item);
+    setEditMainImage(null); setEditBeforeImage(null); setRemoveEditBefore(false);
+    setEditMainPreview(item.imageUrl);
+    setEditBeforePreview(item.beforeImageUrl || null);
     editForm.reset({
       title: item.title,
       description: item.description,
@@ -2240,15 +2282,34 @@ function GalleryTab() {
 
       {/* Edit Photo Dialog */}
       <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
-        <DialogContent className="sm:max-w-[500px]">
+        <DialogContent className="max-h-[92vh] overflow-y-auto sm:max-w-[620px]">
           <DialogHeader>
-            <DialogTitle>Edit Photo</DialogTitle>
+            <DialogTitle>Edit Project</DialogTitle>
             <DialogDescription>
-              Update photo information and metadata.
+              Update project information and replace the Before or After cover photos.
             </DialogDescription>
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4" data-testid="form-edit-photo">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <FormLabel>After / Cover Photo</FormLabel>
+                  <label className="block cursor-pointer overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-2 text-center">
+                    {editMainPreview ? <img src={editMainPreview} alt="Current after photo" className="h-36 w-full rounded object-cover" /> : <div className="flex h-36 items-center justify-center text-sm text-gray-500">Choose after photo</div>}
+                    <span className="mt-2 block text-xs font-medium text-brand-blue">Tap to replace</span>
+                    <Input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { handleEditImageSelect(event.target.files, 'main'); event.target.value = ''; }} data-testid="input-edit-main-image" />
+                  </label>
+                </div>
+                <div className="space-y-2">
+                  <FormLabel>Before Photo</FormLabel>
+                  <label className="block cursor-pointer overflow-hidden rounded-lg border-2 border-dashed border-gray-300 bg-gray-50 p-2 text-center">
+                    {editBeforePreview && !removeEditBefore ? <img src={editBeforePreview} alt="Current before photo" className="h-36 w-full rounded object-cover" /> : <div className="flex h-36 items-center justify-center text-sm text-gray-500">Choose before photo</div>}
+                    <span className="mt-2 block text-xs font-medium text-brand-blue">Tap to replace</span>
+                    <Input type="file" accept="image/jpeg,image/png,image/webp" className="sr-only" onChange={(event) => { handleEditImageSelect(event.target.files, 'before'); event.target.value = ''; }} data-testid="input-edit-before-image" />
+                  </label>
+                  {editBeforePreview && !removeEditBefore && <Button type="button" variant="ghost" size="sm" className="w-full text-red-600" onClick={() => { setEditBeforeImage(null); setEditBeforePreview(null); setRemoveEditBefore(true); }}>Remove Before Photo</Button>}
+                </div>
+              </div>
               <div className="grid grid-cols-2 gap-4">
                 <FormField
                   control={editForm.control}
@@ -2391,10 +2452,10 @@ function GalleryTab() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={editMutation.isPending}
+                  disabled={editMutation.isPending || optimizingImages}
                   data-testid="button-submit-edit"
                 >
-                  {editMutation.isPending ? "Updating..." : "Update Photo"}
+                  {optimizingImages ? "Preparing image..." : editMutation.isPending ? "Updating..." : "Save Project"}
                 </Button>
               </div>
             </form>

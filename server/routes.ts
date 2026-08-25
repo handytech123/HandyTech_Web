@@ -35,7 +35,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
-import { handleImageUpload, handleOptionalReviewMediaUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMediaUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
@@ -3478,8 +3478,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // PUT /api/admin/gallery/:id/image - Replace image for existing gallery item
-  app.put("/api/admin/gallery/:id/image", requireAdmin, rlSensitive, handleImageUpload('images'), async (req: any, res: any) => {
+  // PUT /api/admin/gallery/:id/image - Independently replace cover/before images
+  app.put("/api/admin/gallery/:id/image", requireAdmin, rlSensitive, handleOptionalImageUpload('images', 2), async (req: any, res: any) => {
     try {
       const id = parseInt(req.params.id);
       
@@ -3505,25 +3505,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const processedImages = (req as any).processedImages as ProcessedImage[];
       
-      if (!processedImages || processedImages.length === 0) {
+      const replaceMain = req.body.replaceMain === 'true' || req.body.replaceMain === true;
+      const replaceBefore = req.body.replaceBefore === 'true' || req.body.replaceBefore === true;
+      const removeBefore = req.body.removeBefore === 'true' || req.body.removeBefore === true;
+      const expectedImages = Number(replaceMain) + Number(replaceBefore);
+
+      if ((!processedImages || processedImages.length !== expectedImages) && expectedImages > 0) {
         return res.status(400).json({
           success: false,
-          error: 'NO_IMAGES_UPLOADED',
-          message: 'At least one image is required for replacement'
+          error: 'IMAGE_ROLE_MISMATCH',
+          message: 'The selected Before/After replacement images could not be matched.'
         });
       }
 
-      // Prepare update data with new image URLs
-      const updateData = {
-        imageUrl: processedImages[0].sizes.large.url,
-        beforeImageUrl: processedImages[1]?.sizes.large.url || null
-      };
+      if (expectedImages === 0 && !removeBefore) {
+        return res.status(400).json({ success: false, error: 'NO_IMAGE_CHANGES', message: 'Choose an image to replace or remove.' });
+      }
+
+      let imageIndex = 0;
+      const updateData: { imageUrl?: string; beforeImageUrl?: string | null } = {};
+      const oldImageUrls: string[] = [];
+      if (replaceMain) {
+        updateData.imageUrl = processedImages[imageIndex++].sizes.large.url;
+        oldImageUrls.push(existingItem.imageUrl);
+      }
+      if (replaceBefore) {
+        updateData.beforeImageUrl = processedImages[imageIndex++].sizes.large.url;
+        if (existingItem.beforeImageUrl) oldImageUrls.push(existingItem.beforeImageUrl);
+      } else if (removeBefore) {
+        updateData.beforeImageUrl = null;
+        if (existingItem.beforeImageUrl) oldImageUrls.push(existingItem.beforeImageUrl);
+      }
 
       // Update database with new image URLs
       await storage.updateProjectGalleryItem(id, updateData);
       
       // Clean up old image files after successful database update
-      const oldImageUrls = extractFileUrls(existingItem);
       if (oldImageUrls.length > 0) {
         try {
           await deletePhysicalFiles(oldImageUrls);
@@ -3540,8 +3557,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         success: true,
         message: 'Gallery item images replaced successfully',
         newImageUrls: {
-          main: updateData.imageUrl,
-          before: updateData.beforeImageUrl
+          main: updateData.imageUrl || existingItem.imageUrl,
+          before: updateData.beforeImageUrl === undefined ? existingItem.beforeImageUrl : updateData.beforeImageUrl
         }
       });
 
