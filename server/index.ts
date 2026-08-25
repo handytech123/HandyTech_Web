@@ -335,9 +335,23 @@ app.use((req, res, next) => {
   }
   
   async function generateAIResponse(history: Array<{ role: 'user' | 'assistant'; content: string }>) {
+    const focusedFallback = () => {
+      const lastMessage = history.at(-1)?.content.toLowerCase() || "";
+      if (/spark|burning|smoke|gas smell|flood|electrocut|fire/.test(lastMessage)) return "Please stop and move to a safe location. If it is safe to do so, shut off the affected power or water source, then call the appropriate emergency service or licensed emergency professional; Lou can help with follow-up repairs afterward.";
+      if (/price|cost|estimate|quote/.test(lastMessage)) return "I can help you request an accurate quote. Please share a short project description and your city, or use the Request Quote button below.";
+      if (/schedule|book|appointment|available/.test(lastMessage)) return "You can choose an available appointment using the Book Service button below. If you prefer, tell me the project type first and I’ll help you choose the right service.";
+      if (/area|location|serve|zip/.test(lastMessage)) return "HandyTech serves the St. Louis, Missouri area. Share your city or ZIP code and Lou can confirm coverage for your address.";
+      if (/electrical|outlet|switch|light|fan|breaker/.test(lastMessage)) return "HandyTech handles several electrical installation and replacement projects. What item needs work, and is this a replacement or a new installation?";
+      if (/plumb|faucet|toilet|sink|dishwasher|disposal|leak/.test(lastMessage)) return "HandyTech handles common fixture and appliance plumbing projects. What is the item, and is there an active leak or water damage now?";
+      if (/smart|camera|thermostat|doorbell|wifi|network|theater|tv/.test(lastMessage)) return "Smart-home and technology installation is a HandyTech specialty. What equipment do you have, and what would you like installed or configured?";
+      if (/paint|drywall|wall|room|remodel/.test(lastMessage)) return "Tell me which room or surface needs work and roughly how large the project is. Lou can confirm the scope and prepare a quote after reviewing those details.";
+      if (/hello|\bhi\b|hey|help/.test(lastMessage)) return "I can help you book service, request a quote, check the service area, or connect with Lou. What kind of project are you working on?";
+      return "Thanks for the details. Please share your name, city, and the best phone number or email so Lou can follow up, or use one of the options below.";
+    };
+
     try {
       if (!process.env.OPENAI_API_KEY) {
-        return "I'm having trouble connecting to my AI service right now. Would you like to speak with a human agent?";
+        return focusedFallback();
       }
       
       const openai = new OpenAI({ 
@@ -384,11 +398,7 @@ If the customer requests Lou, a person, a human, or an agent, respond briefly th
       return response.choices[0].message.content?.trim() || "I'm here to help! What can I do for you today?";
     } catch (error) {
       console.error('OpenAI error:', error);
-      const lastMessage = history.at(-1)?.content.toLowerCase() || "";
-      if (/price|cost|estimate|quote/.test(lastMessage)) return "I can help you request an accurate quote. Please share a short project description and your city, or use the Request a Quote button below.";
-      if (/schedule|book|appointment|available/.test(lastMessage)) return "You can choose an available appointment using the Book Service button below. If you prefer, tell me the project type first and I’ll help you choose the right service.";
-      if (/area|location|serve|zip/.test(lastMessage)) return "HandyTech serves the St. Louis, Missouri area. Share your city or ZIP code and Lou can confirm coverage for your address.";
-      return "I can help with booking, quote requests, service-area questions, or connecting you with Lou. Which would you like?";
+      return focusedFallback();
     }
   }
   
