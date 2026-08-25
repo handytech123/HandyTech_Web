@@ -45,6 +45,7 @@ export const reviews = pgTable("reviews", {
   content: text("content").notNull(),
   city: text("city"),
   state: text("state"),
+  photoUrls: text("photo_urls").array(),
   isApproved: boolean("is_approved").default(false).notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

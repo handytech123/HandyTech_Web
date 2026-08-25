@@ -65,6 +65,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_disclosure_version TEXT`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_ip TEXT`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_user_agent TEXT`,
+      `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_urls TEXT[]`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
     ];
 

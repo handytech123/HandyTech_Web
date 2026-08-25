@@ -521,3 +521,40 @@ export async function validateUploadConfiguration(): Promise<void> {
     throw new Error(`Upload configuration validation failed: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
+
+/**
+ * Optional image upload middleware for forms that may be submitted without photos.
+ * The caller controls the lower per-form limit; the global upload limit remains a
+ * final safety cap.
+ */
+export function handleOptionalImageUpload(fieldName: string, maxFiles: number) {
+  return [
+    uploadMiddleware.array(fieldName, Math.min(maxFiles, UPLOAD_CONFIG.maxFiles)),
+    async (req: Request, res: Response, next: NextFunction) => {
+      const files = (req.files as Express.Multer.File[] | undefined) || [];
+      if (files.length === 0) {
+        (req as any).processedImages = [];
+        return next();
+      }
+
+      const processedImages: ProcessedImage[] = [];
+      try {
+        for (const file of files) {
+          processedImages.push(await processUploadedImage(file.buffer, file.originalname, file.mimetype));
+        }
+        (req as any).processedImages = processedImages;
+        next();
+      } catch (error) {
+        if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
+        const uploadError = error instanceof UploadError
+          ? error
+          : new UploadError("Failed to process review photos", "PROCESSING_FAILED", 500);
+        res.status(uploadError.statusCode).json({
+          success: false,
+          error: uploadError.code,
+          message: uploadError.message,
+        });
+      }
+    },
+  ];
+}

@@ -1,4 +1,4 @@
-import type { Express } from "express";
+import type { Express, Request, Response } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { 
@@ -35,7 +35,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
-import { handleImageUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import { handleImageUpload, handleOptionalImageUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
@@ -1813,10 +1813,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Customer review submission endpoint
-  app.post("/api/reviews/submit", async (req, res) => {
+  app.post("/api/reviews/submit", handleOptionalImageUpload("photos", 4), async (req: Request, res: Response) => {
+    const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
     try {
       // Parse and validate review data using publicReviewSubmissionSchema
-      const validatedData = publicReviewSubmissionSchema.parse(req.body);
+      const rawReview = typeof req.body.review === "string" ? JSON.parse(req.body.review) : req.body;
+      const validatedData = publicReviewSubmissionSchema.parse(rawReview);
       
       // Auto-create customer if they don't exist
       let customer = await storage.getCustomerByEmail(validatedData.email);
@@ -1842,6 +1844,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content: validatedData.content,
         city: validatedData.city,
         state: validatedData.state,
+        photoUrls: processedImages.map((image) => image.sizes.large.url),
       };
 
       const review = await storage.createReview(reviewData);
@@ -1865,6 +1868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.status(201).json(review);
     } catch (error) {
+      if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
       if (error instanceof z.ZodError) {
         res.status(400).json({ 
           message: "Invalid review data", 

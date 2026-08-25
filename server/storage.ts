@@ -235,6 +235,7 @@ export class MemStorage {
       content: "HandyTech transformed our entire IT infrastructure. Their maintenance plan has saved us countless hours and prevented major issues.",
       city: "Springfield",
       state: "IL",
+      photoUrls: null,
       isApproved: true,
       createdAt: new Date("2024-03-01"),
     };
@@ -248,6 +249,7 @@ export class MemStorage {
       content: "Exceptional service and support. The team is knowledgeable, responsive, and always goes above and beyond.",
       city: "Chicago",
       state: "IL",
+      photoUrls: null,
       isApproved: true,
       createdAt: new Date("2024-03-15"),
     };
@@ -675,6 +677,7 @@ export class MemStorage {
   async createReview(insertReview: InsertReview): Promise<Review> {
     const review: Review = {
       ...insertReview,
+      photoUrls: insertReview.photoUrls ?? null,
       id: this.currentReviewId++,
       isApproved: false,
       createdAt: new Date(),

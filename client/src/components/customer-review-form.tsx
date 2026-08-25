@@ -1,13 +1,13 @@
-import React from "react";
+import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Star } from "lucide-react";
+import { ImagePlus, Star, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { apiRequest } from "@/lib/queryClient";
+import { createCsrfHeaders } from "@/lib/csrf";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertReviewSchema } from "@shared/schema";
@@ -30,7 +30,9 @@ interface CustomerReviewFormProps {
 export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProps) {
   const { toast } = useToast();
   const queryClient = useQueryClient();
-  
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+
   const form = useForm<ReviewFormData>({
     resolver: zodResolver(reviewFormSchema),
     defaultValues: {
@@ -48,7 +50,20 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: ReviewFormData) => {
-      const response = await apiRequest("/api/reviews/submit", "POST", data);
+      const body = new FormData();
+      body.append("review", JSON.stringify(data));
+      photos.forEach((photo) => body.append("photos", photo));
+      const headers = await createCsrfHeaders();
+      const response = await fetch("/api/reviews/submit", {
+        method: "POST",
+        headers,
+        body,
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Review submission failed" }));
+        throw new Error(error.message || "Review submission failed");
+      }
       return response.json();
     },
     onSuccess: () => {
@@ -59,6 +74,9 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       
       // Reset form
       form.reset();
+      photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+      setPhotos([]);
+      setPhotoPreviews([]);
       
       // Refresh reviews
       queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
@@ -76,6 +94,24 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
 
   const onSubmit = (data: ReviewFormData) => {
     submitReviewMutation.mutate(data);
+  };
+
+  const addPhotos = (files: FileList | null) => {
+    if (!files) return;
+    const selected = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    const available = Math.max(0, 4 - photos.length);
+    const accepted = selected.slice(0, available);
+    if (selected.length > available) {
+      toast({ title: "Four-photo maximum", description: "You can attach up to four project photos.", variant: "destructive" });
+    }
+    setPhotos((current) => [...current, ...accepted]);
+    setPhotoPreviews((current) => [...current, ...accepted.map((file) => URL.createObjectURL(file))]);
+  };
+
+  const removePhoto = (index: number) => {
+    URL.revokeObjectURL(photoPreviews[index]);
+    setPhotos((current) => current.filter((_, photoIndex) => photoIndex !== index));
+    setPhotoPreviews((current) => current.filter((_, photoIndex) => photoIndex !== index));
   };
 
   const serviceTypes = [
@@ -302,6 +338,39 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
                 </FormItem>
               )}
             />
+          </div>
+
+          {/* Optional project photos */}
+          <div className="space-y-3">
+            <div>
+              <h3 className="text-lg font-semibold text-charcoal">Share Project Photos</h3>
+              <p className="text-sm text-gray-600">Optional — add up to four before, during, or after photos.</p>
+            </div>
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+              <ImagePlus className="h-5 w-5" />
+              <span>{photos.length >= 4 ? "Four photos selected" : "Choose photos from your phone or computer"}</span>
+              <Input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                multiple
+                disabled={photos.length >= 4}
+                className="sr-only"
+                onChange={(event) => { addPhotos(event.target.files); event.target.value = ""; }}
+                data-testid="input-review-photos"
+              />
+            </label>
+            {photoPreviews.length > 0 && (
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {photoPreviews.map((preview, index) => (
+                  <div key={preview} className="relative aspect-square overflow-hidden rounded-lg border bg-gray-100">
+                    <img src={preview} alt={`Selected project photo ${index + 1}`} className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => removePhoto(index)} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white" aria-label={`Remove photo ${index + 1}`}>
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="pt-4 border-t">

@@ -2827,6 +2827,15 @@ function AuthenticatedDashboard() {
                         </Badge>
                       </div>
                       <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">{review.content}</p>
+                      {review.photoUrls && review.photoUrls.length > 0 && (
+                        <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+                          {review.photoUrls.map((photoUrl, index) => (
+                            <a key={photoUrl} href={photoUrl} target="_blank" rel="noreferrer" className="block aspect-square overflow-hidden rounded-lg border bg-gray-100">
+                              <img src={photoUrl} alt={`Customer review photo ${index + 1}`} className="h-full w-full object-cover transition-transform hover:scale-105" loading="lazy" />
+                            </a>
+                          ))}
+                        </div>
+                      )}
                       {!review.isApproved && (
                         <Button 
                           size="sm"

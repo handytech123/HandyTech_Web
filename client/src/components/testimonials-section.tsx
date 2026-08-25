@@ -5,7 +5,9 @@ import { type Review } from "@shared/schema";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 
-const proTestimonials = [
+type Testimonial = { name: string; role: string; content: string; rating: number; photoUrls?: string[] };
+
+const proTestimonials: Testimonial[] = [
   { name: "Ardell Henderson Jr", role: "Berkeley, MO · Grab bar installation", content: "The professionalism was amazing!! He communicated with me every step of the installation to make sure it was exactly like I wanted. He left my bathroom just as clean as it was when he started.", rating: 5 },
   { name: "Pro Referral Customer", role: "St. Louis, MO · Screen door installation", content: "Lou was fantastic. Would highly recommend.", rating: 5 },
   { name: "Pro Referral Customer", role: "Manchester, MO · Dishwasher installation", content: "Our installation was done professionally and timely.", rating: 5 },
@@ -23,7 +25,7 @@ export default function TestimonialsSection() {
       return response.json();
     },
   });
-  const siteReviews = reviews.map((review) => ({ name: "Verified Customer", role: "HandyTech customer review", content: review.content, rating: review.rating }));
+  const siteReviews: Testimonial[] = reviews.map((review) => ({ name: "Verified Customer", role: "HandyTech customer review", content: review.content, rating: review.rating, photoUrls: review.photoUrls || [] }));
   const allTestimonials = [...siteReviews, ...proTestimonials];
   const displayTestimonials = showAll ? allTestimonials : allTestimonials.slice(0, 3);
 
@@ -43,6 +45,13 @@ export default function TestimonialsSection() {
               {displayTestimonials.map((testimonial, index) => (
                 <Card key={`${testimonial.name}-${index}`} className="border-slate-200 bg-white shadow-sm" data-testid={`testimonial-card-${index}`}>
                   <CardContent className="flex h-full flex-col p-7">
+                    {testimonial.photoUrls && testimonial.photoUrls.length > 0 && (
+                      <div className="-mx-7 -mt-7 mb-6 grid grid-cols-2 overflow-hidden rounded-t-xl">
+                        {testimonial.photoUrls.slice(0, 4).map((photoUrl) => (
+                          <img key={photoUrl} src={photoUrl} alt="Customer project" className="aspect-[4/3] h-full w-full object-cover" loading="lazy" />
+                        ))}
+                      </div>
+                    )}
                     <div className="mb-5 flex items-center justify-between"><div className="flex text-amber-400">{Array.from({ length: testimonial.rating }).map((_, i) => <Star key={i} className="h-4 w-4 fill-current" />)}</div><Quote className="h-7 w-7 text-sky-100" /></div>
                     <p className="mb-7 flex-1 leading-7 text-slate-700">“{testimonial.content}”</p>
                     <div className="flex items-center gap-3">
