@@ -31,6 +31,8 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
   // Get appointments for a specific day using timezone-aware timestamps
   const getAppointmentsForDay = (day: Date) => {
     return appointments.filter(appointment => {
+      if (appointment.status === "cancelled") return false;
+
       // Use startTimestamptz if available, fallback to appointmentDate
       let appointmentDay: Date;
       

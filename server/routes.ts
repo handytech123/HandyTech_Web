@@ -881,10 +881,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ]);
 
       // Sort appointments by start time for better admin viewing
-      const sortedAppointments = appointments.sort((a, b) => 
-        new Date(a.startTimestamptz || a.appointmentDate).getTime() - 
-        new Date(b.startTimestamptz || b.appointmentDate).getTime()
-      );
+      const sortedAppointments = appointments
+        // Cancelled appointments remain in the database for customer history,
+        // but no longer occupy or clutter the active admin schedule.
+        .filter((appointment) => appointment.status !== "cancelled")
+        .sort((a, b) => 
+          new Date(a.startTimestamptz || a.appointmentDate).getTime() -
+          new Date(b.startTimestamptz || b.appointmentDate).getTime()
+        );
 
       // Sort blocked times by start time
       const sortedBlockedTimes = blockedTimes.sort((a, b) =>
