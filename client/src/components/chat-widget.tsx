@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { MessageCircle, X, Send, Bot, User, Phone } from "lucide-react";
+import { CalendarDays, ClipboardList, MapPin, MessageCircle, X, Send, Bot, User, Phone } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Message {
@@ -37,20 +37,6 @@ export function ChatWidget() {
     scrollToBottom();
   }, [messages]);
 
-  // Terminate conversation when customer leaves the website
-  useEffect(() => {
-    const handleBeforeUnload = () => {
-      if (socketRef.current && conversationId) {
-        // Terminate conversation when leaving site
-        socketRef.current.emit('visitor:terminate', { convId: conversationId });
-        localStorage.removeItem('handytech-chat-id');
-      }
-    };
-
-    window.addEventListener('beforeunload', handleBeforeUnload);
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
-  }, [conversationId]);
-
   // Initialize socket connection
   useEffect(() => {
     if (isOpen && !socketRef.current) {
@@ -79,7 +65,7 @@ export function ChatWidget() {
         if (messages.length === 0) {
           const welcomeMessage: Message = {
             id: Date.now().toString(),
-            text: "Hi there! I'm your HandyTech assistant. How can I help you with your home improvement needs today?",
+            text: "Hi! I’m HandyTech’s project assistant. I can help you book service, request a quote, check the service area, or connect you with Lou.",
             isBot: true,
             timestamp: new Date()
           };
@@ -150,6 +136,21 @@ export function ChatWidget() {
     setInputValue("");
   };
 
+  const sendQuickMessage = (text: string) => {
+    if (!socketRef.current || !isConnected) return;
+    setInputValue("");
+    const userMessage: Message = { id: `${Date.now()}-quick`, text, isBot: false, timestamp: new Date() };
+    setMessages((previous) => [...previous, userMessage]);
+    socketRef.current.emit("visitor:message", { text });
+    if (/Lou|human/i.test(text)) setStatus("pending_handoff");
+    else setIsTyping(true);
+  };
+
+  const openSection = (hash: "scheduler" | "contact") => {
+    setIsOpen(false);
+    window.location.assign(`/#${hash}`);
+  };
+
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -211,7 +212,7 @@ export function ChatWidget() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="flex flex-col">
-                    <CardTitle className="text-lg font-semibold">HandyTech Chat</CardTitle>
+                    <CardTitle className="text-lg font-semibold">HandyTech Project Assistant</CardTitle>
                     <div className="flex items-center space-x-2">
                       {getStatusBadge()}
                       {isConnected ? (
@@ -303,7 +304,7 @@ export function ChatWidget() {
               <div className="flex space-x-2">
                 <Input
                   ref={inputRef}
-                  placeholder="Type your message..."
+                  placeholder="Describe your project..."
                   value={inputValue}
                   onChange={(e) => setInputValue(e.target.value)}
                   onKeyDown={handleKeyPress}
@@ -322,31 +323,39 @@ export function ChatWidget() {
               </div>
               
               {/* Quick Actions */}
-              <div className="flex flex-wrap gap-2 mt-2">
+              <div className="grid grid-cols-2 gap-2 mt-3">
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setInputValue("I need help with electrical work")}
-                  className="text-xs"
+                  onClick={() => openSection("scheduler")}
+                  className="justify-start text-xs"
                 >
-                  Electrical
+                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />Book Service
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setInputValue("I have a plumbing issue")}
-                  className="text-xs"
+                  onClick={() => openSection("contact")}
+                  className="justify-start text-xs"
                 >
-                  Plumbing
+                  <ClipboardList className="mr-1.5 h-3.5 w-3.5" />Request Quote
                 </Button>
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={() => setInputValue("I'd like to speak with a human")}
-                  className="text-xs flex items-center"
+                  onClick={() => sendQuickMessage("Can you check whether HandyTech serves my area?")}
+                  className="justify-start text-xs"
+                >
+                  <MapPin className="mr-1.5 h-3.5 w-3.5" />Service Area
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => sendQuickMessage("I'd like to speak with Lou")}
+                  className="justify-start text-xs"
                 >
                   <Phone className="w-3 h-3 mr-1" />
-                  Human Agent
+                  Talk to Lou
                 </Button>
               </div>
             </div>

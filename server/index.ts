@@ -13,6 +13,7 @@ import { createServer } from 'http';
 import { storage } from "./storage";
 import path from "path";
 import { OpenAI } from "openai";
+import { notificationService } from "./utils/notification-service";
 
 const app = express();
 
@@ -188,11 +189,26 @@ app.use((req, res, next) => {
           
           const conversation = await storage.getChatConversation(convId);
           if (!conversation) return;
+
+          // Capture contact details naturally supplied during the conversation so
+          // the admin handoff screen becomes a useful lead record.
+          const email = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0]?.toLowerCase();
+          const phone = text.match(/(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]?\d{3}[\s.-]?\d{4}/)?.[0];
+          const name = text.match(/(?:my name is|i'm|i am|this is|call me)\s+([a-z][a-z' -]{1,60})/i)?.[1]?.trim();
+          if (email || phone || name) {
+            await storage.updateChatConversationCustomer(
+              convId,
+              conversation.customerId ?? null,
+              name || conversation.customerName || undefined,
+              email || conversation.customerEmail || undefined,
+              phone || conversation.customerPhone || undefined,
+            );
+          }
           
           // Check for human handoff request
           if (/human|agent|representative|person|live/i.test(text)) {
             await storage.updateChatConversationStatus(convId, 'pending_handoff');
-            socket.emit('bot:message', { text: "I'm connecting you with a human agent now. Please hold on..." });
+            socket.emit('bot:message', { text: "I’ve alerted Lou that you’d like personal help. Please share your name and the best phone number or email if you haven’t already." });
             
             // Notify admins
             socket.to('admin-room').emit('handoff:requested', { 
@@ -328,60 +344,58 @@ app.use((req, res, next) => {
         apiKey: process.env.OPENAI_API_KEY?.trim()
       });
       
-      const systemPrompt = `You are HandyChat for HandyTech Solutions, a professional handyman service in Missouri specializing in home improvement and smart technology solutions.
+      const activeServices = (await storage.getAllServices())
+        .filter((service) => service.isActive)
+        .map((service) => `${service.name}${service.description ? ` — ${service.description}` : ""}`)
+        .join("\n");
 
-KEY RESPONSIBILITIES:
-- Provide expert advice on electrical, plumbing, smart home installations, painting, and general home repairs
-- Give accurate time estimates and pricing guidance for common projects  
-- Schedule appointments and collect customer information
-- Be professional, knowledgeable, and solution-focused
+      const systemPrompt = `You are the HandyTech Project Assistant for HandyTech Solutions LLC, a family-owned handyman and smart-home business serving the St. Louis, Missouri area.
 
-CONVERSATION STYLE:
-- Use friendly but professional tone
-- Give specific, actionable advice
-- Ask clarifying questions to understand the customer's exact needs
-- Provide realistic timelines and cost estimates when possible
+YOUR ONLY GOALS:
+1. Identify the customer's project and urgency.
+2. Collect their name, phone or email, service address, and a short project description naturally, without repeating questions already answered.
+3. Direct them to https://handytech-solutions.com/#scheduler to book or https://handytech-solutions.com/#contact to request a quote.
+4. Offer a human handoff whenever the customer asks, appears frustrated, or the answer is uncertain.
 
-SERVICES WE OFFER:
-- Electrical: outlet installation, ceiling fans, smart switches, circuit breakers
-- Plumbing: faucet repair/replacement, toilet fixes, pipe repairs, water heater service
-- Smart Home: thermostat installation, security systems, smart lighting, home automation
-- General: painting, drywall repair, fixture installation, door/window service
+STRICT RULES:
+- Keep replies concise: normally 2-4 short sentences and at most one question.
+- Never invent pricing, availability, licensing, warranties, service areas, or policies.
+- Never claim an appointment is booked; only the booking form confirms appointments.
+- Do not diagnose dangerous electrical, gas, structural, fire, flooding, or medical situations. Tell the customer to stop, move to safety, shut off power/water only if safe, and call the appropriate emergency professional.
+- Do not provide exact estimates. Explain that HandyTech confirms scope and pricing after reviewing project details.
+- Only describe services in the ACTIVE SERVICES list. If a service is not listed, say Lou will confirm whether it is a fit.
+- Do not say you are human. Identify yourself as HandyTech's project assistant when relevant.
 
-BOOKING PROCESS:
-When customer is ready to schedule, collect: name, phone number, address, detailed project description, and preferred time/date.
+ACTIVE SERVICES:
+${activeServices || "Service list is temporarily unavailable; ask the customer to request a quote."}
 
-If customer requests human assistance, respond: "I'm connecting you with our expert technician who can provide specialized help for your project."`;
+HANDOFF:
+If the customer requests Lou, a person, a human, or an agent, respond briefly that Lou has been alerted and ask for their preferred contact method.`;
       
       const response = await openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
-        temperature: 0.4,
+        model: process.env.OPENAI_CHAT_MODEL || 'gpt-4o-mini',
+        temperature: 0.2,
         messages: [
           { role: 'system', content: systemPrompt },
-          ...history.slice(-12) // Keep last 12 messages for context
+          ...history.slice(-16)
         ]
       });
       
       return response.choices[0].message.content?.trim() || "I'm here to help! What can I do for you today?";
     } catch (error) {
       console.error('OpenAI error:', error);
-      return "I'm having trouble with my AI right now. Would you like to speak with a human agent?";
+      const lastMessage = history.at(-1)?.content.toLowerCase() || "";
+      if (/price|cost|estimate|quote/.test(lastMessage)) return "I can help you request an accurate quote. Please share a short project description and your city, or use the Request a Quote button below.";
+      if (/schedule|book|appointment|available/.test(lastMessage)) return "You can choose an available appointment using the Book Service button below. If you prefer, tell me the project type first and I’ll help you choose the right service.";
+      if (/area|location|serve|zip/.test(lastMessage)) return "HandyTech serves the St. Louis, Missouri area. Share your city or ZIP code and Lou can confirm coverage for your address.";
+      return "I can help with booking, quote requests, service-area questions, or connecting you with Lou. Which would you like?";
     }
   }
   
   async function notifyAdminOfHandoff(convId: string, message: string) {
     try {
-      // Email notification (if configured)
-      if (process.env.ADMIN_EMAIL) {
-        console.log(`Chat handoff requested: ${convId} - ${message}`);
-        // Email notification would go here in production
-      }
-      
-      // SMS notification (if configured)
-      if (process.env.ALERT_TO_SMS) {
-        console.log(`SMS alert: Customer requesting human agent. Conversation: ${convId.slice(-8)}`);
-        // SMS notification would go here in production
-      }
+      await notificationService.notifyHandoffRequest(convId, message);
+      console.log(`Chat handoff notification sent: ${convId}`);
     } catch (error) {
       console.error('Notification error:', error);
     }

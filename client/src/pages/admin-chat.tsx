@@ -36,6 +36,7 @@ interface ChatConversation {
   status: 'bot' | 'pending_handoff' | 'human';
   customerName?: string;
   customerEmail?: string;
+  customerPhone?: string;
   lastMessageAt: string;
   createdAt: string;
 }
@@ -311,6 +312,8 @@ export default function AdminChat() {
                           {getStatusBadge(conv.status)}
                         </div>
                         <div className="text-xs text-gray-500">
+                          {conv.customerEmail && <div>{conv.customerEmail}</div>}
+                          {conv.customerPhone && <div>{conv.customerPhone}</div>}
                           {formatTime(conv.lastMessageAt)}
                         </div>
                       </div>

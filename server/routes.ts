@@ -2722,6 +2722,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: c.status,
         customerName: c.customerName,
         customerEmail: c.customerEmail,
+        customerPhone: c.customerPhone,
         lastMessageAt: c.lastMessageAt,
         createdAt: c.createdAt
       }));
