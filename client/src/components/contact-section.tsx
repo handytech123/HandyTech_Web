@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { Link } from "wouter";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { insertQuoteSchema } from "@shared/schema";
+import { insertQuoteSchema, type Service } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,7 +11,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { Phone, Mail, Clock } from "lucide-react";
+import { createCsrfHeaders } from "@/lib/csrf";
+import { Phone, Mail, Clock, ImagePlus, Video, X } from "lucide-react";
 import { z } from "zod";
 
 const quoteFormSchema = insertQuoteSchema.extend({
@@ -24,6 +25,15 @@ type QuoteFormData = z.infer<typeof quoteFormSchema>;
 export default function ContactSection() {
   const { toast } = useToast();
   const [smsConsent, setSmsConsent] = useState(false);
+  const [selectedServiceIds, setSelectedServiceIds] = useState<number[]>([]);
+  const [photos, setPhotos] = useState<File[]>([]);
+  const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
+  const [video, setVideo] = useState<File | null>(null);
+  const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const { data: services = [] } = useQuery<Service[]>({ queryKey: ["/api/services"] });
+  const quoteServices = services.filter((service) => service.isActive && service.includedInQuoteCalculator && service.basePrice > 0);
+  const selectedServices = quoteServices.filter((service) => selectedServiceIds.includes(service.id));
+  const estimatedPrice = selectedServices.reduce((total, service) => total + service.basePrice, 0);
 
   const form = useForm<QuoteFormData>({
     resolver: zodResolver(quoteFormSchema),
@@ -45,28 +55,47 @@ export default function ContactSection() {
 
   const submitQuote = useMutation({
     mutationFn: async (data: QuoteFormData) => {
+      const body = new FormData();
+      body.append("quote", JSON.stringify(data));
+      photos.forEach((photo) => body.append("photos", photo));
+      if (video) body.append("video", video);
+      const headers = await createCsrfHeaders();
       const response = await fetch("/api/quotes", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        headers,
+        body,
+        credentials: "include",
       });
-      if (!response.ok) throw new Error("Failed to submit quote");
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ message: "Failed to submit quote" }));
+        throw new Error(error.message || "Failed to submit quote");
+      }
       return response.json();
     },
     onSuccess: () => {
       toast({ title: "Quote request submitted successfully!" });
       form.reset();
       setSmsConsent(false);
+      setSelectedServiceIds([]);
+      photoPreviews.forEach((url) => URL.revokeObjectURL(url));
+      if (videoPreview) URL.revokeObjectURL(videoPreview);
+      setPhotos([]); setPhotoPreviews([]); setVideo(null); setVideoPreview(null);
     },
-    onError: () => {
-      toast({ title: "Failed to submit quote request", variant: "destructive" });
+    onError: (error: Error) => {
+      toast({ title: "Failed to submit quote request", description: error.message, variant: "destructive" });
     },
   });
 
 
 
   const onSubmit = (data: QuoteFormData) => {
-    submitQuote.mutate({ ...data, smsConsent });
+    submitQuote.mutate({
+      ...data,
+      smsConsent,
+      serviceNeeded: selectedServices.length ? selectedServices.map((service) => service.name).join(", ") : data.serviceNeeded,
+      selectedServices: selectedServices.length ? selectedServices.map((service) => service.name) : [data.serviceNeeded],
+      estimatedPrice: selectedServices.length ? estimatedPrice : undefined,
+    });
   };
 
   return (

@@ -107,11 +107,22 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
     });
   };
 
-  const addPhotos = (files: FileList | null) => {
+  const optimizeReviewPhoto = async (file: File): Promise<File> => {
+    const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
+    const scale = Math.min(1, 1920 / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bitmap.width * scale); canvas.height = Math.round(bitmap.height * scale);
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/webp", 0.84));
+    return blob ? new File([blob], file.name.replace(/\.[^.]+$/, "") + ".webp", { type: "image/webp" }) : file;
+  };
+
+  const addPhotos = async (files: FileList | null) => {
     if (!files) return;
     const selected = Array.from(files).filter((file) => file.type.startsWith("image/"));
     const available = Math.max(0, 4 - photos.length);
-    const accepted = selected.slice(0, available);
+    const accepted = await Promise.all(selected.slice(0, available).map(optimizeReviewPhoto));
     if (selected.length > available) {
       toast({ title: "Four-photo maximum", description: "You can attach up to four project photos.", variant: "destructive" });
     }
@@ -127,8 +138,8 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
 
   const selectVideo = (file: File | undefined) => {
     if (!file) return;
-    if (file.size > 60 * 1024 * 1024) {
-      toast({ title: "Video is too large", description: "Please choose a video smaller than 60 MB.", variant: "destructive" });
+    if (file.size > 200 * 1024 * 1024) {
+      toast({ title: "Video is too large", description: "Please choose a video smaller than 200 MB.", variant: "destructive" });
       return;
     }
     if (videoPreview) URL.revokeObjectURL(videoPreview);
@@ -403,7 +414,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               {!videoPreview ? (
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
                   <Video className="h-5 w-5" />
-                  <span>Add one short project video (maximum 60 MB)</span>
+                  <span>Add one project video — automatically compressed (maximum 200 MB)</span>
                   <Input
                     type="file"
                     accept="video/mp4,video/quicktime,video/webm"

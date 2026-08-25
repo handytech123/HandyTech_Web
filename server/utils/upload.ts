@@ -3,8 +3,12 @@ import sharp from "sharp";
 import crypto from "crypto";
 import fs from "fs/promises";
 import path from "path";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import type { Request, Response, NextFunction } from "express";
 import { withDatabaseRetry } from "./database-error-handling";
+
+const execFileAsync = promisify(execFile);
 
 /**
  * Supported image types and their MIME type mappings
@@ -569,7 +573,7 @@ const REVIEW_VIDEO_TYPES: Record<string, string> = {
 export function handleOptionalReviewMediaUpload() {
   const reviewMediaUpload = multer({
     storage: multer.memoryStorage(),
-    limits: { fileSize: 60 * 1024 * 1024, files: 5 },
+    limits: { fileSize: 200 * 1024 * 1024, files: 5 },
     fileFilter: (_req, file, callback) => {
       const allowed = UPLOAD_CONFIG.allowedMimeTypes.includes(file.mimetype) || Boolean(REVIEW_VIDEO_TYPES[file.mimetype]);
       if (!allowed) return callback(new UploadError("Use JPG, PNG, WebP, MP4, MOV, or WebM files.", "INVALID_MEDIA_TYPE", 400));
@@ -605,8 +609,22 @@ export function handleOptionalReviewMediaUpload() {
           const uploadPath = path.join("reviews", getDateBasedPath());
           const uploadDirectory = path.join(UPLOAD_CONFIG.uploadDir, uploadPath);
           await ensureDirectoryExists(uploadDirectory);
-          const filename = `${generateSecureFilename()}.${extension}`;
-          await fs.writeFile(path.join(uploadDirectory, filename), videoFile.buffer);
+          const secureName = generateSecureFilename();
+          const temporaryInput = path.join(uploadDirectory, `${secureName}-source.${extension}`);
+          const filename = `${secureName}.mp4`;
+          const outputPath = path.join(uploadDirectory, filename);
+          await fs.writeFile(temporaryInput, videoFile.buffer);
+          try {
+            await execFileAsync("ffmpeg", [
+              "-y", "-loglevel", "error", "-i", temporaryInput,
+              "-vf", "scale='min(1280,iw)':-2",
+              "-c:v", "libx264", "-preset", "veryfast", "-crf", "28",
+              "-c:a", "aac", "-b:a", "96k",
+              "-movflags", "+faststart", outputPath,
+            ], { timeout: 15 * 60 * 1000, maxBuffer: 2 * 1024 * 1024 });
+          } finally {
+            await fs.unlink(temporaryInput).catch(() => undefined);
+          }
           savedVideoUrl = `/uploads/${uploadPath}/${filename}`.replace(/\\/g, "/");
         }
 

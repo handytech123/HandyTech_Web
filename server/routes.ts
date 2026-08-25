@@ -1955,9 +1955,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/quotes", async (req, res) => {
+  app.post("/api/quotes", handleOptionalReviewMediaUpload(), async (req: Request, res: Response) => {
+    const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
+    const processedVideoUrl = ((req as any).processedReviewVideoUrl || null) as string | null;
     try {
-      const quoteData = insertQuoteSchema.parse(req.body);
+      const rawQuote = typeof req.body.quote === "string" ? JSON.parse(req.body.quote) : req.body;
+      const quoteData = insertQuoteSchema.parse({
+        ...rawQuote,
+        photoUrls: processedImages.map((image) => image.sizes.large.url),
+        videoUrl: processedVideoUrl,
+      });
       const quote = await storage.createQuote(quoteData);
       
       // Auto-create customer if they don't exist
@@ -1994,6 +2001,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(quote);
     } catch (error) {
+      if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
+      if (processedVideoUrl) {
+        const relativeVideoPath = processedVideoUrl.replace(/^\/uploads\//, "");
+        await fs.unlink(path.join(process.cwd(), "server", "public", "uploads", relativeVideoPath)).catch(() => undefined);
+      }
       if (error instanceof z.ZodError) {
         res.status(400).json({ message: "Invalid quote data", errors: error.errors });
       } else {

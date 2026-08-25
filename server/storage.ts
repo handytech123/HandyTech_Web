@@ -716,6 +716,10 @@ export class MemStorage {
       id: this.currentQuoteId++,
       company: insertQuote.company || null,
       message: insertQuote.message || null,
+      selectedServices: insertQuote.selectedServices || null,
+      estimatedPrice: insertQuote.estimatedPrice ?? null,
+      photoUrls: insertQuote.photoUrls || null,
+      videoUrl: insertQuote.videoUrl || null,
       status: "pending",
       createdAt: new Date(),
     };
