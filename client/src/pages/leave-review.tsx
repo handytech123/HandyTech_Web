@@ -1,9 +1,10 @@
 import { Helmet } from 'react-helmet';
-import { Link } from "wouter";
+import { Link, useLocation } from "wouter";
 import { ArrowLeft } from "lucide-react";
 import CustomerReviewForm from "@/components/customer-review-form";
 
 export default function LeaveReview() {
+  const [, setLocation] = useLocation();
   return (
     <div className="min-h-screen bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
       <Helmet>
@@ -79,7 +80,7 @@ export default function LeaveReview() {
           </div>
         </div>
 
-        <CustomerReviewForm />
+        <CustomerReviewForm onSuccess={() => setLocation("/review-thank-you")} />
         
         <div className="text-center mt-8">
           <p className="text-gray-500 text-sm">
