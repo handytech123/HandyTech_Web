@@ -91,7 +91,8 @@ export default function RescheduleAppointmentDialog({
         from: startOfDay.toISOString(),
         to: endOfDay.toISOString(),
         hours: appointmentDuration.toString(),
-        excludeAppointmentId: appointment?.id?.toString() || "" // Exclude current appointment from availability check
+        excludeAppointmentId: appointment?.id?.toString() || "", // Exclude current appointment from availability check
+        allowBackToBack: "true",
       });
       
       const response = await fetch(`/api/availability?${queryParams}`);

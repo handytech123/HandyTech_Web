@@ -3211,7 +3211,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         excludeAppointmentId: z.string().refine((val) => {
           const parsed = parseInt(val);
           return !isNaN(parsed) && parsed > 0;
-        }, { message: "Appointment ID must be a positive integer" }).optional()
+        }, { message: "Appointment ID must be a positive integer" }).optional(),
+        allowBackToBack: z.enum(["true", "false"]).optional()
       }).refine((data) => {
         // Require either hours OR serviceId
         return data.hours || data.serviceId;
@@ -3275,10 +3276,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Use default values as specified
       const stepMinutes = 30;
-      const bufferMinutes = 15;
+      const isAdminAvailabilityRequest = (req.session as any)?.isAdmin === true;
+      const bufferMinutes = isAdminAvailabilityRequest && validatedQuery.allowBackToBack === "true" ? 0 : 15;
       // Only an authenticated administrator may exclude an appointment while
       // calculating availability (used when moving that same appointment).
-      const excludeAppointmentId = (req.session as any)?.isAdmin === true && validatedQuery.excludeAppointmentId
+      const excludeAppointmentId = isAdminAvailabilityRequest && validatedQuery.excludeAppointmentId
         ? parseInt(validatedQuery.excludeAppointmentId)
         : undefined;
       
