@@ -1148,12 +1148,16 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
                     </div>
                     
                     <div>
-                      {(customer.city || customer.state) && (
-                        <div className="flex items-center gap-2">
+                      {(customer.street || customer.city || customer.state || customer.zip) && (
+                        <div className="flex items-start gap-2">
                           <MapPin className="h-4 w-4 text-gray-400" />
-                          <span className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-location-${customer.id}`}>
-                            {[customer.city, customer.state].filter(Boolean).join(", ")}
-                          </span>
+                          <div className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-location-${customer.id}`}>
+                            {customer.street && <div>{customer.street}</div>}
+                            <div>
+                              {[customer.city, customer.state].filter(Boolean).join(", ")}
+                              {customer.zip ? ` ${customer.zip}` : ""}
+                            </div>
+                          </div>
                         </div>
                       )}
                       <div className="text-sm text-gray-500 mt-2">

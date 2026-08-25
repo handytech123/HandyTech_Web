@@ -2008,6 +2008,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
           state: quote.state || "",
           zip: quote.zip || "",
         });
+      } else {
+        // A returning customer may have been created before an address was
+        // collected. Fill only missing profile fields from the quote request
+        // so newer, manually maintained customer information is preserved.
+        const profileUpdates: Partial<InsertCustomer> = {};
+        if (!existingCustomer.phone && quote.phone) profileUpdates.phone = quote.phone;
+        if (!existingCustomer.company && quote.company) profileUpdates.company = quote.company;
+        if (!existingCustomer.street && quote.street) profileUpdates.street = quote.street;
+        if (!existingCustomer.city && quote.city) profileUpdates.city = quote.city;
+        if (!existingCustomer.state && quote.state) profileUpdates.state = quote.state;
+        if (!existingCustomer.zip && quote.zip) profileUpdates.zip = quote.zip;
+        if (Object.keys(profileUpdates).length > 0) {
+          await storage.updateCustomer(existingCustomer.id, profileUpdates);
+        }
       }
 
       // Send email notification for quote request
