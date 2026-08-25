@@ -335,7 +335,7 @@ export function securityHeaders(req: Request, res: Response, next: NextFunction)
   const scriptSrc = process.env.NODE_ENV === "production" 
     ? "'self'" 
     : "'self' 'unsafe-inline' https://replit.com";
-  res.setHeader('Content-Security-Policy', `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:;`);
+  res.setHeader('Content-Security-Policy', `default-src 'self'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; media-src 'self' blob:;`);
   
   // Prevent content type sniffing
   res.setHeader('X-Download-Options', 'noopen');

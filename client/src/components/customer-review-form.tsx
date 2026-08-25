@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { ImagePlus, Star, Video, X } from "lucide-react";
+import { ImagePlus, Maximize2, Star, Video, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -31,6 +31,9 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
   const [photoPreviews, setPhotoPreviews] = useState<string[]>([]);
   const [video, setVideo] = useState<File | null>(null);
   const [videoPreview, setVideoPreview] = useState<string | null>(null);
+  const [expandedMedia, setExpandedMedia] = useState<{ type: "photo" | "video"; url: string } | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [submissionError, setSubmissionError] = useState("");
 
   const form = useForm<ReviewFormData>({
     resolver: zodResolver(reviewFormSchema),
@@ -49,16 +52,35 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
 
   const submitReviewMutation = useMutation({
     mutationFn: async (data: ReviewFormData) => {
+      setSubmissionError("");
+      setUploadProgress(1);
       const body = new FormData();
       body.append("review", JSON.stringify(data));
       photos.forEach((photo) => body.append("photos", photo));
       if (video) body.append("video", video);
       const headers = await createCsrfHeaders();
-      const response = await fetch("/api/reviews/submit", {
-        method: "POST",
-        headers,
-        body,
-        credentials: "include",
+      const response = await new Promise<{ ok: boolean; status: number; json: () => Promise<any> }>((resolve, reject) => {
+        const request = new XMLHttpRequest();
+        request.open("POST", "/api/reviews/submit");
+        request.withCredentials = true;
+        Object.entries(headers).forEach(([name, value]) => request.setRequestHeader(name, value));
+        request.upload.onprogress = (event) => {
+          if (event.lengthComputable) setUploadProgress(Math.max(1, Math.round((event.loaded / event.total) * 90)));
+        };
+        request.onload = () => {
+          setUploadProgress(100);
+          resolve({
+            ok: request.status >= 200 && request.status < 300,
+            status: request.status,
+            json: async () => {
+              try { return JSON.parse(request.responseText); } catch { return {}; }
+            },
+          });
+        };
+        request.onerror = () => reject(new Error("The upload was interrupted. Check your connection and try again."));
+        request.ontimeout = () => reject(new Error("The upload took too long. Try a shorter video or a stronger connection."));
+        request.timeout = 20 * 60 * 1000;
+        request.send(body);
       });
       if (!response.ok) {
         const error = await response.json().catch(() => ({ message: "Review submission failed" }));
@@ -80,6 +102,8 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       if (videoPreview) URL.revokeObjectURL(videoPreview);
       setVideo(null);
       setVideoPreview(null);
+      setUploadProgress(0);
+      setSubmissionError("");
       
       // Refresh reviews
       queryClient.invalidateQueries({ queryKey: ["/api/reviews"] });
@@ -87,6 +111,8 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       if (onSuccess) onSuccess();
     },
     onError: (error: any) => {
+      setUploadProgress(0);
+      setSubmissionError(error.message || "There was a problem submitting your review. Please try again.");
       toast({
         title: "Error Submitting Review",
         description: error.message || "There was a problem submitting your review. Please try again.",
@@ -402,7 +428,9 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                 {photoPreviews.map((preview, index) => (
                   <div key={preview} className="relative aspect-square overflow-hidden rounded-lg border bg-gray-100">
-                    <img src={preview} alt={`Selected project photo ${index + 1}`} className="h-full w-full object-cover" />
+                    <button type="button" onClick={() => setExpandedMedia({ type: "photo", url: preview })} className="h-full w-full" aria-label={`Preview photo ${index + 1} full size`}>
+                      <img src={preview} alt={`Selected project photo ${index + 1}`} className="h-full w-full object-cover" />
+                    </button>
                     <button type="button" onClick={() => removePhoto(index)} className="absolute right-1 top-1 rounded-full bg-black/70 p-1 text-white" aria-label={`Remove photo ${index + 1}`}>
                       <X className="h-4 w-4" />
                     </button>
@@ -426,6 +454,9 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               ) : (
                 <div className="relative overflow-hidden rounded-lg border bg-black">
                   <video src={videoPreview} controls preload="metadata" className="max-h-80 w-full" aria-label="Selected review video" />
+                  <button type="button" onClick={() => setExpandedMedia({ type: "video", url: videoPreview })} className="absolute left-2 top-2 flex items-center gap-1 rounded bg-black/75 px-2 py-1 text-xs text-white" aria-label="Preview video full size">
+                    <Maximize2 className="h-3.5 w-3.5" /> Expand
+                  </button>
                   <button type="button" onClick={removeVideo} className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 text-white" aria-label="Remove video">
                     <X className="h-4 w-4" />
                   </button>
@@ -435,8 +466,17 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
           </div>
 
           <div className="pt-4 border-t">
+            {submitReviewMutation.isPending && (
+              <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3" role="status" aria-live="polite">
+                <div className="mb-2 flex justify-between text-sm font-medium text-blue-900"><span>{uploadProgress < 90 ? "Uploading your media…" : "Processing and saving your review…"}</span><span>{uploadProgress}%</span></div>
+                <div className="h-2 overflow-hidden rounded-full bg-blue-100"><div className="h-full bg-blue-600 transition-all" style={{ width: `${uploadProgress}%` }} /></div>
+                <p className="mt-2 text-xs text-blue-800">Please keep this page open. Videos may take several minutes to compress.</p>
+              </div>
+            )}
+            {submissionError && <div className="mb-4 rounded-lg border border-red-300 bg-red-50 p-3 text-sm font-medium text-red-800" role="alert">{submissionError}</div>}
             <Button 
-              type="submit"
+              type="button"
+              onClick={form.handleSubmit(onSubmit, onInvalid)}
               disabled={submitReviewMutation.isPending}
               className="w-full bg-brand-red hover:bg-brand-red-dark text-white py-3 text-lg font-semibold"
               data-testid="button-submit-review"
@@ -452,6 +492,14 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
           </form>
         </Form>
       </CardContent>
+      {expandedMedia && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4" role="dialog" aria-modal="true" aria-label={`${expandedMedia.type} preview`} onClick={() => setExpandedMedia(null)}>
+          <button type="button" onClick={() => setExpandedMedia(null)} className="absolute right-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25" aria-label="Close preview"><X className="h-6 w-6" /></button>
+          {expandedMedia.type === "photo"
+            ? <img src={expandedMedia.url} alt="Full-size selected project preview" className="max-h-[90vh] max-w-[95vw] object-contain" onClick={(event) => event.stopPropagation()} />
+            : <video src={expandedMedia.url} controls autoPlay className="max-h-[90vh] max-w-[95vw]" onClick={(event) => event.stopPropagation()} />}
+        </div>
+      )}
     </Card>
   );
 }
