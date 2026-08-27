@@ -2542,6 +2542,12 @@ function AuthenticatedDashboard() {
   const [manualReviewEmail, setManualReviewEmail] = useState("");
   const [manualReviewService, setManualReviewService] = useState("");
   const [manualReviewMessage, setManualReviewMessage] = useState("");
+  const [newQuoteDialogOpen, setNewQuoteDialogOpen] = useState(false);
+  const [newQuoteCustomerSearch, setNewQuoteCustomerSearch] = useState("");
+  const [newQuoteCustomerId, setNewQuoteCustomerId] = useState("");
+  const [newQuoteService, setNewQuoteService] = useState("");
+  const [newQuoteNotes, setNewQuoteNotes] = useState("");
+  const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -2644,6 +2650,34 @@ function AuthenticatedDashboard() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
     }
+  });
+
+  const createAdminQuoteMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest("/api/admin/quotes", "POST", {
+        customerId: Number(newQuoteCustomerId),
+        serviceNeeded: newQuoteService,
+        message: newQuoteNotes,
+      });
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      setNewQuoteDialogOpen(false);
+      setNewQuoteCustomerSearch(""); setNewQuoteCustomerId(""); setNewQuoteService(""); setNewQuoteNotes("");
+      toast({ title: "Quote created", description: "The draft is ready to build, preview, and send." });
+    },
+    onError: (error: Error) => toast({ title: "Quote not created", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteQuoteMutation = useMutation({
+    mutationFn: async (id: number) => { await apiRequest(`/api/admin/quotes/${id}`, "DELETE"); },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/quotes"] });
+      setDeleteQuoteId(null);
+      toast({ title: "Quote deleted" });
+    },
+    onError: (error: Error) => toast({ title: "Quote not deleted", description: error.message, variant: "destructive" }),
   });
 
   const updateAppointmentStatusMutation = useMutation({
@@ -2825,9 +2859,21 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="quotes">
             <Card>
-              <CardHeader>
-                <CardTitle>Quote Requests</CardTitle>
-                <CardDescription>Manage incoming service quote requests</CardDescription>
+              <CardHeader className="flex flex-row items-start justify-between gap-4">
+                <div><CardTitle>Quote Requests</CardTitle><CardDescription>Manage incoming requests or start a quote for an existing customer</CardDescription></div>
+                <Dialog open={newQuoteDialogOpen} onOpenChange={setNewQuoteDialogOpen}>
+                  <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />New Customer Quote</Button></DialogTrigger>
+                  <DialogContent className="max-w-xl">
+                    <DialogHeader><DialogTitle>New Quote for Existing Customer</DialogTitle><DialogDescription>Create a private draft. Nothing is emailed until you build, preview, and send it.</DialogDescription></DialogHeader>
+                    <div className="space-y-4">
+                      <div><label className="text-sm font-medium">Find customer</label><Input value={newQuoteCustomerSearch} onChange={(event) => setNewQuoteCustomerSearch(event.target.value)} placeholder="Search by name, email, or phone" /></div>
+                      <div><label className="text-sm font-medium">Customer</label><Select value={newQuoteCustomerId} onValueChange={setNewQuoteCustomerId}><SelectTrigger><SelectValue placeholder="Select an existing customer" /></SelectTrigger><SelectContent>{customers.filter((customer) => `${customer.firstName} ${customer.lastName} ${customer.email} ${customer.phone || ""}`.toLowerCase().includes(newQuoteCustomerSearch.toLowerCase())).slice(0, 100).map((customer) => <SelectItem key={customer.id} value={String(customer.id)}>{customer.firstName} {customer.lastName} · {customer.email}</SelectItem>)}</SelectContent></Select></div>
+                      <div><label className="text-sm font-medium">Project or service</label><Input value={newQuoteService} onChange={(event) => setNewQuoteService(event.target.value)} placeholder="Example: Davis Office painting and repairs" /></div>
+                      <div><label className="text-sm font-medium">Project notes</label><Textarea rows={7} value={newQuoteNotes} onChange={(event) => setNewQuoteNotes(event.target.value)} placeholder="Paste the ChatGPT Project summary or enter your job notes here." /></div>
+                      <Button className="w-full" disabled={!newQuoteCustomerId || newQuoteService.trim().length < 2 || createAdminQuoteMutation.isPending} onClick={() => createAdminQuoteMutation.mutate()}>{createAdminQuoteMutation.isPending ? "Creating..." : "Create Quote Draft"}</Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -2866,6 +2912,10 @@ function AuthenticatedDashboard() {
                         >
                           Mark Converted
                         </Button>
+                        <AlertDialog open={deleteQuoteId === quote.id} onOpenChange={(isOpen) => !isOpen && setDeleteQuoteId(null)}>
+                          <AlertDialogTrigger asChild><Button size="sm" variant="destructive" onClick={() => setDeleteQuoteId(quote.id)}><Trash2 className="mr-2 h-4 w-4" />Delete</Button></AlertDialogTrigger>
+                          <AlertDialogContent><AlertDialogHeader><AlertDialogTitle>Delete this quote?</AlertDialogTitle><AlertDialogDescription>This permanently removes the quote and any sent proposal or signature linked to it. Use this for test or duplicate quotes only.</AlertDialogDescription></AlertDialogHeader><AlertDialogFooter><AlertDialogCancel>Keep Quote</AlertDialogCancel><AlertDialogAction onClick={() => deleteQuoteMutation.mutate(quote.id)} disabled={deleteQuoteMutation.isPending}>{deleteQuoteMutation.isPending ? "Deleting..." : "Delete Quote"}</AlertDialogAction></AlertDialogFooter></AlertDialogContent>
+                        </AlertDialog>
                       </div>
                     </div>
                   ))}

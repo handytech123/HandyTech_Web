@@ -2022,6 +2022,52 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/quotes", requireAdmin, async (req, res) => {
+    const adminQuoteSchema = z.object({
+      customerId: z.coerce.number().int().positive(),
+      serviceNeeded: z.string().trim().min(2).max(240),
+      message: z.string().trim().max(8000).optional().default(""),
+    });
+    try {
+      const data = adminQuoteSchema.parse(req.body);
+      const customer = await storage.getCustomer(data.customerId);
+      if (!customer) return res.status(404).json({ message: "Customer not found" });
+      const quote = await storage.createQuote(insertQuoteSchema.parse({
+        firstName: customer.firstName,
+        lastName: customer.lastName,
+        email: customer.email,
+        phone: customer.phone || null,
+        company: customer.company || null,
+        street: customer.street || null,
+        city: customer.city || null,
+        state: customer.state || null,
+        zip: customer.zip || null,
+        serviceNeeded: data.serviceNeeded,
+        message: data.message || null,
+        status: "pending",
+      }));
+      res.status(201).json(quote);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Choose a customer and enter the project details", errors: error.errors });
+      console.error("Admin create quote error:", error);
+      res.status(500).json({ message: "The quote could not be created" });
+    }
+  });
+
+  app.delete("/api/admin/quotes/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote not found" });
+      await storage.deleteQuote(id);
+      res.json({ message: "Quote deleted" });
+    } catch (error) {
+      console.error("Delete quote error:", error);
+      res.status(500).json({ message: "The quote could not be deleted" });
+    }
+  });
+
   app.post("/api/quotes", handleOptionalQuoteMediaUpload(), async (req: Request, res: Response) => {
     const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
     const processedVideoUrls = ((req as any).processedQuoteVideoUrls || []) as string[];

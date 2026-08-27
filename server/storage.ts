@@ -69,6 +69,7 @@ export interface IStorage {
   getQuote(id: number): Promise<Quote | undefined>;
   getAllQuotes(): Promise<Quote[]>;
   createQuote(quote: InsertQuote): Promise<Quote>;
+  deleteQuote(id: number): Promise<void>;
   updateQuoteStatus(id: number, status: string): Promise<void>;
   saveQuoteProposal(proposal: InsertQuoteProposal): Promise<QuoteProposal>;
   getQuoteProposalByToken(rawToken: string): Promise<QuoteProposal | undefined>;
@@ -733,6 +734,13 @@ export class MemStorage {
     };
     this.quotes.set(quote.id, quote);
     return quote;
+  }
+
+  async deleteQuote(id: number): Promise<void> {
+    this.quotes.delete(id);
+    for (const [proposalId, proposal] of Array.from(this.quoteProposals.entries())) {
+      if (proposal.quoteId === id) this.quoteProposals.delete(proposalId);
+    }
   }
 
   async updateQuoteStatus(id: number, status: string): Promise<void> {
@@ -1539,7 +1547,15 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteCustomer(id: number): Promise<void> {
-    await db.delete(customers).where(eq(customers.id, id));
+    await db.transaction(async (tx) => {
+      await tx.delete(emailCampaigns).where(eq(emailCampaigns.customerId, id));
+      await tx.delete(reviews).where(eq(reviews.customerId, id));
+      await tx.delete(maintenancePlans).where(eq(maintenancePlans.customerId, id));
+      await tx.delete(portalLoginTokens).where(eq(portalLoginTokens.customerId, id));
+      await tx.delete(appointments).where(eq(appointments.customerId, id));
+      await tx.delete(chatConversations).where(eq(chatConversations.customerId, id));
+      await tx.delete(customers).where(eq(customers.id, id));
+    });
   }
 
   // Maintenance Plans
@@ -1680,6 +1696,10 @@ export class DatabaseStorage implements IStorage {
   async createQuote(quote: InsertQuote): Promise<Quote> {
     const [created] = await db.insert(quotes).values(quote).returning();
     return created;
+  }
+
+  async deleteQuote(id: number): Promise<void> {
+    await db.delete(quotes).where(eq(quotes.id, id));
   }
 
   async updateQuoteStatus(id: number, status: string): Promise<void> {
