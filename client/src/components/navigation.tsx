@@ -38,8 +38,11 @@ export default function Navigation() {
           <Link href="/customer-portal" className="ml-2">
             <Button variant="outline" size="sm">Customer Portal</Button>
           </Link>
-          <Button onClick={() => scrollToSection("contact")} size="sm" className="ml-2 bg-brand-blue px-5 text-white hover:bg-brand-blue-dark">
-            Get a Free Quote
+          <button onClick={() => scrollToSection("contact")} className="ml-2 rounded-md px-3 py-2 text-sm font-medium text-brand-blue hover:bg-blue-50">
+            Free Quote
+          </button>
+          <Button onClick={() => scrollToSection("scheduler")} size="sm" className="bg-brand-blue px-5 text-white hover:bg-brand-blue-dark">
+            Book a Visit
           </Button>
         </div>
 
@@ -61,7 +64,8 @@ export default function Navigation() {
                 ))}
                 <Link href="/gallery" onClick={() => setIsOpen(false)} className="rounded-md px-3 py-3 font-medium text-slate-800 hover:bg-slate-100">Projects</Link>
                 <Link href="/customer-portal" onClick={() => setIsOpen(false)} className="rounded-md px-3 py-3 font-medium text-slate-800 hover:bg-slate-100">Customer Portal</Link>
-                <Button onClick={() => scrollToSection("contact")} className="mt-4 bg-brand-blue text-white hover:bg-brand-blue-dark">Get a Free Quote</Button>
+                <Button onClick={() => scrollToSection("scheduler")} className="mt-4 bg-brand-blue text-white hover:bg-brand-blue-dark">Book a Visit</Button>
+                <Button onClick={() => scrollToSection("contact")} variant="outline">Request a Free Quote</Button>
               </div>
             </SheetContent>
           </Sheet>

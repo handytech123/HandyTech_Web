@@ -21,13 +21,16 @@ export default function HeroSection() {
             From everyday repairs to smart-home upgrades and room renovations, HandyTech Solutions brings careful workmanship and clear communication to every project.
           </p>
           <div className="mt-8 flex flex-col justify-center gap-3 sm:flex-row lg:justify-start">
-            <Button onClick={() => scrollToSection("contact")} size="lg" className="bg-brand-blue px-7 text-white shadow-lg shadow-blue-900/10 hover:bg-brand-blue-dark">
-              Get a Free Quote <ArrowRight className="ml-2 h-4 w-4" />
+            <Button onClick={() => scrollToSection("scheduler")} size="lg" className="bg-brand-blue px-7 text-white shadow-lg shadow-blue-900/10 hover:bg-brand-blue-dark">
+              Book a Visit <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
-            <Button asChild variant="outline" size="lg" className="border-slate-300 bg-white px-7 text-slate-800">
-              <Link href="/gallery">See Recent Projects</Link>
+            <Button onClick={() => scrollToSection("contact")} variant="outline" size="lg" className="border-slate-300 bg-white px-7 text-slate-800">
+              Request a Free Quote
             </Button>
           </div>
+          <Link href="/gallery" className="mt-5 inline-flex items-center text-sm font-semibold text-brand-blue hover:underline">
+            See recent projects <ArrowRight className="ml-1 h-4 w-4" />
+          </Link>
           <div className="mt-8 flex flex-wrap justify-center gap-x-6 gap-y-3 text-sm font-medium text-slate-600 lg:justify-start">
             {["Family owned", "Fully insured", "10+ years of experience"].map((item) => (
               <span key={item} className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-brand-blue" />{item}</span>

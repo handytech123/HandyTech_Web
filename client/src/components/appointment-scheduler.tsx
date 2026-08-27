@@ -738,7 +738,7 @@ export default function AppointmentScheduler() {
                       </div>
 
                       <FormItem>
-                        <FormLabel>Select Job Type</FormLabel>
+                        <FormLabel>{bookingType === "consultation" ? "What would you like us to evaluate?" : "Select Service"}</FormLabel>
                         <Select onValueChange={(value) => {
                           const service = allActiveServices.find(s => s.id === parseInt(value));
                           if (service) {
@@ -748,7 +748,7 @@ export default function AppointmentScheduler() {
                         }} value={selectedService?.id.toString() || ""}>
                           <FormControl>
                             <SelectTrigger data-testid="select-service">
-                              <SelectValue placeholder="Choose your job type" />
+                              <SelectValue placeholder={bookingType === "consultation" ? "Choose a project type" : "Choose a service"} />
                             </SelectTrigger>
                           </FormControl>
                           <SelectContent>
@@ -766,11 +766,11 @@ export default function AppointmentScheduler() {
                         name="notes"
                         render={({ field }) => (
                           <FormItem>
-                            <FormLabel>Additional Comments (Optional)</FormLabel>
+                            <FormLabel>{bookingType === "consultation" ? "Project Details" : "Additional Comments (Optional)"}</FormLabel>
                             <FormControl>
                               <Textarea 
                                 {...field} 
-                                placeholder="Any specific details, preferences, or special instructions..."
+                                placeholder={bookingType === "consultation" ? "Describe the project, your goals, and anything you want us to inspect..." : "Any specific details, preferences, or special instructions..."}
                                 data-testid="textarea-notes"
                                 value={field.value || ""}
                               />

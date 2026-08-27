@@ -98,10 +98,10 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4" style={{color: '#7BB3E8'}}>Company</h4>
             <ul className="space-y-2 text-blue-100">
-              <li><a href="/#testimonials" className="hover:text-white transition-colors">About Us</a></li>
+              <li><a href="/#services" className="hover:text-white transition-colors">Our Services</a></li>
               <li><Link href="/gallery" className="hover:text-white transition-colors" data-testid="link-gallery-footer">Project Gallery</Link></li>
-              <li><a href="/#testimonials" className="hover:text-white transition-colors">Our Team</a></li>
-              <li><a href="/#contact" className="hover:text-white transition-colors">Careers</a></li>
+              <li><a href="/#scheduler" className="hover:text-white transition-colors">Book a Visit</a></li>
+              <li><a href="/#testimonials" className="hover:text-white transition-colors">Customer Reviews</a></li>
               <li><a href="/#contact" className="hover:text-white transition-colors">Contact</a></li>
             </ul>
           </div>
@@ -112,7 +112,7 @@ export default function Footer() {
             <ul className="space-y-2 text-blue-100">
               <li><Link href="/customer-portal" className="hover:text-white transition-colors">Customer Portal</Link></li>
               <li><Link href="/leave-review" className="hover:text-white transition-colors">Leave a Review</Link></li>
-              <li><a href="/#contact" className="hover:text-white transition-colors">Help Center</a></li>
+              <li><a href="tel:+13143254575" className="hover:text-white transition-colors">Call (314) 325-4575</a></li>
               <li><Link href="/privacy-policy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
               <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
             </ul>
@@ -120,7 +120,7 @@ export default function Footer() {
         </div>
 
         <div className="border-t border-blue-700 mt-8 pt-8 text-center text-blue-200">
-          <p>&copy; 2025 HandyTech Solutions. All rights reserved. | Handyman &bull; Tech Expert &bull; Renovation Specialist</p>
+          <p>&copy; 2026 HandyTech Solutions. All rights reserved. | Handyman &bull; Tech Expert &bull; Renovation Specialist</p>
         </div>
       </div>
     </footer>
