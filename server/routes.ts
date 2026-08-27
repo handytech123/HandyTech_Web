@@ -2804,6 +2804,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("AI quote draft error:", error);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Add a few clear job notes and try again.", errors: error.errors });
+      if ((error as any)?.status === 429 && (error as any)?.code === "credit_balance_exhausted") {
+        return res.status(503).json({ message: "OpenAI API billing needs credits before AI quote drafting can run." });
+      }
       res.status(500).json({ message: "The AI quote draft could not be generated. Your quote was not changed." });
     }
   });
