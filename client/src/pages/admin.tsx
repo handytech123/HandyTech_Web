@@ -30,6 +30,7 @@ import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import AppointmentDetailsDialog from "@/components/appointment-details-dialog";
 import AdminQuoteBuilder from "@/components/admin-quote-builder";
+import AddressAutocomplete from "@/components/address-autocomplete";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -690,7 +691,13 @@ function AppointmentsTab({
                   <FormItem>
                     <FormLabel>Service Address</FormLabel>
                     <FormControl>
-                      <Input placeholder="123 Main St, Hazelwood, MO 63042" {...field} />
+                      <AddressAutocomplete
+                        value={field.value}
+                        onChange={field.onChange}
+                        onAddressSelect={(address) => field.onChange(address.formattedAddress)}
+                        placeholder="Start typing the service address"
+                        testId="input-appointment-address"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -1076,7 +1083,18 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                         <FormItem>
                           <FormLabel>Street Address</FormLabel>
                           <FormControl>
-                            <Input {...field} data-testid="input-street" />
+                            <AddressAutocomplete
+                              value={field.value}
+                              onChange={field.onChange}
+                              onAddressSelect={(address) => {
+                                field.onChange(address.street);
+                                form.setValue("city", address.city, { shouldDirty: true, shouldValidate: true });
+                                form.setValue("state", address.state, { shouldDirty: true, shouldValidate: true });
+                                form.setValue("zip", address.zip, { shouldDirty: true, shouldValidate: true });
+                              }}
+                              placeholder="Start typing the customer's address"
+                              testId="input-street"
+                            />
                           </FormControl>
                           <FormMessage />
                         </FormItem>
@@ -1369,7 +1387,18 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                   <FormItem>
                     <FormLabel>Street Address</FormLabel>
                     <FormControl>
-                      <Input {...field} data-testid="input-edit-street" />
+                      <AddressAutocomplete
+                        value={field.value}
+                        onChange={field.onChange}
+                        onAddressSelect={(address) => {
+                          field.onChange(address.street);
+                          editForm.setValue("city", address.city, { shouldDirty: true, shouldValidate: true });
+                          editForm.setValue("state", address.state, { shouldDirty: true, shouldValidate: true });
+                          editForm.setValue("zip", address.zip, { shouldDirty: true, shouldValidate: true });
+                        }}
+                        placeholder="Start typing the customer's address"
+                        testId="input-edit-street"
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
