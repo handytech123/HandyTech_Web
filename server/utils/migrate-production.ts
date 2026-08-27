@@ -46,6 +46,35 @@ export async function runProductionMigration(): Promise<void> {
   console.log("🔧 Running production compatibility migration...");
 
   try {
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS quote_proposals (
+        id SERIAL PRIMARY KEY,
+        quote_id INTEGER NOT NULL UNIQUE REFERENCES quotes(id) ON DELETE CASCADE,
+        quote_number VARCHAR(32) NOT NULL UNIQUE,
+        token_hash VARCHAR(64) NOT NULL UNIQUE,
+        line_items JSONB NOT NULL,
+        discount REAL NOT NULL DEFAULT 0,
+        tax_rate REAL NOT NULL DEFAULT 0,
+        subtotal REAL NOT NULL,
+        tax REAL NOT NULL DEFAULT 0,
+        total REAL NOT NULL,
+        notes TEXT,
+        valid_until TIMESTAMPTZ NOT NULL,
+        status TEXT NOT NULL DEFAULT 'sent',
+        sent_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        viewed_at TIMESTAMPTZ,
+        responded_at TIMESTAMPTZ,
+        signer_name TEXT,
+        signature_url TEXT,
+        accepted_terms BOOLEAN NOT NULL DEFAULT false,
+        customer_message TEXT,
+        decision_ip TEXT,
+        decision_user_agent TEXT,
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      )
+    `));
+    console.log("  Quote proposal storage verified");
+
     // Step 1: Add missing columns safely (IF NOT EXISTS prevents errors if already present)
     const columnMigrations = [
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS show_as_quick_pick BOOLEAN DEFAULT false`,

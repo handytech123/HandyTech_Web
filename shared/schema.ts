@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, date, varchar, time } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, date, varchar, time, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -71,6 +71,34 @@ export const quotes = pgTable("quotes", {
   message: text("message"),
   status: text("status").notNull().default("pending"), // 'pending', 'contacted', 'converted', 'declined'
   createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export type QuoteLineItem = { description: string; quantity: number; rate: number };
+
+export const quoteProposals = pgTable("quote_proposals", {
+  id: serial("id").primaryKey(),
+  quoteId: integer("quote_id").references(() => quotes.id, { onDelete: "cascade" }).notNull().unique(),
+  quoteNumber: varchar("quote_number", { length: 32 }).notNull().unique(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  lineItems: jsonb("line_items").$type<QuoteLineItem[]>().notNull(),
+  discount: real("discount").notNull().default(0),
+  taxRate: real("tax_rate").notNull().default(0),
+  subtotal: real("subtotal").notNull(),
+  tax: real("tax").notNull().default(0),
+  total: real("total").notNull(),
+  notes: text("notes"),
+  validUntil: timestamp("valid_until", { withTimezone: true }).notNull(),
+  status: text("status").notNull().default("sent"), // sent, viewed, accepted, changes_requested, declined
+  sentAt: timestamp("sent_at", { withTimezone: true }).defaultNow().notNull(),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  respondedAt: timestamp("responded_at", { withTimezone: true }),
+  signerName: text("signer_name"),
+  signatureUrl: text("signature_url"),
+  acceptedTerms: boolean("accepted_terms").default(false).notNull(),
+  customerMessage: text("customer_message"),
+  decisionIp: text("decision_ip"),
+  decisionUserAgent: text("decision_user_agent"),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
 export const emailCampaigns = pgTable("email_campaigns", {
@@ -423,6 +451,8 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type QuoteProposal = typeof quoteProposals.$inferSelect;
+export type InsertQuoteProposal = typeof quoteProposals.$inferInsert;
 
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;

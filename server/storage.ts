@@ -1,10 +1,11 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens, chatConversations, chatMessages,
+  users, customers, maintenancePlans, reviews, quotes, quoteProposals, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens, chatConversations, chatMessages,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
   type Review, type InsertReview,
   type Quote, type InsertQuote,
+  type QuoteProposal, type InsertQuoteProposal,
   type EmailCampaign, type InsertEmailCampaign,
   type Appointment, type InsertAppointment,
   type ProjectGallery, type InsertProjectGallery,
@@ -69,6 +70,10 @@ export interface IStorage {
   getAllQuotes(): Promise<Quote[]>;
   createQuote(quote: InsertQuote): Promise<Quote>;
   updateQuoteStatus(id: number, status: string): Promise<void>;
+  saveQuoteProposal(proposal: InsertQuoteProposal): Promise<QuoteProposal>;
+  getQuoteProposalByToken(rawToken: string): Promise<QuoteProposal | undefined>;
+  getQuoteProposalByQuoteId(quoteId: number): Promise<QuoteProposal | undefined>;
+  updateQuoteProposal(id: number, updates: Partial<InsertQuoteProposal>): Promise<void>;
 
   // Email Campaigns
   createEmailCampaign(campaign: InsertEmailCampaign): Promise<EmailCampaign>;
@@ -176,6 +181,7 @@ export class MemStorage {
   private maintenancePlans: Map<number, MaintenancePlan> = new Map();
   private reviews: Map<number, Review> = new Map();
   private quotes: Map<number, Quote> = new Map();
+  private quoteProposals: Map<number, QuoteProposal> = new Map();
   private emailCampaigns: Map<number, EmailCampaign> = new Map();
   private appointments: Map<number, Appointment> = new Map();
   private projectGallery: Map<number, ProjectGallery> = new Map();
@@ -184,6 +190,7 @@ export class MemStorage {
   private currentMaintenancePlanId = 1;
   private currentReviewId = 1;
   private currentQuoteId = 1;
+  private currentQuoteProposalId = 1;
   private currentEmailCampaignId = 1;
   private currentAppointmentId = 1;
   private currentProjectGalleryId = 1;
@@ -734,6 +741,52 @@ export class MemStorage {
       quote.status = status;
       this.quotes.set(id, quote);
     }
+  }
+
+  async saveQuoteProposal(proposal: InsertQuoteProposal): Promise<QuoteProposal> {
+    const existing = Array.from(this.quoteProposals.values()).find((item) => item.quoteId === proposal.quoteId);
+    const now = new Date();
+    const saved: QuoteProposal = {
+      id: existing?.id ?? this.currentQuoteProposalId++,
+      quoteId: proposal.quoteId,
+      quoteNumber: proposal.quoteNumber,
+      tokenHash: proposal.tokenHash,
+      lineItems: proposal.lineItems,
+      discount: proposal.discount ?? 0,
+      taxRate: proposal.taxRate ?? 0,
+      subtotal: proposal.subtotal,
+      tax: proposal.tax ?? 0,
+      total: proposal.total,
+      notes: proposal.notes ?? null,
+      validUntil: proposal.validUntil,
+      status: proposal.status ?? "sent",
+      sentAt: proposal.sentAt ?? now,
+      viewedAt: null,
+      respondedAt: null,
+      signerName: null,
+      signatureUrl: null,
+      acceptedTerms: false,
+      customerMessage: null,
+      decisionIp: null,
+      decisionUserAgent: null,
+      updatedAt: now,
+    };
+    this.quoteProposals.set(saved.id, saved);
+    return saved;
+  }
+
+  async getQuoteProposalByToken(rawToken: string): Promise<QuoteProposal | undefined> {
+    const tokenHash = hashToken(rawToken);
+    return Array.from(this.quoteProposals.values()).find((item) => item.tokenHash === tokenHash);
+  }
+
+  async getQuoteProposalByQuoteId(quoteId: number): Promise<QuoteProposal | undefined> {
+    return Array.from(this.quoteProposals.values()).find((item) => item.quoteId === quoteId);
+  }
+
+  async updateQuoteProposal(id: number, updates: Partial<InsertQuoteProposal>): Promise<void> {
+    const proposal = this.quoteProposals.get(id);
+    if (proposal) this.quoteProposals.set(id, { ...proposal, ...updates, updatedAt: new Date() });
   }
 
   // Email Campaigns
@@ -1631,6 +1684,40 @@ export class DatabaseStorage implements IStorage {
 
   async updateQuoteStatus(id: number, status: string): Promise<void> {
     await db.update(quotes).set({ status }).where(eq(quotes.id, id));
+  }
+
+  async saveQuoteProposal(proposal: InsertQuoteProposal): Promise<QuoteProposal> {
+    const reset = {
+      ...proposal,
+      viewedAt: null,
+      respondedAt: null,
+      signerName: null,
+      signatureUrl: null,
+      acceptedTerms: false,
+      customerMessage: null,
+      decisionIp: null,
+      decisionUserAgent: null,
+      updatedAt: new Date(),
+    };
+    const [saved] = await db.insert(quoteProposals).values(reset).onConflictDoUpdate({
+      target: quoteProposals.quoteId,
+      set: reset,
+    }).returning();
+    return saved;
+  }
+
+  async getQuoteProposalByToken(rawToken: string): Promise<QuoteProposal | undefined> {
+    const [proposal] = await db.select().from(quoteProposals).where(eq(quoteProposals.tokenHash, hashToken(rawToken)));
+    return proposal;
+  }
+
+  async getQuoteProposalByQuoteId(quoteId: number): Promise<QuoteProposal | undefined> {
+    const [proposal] = await db.select().from(quoteProposals).where(eq(quoteProposals.quoteId, quoteId));
+    return proposal;
+  }
+
+  async updateQuoteProposal(id: number, updates: Partial<InsertQuoteProposal>): Promise<void> {
+    await db.update(quoteProposals).set({ ...updates, updatedAt: new Date() }).where(eq(quoteProposals.id, id));
   }
 
   // Email Campaigns

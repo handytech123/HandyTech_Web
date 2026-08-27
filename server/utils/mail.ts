@@ -453,6 +453,8 @@ export class EmailService {
     total: number;
     validDays: number;
     notes: string;
+    proposalUrl: string;
+    pdfBuffer: Buffer;
   }): Promise<void> {
     if (!this.isConfigured) throw new Error("Email service is not configured");
     const escapeHtml = (value: string) => value.replace(/[&<>'"]/g, (character) => ({
@@ -482,10 +484,34 @@ export class EmailService {
             <table style="width:100%;border-collapse:collapse;margin-top:28px"><thead><tr style="background:#eff6ff;color:#0f172a"><th style="padding:12px;text-align:left">Description</th><th style="padding:12px;text-align:right">Qty/Hours</th><th style="padding:12px;text-align:right">Rate</th><th style="padding:12px;text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
             <div style="margin:20px 0 20px auto;max-width:320px"><p style="display:flex;justify-content:space-between"><span>Subtotal</span><strong>${money(data.subtotal)}</strong></p>${data.discount ? `<p style="display:flex;justify-content:space-between"><span>Discount</span><strong>-${money(data.discount)}</strong></p>` : ""}${data.tax ? `<p style="display:flex;justify-content:space-between"><span>Tax (${data.taxRate}%)</span><strong>${money(data.tax)}</strong></p>` : ""}<p style="display:flex;justify-content:space-between;border-top:3px solid #2769BE;padding-top:12px;font-size:20px;color:#0f172a"><span>Total Investment</span><strong>${money(data.total)}</strong></p></div>
             ${data.notes ? `<div style="background:#f8fafc;padding:16px;border-radius:6px"><strong>Scope and notes</strong><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(data.notes)}</p></div>` : ""}
-            <p style="margin-top:24px">Questions or ready to approve? Reply to this email or call ${escapeHtml(this.businessPhone)}.</p>
+            <div style="margin:28px 0;text-align:center"><a href="${escapeHtml(data.proposalUrl)}" style="display:inline-block;background:#2769BE;color:#fff;text-decoration:none;font-weight:bold;padding:14px 24px;border-radius:7px">Review &amp; Respond to Quote</a></div>
+            <p style="margin-top:24px">Open the secure quote page to approve and sign, request changes, or decline. You may also reply to this email or call ${escapeHtml(this.businessPhone)}.</p>
             <p style="font-size:12px;color:#64748b">This quote covers only the listed scope and is valid for ${data.validDays} days. Changes require approval and may affect price or scheduling.</p>
           </div>
         </div>`,
+      attachments: [{ filename: `${data.quoteNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" }],
+    });
+  }
+
+  async sendQuoteResponseNotification(data: { quoteNumber: string; customerName: string; customerEmail: string; status: string; total: number; message?: string }): Promise<void> {
+    if (!this.isConfigured) return;
+    const statusLabel = data.status === "accepted" ? "Accepted and signed" : data.status === "changes_requested" ? "Changes requested" : "Declined";
+    await this.transporter.sendMail({
+      from: `"${this.businessName}" <${this.fromEmail}>`, to: this.fromEmail, replyTo: data.customerEmail,
+      subject: `${data.quoteNumber} - ${statusLabel}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:640px"><h2 style="color:#0f172a">${statusLabel}: ${data.quoteNumber}</h2><p><strong>${data.customerName}</strong> responded to the ${data.total.toLocaleString("en-US", { style: "currency", currency: "USD" })} quote.</p>${data.message ? `<p style="background:#f1f5f9;padding:16px">${data.message.replace(/[&<>'"]/g, "")}</p>` : ""}<p>Open the HandyTech admin dashboard for the quote details.</p></div>`,
+    });
+  }
+
+  async sendQuoteDecisionConfirmation(data: { quoteNumber: string; customerName: string; customerEmail: string; status: string; proposalUrl: string; pdfBuffer: Buffer }): Promise<void> {
+    if (!this.isConfigured) return;
+    const accepted = data.status === "accepted";
+    const heading = accepted ? "Your quote is approved" : data.status === "changes_requested" ? "We received your change request" : "We received your response";
+    await this.transporter.sendMail({
+      from: `"${this.businessName}" <${this.fromEmail}>`, to: data.customerEmail, replyTo: this.fromEmail,
+      subject: `${heading} - ${data.quoteNumber}`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:640px;color:#0f172a"><div style="background:#0f172a;color:#fff;padding:24px;border-top:6px solid #2769BE"><h1 style="margin:0;font-size:22px">${heading}</h1></div><div style="padding:24px;border:1px solid #e2e8f0"><p>Hi ${data.customerName},</p><p>${accepted ? "Thank you. Your electronic approval and signature have been recorded. You can now schedule the job from your quote page." : "Thank you. HandyTech Solutions will review your response and follow up with you."}</p><p><a href="${data.proposalUrl}" style="color:#2769BE;font-weight:bold">View your quote</a></p></div></div>`,
+      attachments: [{ filename: `${data.quoteNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" }],
     });
   }
 

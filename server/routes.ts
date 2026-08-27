@@ -39,6 +39,8 @@ import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMedia
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
+import sharp from "sharp";
+import { generateQuotePdfBuffer } from "./utils/quote-pdf";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -2760,6 +2762,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (total <= 0) return res.status(400).json({ message: "Quote total must be greater than zero" });
 
       const quoteNumber = `HT-${new Date().getFullYear()}-${String(quote.id).padStart(4, "0")}`;
+      const rawToken = crypto.randomBytes(32).toString("hex");
+      const validUntil = new Date();
+      validUntil.setDate(validUntil.getDate() + prepared.validDays);
+      const proposal = await storage.saveQuoteProposal({
+        quoteId: quote.id,
+        quoteNumber,
+        tokenHash: crypto.createHash("sha256").update(rawToken).digest("hex"),
+        lineItems: prepared.lineItems,
+        discount: prepared.discount,
+        taxRate: prepared.taxRate,
+        subtotal,
+        tax,
+        total,
+        notes: prepared.notes,
+        validUntil,
+        status: "sent",
+        sentAt: new Date(),
+      });
+      const proposalUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/quote/${rawToken}`;
+      const pdfBuffer = await generateQuotePdfBuffer(quote, proposal);
       await getEmailService().sendPreparedQuote({
         quoteNumber,
         customerName: `${quote.firstName} ${quote.lastName}`,
@@ -2773,6 +2795,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         total,
         validDays: prepared.validDays,
         notes: prepared.notes,
+        proposalUrl,
+        pdfBuffer,
       });
       await storage.updateQuoteStatus(id, "sent");
       res.json({ message: "Quote sent", quoteNumber, total });
@@ -2780,6 +2804,112 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Send prepared quote error:", error);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the quote line items and totals", errors: error.errors });
       res.status(500).json({ message: "The quote could not be emailed. Check email service settings and retry." });
+    }
+  });
+
+  const proposalTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
+  const publicProposal = (quote: any, proposal: any) => ({
+    quote: {
+      firstName: quote.firstName, lastName: quote.lastName, email: quote.email, phone: quote.phone,
+      serviceNeeded: quote.serviceNeeded, street: quote.street, city: quote.city, state: quote.state, zip: quote.zip,
+    },
+    proposal: {
+      quoteNumber: proposal.quoteNumber, lineItems: proposal.lineItems, discount: proposal.discount,
+      taxRate: proposal.taxRate, subtotal: proposal.subtotal, tax: proposal.tax, total: proposal.total,
+      notes: proposal.notes, validUntil: proposal.validUntil, status: proposal.status, sentAt: proposal.sentAt,
+      viewedAt: proposal.viewedAt, respondedAt: proposal.respondedAt, signerName: proposal.signerName,
+    },
+  });
+
+  app.get("/api/quote-proposals/:token", rlSensitive, async (req, res) => {
+    try {
+      const token = proposalTokenSchema.parse(req.params.token);
+      const proposal = await storage.getQuoteProposalByToken(token);
+      if (!proposal) return res.status(404).json({ message: "This quote link is invalid or has been replaced." });
+      const quote = await storage.getQuote(proposal.quoteId);
+      if (!quote) return res.status(404).json({ message: "Quote request not found." });
+      if (proposal.status === "sent") {
+        await storage.updateQuoteProposal(proposal.id, { status: "viewed", viewedAt: new Date() });
+        proposal.status = "viewed"; proposal.viewedAt = new Date();
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.json(publicProposal(quote, proposal));
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(404).json({ message: "This quote link is invalid." });
+      console.error("Get proposal error:", error);
+      res.status(500).json({ message: "The quote could not be loaded." });
+    }
+  });
+
+  app.get("/api/quote-proposals/:token/pdf", rlSensitive, async (req, res) => {
+    try {
+      const proposal = await storage.getQuoteProposalByToken(proposalTokenSchema.parse(req.params.token));
+      if (!proposal) return res.status(404).json({ message: "Quote not found." });
+      const quote = await storage.getQuote(proposal.quoteId);
+      if (!quote) return res.status(404).json({ message: "Quote not found." });
+      const buffer = await generateQuotePdfBuffer(quote, proposal);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `${req.query.download === "1" ? "attachment" : "inline"}; filename="${proposal.quoteNumber}.pdf"`);
+      res.setHeader("Cache-Control", "private, no-store");
+      res.send(buffer);
+    } catch (error) {
+      console.error("Proposal PDF error:", error);
+      res.status(404).json({ message: "Quote not found." });
+    }
+  });
+
+  app.post("/api/quote-proposals/:token/respond", rlSensitive, async (req, res) => {
+    const responseSchema = z.object({
+      decision: z.enum(["accepted", "changes_requested", "declined"]),
+      signerName: z.string().trim().max(120).optional(),
+      signatureData: z.string().max(1_500_000).optional(),
+      acceptedTerms: z.boolean().optional(),
+      message: z.string().trim().max(2000).optional(),
+    });
+    try {
+      const token = proposalTokenSchema.parse(req.params.token);
+      const data = responseSchema.parse(req.body);
+      const proposal = await storage.getQuoteProposalByToken(token);
+      if (!proposal) return res.status(404).json({ message: "This quote link is invalid or has been replaced." });
+      const quote = await storage.getQuote(proposal.quoteId);
+      if (!quote) return res.status(404).json({ message: "Quote not found." });
+      if (["accepted", "declined"].includes(proposal.status)) return res.status(409).json({ message: "A final response has already been recorded for this quote." });
+      if (data.decision === "accepted" && proposal.validUntil.getTime() < Date.now()) return res.status(410).json({ message: "This quote has expired. Please contact HandyTech for an updated quote." });
+
+      let signatureUrl: string | null = null;
+      if (data.decision === "accepted") {
+        if (!data.signerName || data.signerName.length < 2 || !data.acceptedTerms || !data.signatureData) return res.status(400).json({ message: "Enter your name, sign the quote, and accept the electronic signature terms." });
+        const match = data.signatureData.match(/^data:image\/png;base64,([A-Za-z0-9+/=]+)$/);
+        if (!match) return res.status(400).json({ message: "The signature format was not recognized. Please clear it and sign again." });
+        const source = Buffer.from(match[1], "base64");
+        if (!source.length || source.length > 1_000_000) return res.status(400).json({ message: "The signature image is too large." });
+        const normalized = await sharp(source).resize({ width: 900, height: 240, fit: "inside", withoutEnlargement: true }).flatten({ background: "#ffffff" }).png({ compressionLevel: 9 }).toBuffer();
+        const signatureDir = path.join(process.cwd(), "server", "public", "uploads", "signatures");
+        await fs.mkdir(signatureDir, { recursive: true });
+        const filename = `quote-${proposal.id}-${Date.now()}-${crypto.randomBytes(5).toString("hex")}.png`;
+        await fs.writeFile(path.join(signatureDir, filename), normalized, { mode: 0o600 });
+        signatureUrl = `/uploads/signatures/${filename}`;
+      }
+
+      await storage.updateQuoteProposal(proposal.id, {
+        status: data.decision, respondedAt: new Date(), signerName: data.decision === "accepted" ? data.signerName : null,
+        signatureUrl, acceptedTerms: data.decision === "accepted", customerMessage: data.message || null,
+        decisionIp: req.ip, decisionUserAgent: req.get("user-agent")?.slice(0, 1000) || null,
+      });
+      await storage.updateQuoteStatus(quote.id, data.decision === "accepted" ? "converted" : data.decision === "declined" ? "declined" : "contacted");
+      const updated = await storage.getQuoteProposalByQuoteId(quote.id);
+      if (!updated) throw new Error("Proposal response was not saved");
+      const proposalUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/quote/${token}`;
+      const pdfBuffer = await generateQuotePdfBuffer(quote, updated);
+      Promise.allSettled([
+        getEmailService().sendQuoteResponseNotification({ quoteNumber: updated.quoteNumber, customerName: `${quote.firstName} ${quote.lastName}`, customerEmail: quote.email, status: data.decision, total: updated.total, message: data.message }),
+        getEmailService().sendQuoteDecisionConfirmation({ quoteNumber: updated.quoteNumber, customerName: quote.firstName, customerEmail: quote.email, status: data.decision, proposalUrl, pdfBuffer }),
+      ]).catch(() => undefined);
+      res.json({ message: "Your response has been recorded.", status: data.decision, scheduleUrl: "/#scheduler" });
+    } catch (error) {
+      console.error("Proposal response error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check your response and try again." });
+      res.status(500).json({ message: "Your response could not be recorded. Please try again or call 314-325-4575." });
     }
   });
 
