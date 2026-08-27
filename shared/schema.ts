@@ -117,6 +117,7 @@ export const appointments = pgTable("appointments", {
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
   phone: text("phone"),
+  bookingType: text("booking_type").notNull().default("service"), // 'consultation' or 'service'
   serviceType: text("service_type").notNull(),
   serviceId: integer("service_id"), // Optional reference to service catalog
   appointmentDate: timestamp("appointment_date").notNull(),
@@ -259,6 +260,7 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   id: true,
   createdAt: true,
 }).extend({
+  bookingType: z.enum(["consultation", "service"]).default("service"),
   appointmentDate: z.coerce.date(),
   startTimestamptz: z.coerce.date().optional(),
   endTimestamptz: z.coerce.date().optional(),

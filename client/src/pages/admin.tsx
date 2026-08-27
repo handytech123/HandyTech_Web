@@ -300,6 +300,7 @@ function LiveChatManagement() {
 
 // Schema for the admin Add Appointment form
 const adminAddAppointmentSchema = z.object({
+  bookingType: z.enum(["consultation", "service"]),
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().min(1, "Phone is required"),
@@ -322,6 +323,7 @@ function AppointmentsTab({
   updateAppointmentStatusMutation: any;
 }) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
+  const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'consultation' | 'service'>('all');
   const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
   const [selectedAppointmentForReschedule, setSelectedAppointmentForReschedule] = useState<Appointment | null>(null);
   const [addAppointmentOpen, setAddAppointmentOpen] = useState(false);
@@ -335,6 +337,7 @@ function AppointmentsTab({
   const addAppointmentForm = useForm<AdminAddAppointmentForm>({
     resolver: zodResolver(adminAddAppointmentSchema),
     defaultValues: {
+      bookingType: "service",
       firstName: "",
       lastName: "",
       phone: "",
@@ -347,6 +350,10 @@ function AppointmentsTab({
       status: "scheduled",
     },
   });
+
+  const visibleAppointments = appointments.filter((appointment) =>
+    bookingTypeFilter === 'all' || (appointment.bookingType || 'service') === bookingTypeFilter
+  );
 
   const addAppointmentMutation = useMutation({
     mutationFn: async (data: AdminAddAppointmentForm) => {
@@ -420,6 +427,14 @@ function AppointmentsTab({
               <CardDescription>View and manage customer appointments</CardDescription>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              <Select value={bookingTypeFilter} onValueChange={(value: 'all' | 'consultation' | 'service') => setBookingTypeFilter(value)}>
+                <SelectTrigger className="w-[175px]" data-testid="select-booking-type-filter"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All bookings</SelectItem>
+                  <SelectItem value="consultation">Consultations</SelectItem>
+                  <SelectItem value="service">Service appointments</SelectItem>
+                </SelectContent>
+              </Select>
               <Button
                 variant={viewMode === 'list' ? 'default' : 'outline'}
                 size="sm"
@@ -452,7 +467,7 @@ function AppointmentsTab({
           {viewMode === 'calendar' ? (
             <div data-testid="calendar-container">
               <CalendarView 
-                appointments={appointments} 
+                appointments={visibleAppointments}
                 onEventClick={(appointment) => {
                   // Open reschedule dialog directly
                   setSelectedAppointmentForReschedule(appointment);
@@ -462,12 +477,12 @@ function AppointmentsTab({
             </div>
           ) : (
             <div className="space-y-4" data-testid="appointments-list">
-              {appointments.length === 0 ? (
+              {visibleAppointments.length === 0 ? (
                 <p className="text-center text-gray-500 py-8" data-testid="text-no-appointments">
                   No appointments scheduled
                 </p>
               ) : (
-                appointments.map((appointment) => (
+                visibleAppointments.map((appointment) => (
                   <div 
                     key={appointment.id} 
                     className="border rounded-lg p-4 bg-white dark:bg-gray-800"
@@ -478,6 +493,9 @@ function AppointmentsTab({
                         <h3 className="font-semibold text-lg" data-testid={`text-customer-name-${appointment.id}`}>
                           {appointment.firstName} {appointment.lastName}
                         </h3>
+                        <Badge variant="outline" className="mt-1">
+                          {(appointment.bookingType || 'service') === 'consultation' ? 'Consultation' : 'Service appointment'}
+                        </Badge>
                         <div className="flex items-center gap-2 mt-1">
                           <Mail className="h-4 w-4 text-gray-400" />
                           <span className="text-sm text-gray-600 dark:text-gray-300" data-testid={`text-email-${appointment.id}`}>
@@ -645,6 +663,24 @@ function AppointmentsTab({
                   )}
                 />
               </div>
+
+              <FormField
+                control={addAppointmentForm.control}
+                name="bookingType"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Booking Type</FormLabel>
+                    <Select onValueChange={field.onChange} value={field.value}>
+                      <FormControl><SelectTrigger><SelectValue /></SelectTrigger></FormControl>
+                      <SelectContent>
+                        <SelectItem value="consultation">Consultation</SelectItem>
+                        <SelectItem value="service">Service appointment</SelectItem>
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               {/* Address */}
               <FormField

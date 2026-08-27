@@ -152,7 +152,7 @@ export class ReminderScheduler {
               .filter(Boolean).join(", ");
             const existingEvent = await findEventByAppointmentId(appointment.id);
             const event = existingEvent || await createEvent({
-              summary: `${appointment.serviceType} — ${appointment.firstName} ${appointment.lastName}`,
+              summary: `${appointment.bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${appointment.firstName} ${appointment.lastName} — ${appointment.serviceType}`,
               description: [
                 `Customer: ${appointment.firstName} ${appointment.lastName}`,
                 appointment.phone ? `Phone: ${appointment.phone}` : null,

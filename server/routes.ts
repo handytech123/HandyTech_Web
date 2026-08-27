@@ -814,7 +814,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (appointment.googleEventId) {
         try {
           await updateEvent(appointment.googleEventId, {
-            summary: `${appointment.serviceType} — ${Math.round(durationMs / (1000 * 60 * 60))}h Block`,
+            summary: `${appointment.bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${appointment.firstName} ${appointment.lastName} — ${appointment.serviceType}`,
             description: [
               `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
               formatServiceAddress(appointment) ? `Service address: ${formatServiceAddress(appointment)}` : null,
@@ -1062,7 +1062,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const durationMs = endTimestamp.getTime() - startTimestamp.getTime();
           await updateEvent(appointment.googleEventId, {
-            summary: `${appointment.serviceType} — ${Math.round(durationMs / (1000 * 60 * 60))}h Block`,
+            summary: `${appointment.bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${appointment.firstName} ${appointment.lastName} — ${appointment.serviceType}`,
             description: [
               `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
               formatServiceAddress(appointment) ? `Service address: ${formatServiceAddress(appointment)}` : null,
@@ -1211,6 +1211,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         firstName,
         lastName,
         phone,
+        bookingType = "service",
         email,
         address,
         serviceType,
@@ -1259,9 +1260,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastName,
         email,
         phone: phone || null,
+        bookingType,
         serviceType,
         appointmentDate: new Date(appointmentDate),
         appointmentTime,
+        startTimestamptz: requestedStart,
+        endTimestamptz: new Date(requestedStart.getTime() + (bookingType === "consultation" ? 1 : 2) * 60 * 60 * 1000),
         address: address || null,
         street: address || "Not provided",
         city: "Not provided",
@@ -1277,7 +1281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // with a navigable service location just like customer-created bookings.
       try {
         const event = await createEvent({
-          summary: `${serviceType} — 2h Block`,
+          summary: `${bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${firstName} ${lastName} — ${serviceType}`,
           description: [
             `Customer: ${firstName} ${lastName} (${email}${phone ? `, ${phone}` : ""})`,
             address ? `Service address: ${address}` : null,
@@ -2212,7 +2216,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let durationHours: number;
       let serviceInfo: { id: number; name: string; description: string } | null = null;
       
-      if (appointmentData.serviceId) {
+      if (appointmentData.bookingType === "consultation") {
+        durationHours = 1;
+        if (appointmentData.serviceId) {
+          const service = await storage.getService(appointmentData.serviceId);
+          if (!service || !service.isActive) {
+            return res.status(400).json({ ok: false, error: "SERVICE_NOT_FOUND", message: "Project type not found or not active" });
+          }
+          serviceInfo = { id: service.id, name: service.name, description: service.description };
+        }
+      } else if (appointmentData.serviceId) {
         // The live database is the canonical service catalog used by the form.
         const service = await storage.getService(appointmentData.serviceId);
         if (!service || !service.isActive) {
@@ -2375,7 +2388,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Google Calendar integration - Create calendar event
       try {
         const event = await createEvent({
-          summary: `${appointmentData.serviceType} — ${durationHours}h Block`,
+          summary: `${appointmentData.bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${appointmentData.firstName} ${appointmentData.lastName} — ${appointmentData.serviceType}`,
           description: [
             `Customer: ${appointmentData.firstName} ${appointmentData.lastName} (${appointmentData.email}${appointmentData.phone ? ", " + appointmentData.phone : ""})`,
             formatServiceAddress(appointmentData) ? `Service address: ${formatServiceAddress(appointmentData)}` : null,
@@ -2607,7 +2620,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           const durationHours = Math.round(durationMs / (1000 * 60 * 60));
           await updateEvent(appointment.googleEventId, {
-            summary: `${appointment.serviceType} — ${durationHours}h Block`,
+            summary: `${appointment.bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${appointment.firstName} ${appointment.lastName} — ${appointment.serviceType}`,
             description: [
               `Customer: ${appointment.firstName} ${appointment.lastName} (${appointment.email}${appointment.phone ? ", " + appointment.phone : ""})`,
               formatServiceAddress(appointment) ? `Service address: ${formatServiceAddress(appointment)}` : null,

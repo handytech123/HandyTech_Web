@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network } from "lucide-react";
+import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network, ClipboardList } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -112,6 +112,7 @@ const bookingFormSchema = insertAppointmentSchema.pick({
   serviceType: true,
   notes: true
 }).extend({
+  bookingType: z.enum(["consultation", "service"]),
   appointmentDate: z.date({ required_error: "Please select a date" }),
   appointmentTime: z.string().min(1, "Please select a time slot"),
   serviceId: z.number({ required_error: "Please select a service" }),
@@ -127,6 +128,7 @@ interface AvailableSlot {
 }
 
 export default function AppointmentScheduler() {
+  const [bookingType, setBookingType] = useState<"consultation" | "service" | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
@@ -160,7 +162,10 @@ export default function AppointmentScheduler() {
   const categoryServices = selectedCategory ? servicesByCategory[selectedCategory] || [] : [];
 
   // Get selected duration from service
-  const selectedDuration = selectedService ? parseDurationHours(selectedService.estimatedDuration).toString() : "";
+  const selectedDurationHours = selectedService
+    ? (bookingType === "consultation" ? 1 : parseDurationHours(selectedService.estimatedDuration))
+    : 0;
+  const selectedDuration = selectedDurationHours ? selectedDurationHours.toString() : "";
 
   const form = useForm<BookingFormData>({
     resolver: zodResolver(bookingFormSchema),
@@ -177,6 +182,7 @@ export default function AppointmentScheduler() {
       serviceType: "General Handyman",
       notes: "",
       smsConsent: false,
+      bookingType: "service",
     }
   });
 
@@ -195,6 +201,8 @@ export default function AppointmentScheduler() {
     if (services.length === 0) return;
 
     sessionStorage.removeItem("bookingCategory");
+    setBookingType("service");
+    form.setValue("bookingType", "service");
     setSelectedCategory(key);
     setCurrentStep("contact");
     setSelectedService(undefined);
@@ -214,7 +222,7 @@ export default function AppointmentScheduler() {
     error: slotsError,
     refetch: refetchSlots
   } = useQuery<string[]>({
-    queryKey: ["/api/availability", selectedDate?.toISOString(), selectedService?.id, selectedService?.estimatedDuration],
+    queryKey: ["/api/availability", selectedDate?.toISOString(), selectedService?.id, selectedDurationHours],
     queryFn: async () => {      
       if (!selectedDate || !selectedService) {
         throw new Error("Missing date or service selection");
@@ -237,7 +245,7 @@ export default function AppointmentScheduler() {
       const queryParams = new URLSearchParams({
         from: startOfDay.toISOString(),
         to: endOfDay.toISOString(),
-        hours: parseDurationHours(selectedService.estimatedDuration).toString(),
+        hours: selectedDurationHours.toString(),
         serviceId: selectedService.id.toString()
       });
       
@@ -279,7 +287,8 @@ export default function AppointmentScheduler() {
         appointmentTime: appointmentTimeString,
         durationHours: appointmentData.durationHours,
         serviceId: appointmentData.serviceId,
-        source: "website"
+        source: "website",
+        bookingType: appointmentData.bookingType
       };
       
       const response = await apiRequest("/api/appointments", "POST", payload);
@@ -290,8 +299,10 @@ export default function AppointmentScheduler() {
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
       toast({
-        title: "Appointment Booked!",
-        description: "Your appointment has been successfully scheduled. You'll receive a confirmation email shortly."
+        title: data.bookingType === "consultation" ? "Consultation Scheduled!" : "Appointment Booked!",
+        description: data.bookingType === "consultation"
+          ? "Your project consultation is scheduled. This visit is for evaluation and quoting; work is not scheduled yet."
+          : "Your service appointment has been successfully scheduled. You'll receive a confirmation email shortly."
       });
     },
     onError: (error: Error) => {
@@ -349,7 +360,7 @@ export default function AppointmentScheduler() {
     // Update serviceType to match the selected service
     form.setValue("serviceType", service.name);
     form.setValue("serviceId", service.id);
-    form.setValue("durationHours", parseDurationHours(service.estimatedDuration));
+    form.setValue("durationHours", bookingType === "consultation" ? 1 : parseDurationHours(service.estimatedDuration));
   };
 
   const handleServiceShortcut = (service: Service) => {
@@ -377,7 +388,7 @@ export default function AppointmentScheduler() {
     // Set form values but don't auto-submit - user will manually click submit
     if (selectedService) {
       form.setValue("serviceId", selectedService.id);
-      form.setValue("durationHours", parseDurationHours(selectedService.estimatedDuration));
+      form.setValue("durationHours", bookingType === "consultation" ? 1 : parseDurationHours(selectedService.estimatedDuration));
     }
     form.setValue("appointmentDate", selectedDate!);
     form.setValue("appointmentTime", timeSlot);
@@ -449,13 +460,16 @@ export default function AppointmentScheduler() {
           <Card className="w-full max-w-md mx-auto">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-              <h2 className="text-xl font-semibold mb-2" data-testid="text-booking-success">Appointment Booked!</h2>
+              <h2 className="text-xl font-semibold mb-2" data-testid="text-booking-success">{bookingType === "consultation" ? "Consultation Scheduled!" : "Appointment Booked!"}</h2>
               <p className="text-gray-600 mb-4">
-                Your appointment has been successfully scheduled. You'll receive a confirmation email with all the details shortly.
+                {bookingType === "consultation"
+                  ? "Your consultation is for project evaluation and quoting. No service work is scheduled during this visit."
+                  : "Your service appointment has been scheduled. You'll receive a confirmation email with all the details shortly."}
               </p>
               <Button 
                 onClick={() => {
                   setIsSubmitted(false);
+                  setBookingType(undefined);
                   resetToStep("contact");
                 }}
                 data-testid="button-book-another"
@@ -474,18 +488,33 @@ export default function AppointmentScheduler() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="bg-light-gray text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
-            SCHEDULE SERVICE
+            BOOK A VISIT
           </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Book Your <span className="text-brand-primary">HandyTech Appointment</span>
+            Schedule with <span className="text-brand-primary">HandyTech</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
-            Choose a time block that fits your project. Materials billed separately. Travel included within 20 miles of Hazelwood, MO.
+            Start with a project consultation or schedule service for work that is ready to be completed.
           </p>
         </div>
 
+        {!bookingType && (
+          <div className="mx-auto mb-10 grid max-w-4xl gap-5 md:grid-cols-2">
+            <button type="button" className="rounded-xl border-2 border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-brand-primary hover:shadow-md" onClick={() => { setBookingType("consultation"); form.setValue("bookingType", "consultation"); }} data-testid="button-book-consultation">
+              <ClipboardList className="mb-3 h-8 w-8 text-brand-primary" />
+              <h3 className="text-xl font-bold text-charcoal">Request a Consultation</h3>
+              <p className="mt-2 text-sm text-slate-600">For an estimate, project planning, or an on-site evaluation. Work is not scheduled yet.</p>
+            </button>
+            <button type="button" className="rounded-xl border-2 border-slate-200 bg-white p-6 text-left shadow-sm transition hover:border-brand-primary hover:shadow-md" onClick={() => { setBookingType("service"); form.setValue("bookingType", "service"); }} data-testid="button-book-service">
+              <Wrench className="mb-3 h-8 w-8 text-brand-primary" />
+              <h3 className="text-xl font-bold text-charcoal">Schedule Service</h3>
+              <p className="mt-2 text-sm text-slate-600">For repairs, maintenance, or work that has already been discussed or approved.</p>
+            </button>
+          </div>
+        )}
+
         {/* Step Indicator */}
-        <div className="flex justify-center mb-8">
+        {bookingType && <div className="flex justify-center mb-8">
           <div className="flex space-x-2 sm:space-x-4">
             {[
               { id: "contact", label: "Contact" },
@@ -510,18 +539,18 @@ export default function AppointmentScheduler() {
               </div>
             ))}
           </div>
-        </div>
+        </div>}
 
         {/* Main Content - Selection Steps */}
         <div className="space-y-6">
 
             {/* Step 1: Contact Information & Service Selection */}
-            {currentStep === "contact" && (
+            {bookingType && currentStep === "contact" && (
               <Card data-testid="card-contact-details">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
                     <User className="h-5 w-5 text-brand-primary" />
-                    Step 1: Your Information & Service Selection
+                    Step 1: Your Information & {bookingType === "consultation" ? "Project Type" : "Service Selection"}
                     {selectedCategory && (
                       <Badge variant="outline" className="ml-2">
                         {SERVICE_CATEGORIES[selectedCategory].subtitle}
@@ -530,6 +559,14 @@ export default function AppointmentScheduler() {
                   </CardTitle>
                 </CardHeader>
                 <CardContent>
+                  <Alert className="mb-5">
+                    <AlertDescription>
+                      {bookingType === "consultation"
+                        ? "Consultation visit: we will evaluate the project and discuss a quote. Service work is not included in this booking."
+                        : "Service appointment: this time is reserved to perform the selected work."}
+                      <button type="button" className="ml-2 font-semibold text-brand-primary underline" onClick={() => setBookingType(undefined)}>Change</button>
+                    </AlertDescription>
+                  </Alert>
                   
                   <Form {...form}>
                     <div className="space-y-4">

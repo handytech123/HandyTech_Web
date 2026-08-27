@@ -89,6 +89,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS booking_type TEXT NOT NULL DEFAULT 'service'`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_at TIMESTAMPTZ`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_source TEXT`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_disclosure_version TEXT`,
