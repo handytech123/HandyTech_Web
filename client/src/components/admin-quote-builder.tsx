@@ -26,6 +26,7 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
   const [validDays, setValidDays] = useState(14);
   const [notes, setNotes] = useState("Materials or work outside the listed scope require customer approval before proceeding.");
   const [roughNotes, setRoughNotes] = useState([quote.serviceNeeded, quote.message].filter(Boolean).join("\n"));
+  const [aiSubtotal, setAiSubtotal] = useState(0);
   const [detailLevel, setDetailLevel] = useState<"concise" | "detailed">("detailed");
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -74,17 +75,14 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
         detailLevel,
         existingItems: items,
         currentNotes: notes,
+        targetSubtotal: aiSubtotal,
       });
-      return response.json() as Promise<{ lineItemDescriptions: string[]; scopeNotes: string }>;
+      return response.json() as Promise<{ lineItems: LineItem[]; scopeNotes: string }>;
     },
     onSuccess: (draft) => {
-      setItems((current) => draft.lineItemDescriptions.map((description, index) => ({
-        description,
-        quantity: current[index]?.quantity || 1,
-        rate: current[index]?.rate || 0,
-      })));
+      setItems(draft.lineItems);
       setNotes(draft.scopeNotes);
-      toast({ title: "AI draft ready", description: "Review the wording, quantities, and prices before sending." });
+      toast({ title: "AI draft and pricing ready", description: "The subtotal was distributed across the line items. Review everything before sending." });
     },
     onError: (error: Error) => toast({ title: "Draft not generated", description: error.message, variant: "destructive" }),
   });
@@ -115,10 +113,15 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
               <Sparkles className="mt-0.5 h-5 w-5 text-sky-700" />
               <div>
                 <h3 className="font-semibold text-slate-950">AI Quote Assistant</h3>
-                <p className="text-sm text-slate-600">Paste a ChatGPT Project summary or dictate rough job notes. AI improves the wording but never sets your prices or sends the quote.</p>
+                <p className="text-sm text-slate-600">Paste a ChatGPT Project summary or dictate rough job notes, then enter the subtotal you want charged. AI will write the scope and distribute your amount across the line items. It never sends the quote.</p>
               </div>
             </div>
             <Textarea rows={5} value={roughNotes} onChange={(event) => setRoughNotes(event.target.value)} placeholder="Example: Repair two drywall holes, protect floors, match texture, customer supplies paint..." />
+            <div className="max-w-xs">
+              <Label htmlFor={`ai-subtotal-${quote.id}`}>Quote subtotal to distribute ($)</Label>
+              <Input id={`ai-subtotal-${quote.id}`} type="number" min="0.01" step="0.01" value={aiSubtotal || ""} onChange={(event) => setAiSubtotal(Number(event.target.value))} placeholder="Example: 1850.00" />
+              <p className="mt-1 text-xs text-slate-500">The generated line items will add up to this exact amount before discount and tax.</p>
+            </div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
                 Writing style
@@ -127,7 +130,7 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
                   <option value="concise">Concise</option>
                 </select>
               </label>
-              <Button type="button" onClick={() => aiDraftMutation.mutate()} disabled={roughNotes.trim().length < 3 || aiDraftMutation.isPending}>
+              <Button type="button" onClick={() => aiDraftMutation.mutate()} disabled={roughNotes.trim().length < 3 || aiSubtotal <= 0 || aiDraftMutation.isPending}>
                 {aiDraftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
                 {aiDraftMutation.isPending ? "Writing Draft..." : "Generate Full Quote Draft"}
               </Button>

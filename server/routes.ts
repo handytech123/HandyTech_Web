@@ -2792,6 +2792,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         rate: z.coerce.number().min(0).max(1000000),
       })).max(50).default([]),
       currentNotes: z.string().trim().max(4000).default(""),
+      targetSubtotal: z.coerce.number().positive().max(10000000),
     });
 
     try {
@@ -2805,7 +2806,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const response = await client.responses.create({
         model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
-        instructions: `You write clear, professional home-repair quote language for HandyTech Solutions. Convert the contractor's rough notes into customer-facing scope language. Never invent prices, quantities, measurements, materials, warranties, permits, dates, or promises. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
+        instructions: `You write clear, professional home-repair quotes for HandyTech Solutions. Convert the contractor's rough notes into customer-facing line items and scope language. The contractor supplies the exact quote subtotal. Assign each line item a relative allocation weight based on the apparent labor, materials, and complexity described; the server will convert those weights into dollar amounts totaling the contractor's subtotal. Use explicit relative or item pricing in the notes to guide the weights. Do not add work, measurements, materials, warranties, permits, dates, or promises not supported by the notes. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
         input: JSON.stringify({
           customerRequest: {
             service: quote.serviceNeeded,
@@ -2816,6 +2817,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           contractorNotes: input.roughNotes,
           existingLineItems: input.existingItems,
           currentScopeNotes: input.currentNotes,
+          contractorSubtotal: input.targetSubtotal,
         }),
         text: {
           format: {
@@ -2826,15 +2828,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
               type: "object",
               additionalProperties: false,
               properties: {
-                lineItemDescriptions: {
+                lineItems: {
                   type: "array",
                   minItems: 1,
                   maxItems: 20,
-                  items: { type: "string", minLength: 1, maxLength: 240 },
+                  items: {
+                    type: "object",
+                    additionalProperties: false,
+                    properties: {
+                      description: { type: "string", minLength: 1, maxLength: 240 },
+                      allocationWeight: { type: "number", exclusiveMinimum: 0, maximum: 1000000 },
+                    },
+                    required: ["description", "allocationWeight"],
+                  },
                 },
                 scopeNotes: { type: "string", minLength: 1, maxLength: 4000 },
               },
-              required: ["lineItemDescriptions", "scopeNotes"],
+              required: ["lineItems", "scopeNotes"],
             },
           },
         },
@@ -2843,10 +2853,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       if (!response.output_text) return res.status(502).json({ message: "The AI assistant did not return a draft. Please try again." });
       const draft = z.object({
-        lineItemDescriptions: z.array(z.string().trim().min(1).max(240)).min(1).max(20),
+        lineItems: z.array(z.object({
+          description: z.string().trim().min(1).max(240),
+          allocationWeight: z.number().positive().max(1000000),
+        })).min(1).max(20),
         scopeNotes: z.string().trim().min(1).max(4000),
       }).parse(JSON.parse(response.output_text));
-      res.json(draft);
+      const totalWeight = draft.lineItems.reduce((sum, item) => sum + item.allocationWeight, 0);
+      const targetCents = Math.round(input.targetSubtotal * 100);
+      const allocations = draft.lineItems.map((item, index) => {
+        const exactCents = targetCents * item.allocationWeight / totalWeight;
+        return { index, cents: Math.floor(exactCents), fraction: exactCents - Math.floor(exactCents) };
+      });
+      let remainingCents = targetCents - allocations.reduce((sum, allocation) => sum + allocation.cents, 0);
+      [...allocations].sort((a, b) => b.fraction - a.fraction).forEach((allocation) => {
+        if (remainingCents > 0) { allocations[allocation.index].cents += 1; remainingCents -= 1; }
+      });
+      const lineItems = draft.lineItems.map((item, index) => ({ description: item.description, quantity: 1, rate: allocations[index].cents / 100 }));
+      res.json({ lineItems, scopeNotes: draft.scopeNotes });
     } catch (error) {
       console.error("AI quote draft error:", error);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Add a few clear job notes and try again.", errors: error.errors });
