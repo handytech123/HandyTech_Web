@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Plus, Send, Trash2 } from "lucide-react";
+import { Loader2, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Quote } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -21,6 +21,8 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
   const [taxRate, setTaxRate] = useState(0);
   const [validDays, setValidDays] = useState(14);
   const [notes, setNotes] = useState("Materials or work outside the listed scope require customer approval before proceeding.");
+  const [roughNotes, setRoughNotes] = useState([quote.serviceNeeded, quote.message].filter(Boolean).join("\n"));
+  const [detailLevel, setDetailLevel] = useState<"concise" | "detailed">("detailed");
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -50,6 +52,28 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
     onError: (error: Error) => toast({ title: "Quote not sent", description: error.message, variant: "destructive" }),
   });
 
+  const aiDraftMutation = useMutation({
+    mutationFn: async () => {
+      const response = await apiRequest(`/api/admin/quotes/${quote.id}/ai-draft`, "POST", {
+        roughNotes,
+        detailLevel,
+        existingItems: items,
+        currentNotes: notes,
+      });
+      return response.json() as Promise<{ lineItemDescriptions: string[]; scopeNotes: string }>;
+    },
+    onSuccess: (draft) => {
+      setItems((current) => draft.lineItemDescriptions.map((description, index) => ({
+        description,
+        quantity: current[index]?.quantity || 1,
+        rate: current[index]?.rate || 0,
+      })));
+      setNotes(draft.scopeNotes);
+      toast({ title: "AI draft ready", description: "Review the wording, quantities, and prices before sending." });
+    },
+    onError: (error: Error) => toast({ title: "Draft not generated", description: error.message, variant: "destructive" }),
+  });
+
   const updateItem = (index: number, field: keyof LineItem, value: string) => {
     setItems((current) => current.map((item, itemIndex) => itemIndex === index
       ? { ...item, [field]: field === "description" ? value : Number(value) }
@@ -68,6 +92,30 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
         </DialogHeader>
 
         <div className="space-y-5">
+          <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
+            <div className="flex items-start gap-3">
+              <Sparkles className="mt-0.5 h-5 w-5 text-sky-700" />
+              <div>
+                <h3 className="font-semibold text-slate-950">AI Quote Assistant</h3>
+                <p className="text-sm text-slate-600">Paste or dictate rough job notes. AI improves the wording but never sets your prices or sends the quote.</p>
+              </div>
+            </div>
+            <Textarea rows={5} value={roughNotes} onChange={(event) => setRoughNotes(event.target.value)} placeholder="Example: Repair two drywall holes, protect floors, match texture, customer supplies paint..." />
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                Writing style
+                <select className="h-9 rounded-md border border-input bg-background px-3 text-sm" value={detailLevel} onChange={(event) => setDetailLevel(event.target.value as "concise" | "detailed")}>
+                  <option value="detailed">Detailed</option>
+                  <option value="concise">Concise</option>
+                </select>
+              </label>
+              <Button type="button" onClick={() => aiDraftMutation.mutate()} disabled={roughNotes.trim().length < 3 || aiDraftMutation.isPending}>
+                {aiDraftMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}
+                {aiDraftMutation.isPending ? "Writing Draft..." : "Generate Full Quote Draft"}
+              </Button>
+            </div>
+          </div>
+
           <div className="space-y-2">
             <div className="grid grid-cols-[1fr_90px_120px_42px] gap-2 text-xs font-semibold uppercase text-muted-foreground">
               <span>Description</span><span>Qty/Hours</span><span>Rate</span><span />

@@ -2736,6 +2736,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ ok: true, token: "session" });
   });
 
+  app.post("/api/admin/quotes/:id/ai-draft", requireAdmin, async (req, res) => {
+    const aiQuoteDraftSchema = z.object({
+      roughNotes: z.string().trim().min(3).max(8000),
+      detailLevel: z.enum(["concise", "detailed"]).default("detailed"),
+      existingItems: z.array(z.object({
+        description: z.string().trim().max(240),
+        quantity: z.coerce.number().positive().max(10000),
+        rate: z.coerce.number().min(0).max(1000000),
+      })).max(50).default([]),
+      currentNotes: z.string().trim().max(4000).default(""),
+    });
+
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const input = aiQuoteDraftSchema.parse(req.body);
+      const client = getOpenAI();
+      if (!client) return res.status(503).json({ message: "The AI quote assistant is not configured yet." });
+
+      const response = await client.responses.create({
+        model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        instructions: `You write clear, professional home-repair quote language for HandyTech Solutions. Convert the contractor's rough notes into customer-facing scope language. Never invent prices, quantities, measurements, materials, warranties, permits, dates, or promises. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
+        input: JSON.stringify({
+          customerRequest: {
+            service: quote.serviceNeeded,
+            message: quote.message,
+            city: quote.city,
+            state: quote.state,
+          },
+          contractorNotes: input.roughNotes,
+          existingLineItems: input.existingItems,
+          currentScopeNotes: input.currentNotes,
+        }),
+        text: {
+          format: {
+            type: "json_schema",
+            name: "handytech_quote_draft",
+            strict: true,
+            schema: {
+              type: "object",
+              additionalProperties: false,
+              properties: {
+                lineItemDescriptions: {
+                  type: "array",
+                  minItems: 1,
+                  maxItems: 20,
+                  items: { type: "string", minLength: 1, maxLength: 240 },
+                },
+                scopeNotes: { type: "string", minLength: 1, maxLength: 4000 },
+              },
+              required: ["lineItemDescriptions", "scopeNotes"],
+            },
+          },
+        },
+        max_output_tokens: 1400,
+      });
+
+      if (!response.output_text) return res.status(502).json({ message: "The AI assistant did not return a draft. Please try again." });
+      const draft = z.object({
+        lineItemDescriptions: z.array(z.string().trim().min(1).max(240)).min(1).max(20),
+        scopeNotes: z.string().trim().min(1).max(4000),
+      }).parse(JSON.parse(response.output_text));
+      res.json(draft);
+    } catch (error) {
+      console.error("AI quote draft error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Add a few clear job notes and try again.", errors: error.errors });
+      res.status(500).json({ message: "The AI quote draft could not be generated. Your quote was not changed." });
+    }
+  });
+
   app.post("/api/admin/quotes/:id/send", requireAdmin, async (req, res) => {
     const preparedQuoteSchema = z.object({
       lineItems: z.array(z.object({
