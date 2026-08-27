@@ -537,6 +537,19 @@ export class EmailService {
     await this.transporter.sendMail({ from: `"${this.businessName}" <${this.fromEmail}>`, to: this.fromEmail, replyTo: data.customerEmail, subject: `Admin copy - ${data.invoiceNumber} sent to ${data.customerName}`, html: `<p>Invoice <strong>${clean(data.invoiceNumber)}</strong> was sent to ${clean(data.customerName)} (${clean(data.customerEmail)}).</p><p>Total: ${money(data.total)}; balance due: ${money(data.balanceDue)}.</p><p>This admin copy does not contain the tracked customer link.</p>`, attachments: [attachment] });
   }
 
+  async sendInvoiceViewedNotification(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; balanceDue: number }): Promise<void> {
+    if (!this.isConfigured) return;
+    const clean = (value: string) => value.replace(/[&<>'"]/g, "");
+    const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    await this.transporter.sendMail({
+      from: `"${this.businessName}" <${this.fromEmail}>`,
+      to: this.fromEmail,
+      replyTo: data.customerEmail,
+      subject: `${data.invoiceNumber} - Customer viewed invoice`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:640px;color:#0f172a"><div style="background:#0f172a;color:#fff;padding:22px;border-top:6px solid #2769BE"><h2 style="margin:0">Invoice viewed</h2></div><div style="padding:22px;border:1px solid #e2e8f0"><p><strong>${clean(data.customerName)}</strong> opened invoice <strong>${clean(data.invoiceNumber)}</strong>.</p><p>Invoice total: <strong>${money(data.total)}</strong><br>Balance due: <strong>${money(data.balanceDue)}</strong></p><p>You can reply to <a href="mailto:${clean(data.customerEmail)}">${clean(data.customerEmail)}</a> or open the HandyTech admin dashboard to review its status.</p></div></div>`,
+    });
+  }
+
   async sendQuoteViewedNotification(data: { quoteNumber: string; customerName: string; customerEmail: string; total: number }): Promise<void> {
     if (!this.isConfigured) return;
     const cleanName = data.customerName.replace(/[&<>'"]/g, "");
