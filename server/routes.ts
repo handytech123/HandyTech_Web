@@ -2118,20 +2118,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const data = adminQuoteSchema.parse(req.body);
       const customer = await storage.getCustomer(data.customerId);
       if (!customer) return res.status(404).json({ message: "Customer not found" });
-      const quote = await storage.createQuote(insertQuoteSchema.parse({
+      // Admin-created drafts may use an existing customer whose historical record
+      // does not yet contain every field required by the public quote form.
+      // The core quote columns are populated here; nullable contact/address fields
+      // remain nullable and can be completed before the proposal is sent.
+      const quote = await storage.createQuote({
         firstName: customer.firstName,
         lastName: customer.lastName,
         email: customer.email,
-        phone: customer.phone || null,
+        phone: customer.phone || "",
         company: customer.company || null,
-        street: customer.street || null,
-        city: customer.city || null,
-        state: customer.state || null,
-        zip: customer.zip || null,
+        street: customer.street || "",
+        city: customer.city || "",
+        state: customer.state || "",
+        zip: customer.zip || "",
         serviceNeeded: data.serviceNeeded,
         message: data.message || null,
-        status: "pending",
-      }));
+      });
       res.status(201).json(quote);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Choose a customer and enter the project details", errors: error.errors });
