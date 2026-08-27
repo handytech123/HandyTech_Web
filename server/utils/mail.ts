@@ -481,15 +481,13 @@ export class EmailService {
           <div style="background:#0f172a;color:white;padding:28px;border-top:6px solid #2769BE"><h1 style="margin:0">${this.businessName}</h1><p style="margin:8px 0 0;color:#bae6fd">Professional Service Quote</p></div>
           <div style="padding:28px;border:1px solid #e5e7eb;border-top:0">
             <div style="display:flex;justify-content:space-between;gap:20px"><div><strong>Prepared for</strong><br>${escapeHtml(data.customerName)}${data.serviceAddress ? `<br>${escapeHtml(data.serviceAddress)}` : ""}</div><div style="text-align:right"><strong>${escapeHtml(data.quoteNumber)}</strong><br>Valid through ${expires.toLocaleDateString("en-US")}</div></div>
-            <table style="width:100%;border-collapse:collapse;margin-top:28px"><thead><tr style="background:#eff6ff;color:#0f172a"><th style="padding:12px;text-align:left">Description</th><th style="padding:12px;text-align:right">Qty/Hours</th><th style="padding:12px;text-align:right">Rate</th><th style="padding:12px;text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
-            <div style="margin:20px 0 20px auto;max-width:320px"><p style="display:flex;justify-content:space-between"><span>Subtotal</span><strong>${money(data.subtotal)}</strong></p>${data.discount ? `<p style="display:flex;justify-content:space-between"><span>Discount</span><strong>-${money(data.discount)}</strong></p>` : ""}${data.tax ? `<p style="display:flex;justify-content:space-between"><span>Tax (${data.taxRate}%)</span><strong>${money(data.tax)}</strong></p>` : ""}<p style="display:flex;justify-content:space-between;border-top:3px solid #2769BE;padding-top:12px;font-size:20px;color:#0f172a"><span>Total Investment</span><strong>${money(data.total)}</strong></p></div>
-            ${data.notes ? `<div style="background:#f8fafc;padding:16px;border-radius:6px"><strong>Scope and notes</strong><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(data.notes)}</p></div>` : ""}
+            <div style="background:#eff6ff;border-left:4px solid #2769BE;padding:18px;margin:28px 0"><p style="margin:0 0 8px"><strong>Quote:</strong> ${escapeHtml(data.quoteNumber)}</p><p style="margin:0 0 8px"><strong>Total:</strong> ${money(data.total)}</p><p style="margin:0"><strong>Valid through:</strong> ${expires.toLocaleDateString("en-US")}</p></div>
+            <p>The complete project scope, itemized pricing, terms, and downloadable PDF are available on your secure quote page.</p>
             <div style="margin:28px 0;text-align:center"><a href="${escapeHtml(data.proposalUrl)}" style="display:inline-block;background:#2769BE;color:#fff;text-decoration:none;font-weight:bold;padding:14px 24px;border-radius:7px">Review &amp; Respond to Quote</a></div>
             <p style="margin-top:24px">Open the secure quote page to approve and sign, request changes, or decline. You may also reply to this email or call ${escapeHtml(this.businessPhone)}.</p>
             <p style="font-size:12px;color:#64748b">This quote covers only the listed scope and is valid for ${data.validDays} days. Changes require approval and may affect price or scheduling.</p>
           </div>
         </div>`,
-      attachments: [{ filename: `${data.quoteNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" }],
     });
 
     try {
