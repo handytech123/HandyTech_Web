@@ -96,6 +96,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     return emailService;
   };
+
+  const fillMissingCustomerProfile = async <T extends {
+      id: number;
+      phone?: string | null;
+      company?: string | null;
+      street?: string | null;
+      city?: string | null;
+      state?: string | null;
+      zip?: string | null;
+    }>(
+    customer: T,
+    submitted: Partial<Record<"phone" | "company" | "street" | "city" | "state" | "zip", string | null | undefined>>,
+  ): Promise<T> => {
+    const updates: Partial<InsertCustomer> = {};
+    const fields = ["phone", "company", "street", "city", "state", "zip"] as const;
+    for (const field of fields) {
+      const existingValue = String(customer[field] || "").trim();
+      const submittedValue = String(submitted[field] || "").trim();
+      if (!existingValue && submittedValue && submittedValue.toLowerCase() !== "not provided") {
+        updates[field] = submittedValue;
+      }
+    }
+    if (Object.keys(updates).length > 0) {
+      await storage.updateCustomer(customer.id, updates);
+      return { ...customer, ...updates } as T;
+    }
+    return customer;
+  };
   
   // SECURITY: Server-side maintenance plan catalog with canonical pricing
   // This prevents price tampering by enforcing server-controlled pricing
@@ -1262,6 +1290,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           state: "MO",
           zip: "",
         });
+      } else {
+        customer = await fillMissingCustomerProfile(customer, {
+          phone: phone || "",
+          street: address || "",
+        });
       }
 
       const appointment = await storage.createAppointment({
@@ -1988,6 +2021,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
           state: validatedData.state,
           zip: "",
         });
+      } else {
+        customer = await fillMissingCustomerProfile(customer, {
+          phone: validatedData.phone || "",
+          city: validatedData.city,
+          state: validatedData.state,
+        });
       }
 
       // Create the review with validated data
@@ -2185,19 +2224,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           zip: quote.zip || "",
         });
       } else {
-        // A returning customer may have been created before an address was
-        // collected. Fill only missing profile fields from the quote request
-        // so newer, manually maintained customer information is preserved.
-        const profileUpdates: Partial<InsertCustomer> = {};
-        if (!existingCustomer.phone && quote.phone) profileUpdates.phone = quote.phone;
-        if (!existingCustomer.company && quote.company) profileUpdates.company = quote.company;
-        if (!existingCustomer.street && quote.street) profileUpdates.street = quote.street;
-        if (!existingCustomer.city && quote.city) profileUpdates.city = quote.city;
-        if (!existingCustomer.state && quote.state) profileUpdates.state = quote.state;
-        if (!existingCustomer.zip && quote.zip) profileUpdates.zip = quote.zip;
-        if (Object.keys(profileUpdates).length > 0) {
-          await storage.updateCustomer(existingCustomer.id, profileUpdates);
-        }
+        await fillMissingCustomerProfile(existingCustomer, quote);
       }
 
       // Send email notification for quote request
@@ -2395,6 +2422,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
           email: appointmentData.email,
           phone: appointmentData.phone || "",
           company: "",
+          street: appointmentData.street || "",
+          city: appointmentData.city || "",
+          state: appointmentData.state || "",
+          zip: appointmentData.zip || "",
+        });
+      } else {
+        customer = await fillMissingCustomerProfile(customer, {
+          phone: appointmentData.phone || "",
           street: appointmentData.street || "",
           city: appointmentData.city || "",
           state: appointmentData.state || "",
