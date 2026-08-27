@@ -2928,6 +2928,51 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/quotes/:id/proposal", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote" });
+      const proposal = await storage.getQuoteProposalByQuoteId(id);
+      if (!proposal) return res.status(404).json({ message: "No generated quote has been saved yet" });
+      res.json({
+        quoteNumber: proposal.quoteNumber,
+        lineItems: proposal.lineItems,
+        discount: proposal.discount,
+        taxRate: proposal.taxRate,
+        subtotal: proposal.subtotal,
+        tax: proposal.tax,
+        total: proposal.total,
+        notes: proposal.notes,
+        validUntil: proposal.validUntil,
+        status: proposal.status,
+        sentAt: proposal.sentAt,
+        viewedAt: proposal.viewedAt,
+        respondedAt: proposal.respondedAt,
+        signerName: proposal.signerName,
+      });
+    } catch (error) {
+      console.error("Admin get quote proposal error:", error);
+      res.status(500).json({ message: "The generated quote could not be loaded" });
+    }
+  });
+
+  app.get("/api/admin/quotes/:id/proposal/pdf", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote" });
+      const quote = await storage.getQuote(id);
+      const proposal = await storage.getQuoteProposalByQuoteId(id);
+      if (!quote || !proposal) return res.status(404).json({ message: "Generated quote not found" });
+      const buffer = await generateQuotePdfBuffer(quote, proposal);
+      res.setHeader("Content-Type", "application/pdf");
+      res.setHeader("Content-Disposition", `inline; filename="${proposal.quoteNumber}.pdf"`);
+      res.send(buffer);
+    } catch (error) {
+      console.error("Admin quote PDF error:", error);
+      res.status(500).json({ message: "The quote PDF could not be created" });
+    }
+  });
+
   const proposalTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
   const publicProposal = (quote: any, proposal: any) => ({
     quote: {
