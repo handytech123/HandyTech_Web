@@ -803,7 +803,7 @@ function AppointmentsTab({
 }
 
 // CustomersTab component
-function CustomersTab({ customers }: { customers: Customer[] }) {
+function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onCreateQuote: (customer: Customer) => void }) {
   const [addCustomerDialogOpen, setAddCustomerDialogOpen] = useState(false);
   const [editCustomerDialogOpen, setEditCustomerDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -1174,6 +1174,15 @@ function CustomersTab({ customers }: { customers: Customer[] }) {
                   </div>
                   
                   <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={() => onCreateQuote(customer)}
+                      className="flex items-center gap-1"
+                      data-testid={`button-create-quote-${customer.id}`}
+                    >
+                      <DollarSign className="h-4 w-4" />
+                      Create Quote
+                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -2548,6 +2557,7 @@ function AuthenticatedDashboard() {
   const [newQuoteService, setNewQuoteService] = useState("");
   const [newQuoteNotes, setNewQuoteNotes] = useState("");
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState("services");
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -2767,7 +2777,7 @@ function AuthenticatedDashboard() {
 
         </div>
 
-        <Tabs defaultValue="services" className="space-y-6">
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
           <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-10 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
               Services
@@ -3037,7 +3047,17 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="customers">
-            <CustomersTab customers={customers} />
+            <CustomersTab
+              customers={customers}
+              onCreateQuote={(customer) => {
+                setNewQuoteCustomerSearch(`${customer.firstName} ${customer.lastName}`);
+                setNewQuoteCustomerId(String(customer.id));
+                setNewQuoteService("");
+                setNewQuoteNotes("");
+                setActiveTab("quotes");
+                setNewQuoteDialogOpen(true);
+              }}
+            />
           </TabsContent>
 
           <TabsContent value="live-chat">
