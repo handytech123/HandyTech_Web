@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { Loader2, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, Eye, Loader2, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Quote } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,6 +14,7 @@ type LineItem = { description: string; quantity: number; rate: number };
 
 export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
   const [open, setOpen] = useState(false);
+  const [showPreview, setShowPreview] = useState(false);
   const [items, setItems] = useState<LineItem[]>([
     { description: quote.serviceNeeded || "Labor and services", quantity: 1, rate: 0 },
   ]);
@@ -83,7 +84,7 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
   const ready = items.length > 0 && items.every((item) => item.description.trim() && item.quantity > 0 && item.rate >= 0) && totals.total > 0;
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={(nextOpen) => { setOpen(nextOpen); if (!nextOpen) setShowPreview(false); }}>
       <DialogTrigger asChild><Button size="sm"><Send className="mr-2 h-4 w-4" />Build &amp; Send Quote</Button></DialogTrigger>
       <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
@@ -91,13 +92,13 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
           <DialogDescription>{quote.email} · {quote.phone || "No phone provided"}. Nothing sends until you press the final button.</DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-5">
+        {!showPreview ? <div className="space-y-5">
           <div className="space-y-3 rounded-xl border border-sky-200 bg-sky-50/70 p-4">
             <div className="flex items-start gap-3">
               <Sparkles className="mt-0.5 h-5 w-5 text-sky-700" />
               <div>
                 <h3 className="font-semibold text-slate-950">AI Quote Assistant</h3>
-                <p className="text-sm text-slate-600">Paste or dictate rough job notes. AI improves the wording but never sets your prices or sends the quote.</p>
+                <p className="text-sm text-slate-600">Paste a ChatGPT Project summary or dictate rough job notes. AI improves the wording but never sets your prices or sends the quote.</p>
               </div>
             </div>
             <Textarea rows={5} value={roughNotes} onChange={(event) => setRoughNotes(event.target.value)} placeholder="Example: Repair two drywall holes, protect floors, match texture, customer supplies paint..." />
@@ -146,10 +147,51 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
             <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total</span><span>${totals.total.toFixed(2)}</span></div>
           </div>
 
-          <Button className="w-full" disabled={!ready || sendMutation.isPending} onClick={() => sendMutation.mutate()}>
-            <Send className="mr-2 h-4 w-4" />{sendMutation.isPending ? "Sending…" : `Send $${totals.total.toFixed(2)} Quote to Customer`}
+          <Button className="w-full" disabled={!ready} onClick={() => setShowPreview(true)}>
+            <Eye className="mr-2 h-4 w-4" />Preview Customer Quote
           </Button>
-        </div>
+        </div> : <div className="space-y-5">
+          <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
+            <div className="bg-slate-950 px-6 py-5 text-white">
+              <div className="flex items-start justify-between gap-4">
+                <div><div className="text-2xl font-bold">HandyTech Solutions</div><div className="text-sm text-sky-200">Professional home improvement &amp; repair</div></div>
+                <div className="text-right"><div className="text-xs uppercase tracking-widest text-sky-200">Service Quote</div><div className="font-semibold">Preview</div></div>
+              </div>
+            </div>
+            <div className="space-y-6 p-6">
+              <div className="grid gap-5 sm:grid-cols-2">
+                <div>
+                  <div className="text-xs font-bold uppercase tracking-wider text-blue-700">Prepared for</div>
+                  <div className="mt-2 text-xl font-bold text-slate-950">{quote.firstName} {quote.lastName}</div>
+                  <div className="text-sm text-slate-600">{quote.email}</div>
+                  {quote.phone && <div className="text-sm text-slate-600">{quote.phone}</div>}
+                  {[quote.street, quote.city, quote.state, quote.zip].filter(Boolean).length > 0 && <div className="mt-2 text-sm text-slate-600">{[quote.street, quote.city, [quote.state, quote.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")}</div>}
+                </div>
+                <div className="sm:text-right"><div className="text-xs font-bold uppercase tracking-wider text-blue-700">Quote details</div><div className="mt-2 text-sm text-slate-700">Issued {new Date().toLocaleDateString()}</div><div className="text-sm text-slate-600">Valid for {validDays} days</div></div>
+              </div>
+
+              <div className="overflow-x-auto rounded-lg border">
+                <div className="grid min-w-[600px] grid-cols-[1fr_70px_100px_110px] gap-2 bg-slate-100 px-4 py-3 text-xs font-bold uppercase text-slate-600"><span>Description</span><span className="text-right">Qty</span><span className="text-right">Rate</span><span className="text-right">Amount</span></div>
+                {items.map((item, index) => <div key={index} className="grid min-w-[600px] grid-cols-[1fr_70px_100px_110px] gap-2 border-t px-4 py-3 text-sm"><span className="font-medium text-slate-900">{item.description}</span><span className="text-right text-slate-600">{item.quantity}</span><span className="text-right text-slate-600">${item.rate.toFixed(2)}</span><span className="text-right font-semibold">${(item.quantity * item.rate).toFixed(2)}</span></div>)}
+              </div>
+
+              <div className="ml-auto w-full max-w-sm space-y-1 text-sm">
+                <div className="flex justify-between"><span>Subtotal</span><span>${totals.subtotal.toFixed(2)}</span></div>
+                {discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-${discount.toFixed(2)}</span></div>}
+                {totals.tax > 0 && <div className="flex justify-between"><span>Tax</span><span>${totals.tax.toFixed(2)}</span></div>}
+                <div className="flex justify-between border-t pt-2 text-xl font-bold"><span>Total</span><span>${totals.total.toFixed(2)}</span></div>
+              </div>
+
+              {notes && <div className="rounded-lg bg-slate-50 p-4"><div className="text-xs font-bold uppercase tracking-wider text-slate-600">Scope and notes</div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{notes}</p></div>}
+              <p className="text-xs text-slate-500">This admin preview shows what the customer will receive. The final version also includes its quote number, downloadable PDF, approval controls, and electronic-signature section.</p>
+            </div>
+          </div>
+
+          <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+            <Button type="button" variant="outline" onClick={() => setShowPreview(false)}><ArrowLeft className="mr-2 h-4 w-4" />Back to Edit</Button>
+            <Button disabled={sendMutation.isPending} onClick={() => sendMutation.mutate()}><Send className="mr-2 h-4 w-4" />{sendMutation.isPending ? "Sending..." : `Send $${totals.total.toFixed(2)} Quote to Customer`}</Button>
+          </div>
+        </div>}
       </DialogContent>
     </Dialog>
   );
