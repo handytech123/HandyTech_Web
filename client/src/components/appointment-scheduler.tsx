@@ -20,7 +20,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertAppointmentSchema } from "@shared/schema";
 import { z } from "zod";
-import { format, parseISO, isAfter, addHours } from "date-fns";
+import { format, parseISO, isAfter } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 // Service interface — matches actual API/DB fields
@@ -49,6 +49,13 @@ function parseDurationHours(estimatedDuration?: string | null): number {
     return 6;
   }
   return 2;
+}
+
+function isPublicBookingDateUnavailable(date: Date): boolean {
+  if (date.getDay() === 0 || date.getDay() === 6) return true;
+  const dateText = format(date, "yyyy-MM-dd");
+  const endOfBusinessDay = fromZonedTime(`${dateText}T17:00:00`, "America/Chicago");
+  return endOfBusinessDay.getTime() < Date.now() + (12 * 60 * 60 * 1000);
 }
 
 // Service categories configuration
@@ -784,15 +791,12 @@ export default function AppointmentScheduler() {
                     mode="single"
                     selected={selectedDate}
                     onSelect={handleDateSelect}
-                    disabled={(date) => 
-                      date < addHours(new Date(), 12) || 
-                      date.getDay() === 0 // Disable Sundays
-                    }
+                    disabled={isPublicBookingDateUnavailable}
                     className="rounded-md border w-full"
                     data-testid="calendar-date-picker"
                   />
                   <p className="text-sm text-gray-500 mt-2">
-                    Appointments must be booked at least 12 hours in advance. Sundays are not available.
+                    Appointments must be booked at least 12 hours in advance. Scheduling is available Monday through Friday.
                   </p>
                 </CardContent>
               </Card>

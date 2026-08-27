@@ -56,6 +56,17 @@ function formatServiceAddress(data: {
   return [street, [city, stateZip].filter(Boolean).join(", ")].filter(Boolean).join(", ");
 }
 
+const PUBLIC_SCHEDULING_NOTICE_HOURS = 12;
+const APPOINTMENT_BUFFER_MINUTES = 0;
+
+function schedulingHoursFromEstimate(estimatedDuration?: string | null): number {
+  const values = estimatedDuration?.match(/\d+/g)?.map(Number) || [];
+  const maximum = values.length ? Math.max(...values) : 2;
+  if (maximum <= 2) return 2;
+  if (maximum <= 4) return 4;
+  return 6;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Mount Google Calendar admin routes
   const { default: googleAdminRoutes } = await import("./routes/google-admin.js");
@@ -732,14 +743,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Enforce 24-hour minimum notice (more strict than the token-based 12-hour)
+      // Keep customer scheduling and both rescheduling paths on one notice rule.
       const now = new Date();
-      const twentyFourHoursFromNow = new Date(now.getTime() + (24 * 60 * 60 * 1000));
+      const minimumStartTime = new Date(now.getTime() + (PUBLIC_SCHEDULING_NOTICE_HOURS * 60 * 60 * 1000));
       
-      if (newStartTime < twentyFourHoursFromNow) {
+      if (newStartTime < minimumStartTime) {
         return res.status(409).json({ 
           success: false, 
-          message: "Appointments must be rescheduled at least 24 hours in advance" 
+          message: `Appointments must be rescheduled at least ${PUBLIC_SCHEDULING_NOTICE_HOURS} hours in advance` 
         });
       }
       
@@ -762,7 +773,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           searchEnd, 
           durationMinutes,
           30, // 30-minute steps
-          15, // 15-minute buffer
+          APPOINTMENT_BUFFER_MINUTES,
           appointmentId
         );
         
@@ -1021,7 +1032,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             searchEnd,
             durationMinutes,
             30, // 30-minute steps
-            15, // 15-minute buffer
+            APPOINTMENT_BUFFER_MINUTES,
             appointmentId
           );
 
@@ -2142,9 +2153,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Appointments routes
   app.post("/api/appointments", async (req, res) => {
     try {
-      // Import service utilities
-      const { getServiceById } = await import("./utils/services");
-      
       // Parse and validate appointment data
       const appointmentData = insertAppointmentSchema.parse(req.body);
       
@@ -2152,34 +2160,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let durationHours: number;
       let serviceInfo: { id: number; name: string; description: string } | null = null;
       
-      if (appointmentData.durationHours) {
-        // Explicit duration provided - use it (legacy behavior)
-        durationHours = appointmentData.durationHours;
-      } else if (appointmentData.serviceId) {
-        // Service ID provided - infer duration from catalog
-        const service = getServiceById(appointmentData.serviceId);
-        if (!service) {
+      if (appointmentData.serviceId) {
+        // The live database is the canonical service catalog used by the form.
+        const service = await storage.getService(appointmentData.serviceId);
+        if (!service || !service.isActive) {
           return res.status(400).json({
             ok: false,
             error: "SERVICE_NOT_FOUND",
             message: "Service not found or not active"
           });
         }
-        
-        // Validate that service suggestedHours is in allowed set
-        if (![2, 4, 6].includes(service.suggestedHours)) {
-          return res.status(400).json({ 
-            error: "INVALID_SERVICE_DURATION",
-            message: `Service duration ${service.suggestedHours}h is not supported. Allowed durations: 2, 4, 6 hours`
-          });
-        }
-        
-        durationHours = service.suggestedHours;
+        durationHours = schedulingHoursFromEstimate(service.estimatedDuration);
         serviceInfo = {
           id: service.id,
           name: service.name,
           description: service.description
         };
+      } else if (appointmentData.durationHours) {
+        // Legacy requests without a service ID may still provide a duration.
+        durationHours = appointmentData.durationHours;
       } else {
         // Fallback to legacy service type mapping
         const serviceDurations: Record<string, number> = {
@@ -2221,6 +2220,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const timeStr24 = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
       const startTimestamptz = fromZonedTime(`${dateStr}T${timeStr24}`, businessTz);
       const endTimestamptz = new Date(startTimestamptz.getTime() + (durationHours * 60 * 60 * 1000));
+
+      const minimumPublicStart = new Date(Date.now() + (PUBLIC_SCHEDULING_NOTICE_HOURS * 60 * 60 * 1000));
+      if (startTimestamptz < minimumPublicStart) {
+        return res.status(409).json({
+          ok: false,
+          error: "ADVANCE_NOTICE_REQUIRED",
+          message: `Appointments must be booked at least ${PUBLIC_SCHEDULING_NOTICE_HOURS} hours in advance.`
+        });
+      }
       
       // Generate reschedule token (24-byte hex)
       const rescheduleToken = crypto.randomBytes(24).toString('hex');
@@ -2241,7 +2249,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           searchEnd,
           durationMinutes,
           30, // step minutes
-          15  // buffer minutes
+          APPOINTMENT_BUFFER_MINUTES
         );
         
         // Check if our requested start time is available (exact match required)
@@ -2273,6 +2281,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create appointment with computed timestamps and reschedule token
       const enhancedAppointmentData = {
         ...appointmentData,
+        serviceType: serviceInfo?.name || appointmentData.serviceType,
         startTimestamptz,
         endTimestamptz,
         rescheduleToken,
@@ -2503,7 +2512,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           searchEnd, 
           durationMinutes,
           30, // 30-minute steps
-          15, // 15-minute buffer
+          APPOINTMENT_BUFFER_MINUTES,
           appointment.id
         );
         
@@ -3577,9 +3586,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Availability endpoint for scheduler system
   app.get("/api/availability", async (req, res) => {
     try {
-      // Import service utilities
-      const { getServiceById } = await import("./utils/services");
-      
       // Define validation schema for query parameters
       // Support both legacy hours parameter and new serviceId parameter
       const querySchema = z.object({
@@ -3625,9 +3631,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let blockMinutes: number;
       let suggestedHours: number;
       
-      // Determine block duration - hours parameter takes precedence
-      if (validatedQuery.hours) {
-        // Legacy behavior - use explicit hours
+      // A selected service is canonical; legacy callers may supply only hours.
+      if (validatedQuery.serviceId) {
+        const serviceId = parseInt(validatedQuery.serviceId);
+        const service = await storage.getService(serviceId);
+        
+        if (!service || !service.isActive) {
+          return res.status(400).json({ 
+            error: "SERVICE_NOT_FOUND",
+            message: "Service not found or not active"
+          });
+        }
+        
+        suggestedHours = schedulingHoursFromEstimate(service.estimatedDuration);
+        blockMinutes = suggestedHours * 60;
+      } else if (validatedQuery.hours) {
+        // Backward compatibility for rescheduling older appointments.
         const hoursToMinutes = {
           "2": 120,
           "4": 240,
@@ -3635,28 +3654,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
         blockMinutes = hoursToMinutes[validatedQuery.hours];
         suggestedHours = parseInt(validatedQuery.hours);
-      } else if (validatedQuery.serviceId) {
-        // New behavior - infer from service catalog
-        const serviceId = parseInt(validatedQuery.serviceId);
-        const service = getServiceById(serviceId);
-        
-        if (!service) {
-          return res.status(400).json({ 
-            error: "SERVICE_NOT_FOUND",
-            message: "Service not found or not active"
-          });
-        }
-        
-        // Validate that service suggestedHours is in allowed set
-        if (![2, 4, 6].includes(service.suggestedHours)) {
-          return res.status(400).json({ 
-            error: "INVALID_SERVICE_DURATION",
-            message: `Service duration ${service.suggestedHours}h is not supported. Allowed durations: 2, 4, 6 hours`
-          });
-        }
-        
-        blockMinutes = service.suggestedHours * 60;
-        suggestedHours = service.suggestedHours;
       } else {
         // This shouldn't happen due to Zod validation, but handle it safely
         return res.status(400).json({ 
@@ -3689,8 +3686,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Enhanced response with service information
+      const minimumPublicStart = Date.now() + (PUBLIC_SCHEDULING_NOTICE_HOURS * 60 * 60 * 1000);
+      const visibleSlots = isAdminAvailabilityRequest
+        ? slots
+        : slots.filter((slot) => new Date(slot).getTime() >= minimumPublicStart);
+
       res.json({ 
-        slots,
+        slots: visibleSlots,
         suggestedHours
       });
       

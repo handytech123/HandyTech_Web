@@ -18,7 +18,7 @@ import {
   type ChatMessage, type InsertChatMessage
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, isNull, count } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, gt, isNull, count } from "drizzle-orm";
 import crypto from "crypto";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { withDatabaseRetry, withGracefulFailure, checkDatabaseHealth } from "./utils/database-error-handling";
@@ -2121,8 +2121,8 @@ export class DatabaseStorage implements IStorage {
   async getBlockedTimesInRange(startDate: string, endDate: string): Promise<BlockedTime[]> {
     return await db.select().from(blockedTimes)
       .where(and(
-        gte(blockedTimes.startTimestamptz, new Date(startDate)),
-        lte(blockedTimes.endTimestamptz, new Date(endDate))
+        lt(blockedTimes.startTimestamptz, new Date(endDate)),
+        gt(blockedTimes.endTimestamptz, new Date(startDate))
       ))
       .orderBy(blockedTimes.startTimestamptz);
   }
