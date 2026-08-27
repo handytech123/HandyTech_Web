@@ -22,6 +22,7 @@ import { insertAppointmentSchema } from "@shared/schema";
 import { z } from "zod";
 import { format, parseISO, isAfter } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
+import AddressAutocomplete from "@/components/address-autocomplete";
 
 // Service interface — matches actual API/DB fields
 interface Service {
@@ -624,11 +625,17 @@ export default function AppointmentScheduler() {
                           <FormItem>
                             <FormLabel>Street Address</FormLabel>
                             <FormControl>
-                              <Input 
-                                {...field} 
-                                placeholder="123 Main Street" 
-                                data-testid="input-street" 
-                                value={field.value || ""} 
+                              <AddressAutocomplete
+                                value={field.value || ""}
+                                onChange={field.onChange}
+                                onAddressSelect={(address) => {
+                                  field.onChange(address.street);
+                                  form.setValue("city", address.city, { shouldValidate: true });
+                                  form.setValue("state", address.state, { shouldValidate: true });
+                                  form.setValue("zip", address.zip, { shouldValidate: true });
+                                }}
+                                placeholder="Start typing the service address"
+                                testId="input-street"
                               />
                             </FormControl>
                             <FormMessage />

@@ -14,6 +14,7 @@ import { useToast } from "@/hooks/use-toast";
 import { createCsrfHeaders } from "@/lib/csrf";
 import { Phone, Mail, Clock, ImagePlus, Maximize2, Video, X } from "lucide-react";
 import { z } from "zod";
+import AddressAutocomplete from "@/components/address-autocomplete";
 
 const quoteFormSchema = insertQuoteSchema.extend({
   serviceNeeded: z.string().min(1, "Please select a service"),
@@ -338,13 +339,21 @@ export default function ContactSection() {
               {/* Address Fields */}
               <div>
                 <Label htmlFor="street" className="text-charcoal">Street Address</Label>
-                <Input 
-                  id="street"
-                  {...form.register("street")}
-                  className="mt-2"
-                  placeholder="123 Main Street"
-                  data-testid="input-street"
-                />
+                <div className="mt-2">
+                  <AddressAutocomplete
+                    id="street"
+                    value={form.watch("street") || ""}
+                    onChange={(value) => form.setValue("street", value, { shouldValidate: true })}
+                    onAddressSelect={(address) => {
+                      form.setValue("street", address.street, { shouldValidate: true });
+                      form.setValue("city", address.city, { shouldValidate: true });
+                      form.setValue("state", address.state, { shouldValidate: true });
+                      form.setValue("zip", address.zip, { shouldValidate: true });
+                    }}
+                    placeholder="Start typing the project address"
+                    testId="input-street"
+                  />
+                </div>
                 {form.formState.errors.street && (
                   <p className="text-red-500 text-sm mt-1">{form.formState.errors.street.message}</p>
                 )}

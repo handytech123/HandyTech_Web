@@ -1787,6 +1787,58 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   };
 
+  const getGooglePlacesKey = () => process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
+
+  app.get("/api/places/autocomplete", async (req, res) => {
+    const input = typeof req.query.input === "string" ? req.query.input.trim() : "";
+    const sessionToken = typeof req.query.sessionToken === "string" ? req.query.sessionToken : "";
+    if (input.length < 3 || input.length > 200) return res.status(400).json({ message: "Enter at least three address characters" });
+    const apiKey = getGooglePlacesKey();
+    if (!apiKey) return res.status(503).json({ message: "Address suggestions are not configured" });
+    try {
+      const response = await fetch("https://places.googleapis.com/v1/places:autocomplete", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "suggestions.placePrediction.placeId,suggestions.placePrediction.text.text" },
+        body: JSON.stringify({ input, sessionToken: sessionToken || undefined, includedRegionCodes: ["us"], languageCode: "en" }),
+      });
+      if (!response.ok) throw new Error(`Google Places autocomplete returned ${response.status}`);
+      const data = await response.json() as any;
+      const suggestions = (data.suggestions || []).flatMap((entry: any) => entry.placePrediction?.placeId && entry.placePrediction?.text?.text ? [{ placeId: entry.placePrediction.placeId, text: entry.placePrediction.text.text }] : []).slice(0, 6);
+      res.json({ suggestions });
+    } catch (error) {
+      console.error("Google address autocomplete failed:", error);
+      res.status(502).json({ message: "Address suggestions are temporarily unavailable" });
+    }
+  });
+
+  app.get("/api/places/details/:placeId", async (req, res) => {
+    const apiKey = getGooglePlacesKey();
+    if (!apiKey) return res.status(503).json({ message: "Address suggestions are not configured" });
+    const sessionToken = typeof req.query.sessionToken === "string" ? req.query.sessionToken : "";
+    try {
+      const url = new URL(`https://places.googleapis.com/v1/places/${encodeURIComponent(req.params.placeId)}`);
+      if (sessionToken) url.searchParams.set("sessionToken", sessionToken);
+      url.searchParams.set("languageCode", "en");
+      const response = await fetch(url, { headers: { "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": "formattedAddress,addressComponents" } });
+      if (!response.ok) throw new Error(`Google Places details returned ${response.status}`);
+      const place = await response.json() as any;
+      const components = place.addressComponents || [];
+      const component = (...types: string[]) => components.find((item: any) => types.some((type) => item.types?.includes(type)))?.longText || "";
+      const stateComponent = components.find((item: any) => item.types?.includes("administrative_area_level_1"));
+      const street = [component("street_number"), component("route")].filter(Boolean).join(" ");
+      res.json({
+        street: street || place.formattedAddress || "",
+        city: component("locality", "postal_town", "sublocality_level_1"),
+        state: stateComponent?.shortText || stateComponent?.longText || "",
+        zip: component("postal_code"),
+        formattedAddress: place.formattedAddress || street,
+      });
+    } catch (error) {
+      console.error("Google address details failed:", error);
+      res.status(502).json({ message: "Address details are temporarily unavailable" });
+    }
+  });
+
   app.get("/api/admin/review-requests/pending", requireAdmin, async (_req, res) => {
     try {
       const pending = await getPendingReviewRequests();

@@ -14,6 +14,7 @@ import { Check } from "lucide-react";
 import { insertQuoteSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
+import AddressAutocomplete from "@/components/address-autocomplete";
 
 // Form schema for maintenance plan contact form
 const maintenancePlanContactSchema = insertQuoteSchema.extend({
@@ -201,7 +202,18 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
             <FormItem>
               <FormLabel>Street Address *</FormLabel>
               <FormControl>
-                <Input data-testid="input-street" placeholder="123 Main Street" {...field} value={field.value || ""} />
+                <AddressAutocomplete
+                  value={field.value || ""}
+                  onChange={field.onChange}
+                  onAddressSelect={(address) => {
+                    field.onChange(address.street);
+                    form.setValue("city", address.city, { shouldValidate: true });
+                    form.setValue("state", address.state, { shouldValidate: true });
+                    form.setValue("zip", address.zip, { shouldValidate: true });
+                  }}
+                  placeholder="Start typing the service address"
+                  testId="input-street"
+                />
               </FormControl>
               <FormMessage />
             </FormItem>
