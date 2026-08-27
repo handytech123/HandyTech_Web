@@ -26,7 +26,9 @@ import {
   type Appointment,
   invoices,
   invoicePayments,
-  customers
+  customers,
+  quotes,
+  quoteProposals
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc } from "drizzle-orm";
@@ -3117,17 +3119,54 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(rows);
   });
 
+  app.get("/api/admin/customers/:id/quote-proposals", requireAdmin, async (req, res) => {
+    try {
+      const customerId = Number(req.params.id);
+      if (!Number.isInteger(customerId) || customerId <= 0) return res.status(400).json({ message: "Invalid customer" });
+      const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+      if (!customer) return res.status(404).json({ message: "Customer not found" });
+      const proposals = await db.select({ proposal: quoteProposals, quote: quotes })
+        .from(quoteProposals)
+        .innerJoin(quotes, eq(quoteProposals.quoteId, quotes.id))
+        .where(eq(quotes.email, customer.email))
+        .orderBy(desc(quoteProposals.sentAt));
+      const existingInvoices = await db.select({ quoteProposalId: invoices.quoteProposalId, invoiceNumber: invoices.invoiceNumber, status: invoices.status })
+        .from(invoices)
+        .where(eq(invoices.customerId, customerId));
+      const invoicesByProposal = new Map(existingInvoices.filter((item) => item.quoteProposalId).map((item) => [item.quoteProposalId, { invoiceNumber: item.invoiceNumber, status: item.status }]));
+      res.json(proposals.map(({ proposal, quote }) => ({
+        ...proposal,
+        serviceNeeded: quote.serviceNeeded,
+        serviceAddress: formatServiceAddress(quote),
+        existingInvoice: invoicesByProposal.get(proposal.id) || null,
+      })));
+    } catch (error) {
+      console.error("Load customer quote proposals error:", error);
+      res.status(500).json({ message: "Customer quotes could not be loaded" });
+    }
+  });
+
+  const verifyInvoiceQuoteCustomer = async (customerId: number, quoteProposalId?: number | null) => {
+    if (!quoteProposalId) return;
+    const [linkedQuote] = await db.select({ email: quotes.email }).from(quoteProposals)
+      .innerJoin(quotes, eq(quoteProposals.quoteId, quotes.id))
+      .where(eq(quoteProposals.id, quoteProposalId));
+    const [customer] = await db.select({ email: customers.email }).from(customers).where(eq(customers.id, customerId));
+    if (!linkedQuote || !customer || linkedQuote.email.trim().toLowerCase() !== customer.email.trim().toLowerCase()) throw new Error("QUOTE_CUSTOMER_MISMATCH");
+  };
+
   app.post("/api/admin/invoices", requireAdmin, async (req, res) => {
     try {
       const input = invoiceInputSchema.parse(req.body);
       const [customer] = await db.select().from(customers).where(eq(customers.id, input.customerId));
       if (!customer) return res.status(404).json({ message: "Customer not found" });
+      await verifyInvoiceQuoteCustomer(input.customerId, input.quoteProposalId);
       const totals = invoiceTotals(input);
       if (totals.total <= 0) return res.status(400).json({ message: "Invoice total must be greater than zero" });
       const sequence = `${Date.now().toString().slice(-7)}${crypto.randomInt(10, 99)}`;
       const [invoice] = await db.insert(invoices).values({ ...input, quoteProposalId: input.quoteProposalId || null, invoiceNumber: `INV-${new Date().getFullYear()}-${sequence}`, tokenHash: crypto.randomBytes(32).toString("hex"), ...totals, amountPaid: 0, status: "draft" }).returning();
       res.status(201).json(invoice);
-    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); console.error("Create invoice error:", error); res.status(500).json({ message: "Invoice could not be created" }); }
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); console.error("Create invoice error:", error); res.status(500).json({ message: "Invoice could not be created" }); }
   });
 
   app.put("/api/admin/invoices/:id", requireAdmin, async (req, res) => {
@@ -3136,8 +3175,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [current] = await db.select().from(invoices).where(eq(invoices.id, id));
       if (!current) return res.status(404).json({ message: "Invoice not found" });
       if (current.status !== "draft") return res.status(409).json({ message: "Only draft invoices can be edited" });
+      await verifyInvoiceQuoteCustomer(input.customerId, input.quoteProposalId);
       const [updated] = await db.update(invoices).set({ ...input, quoteProposalId: input.quoteProposalId || null, ...totals, updatedAt: new Date() }).where(eq(invoices.id, id)).returning(); res.json(updated);
-    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); res.status(500).json({ message: "Invoice could not be updated" }); }
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); res.status(500).json({ message: "Invoice could not be updated" }); }
   });
 
   app.post("/api/admin/invoices/:id/send", requireAdmin, async (req, res) => {
