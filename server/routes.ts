@@ -3761,9 +3761,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return !isNaN(date.getTime());
         }, { message: "Invalid ISO datetime string for 'to'" }),
         // Legacy parameter - takes precedence for backward compatibility
-        hours: z.enum(["2", "4", "6"], {
-          errorMap: () => ({ message: "Hours must be one of: 2, 4, 6" })
-        }).optional(),
+        hours: z.string().refine((value) => {
+          const hours = Number(value);
+          return Number.isFinite(hours) && hours >= 1 && hours <= 12;
+        }, { message: "Hours must be between 1 and 12" }).optional(),
+        bookingType: z.enum(["consultation", "service"]).optional(),
         // New parameter - service ID from catalog
         serviceId: z.string().refine((val) => {
           const parsed = parseInt(val);
@@ -3772,7 +3774,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         excludeAppointmentId: z.string().refine((val) => {
           const parsed = parseInt(val);
           return !isNaN(parsed) && parsed > 0;
-        }, { message: "Appointment ID must be a positive integer" }).optional()
+        }, { message: "Appointment ID must be a positive integer" }).optional(),
+        rescheduleToken: z.string().regex(/^[a-f0-9]{48}$/i).optional()
       }).refine((data) => {
         // Require either hours OR serviceId
         return data.hours || data.serviceId;
@@ -3795,7 +3798,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let suggestedHours: number;
       
       // A selected service is canonical; legacy callers may supply only hours.
-      if (validatedQuery.serviceId) {
+      if (validatedQuery.bookingType === "consultation") {
+        suggestedHours = 1;
+        blockMinutes = 60;
+      } else if (validatedQuery.serviceId) {
         const serviceId = parseInt(validatedQuery.serviceId);
         const service = await storage.getService(serviceId);
         
@@ -3810,13 +3816,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         blockMinutes = suggestedHours * 60;
       } else if (validatedQuery.hours) {
         // Backward compatibility for rescheduling older appointments.
-        const hoursToMinutes = {
-          "2": 120,
-          "4": 240,
-          "6": 360
-        };
-        blockMinutes = hoursToMinutes[validatedQuery.hours];
-        suggestedHours = parseInt(validatedQuery.hours);
+        suggestedHours = Number(validatedQuery.hours);
+        blockMinutes = suggestedHours * 60;
       } else {
         // This shouldn't happen due to Zod validation, but handle it safely
         return res.status(400).json({ 
@@ -3831,11 +3832,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // followed by a 3 PM start), so appointments do not add a hidden buffer.
       const bufferMinutes = 0;
       const isAdminAvailabilityRequest = (req.session as any)?.isAdmin === true;
-      // Only an authenticated administrator may exclude an appointment while
-      // calculating availability (used when moving that same appointment).
-      const excludeAppointmentId = isAdminAvailabilityRequest && validatedQuery.excludeAppointmentId
-        ? parseInt(validatedQuery.excludeAppointmentId)
-        : undefined;
+      let excludeAppointmentId: number | undefined;
+      if (validatedQuery.excludeAppointmentId) {
+        const requestedExclusion = parseInt(validatedQuery.excludeAppointmentId);
+        const appointment = await storage.getAppointment(requestedExclusion);
+        const customerOwnsAppointment = appointment?.customerId && appointment.customerId === (req.session as any)?.customerId;
+        const tokenAppointment = validatedQuery.rescheduleToken
+          ? await storage.getAppointmentByRescheduleToken(validatedQuery.rescheduleToken)
+          : undefined;
+        const validRescheduleLink = tokenAppointment?.id === requestedExclusion && (!tokenAppointment.rescheduleExpires || tokenAppointment.rescheduleExpires > new Date());
+        if (isAdminAvailabilityRequest || customerOwnsAppointment || validRescheduleLink) excludeAppointmentId = requestedExclusion;
+      }
       
       // Get available slots using the availability engine
       const slots = await getOpenSlots(

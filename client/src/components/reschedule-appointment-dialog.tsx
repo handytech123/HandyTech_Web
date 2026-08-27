@@ -275,7 +275,7 @@ export default function RescheduleAppointmentDialog({
                   mode="single"
                   selected={selectedDate}
                   onSelect={handleDateSelect}
-                  disabled={(date) => date < new Date()}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0)) || date.getDay() === 0 || date.getDay() === 6}
                   className="rounded-md border"
                   data-testid="reschedule-calendar"
                 />

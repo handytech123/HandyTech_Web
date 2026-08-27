@@ -246,7 +246,8 @@ export default function AppointmentScheduler() {
         from: startOfDay.toISOString(),
         to: endOfDay.toISOString(),
         hours: selectedDurationHours.toString(),
-        serviceId: selectedService.id.toString()
+        serviceId: selectedService.id.toString(),
+        bookingType: bookingType || "service"
       });
       
       const response = await fetch(`/api/availability?${queryParams}`);

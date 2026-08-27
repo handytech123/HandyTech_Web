@@ -23,7 +23,8 @@ import {
   Home
 } from "lucide-react";
 import { Link } from "wouter";
-import { format, parseISO, isAfter, addHours } from "date-fns";
+import { format, parseISO } from "date-fns";
+import { fromZonedTime, toZonedTime } from "date-fns-tz";
 
 interface AppointmentDetails {
   id: number;
@@ -74,25 +75,18 @@ export default function ReschedulePage() {
       if (!selectedDate || !appointment) return [];
       
       // API expects from/to as ISO datetime strings and hours as "2", "4", or "6"
-      const startOfDay = new Date(selectedDate);
-      startOfDay.setHours(0, 0, 0, 0);
+      const dateText = format(selectedDate, "yyyy-MM-dd");
+      const startOfDay = fromZonedTime(`${dateText}T00:00:00`, "America/Chicago");
+      const endOfDay = fromZonedTime(`${dateText}T23:59:59.999`, "America/Chicago");
       
-      const endOfDay = new Date(selectedDate);
-      endOfDay.setHours(23, 59, 59, 999);
-      
-      // Convert hours to the format expected by API ("2", "4", or "6")
-      const hours = Math.round(appointment.hours);
-      const hoursStr = hours.toString();
-      
-      // Validate that hours is one of the accepted values
-      if (!["2", "4", "6"].includes(hoursStr)) {
-        throw new Error(`Unsupported appointment duration: ${hours} hours`);
-      }
+      const hoursStr = String(Math.max(1, Math.min(12, appointment.hours)));
       
       const queryParams = new URLSearchParams({
         from: startOfDay.toISOString(),
         to: endOfDay.toISOString(),
-        hours: hoursStr
+        hours: hoursStr,
+        excludeAppointmentId: String(appointment.id),
+        rescheduleToken: token
       });
       
       const response = await fetch(`/api/availability?${queryParams}`);
@@ -156,7 +150,7 @@ export default function ReschedulePage() {
   // Format time slots for display
   const formatTimeSlots = (slots: string[]): AvailableSlot[] => {
     return slots.map(slot => {
-      const date = parseISO(slot);
+      const date = toZonedTime(parseISO(slot), "America/Chicago");
       return {
         time: slot,
         displayTime: format(date, "h:mm a"),
@@ -334,10 +328,12 @@ export default function ReschedulePage() {
                     mode="single"
                     selected={selectedDate}
                     onSelect={setSelectedDate}
-                    disabled={(date) => 
-                      date < addHours(new Date(), 12) || 
-                      date.getDay() === 0 // Disable Sundays
-                    }
+                    disabled={(date) => {
+                      if (date.getDay() === 0 || date.getDay() === 6) return true;
+                      const dateText = format(date, "yyyy-MM-dd");
+                      const endOfBusinessDay = fromZonedTime(`${dateText}T17:00:00`, "America/Chicago");
+                      return endOfBusinessDay.getTime() < Date.now() + (12 * 60 * 60 * 1000);
+                    }}
                     className="rounded-md border"
                     data-testid="calendar-date-picker"
                   />
