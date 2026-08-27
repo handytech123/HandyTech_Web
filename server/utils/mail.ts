@@ -491,6 +491,30 @@ export class EmailService {
         </div>`,
       attachments: [{ filename: `${data.quoteNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" }],
     });
+
+    try {
+      await this.transporter.sendMail({
+        from: `"${this.businessName}" <${this.fromEmail}>`,
+        to: this.fromEmail,
+        replyTo: data.customerEmail,
+        subject: `Admin copy - ${data.quoteNumber} sent to ${data.customerName}`,
+        html: `
+          <div style="margin:0 auto;max-width:720px;font-family:Arial,sans-serif;color:#172033">
+            <div style="background:#0f172a;color:white;padding:28px;border-top:6px solid #2769BE"><h1 style="margin:0">Quote sent successfully</h1><p style="margin:8px 0 0;color:#bae6fd">Untracked admin copy</p></div>
+            <div style="padding:28px;border:1px solid #e5e7eb;border-top:0">
+              <p style="background:#eff6ff;border-left:4px solid #2769BE;padding:14px"><strong>Opening this email or its attached PDF will not mark the customer quote as viewed.</strong> Only the customer's secure response page is tracked.</p>
+              <p><strong>Customer:</strong> ${escapeHtml(data.customerName)}<br><strong>Email:</strong> ${escapeHtml(data.customerEmail)}${data.serviceAddress ? `<br><strong>Service address:</strong> ${escapeHtml(data.serviceAddress)}` : ""}</p>
+              <p><strong>Quote:</strong> ${escapeHtml(data.quoteNumber)}<br><strong>Total:</strong> ${money(data.total)}<br><strong>Valid through:</strong> ${expires.toLocaleDateString("en-US")}</p>
+              <table style="width:100%;border-collapse:collapse;margin-top:24px"><thead><tr style="background:#eff6ff;color:#0f172a"><th style="padding:12px;text-align:left">Description</th><th style="padding:12px;text-align:right">Qty/Hours</th><th style="padding:12px;text-align:right">Rate</th><th style="padding:12px;text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+              ${data.notes ? `<div style="background:#f8fafc;padding:16px;border-radius:6px;margin-top:20px"><strong>Scope and notes</strong><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(data.notes)}</p></div>` : ""}
+              <p style="font-size:12px;color:#64748b;margin-top:24px">The tracked customer response link is intentionally omitted from this admin copy.</p>
+            </div>
+          </div>`,
+        attachments: [{ filename: `${data.quoteNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" }],
+      });
+    } catch (error) {
+      console.error(`Failed to send untracked admin copy for ${data.quoteNumber}:`, error);
+    }
   }
 
   async sendQuoteResponseNotification(data: { quoteNumber: string; customerName: string; customerEmail: string; status: string; total: number; message?: string }): Promise<void> {
