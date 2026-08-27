@@ -423,7 +423,7 @@ If the customer requests Lou, a person, a human, or an agent, respond briefly th
   }
 
   // In production, only Nginx on the same VPS may reach the Node service.
-  const port = Number(process.env.PORT || 5000);
+  const port = 5000;
   const host = process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0';
   httpServer.listen({
     port,
