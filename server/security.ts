@@ -27,20 +27,12 @@ function getProductionCorsOrigins(): string[] {
   const allowedOrigins = process.env.ALLOWED_ORIGINS;
   
   if (!allowedOrigins) {
-    // Fallback for Replit deployments - use common Replit domains
-    const replitFallbacks = [
-      /^https:\/\/.*\.replit\.app$/,
-      /^https:\/\/.*\.repl\.co$/,
-      /^https:\/\/.*\.replit\.dev$/
-    ];
-    
     console.warn(
-      '[SECURITY] CORS fallback active - using Replit domain patterns for CORS origins.\n' +
+      '[SECURITY] ALLOWED_ORIGINS is not set; allowing only HandyTech production domains.\n' +
       'Set ALLOWED_ORIGINS environment variable to lock down origins to your specific domains.\n' +
       'Example: ALLOWED_ORIGINS="https://yourdomain.com,https://app.yourdomain.com"'
     );
-    
-    return replitFallbacks as any; // Return regex patterns for fallback
+    return ['https://handytech-solutions.com', 'https://www.handytech-solutions.com'];
   }
   
   const origins = allowedOrigins.split(',').map(origin => origin.trim());
@@ -53,12 +45,7 @@ function getProductionCorsOrigins(): string[] {
       'Falling back to Replit domain patterns for security.'
     );
     
-    // Use fallback instead of crashing
-    return [
-      /^https:\/\/.*\.replit\.app$/,
-      /^https:\/\/.*\.repl\.co$/,
-      /^https:\/\/.*\.replit\.dev$/
-    ] as any;
+    return ['https://handytech-solutions.com', 'https://www.handytech-solutions.com'];
   }
   
   console.log(`[SECURITY] CORS configured with ${origins.length} specific allowed origins from ALLOWED_ORIGINS`);
@@ -132,11 +119,6 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
 
   // Skip CSRF for API endpoints that don't use sessions (like webhooks)
   if (req.path.startsWith('/api/webhooks/')) {
-    return next();
-  }
-
-  // Skip CSRF for customer portal reschedule endpoint (already heavily secured)
-  if (req.path.match(/^\/api\/portal\/appointments\/\d+\/reschedule$/)) {
     return next();
   }
 

@@ -27,12 +27,7 @@ app.head(['/health', '/healthz'], (req, res) => {
 });
 
 app.get(['/api/health', '/readyz'], (req, res) => {
-  res.set('Cache-Control', 'no-store').json({ 
-    status: "healthy", 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime(),
-    port: process.env.PORT || 5000
-  });
+  res.set({ 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' }).json({ status: "healthy" });
 });
 
 app.head(['/api/health', '/readyz'], (req, res) => {
@@ -43,8 +38,8 @@ app.head(['/api/health', '/readyz'], (req, res) => {
 setupSecurity(app);
 
 // Basic body parsing middleware (after security setup)
-app.use(express.json());
-app.use(express.urlencoded({ extended: false }));
+app.use(express.json({ limit: '1mb' }));
+app.use(express.urlencoded({ extended: false, limit: '1mb', parameterLimit: 100 }));
 
 // Apply input sanitization after body parsing so it can sanitize req.body
 app.use(sanitizeInput);
@@ -144,7 +139,7 @@ app.use((req, res, next) => {
   // Initialize Socket.IO for real-time chat handoff
   const io = new SocketIOServer(httpServer, {
     cors: {
-      origin: process.env.ALLOWED_ORIGINS?.split(',').filter(Boolean) || "*",
+      origin: process.env.ALLOWED_ORIGINS?.split(',').map((origin) => origin.trim()).filter(Boolean) || ['https://handytech-solutions.com', 'https://www.handytech-solutions.com'],
       methods: ["GET", "POST"],
       credentials: true
     }
@@ -413,10 +408,9 @@ If the customer requests Lou, a person, a human, or an agent, respond briefly th
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
     const status = err.status || err.statusCode || 500;
-    const message = err.message || "Internal Server Error";
-
-    res.status(status).json({ message });
-    throw err;
+    const message = status >= 500 ? "Internal Server Error" : (err.message || "Request failed");
+    console.error('[SERVER_ERROR]', err instanceof Error ? err.stack || err.message : err);
+    if (!res.headersSent) res.status(status).json({ message });
   });
 
   // importantly only setup vite in development and after
@@ -428,16 +422,15 @@ If the customer requests Lou, a person, a human, or an agent, respond briefly th
     serveStatic(app);
   }
 
-  // ALWAYS serve the app on port 5000
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
-  const port = 5000;
+  // In production, only Nginx on the same VPS may reach the Node service.
+  const port = Number(process.env.PORT || 5000);
+  const host = process.env.NODE_ENV === 'production' ? '127.0.0.1' : '0.0.0.0';
   httpServer.listen({
     port,
-    host: "0.0.0.0",
+    host,
     reusePort: true,
   }, () => {
-    log(`serving on port ${port}`);
+    log(`serving on ${host}:${port}`);
     log('✓ Socket.IO enabled for real-time chat handoff');
     
     // Start the appointment reminder scheduler

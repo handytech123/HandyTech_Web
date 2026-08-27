@@ -173,17 +173,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
-      // Check password
-      if (password === adminPassword) {
-        // Set admin session
-        (req.session as any).isAdmin = true;
-        
-        res.json({ 
-          success: true, 
-          message: "Login successful"
+      const suppliedDigest = crypto.createHash('sha256').update(String(password)).digest();
+      const expectedDigest = crypto.createHash('sha256').update(adminPassword).digest();
+      if (crypto.timingSafeEqual(suppliedDigest, expectedDigest)) {
+        req.session.regenerate((sessionError) => {
+          if (sessionError) {
+            console.error("Admin session regeneration failed:", sessionError);
+            return res.status(500).json({ success: false, message: "Login failed" });
+          }
+          (req.session as any).isAdmin = true;
+          req.session.save((saveError) => {
+            if (saveError) {
+              console.error("Admin session save failed:", saveError);
+              return res.status(500).json({ success: false, message: "Login failed" });
+            }
+            res.json({ success: true, message: "Login successful" });
+            console.log("[AUTH] Admin logged in successfully");
+          });
         });
-        
-        console.log("[AUTH] Admin logged in successfully");
       } else {
         res.status(401).json({ 
           success: false, 
@@ -270,14 +277,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Check if customer exists (or create them if not)
       let customer = await storage.getCustomerByEmail(email);
-      if (!customer) {
-        // For now, only allow existing customers to login
-        // In production, you might want to auto-create or require registration
-        return res.status(404).json({ 
-          success: false, 
-          message: "No account found with this email address" 
-        });
-      }
+      if (!customer) return res.json({ success: true, message: "If an account exists for that email, a sign-in link has been sent." });
       
       // Generate secure token
       const token = crypto.randomBytes(32).toString('hex');
@@ -292,7 +292,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       );
       
       // Send magic link email
-      const baseUrl = process.env.PUBLIC_BASE_URL || req.get('origin') || 'http://localhost:5000';
+      const baseUrl = process.env.PUBLIC_BASE_URL || process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://handytech-solutions.com' : 'http://localhost:5000');
       const magicLink = `${baseUrl}/portal/callback?token=${token}`;
       
       // Use EmailService to send magic link email
