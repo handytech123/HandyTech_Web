@@ -2867,12 +2867,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
       return res.status(500).json({ ok: false, message: "Server configuration error" });
     }
 
-    if (!password || password !== adminPassword) {
+    const suppliedDigest = crypto.createHash('sha256').update(String(password || '')).digest();
+    const expectedDigest = crypto.createHash('sha256').update(adminPassword).digest();
+    if (!password || !crypto.timingSafeEqual(suppliedDigest, expectedDigest)) {
       return res.status(401).json({ ok: false, message: "Invalid password" });
     }
 
-    (req.session as any).isAdmin = true;
-    res.json({ ok: true, token: "session" });
+    req.session.regenerate((regenerateError) => {
+      if (regenerateError) {
+        console.error("Failed to regenerate chat admin session", regenerateError);
+        return res.status(500).json({ ok: false, message: "Authentication failed" });
+      }
+
+      (req.session as any).isAdmin = true;
+      req.session.save((saveError) => {
+        if (saveError) {
+          console.error("Failed to save chat admin session", saveError);
+          return res.status(500).json({ ok: false, message: "Authentication failed" });
+        }
+        res.json({ ok: true, token: "session" });
+      });
+    });
   });
 
   app.post("/api/admin/quotes/:id/ai-draft", requireAdmin, async (req, res) => {
