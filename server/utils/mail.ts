@@ -503,6 +503,19 @@ export class EmailService {
     });
   }
 
+  async sendQuoteViewedNotification(data: { quoteNumber: string; customerName: string; customerEmail: string; total: number }): Promise<void> {
+    if (!this.isConfigured) return;
+    const cleanName = data.customerName.replace(/[&<>'"]/g, "");
+    const cleanEmail = data.customerEmail.replace(/[&<>'"]/g, "");
+    await this.transporter.sendMail({
+      from: `"${this.businessName}" <${this.fromEmail}>`,
+      to: this.fromEmail,
+      replyTo: data.customerEmail,
+      subject: `${data.quoteNumber} - Customer viewed quote`,
+      html: `<div style="font-family:Arial,sans-serif;max-width:640px;color:#0f172a"><div style="background:#0f172a;color:#fff;padding:22px;border-top:6px solid #2769BE"><h2 style="margin:0">Quote viewed</h2></div><div style="padding:22px;border:1px solid #e2e8f0"><p><strong>${cleanName}</strong> opened quote <strong>${data.quoteNumber}</strong>.</p><p>Quote total: <strong>${data.total.toLocaleString("en-US", { style: "currency", currency: "USD" })}</strong></p><p>You can reply to <a href="mailto:${cleanEmail}">${cleanEmail}</a> or open the HandyTech admin dashboard to review its status.</p></div></div>`,
+    });
+  }
+
   async sendQuoteDecisionConfirmation(data: { quoteNumber: string; customerName: string; customerEmail: string; status: string; proposalUrl: string; pdfBuffer: Buffer }): Promise<void> {
     if (!this.isConfigured) return;
     const accepted = data.status === "accepted";

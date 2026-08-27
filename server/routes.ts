@@ -2904,8 +2904,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quote = await storage.getQuote(proposal.quoteId);
       if (!quote) return res.status(404).json({ message: "Quote request not found." });
       if (proposal.status === "sent") {
-        await storage.updateQuoteProposal(proposal.id, { status: "viewed", viewedAt: new Date() });
-        proposal.status = "viewed"; proposal.viewedAt = new Date();
+        const viewedAt = new Date();
+        await storage.updateQuoteProposal(proposal.id, { status: "viewed", viewedAt });
+        proposal.status = "viewed"; proposal.viewedAt = viewedAt;
+        const customerName = `${quote.firstName} ${quote.lastName}`.trim();
+        const alertResults = await Promise.allSettled([
+          getEmailService().sendQuoteViewedNotification({ quoteNumber: proposal.quoteNumber, customerName, customerEmail: quote.email, total: proposal.total }),
+          smsService.sendAdminAlert("Quote viewed", `${customerName} opened ${proposal.quoteNumber} (${proposal.total.toLocaleString("en-US", { style: "currency", currency: "USD" })}).`),
+        ]);
+        alertResults.forEach((result) => { if (result.status === "rejected") console.error("Quote viewed alert failed:", result.reason); });
       }
       res.setHeader("Cache-Control", "no-store");
       res.json(publicProposal(quote, proposal));
