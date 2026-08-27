@@ -23,8 +23,13 @@ import {
   publicReviewSubmissionSchema,
   type InsertCustomer,
   type InsertMaintenancePlan,
-  type Appointment
+  type Appointment,
+  invoices,
+  invoicePayments,
+  customers
 } from "@shared/schema";
+import { db } from "./db";
+import { eq, desc } from "drizzle-orm";
 import { z } from "zod";
 import OpenAI from "openai";
 import { notificationService } from './utils/notification-service';
@@ -41,6 +46,7 @@ import fs from "fs/promises";
 import path from "path";
 import sharp from "sharp";
 import { generateQuotePdfBuffer } from "./utils/quote-pdf";
+import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -519,6 +525,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Get customer's appointments
       const appointments = await storage.getAppointmentsByCustomer(customer.id);
+      const customerInvoices = await db.select().from(invoices).where(eq(invoices.customerId, customer.id)).orderBy(desc(invoices.issueDate));
 
       res.json({
         success: true,
@@ -534,7 +541,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         },
         maintenancePlans,
         emailCampaigns,
-        appointments
+        appointments,
+        invoices: customerInvoices
       });
       
       console.log(`[PORTAL_PROFILE] Profile data retrieved for customer ${customer.email}`);
@@ -1752,6 +1760,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Admin reviews fetch error:", error);
       res.status(500).json({ message: "Failed to fetch admin reviews" });
     }
+  });
+
+  app.get("/api/portal/invoices/:id/pdf", requireCustomer, async (req, res) => {
+    const { customer } = req as any; const id = Number(req.params.id);
+    const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id));
+    if (!invoice || invoice.customerId !== customer.id || invoice.status === "draft") return res.status(404).json({ message: "Invoice not found" });
+    const customerData = await storage.getCustomer(customer.id); if (!customerData) return res.status(404).json({ message: "Customer not found" });
+    const payments = await db.select().from(invoicePayments).where(eq(invoicePayments.invoiceId, id));
+    const buffer = await generateInvoicePdfBuffer(customerData, invoice, payments); res.setHeader("Content-Type", "application/pdf"); res.setHeader("Content-Disposition", `inline; filename="${invoice.invoiceNumber}.pdf"`); res.send(buffer);
   });
 
   const getPendingReviewRequests = async () => {
@@ -3074,6 +3091,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(500).json({ message: "The quote PDF could not be created" });
     }
   });
+
+  const invoiceInputSchema = z.object({
+    customerId: z.coerce.number().int().positive(),
+    quoteProposalId: z.coerce.number().int().positive().nullable().optional(),
+    lineItems: z.array(z.object({ description: z.string().trim().min(1).max(240), quantity: z.coerce.number().positive().max(10000), rate: z.coerce.number().min(0).max(1000000) })).min(1).max(50),
+    discount: z.coerce.number().min(0).max(1000000).default(0),
+    taxRate: z.coerce.number().min(0).max(30).default(0),
+    dueDate: z.coerce.date(),
+    notes: z.string().trim().max(4000).default(""),
+    terms: z.string().trim().max(2000).default("Payment is due by the date shown above."),
+  });
+  const invoiceTotals = (input: z.infer<typeof invoiceInputSchema>) => {
+    const subtotal = input.lineItems.reduce((sum, item) => sum + item.quantity * item.rate, 0);
+    const taxable = Math.max(0, subtotal - input.discount);
+    const tax = taxable * input.taxRate / 100;
+    return { subtotal, tax, total: taxable + tax };
+  };
+  const invoiceTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
+
+  app.get("/api/admin/invoices", requireAdmin, async (_req, res) => {
+    const rows = await db.select({ invoice: invoices, customer: customers }).from(invoices).leftJoin(customers, eq(invoices.customerId, customers.id)).orderBy(desc(invoices.createdAt));
+    const now = new Date();
+    for (const row of rows) if (["sent", "viewed", "partial"].includes(row.invoice.status) && row.invoice.dueDate < now) { row.invoice.status = "overdue"; await db.update(invoices).set({ status: "overdue", updatedAt: now }).where(eq(invoices.id, row.invoice.id)); }
+    res.json(rows);
+  });
+
+  app.post("/api/admin/invoices", requireAdmin, async (req, res) => {
+    try {
+      const input = invoiceInputSchema.parse(req.body);
+      const [customer] = await db.select().from(customers).where(eq(customers.id, input.customerId));
+      if (!customer) return res.status(404).json({ message: "Customer not found" });
+      const totals = invoiceTotals(input);
+      if (totals.total <= 0) return res.status(400).json({ message: "Invoice total must be greater than zero" });
+      const sequence = `${Date.now().toString().slice(-7)}${crypto.randomInt(10, 99)}`;
+      const [invoice] = await db.insert(invoices).values({ ...input, quoteProposalId: input.quoteProposalId || null, invoiceNumber: `INV-${new Date().getFullYear()}-${sequence}`, tokenHash: crypto.randomBytes(32).toString("hex"), ...totals, amountPaid: 0, status: "draft" }).returning();
+      res.status(201).json(invoice);
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); console.error("Create invoice error:", error); res.status(500).json({ message: "Invoice could not be created" }); }
+  });
+
+  app.put("/api/admin/invoices/:id", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id); const input = invoiceInputSchema.parse(req.body); const totals = invoiceTotals(input);
+      const [current] = await db.select().from(invoices).where(eq(invoices.id, id));
+      if (!current) return res.status(404).json({ message: "Invoice not found" });
+      if (current.status !== "draft") return res.status(409).json({ message: "Only draft invoices can be edited" });
+      const [updated] = await db.update(invoices).set({ ...input, quoteProposalId: input.quoteProposalId || null, ...totals, updatedAt: new Date() }).where(eq(invoices.id, id)).returning(); res.json(updated);
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); res.status(500).json({ message: "Invoice could not be updated" }); }
+  });
+
+  app.post("/api/admin/invoices/:id/send", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id); const [row] = await db.select({ invoice: invoices, customer: customers }).from(invoices).leftJoin(customers, eq(invoices.customerId, customers.id)).where(eq(invoices.id, id));
+      if (!row?.customer) return res.status(404).json({ message: "Invoice or customer not found" });
+      if (["paid", "void"].includes(row.invoice.status)) return res.status(409).json({ message: `A ${row.invoice.status} invoice cannot be sent` });
+      const rawToken = crypto.randomBytes(32).toString("hex"); const tokenHash = crypto.createHash("sha256").update(rawToken).digest("hex");
+      const [updated] = await db.update(invoices).set({ tokenHash, status: row.invoice.amountPaid > 0 ? "partial" : "sent", sentAt: new Date(), updatedAt: new Date() }).where(eq(invoices.id, id)).returning();
+      const payments = await db.select().from(invoicePayments).where(eq(invoicePayments.invoiceId, id)).orderBy(desc(invoicePayments.paidAt));
+      const pdfBuffer = await generateInvoicePdfBuffer(row.customer, updated, payments);
+      const invoiceUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/invoice/${rawToken}`;
+      await getEmailService().sendInvoice({ invoiceNumber: updated.invoiceNumber, customerName: `${row.customer.firstName} ${row.customer.lastName}`, customerEmail: row.customer.email, total: updated.total, balanceDue: Math.max(0, updated.total - updated.amountPaid), dueDate: updated.dueDate, invoiceUrl, pdfBuffer });
+      res.json({ message: "Invoice sent", invoiceNumber: updated.invoiceNumber });
+    } catch (error) { console.error("Send invoice error:", error); res.status(500).json({ message: "Invoice email could not be sent" }); }
+  });
+
+  app.post("/api/admin/invoices/:id/payments", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id); const input = z.object({ amount: z.coerce.number().positive(), method: z.enum(["cash", "check", "card", "bank_transfer", "other"]), reference: z.string().trim().max(200).optional(), notes: z.string().trim().max(500).optional(), paidAt: z.coerce.date().optional() }).parse(req.body);
+      const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)); if (!invoice) return res.status(404).json({ message: "Invoice not found" }); if (invoice.status === "void") return res.status(409).json({ message: "A void invoice cannot receive payments" });
+      const balance = Math.max(0, invoice.total - invoice.amountPaid); if (input.amount > balance + 0.005) return res.status(400).json({ message: `Payment exceeds the remaining balance of $${balance.toFixed(2)}` });
+      const [payment] = await db.insert(invoicePayments).values({ invoiceId: id, ...input }).returning(); const amountPaid = invoice.amountPaid + input.amount; const paid = amountPaid >= invoice.total - 0.005;
+      await db.update(invoices).set({ amountPaid, status: paid ? "paid" : "partial", paidAt: paid ? input.paidAt || new Date() : null, updatedAt: new Date() }).where(eq(invoices.id, id)); res.status(201).json(payment);
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the payment details", errors: error.errors }); res.status(500).json({ message: "Payment could not be recorded" }); }
+  });
+
+  app.post("/api/admin/invoices/:id/void", requireAdmin, async (req, res) => { const id = Number(req.params.id); const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)); if (!invoice) return res.status(404).json({ message: "Invoice not found" }); if (invoice.amountPaid > 0) return res.status(409).json({ message: "Remove or refund recorded payments before voiding" }); await db.update(invoices).set({ status: "void", updatedAt: new Date() }).where(eq(invoices.id, id)); res.json({ message: "Invoice voided" }); });
+
+  app.get("/api/admin/invoices/:id/pdf", requireAdmin, async (req, res) => { const id = Number(req.params.id); const [row] = await db.select({ invoice: invoices, customer: customers }).from(invoices).leftJoin(customers, eq(invoices.customerId, customers.id)).where(eq(invoices.id, id)); if (!row?.customer) return res.status(404).json({ message: "Invoice not found" }); const payments = await db.select().from(invoicePayments).where(eq(invoicePayments.invoiceId, id)); const buffer = await generateInvoicePdfBuffer(row.customer, row.invoice, payments); res.setHeader("Content-Type", "application/pdf"); res.setHeader("Content-Disposition", `inline; filename="${row.invoice.invoiceNumber}.pdf"`); res.send(buffer); });
+
+  app.get("/api/invoices/:token", rlSensitive, async (req, res) => { try { const token = invoiceTokenSchema.parse(req.params.token); const hash = crypto.createHash("sha256").update(token).digest("hex"); const [row] = await db.select({ invoice: invoices, customer: customers }).from(invoices).leftJoin(customers, eq(invoices.customerId, customers.id)).where(eq(invoices.tokenHash, hash)); if (!row?.customer || row.invoice.status === "draft") return res.status(404).json({ message: "Invoice not found" }); if (row.invoice.status === "sent") { row.invoice.status = "viewed"; row.invoice.viewedAt = new Date(); await db.update(invoices).set({ status: "viewed", viewedAt: row.invoice.viewedAt, updatedAt: new Date() }).where(eq(invoices.id, row.invoice.id)); } const payments = await db.select().from(invoicePayments).where(eq(invoicePayments.invoiceId, row.invoice.id)).orderBy(desc(invoicePayments.paidAt)); res.json({ invoice: row.invoice, customer: { firstName: row.customer.firstName, lastName: row.customer.lastName }, payments }); } catch { res.status(404).json({ message: "Invoice not found" }); } });
+
+  app.get("/api/invoices/:token/pdf", rlSensitive, async (req, res) => { try { const token = invoiceTokenSchema.parse(req.params.token); const hash = crypto.createHash("sha256").update(token).digest("hex"); const [row] = await db.select({ invoice: invoices, customer: customers }).from(invoices).leftJoin(customers, eq(invoices.customerId, customers.id)).where(eq(invoices.tokenHash, hash)); if (!row?.customer || row.invoice.status === "draft") return res.status(404).json({ message: "Invoice not found" }); const payments = await db.select().from(invoicePayments).where(eq(invoicePayments.invoiceId, row.invoice.id)); const buffer = await generateInvoicePdfBuffer(row.customer, row.invoice, payments); res.setHeader("Content-Type", "application/pdf"); res.setHeader("Content-Disposition", `inline; filename="${row.invoice.invoiceNumber}.pdf"`); res.send(buffer); } catch { res.status(404).json({ message: "Invoice not found" }); } });
 
   const proposalTokenSchema = z.string().regex(/^[a-f0-9]{64}$/i);
   const publicProposal = (quote: any, proposal: any) => ({

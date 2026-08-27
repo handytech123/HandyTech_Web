@@ -527,6 +527,16 @@ export class EmailService {
     });
   }
 
+  async sendInvoice(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; balanceDue: number; dueDate: Date; invoiceUrl: string; pdfBuffer: Buffer }): Promise<void> {
+    if (!this.isConfigured) throw new Error("Email service is not configured");
+    const clean = (value: string) => value.replace(/[&<>'"]/g, "");
+    const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    const html = `<div style="margin:0 auto;max-width:680px;font-family:Arial,sans-serif;color:#172033"><div style="background:#0f172a;color:#fff;padding:28px;border-top:6px solid #2769BE"><h1 style="margin:0">HandyTech Solutions</h1><p style="color:#bae6fd">Invoice ${clean(data.invoiceNumber)}</p></div><div style="padding:28px;border:1px solid #e5e7eb;border-top:0"><p>Hi ${clean(data.customerName)},</p><p>Your invoice is ready. A PDF copy is attached for your records.</p><div style="background:#eff6ff;padding:18px;margin:22px 0"><p style="margin:0 0 8px"><strong>Total:</strong> ${money(data.total)}</p><p style="margin:0 0 8px"><strong>Balance due:</strong> ${money(data.balanceDue)}</p><p style="margin:0"><strong>Due:</strong> ${data.dueDate.toLocaleDateString("en-US")}</p></div><p style="text-align:center"><a href="${clean(data.invoiceUrl)}" style="display:inline-block;background:#2769BE;color:white;text-decoration:none;font-weight:bold;padding:14px 24px;border-radius:7px">View Invoice</a></p><p>Questions? Reply to this email or call 314-325-4575.</p></div></div>`;
+    const attachment = { filename: `${data.invoiceNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" };
+    await this.transporter.sendMail({ from: `"${this.businessName}" <${this.fromEmail}>`, to: data.customerEmail, replyTo: this.fromEmail, subject: `${data.invoiceNumber} - Invoice from ${this.businessName}`, html, attachments: [attachment] });
+    await this.transporter.sendMail({ from: `"${this.businessName}" <${this.fromEmail}>`, to: this.fromEmail, replyTo: data.customerEmail, subject: `Admin copy - ${data.invoiceNumber} sent to ${data.customerName}`, html: `<p>Invoice <strong>${clean(data.invoiceNumber)}</strong> was sent to ${clean(data.customerName)} (${clean(data.customerEmail)}).</p><p>Total: ${money(data.total)}; balance due: ${money(data.balanceDue)}.</p><p>This admin copy does not contain the tracked customer link.</p>`, attachments: [attachment] });
+  }
+
   async sendQuoteViewedNotification(data: { quoteNumber: string; customerName: string; customerEmail: string; total: number }): Promise<void> {
     if (!this.isConfigured) return;
     const cleanName = data.customerName.replace(/[&<>'"]/g, "");

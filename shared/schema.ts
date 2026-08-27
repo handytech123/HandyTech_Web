@@ -101,6 +101,44 @@ export const quoteProposals = pgTable("quote_proposals", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export type InvoiceLineItem = { description: string; quantity: number; rate: number };
+
+export const invoices = pgTable("invoices", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id).notNull(),
+  quoteProposalId: integer("quote_proposal_id").references(() => quoteProposals.id),
+  invoiceNumber: varchar("invoice_number", { length: 32 }).notNull().unique(),
+  tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),
+  lineItems: jsonb("line_items").$type<InvoiceLineItem[]>().notNull(),
+  discount: real("discount").notNull().default(0),
+  taxRate: real("tax_rate").notNull().default(0),
+  subtotal: real("subtotal").notNull(),
+  tax: real("tax").notNull().default(0),
+  total: real("total").notNull(),
+  amountPaid: real("amount_paid").notNull().default(0),
+  notes: text("notes"),
+  terms: text("terms"),
+  status: text("status").notNull().default("draft"), // draft, sent, viewed, partial, paid, overdue, void
+  issueDate: timestamp("issue_date", { withTimezone: true }).defaultNow().notNull(),
+  dueDate: timestamp("due_date", { withTimezone: true }).notNull(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  viewedAt: timestamp("viewed_at", { withTimezone: true }),
+  paidAt: timestamp("paid_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const invoicePayments = pgTable("invoice_payments", {
+  id: serial("id").primaryKey(),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "cascade" }).notNull(),
+  amount: real("amount").notNull(),
+  method: text("method").notNull(), // cash, check, card, bank_transfer, other
+  reference: text("reference"),
+  notes: text("notes"),
+  paidAt: timestamp("paid_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const emailCampaigns = pgTable("email_campaigns", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").references(() => customers.id).notNull(),
@@ -455,6 +493,10 @@ export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type QuoteProposal = typeof quoteProposals.$inferSelect;
 export type InsertQuoteProposal = typeof quoteProposals.$inferInsert;
+export type Invoice = typeof invoices.$inferSelect;
+export type InsertInvoice = typeof invoices.$inferInsert;
+export type InvoicePayment = typeof invoicePayments.$inferSelect;
+export type InsertInvoicePayment = typeof invoicePayments.$inferInsert;
 
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;

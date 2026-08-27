@@ -19,6 +19,7 @@ import NotFound from "@/pages/not-found";
 import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import QuoteProposalPage from "@/pages/quote-proposal";
+import InvoicePage from "@/pages/invoice";
 
 function Router() {
   return (
@@ -36,6 +37,7 @@ function Router() {
       <Route path="/quote-thank-you" component={QuoteThankYou} />
       <Route path="/reschedule/:token" component={ReschedulePage} />
       <Route path="/quote/:token" component={QuoteProposalPage} />
+      <Route path="/invoice/:token" component={InvoicePage} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms" component={Terms} />
       <Route component={NotFound} />

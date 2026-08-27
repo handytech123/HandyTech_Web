@@ -31,6 +31,7 @@ import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dia
 import AppointmentDetailsDialog from "@/components/appointment-details-dialog";
 import AdminQuoteBuilder from "@/components/admin-quote-builder";
 import AddressAutocomplete from "@/components/address-autocomplete";
+import AdminInvoiceManager from "@/components/admin-invoice-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -2843,7 +2844,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-10 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap xl:grid xl:grid-cols-11 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
               Services
             </TabsTrigger>
@@ -2864,6 +2865,9 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
+            </TabsTrigger>
+            <TabsTrigger value="invoices" className="flex-1 min-w-[100px] text-sm">
+              Invoices
             </TabsTrigger>
             <TabsTrigger value="reviews" className="flex-1 min-w-[100px] text-sm">
               Reviews
@@ -3123,6 +3127,10 @@ function AuthenticatedDashboard() {
                 setNewQuoteDialogOpen(true);
               }}
             />
+          </TabsContent>
+
+          <TabsContent value="invoices">
+            <AdminInvoiceManager customers={customers} />
           </TabsContent>
 
           <TabsContent value="live-chat">

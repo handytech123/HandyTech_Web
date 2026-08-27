@@ -16,7 +16,7 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/hooks/use-toast";
 import { useCustomerAuth } from "@/hooks/useCustomerAuth";
-import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema, type ServiceHistoryItem } from "@shared/schema";
+import { type Customer, type MaintenancePlan, type EmailCampaign, type Appointment, updateCustomerProfileSchema, type ServiceHistoryItem, type Invoice } from "@shared/schema";
 import { CalendarDays, Mail, CreditCard, Star, LogOut, AlertCircle, Edit, Save, X, Clock, Calendar, MapPin, RefreshCcw, Filter, Ban, Play, AlertTriangle, CheckCircle2, Info, Phone, FileText, Search, Download, DollarSign, Home } from "lucide-react";
 import { Link } from "wouter";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -46,6 +46,7 @@ interface PortalProfileData {
   maintenancePlans: MaintenancePlan[];
   emailCampaigns: EmailCampaign[];
   appointments: Appointment[];
+  invoices: Invoice[];
 }
 
 interface ServiceHistoryData {
@@ -113,6 +114,7 @@ export default function CustomerPortal() {
   const maintenancePlans = profileData?.maintenancePlans || [];
   const emailCampaigns = profileData?.emailCampaigns || [];
   const appointments = profileData?.appointments || [];
+  const invoices = profileData?.invoices || [];
   const serviceHistory = serviceHistoryData?.serviceHistory || [];
   const serviceHistorySummary = serviceHistoryData?.summary;
   
@@ -662,6 +664,7 @@ export default function CustomerPortal() {
 
         {/* Detailed Sections */}
         <div className="space-y-12">
+          <CustomerInvoicesSection invoices={invoices} />
           <MaintenancePlansSection 
             maintenancePlans={maintenancePlans}
             handleCancelSubscription={handleCancelSubscription}
@@ -719,6 +722,13 @@ export default function CustomerPortal() {
       </div>
     </div>
   );
+}
+
+function CustomerInvoicesSection({ invoices }: { invoices: Invoice[] }) {
+  const visible = invoices.filter((invoice) => invoice.status !== "draft");
+  if (!visible.length) return null;
+  const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+  return <div id="invoices" className="space-y-4"><div><h2 className="text-2xl font-bold text-charcoal">Invoices</h2><p className="text-gray-600">View balances and download invoice PDFs.</p></div>{visible.map((invoice) => { const balance = Math.max(0, invoice.total - invoice.amountPaid); return <Card key={invoice.id}><CardContent className="flex flex-col justify-between gap-4 p-6 sm:flex-row sm:items-center"><div><div className="flex items-center gap-2"><FileText className="h-5 w-5 text-brand-primary" /><strong>{invoice.invoiceNumber}</strong><Badge className="capitalize">{invoice.status}</Badge></div><p className="mt-2 text-sm text-gray-600">Issued {new Date(invoice.issueDate).toLocaleDateString()} · Due {new Date(invoice.dueDate).toLocaleDateString()}</p><p className="mt-1">Total {money(invoice.total)} · Paid {money(invoice.amountPaid)} · <strong>Balance {money(balance)}</strong></p></div><Button asChild variant="outline"><a href={`/api/portal/invoices/${invoice.id}/pdf`} target="_blank" rel="noreferrer"><Download className="mr-2 h-4 w-4" />Download PDF</a></Button></CardContent></Card>; })}</div>;
 }
 
 // Dashboard Components
