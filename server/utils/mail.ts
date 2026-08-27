@@ -1051,20 +1051,20 @@ export class EmailService {
         
         <p>Hi ${data.customerName},</p>
         
-        <p>Just a friendly reminder that your HandyTech appointment is scheduled for <strong>tomorrow</strong>!</p>
+        <p>Just a friendly reminder about your upcoming HandyTech appointment.</p>
         
         <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
-          <p style="margin: 0 0 10px 0;"><strong>Tomorrow:</strong> ${formattedDate}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
           <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
           ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${data.description}</p>` : ''}
         </div>
         
-        <p>Our technician will arrive within a 30-minute window of your scheduled time. Please ensure someone is available to provide access to the work area.</p>
+        <p>Your scheduled start time is <strong>${formattedTime}</strong>. Please allow an arrival window of up to 30 minutes <strong>after</strong> that scheduled time. We will contact you if the schedule changes.</p>
         
         <p>If you need to reschedule, please call us at <strong>${this.businessPhone}</strong> as soon as possible.</p>
         
-        <p>We're looking forward to helping you tomorrow!</p>
+        <p>We're looking forward to helping you!</p>
       `;
 
       const htmlEmail = this.getEmailTemplate(content);
@@ -1072,7 +1072,7 @@ export class EmailService {
       const mailOptions = {
         from: `"${this.businessName}" <${this.fromEmail}>`,
         to: data.customerEmail,
-        subject: `Reminder: Your HandyTech Appointment is Tomorrow`,
+        subject: `Reminder: HandyTech Appointment ${formattedDate} at ${formattedTime}`,
         html: htmlEmail,
         headers: {
           'X-Mailer': `${this.businessName} Reminder System`,
@@ -1099,14 +1099,17 @@ export class EmailService {
       const formattedTime = this.formatTime(data.appointmentTime);
       
       const content = `
-        <h2 style="color: #2769BE; margin-bottom: 20px;">We're On Our Way!</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Appointment Later Today</h2>
         
         <p>Hi ${data.customerName},</p>
         
-        <p>Our technician will arrive for your appointment in approximately <strong>2 hours</strong>!</p>
+        <p>This is a reminder that your appointment is scheduled for today at <strong>${formattedTime}</strong>.</p>
+
+        <p style="background:#eff6ff;border-radius:6px;padding:12px;"><strong>This is not an on-my-way alert.</strong> We will contact you separately if the schedule changes.</p>
         
         <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
-          <p style="margin: 0 0 10px 0;"><strong>Expected Arrival:</strong> ${formattedTime} (within 30 minutes)</p>
+          <p style="margin: 0 0 10px 0;"><strong>Scheduled Start:</strong> ${formattedTime}</p>
+          <p style="margin: 0 0 10px 0;"><strong>Arrival Window:</strong> From ${formattedTime} up to 30 minutes afterward</p>
           <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
           ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${data.description}</p>` : ''}
         </div>
@@ -1128,7 +1131,7 @@ export class EmailService {
       const mailOptions = {
         from: `"${this.businessName}" <${this.fromEmail}>`,
         to: data.customerEmail,
-        subject: `We'll See You Soon! - HandyTech Arriving in 2 Hours`,
+        subject: `Reminder: HandyTech Appointment Today at ${formattedTime}`,
         html: htmlEmail,
         headers: {
           'X-Mailer': `${this.businessName} Reminder System`,

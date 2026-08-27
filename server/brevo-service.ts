@@ -125,7 +125,7 @@ export class BrevoEmailService {
       const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
       const sendSmtpEmail = new SibApiV3Sdk.default.SendSmtpEmail();
       
-      sendSmtpEmail.subject = `Reminder: Your HandyTech Appointment is Tomorrow`;
+      sendSmtpEmail.subject = `Reminder: HandyTech Appointment ${this.formatDate(data.appointmentDate)} at ${this.formatTime(data.appointmentTime)}`;
       sendSmtpEmail.to = [{ email: data.customerEmail, name: data.customerName }];
       sendSmtpEmail.sender = { email: 'service@handytech-solutions.com', name: 'HandyTech Solutions' };
       
@@ -139,10 +139,10 @@ export class BrevoEmailService {
           <div style="padding: 20px; background-color: #f9f9f9;">
             <p>Hi ${data.customerName},</p>
             
-            <p>Just a friendly reminder that your HandyTech appointment is scheduled for <strong>tomorrow</strong>!</p>
+            <p>Just a friendly reminder about your upcoming HandyTech appointment.</p>
             
             <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
-              <p><strong>Tomorrow:</strong> ${this.formatDate(data.appointmentDate)}</p>
+              <p><strong>Date:</strong> ${this.formatDate(data.appointmentDate)}</p>
               <p><strong>Time:</strong> ${this.formatTime(data.appointmentTime)}</p>
               <p><strong>Service:</strong> ${data.serviceType}</p>
             </div>
@@ -178,7 +178,7 @@ export class BrevoEmailService {
       const SibApiV3Sdk = await import('sib-api-v3-sdk') as any;
       const sendSmtpEmail = new SibApiV3Sdk.default.SendSmtpEmail();
       
-      sendSmtpEmail.subject = `We'll See You Soon! - HandyTech Arriving in 2 Hours`;
+      sendSmtpEmail.subject = `Reminder: HandyTech Appointment Today at ${this.formatTime(data.appointmentTime)}`;
       sendSmtpEmail.to = [{ email: data.customerEmail, name: data.customerName }];
       sendSmtpEmail.sender = { email: 'service@handytech-solutions.com', name: 'HandyTech Solutions' };
       
@@ -186,16 +186,18 @@ export class BrevoEmailService {
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background-color: #2769BE; color: white; padding: 20px; text-align: center;">
             <h1>HandyTech Solutions</h1>
-            <h2>We're On Our Way!</h2>
+            <h2>Appointment Later Today</h2>
           </div>
           
           <div style="padding: 20px; background-color: #f9f9f9;">
             <p>Hi ${data.customerName},</p>
             
-            <p>Our technician will arrive for your appointment in approximately <strong>2 hours</strong>!</p>
+            <p>This is a reminder that your appointment is scheduled for today at <strong>${this.formatTime(data.appointmentTime)}</strong>.</p>
+            <p style="background:#eff6ff;border-radius:6px;padding:12px;"><strong>This is not an on-my-way alert.</strong> We will contact you separately if the schedule changes.</p>
             
             <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
-              <p><strong>Expected Arrival:</strong> ${this.formatTime(data.appointmentTime)} (within 30 minutes)</p>
+              <p><strong>Scheduled Start:</strong> ${this.formatTime(data.appointmentTime)}</p>
+              <p><strong>Arrival Window:</strong> From the scheduled start time up to 30 minutes afterward</p>
               <p><strong>Service:</strong> ${data.serviceType}</p>
             </div>
             
