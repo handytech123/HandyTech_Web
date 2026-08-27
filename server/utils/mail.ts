@@ -283,7 +283,7 @@ export class EmailService {
   private getEmailTemplate(content: string): string {
     return `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #ffffff;">
-        <div style="background-color: #BB0000; color: white; padding: 20px; text-align: center;">
+        <div style="background-color: #2769BE; color: white; padding: 20px; text-align: center;">
           <h1 style="margin: 0; font-size: 28px;">${this.businessName}</h1>
           <p style="margin: 5px 0 0 0; font-size: 16px;">Missouri's Trusted Handyman Service</p>
         </div>
@@ -317,13 +317,13 @@ export class EmailService {
       const subject = this.createEnhancedSubject(appointmentData, formattedDate, formattedTime);
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Confirmed!</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Appointment Confirmed!</h2>
         
         <p>Dear ${appointmentData.firstName},</p>
         
         <p>Your appointment has been successfully scheduled! Here are the details:</p>
         
-        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #2769BE; margin: 20px 0; border-radius: 5px;">
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
           ${appointmentData.address ? `<p style="margin: 0 0 10px 0;"><strong>Service Address:</strong> ${appointmentData.address}</p>` : ''}
@@ -334,7 +334,7 @@ export class EmailService {
         <p>A calendar invite has been attached to this email for your convenience.</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${rescheduleUrl}" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reschedule Appointment</a>
+          <a href="${rescheduleUrl}" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Reschedule Appointment</a>
         </div>
         
         <p>Our technician will arrive within a 30-minute window of your scheduled time. We'll send you reminder emails as your appointment approaches.</p>
@@ -388,14 +388,14 @@ export class EmailService {
       const subject = this.createEnhancedSubject(appointmentData, newFormattedDate, newFormattedTime, 'Rescheduled: ');
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Rescheduled</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Appointment Rescheduled</h2>
         
         <p>Dear ${appointmentData.firstName},</p>
         
         <p>Your appointment has been successfully rescheduled. Here are your updated details:</p>
         
-        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
-          <h3 style="color: #BB0000; margin-top: 0;">New Appointment Details</h3>
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #2769BE; margin: 20px 0; border-radius: 5px;">
+          <h3 style="color: #2769BE; margin-top: 0;">New Appointment Details</h3>
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${newFormattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${newFormattedTime}</p>
           ${this.getServiceDetailsHtml(appointmentData)}
@@ -476,11 +476,11 @@ export class EmailService {
       subject: `${data.quoteNumber} — Quote from ${this.businessName}`,
       html: `
         <div style="margin:0 auto;max-width:720px;font-family:Arial,sans-serif;color:#172033">
-          <div style="background:#991b1b;color:white;padding:28px"><h1 style="margin:0">${this.businessName}</h1><p style="margin:8px 0 0">Professional Service Quote</p></div>
+          <div style="background:#0f172a;color:white;padding:28px;border-top:6px solid #2769BE"><h1 style="margin:0">${this.businessName}</h1><p style="margin:8px 0 0;color:#bae6fd">Professional Service Quote</p></div>
           <div style="padding:28px;border:1px solid #e5e7eb;border-top:0">
             <div style="display:flex;justify-content:space-between;gap:20px"><div><strong>Prepared for</strong><br>${escapeHtml(data.customerName)}${data.serviceAddress ? `<br>${escapeHtml(data.serviceAddress)}` : ""}</div><div style="text-align:right"><strong>${escapeHtml(data.quoteNumber)}</strong><br>Valid through ${expires.toLocaleDateString("en-US")}</div></div>
-            <table style="width:100%;border-collapse:collapse;margin-top:28px"><thead><tr style="background:#f3f4f6"><th style="padding:12px;text-align:left">Description</th><th style="padding:12px;text-align:right">Qty/Hours</th><th style="padding:12px;text-align:right">Rate</th><th style="padding:12px;text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
-            <div style="margin:20px 0 20px auto;max-width:320px"><p style="display:flex;justify-content:space-between"><span>Subtotal</span><strong>${money(data.subtotal)}</strong></p>${data.discount ? `<p style="display:flex;justify-content:space-between"><span>Discount</span><strong>-${money(data.discount)}</strong></p>` : ""}${data.tax ? `<p style="display:flex;justify-content:space-between"><span>Tax (${data.taxRate}%)</span><strong>${money(data.tax)}</strong></p>` : ""}<p style="display:flex;justify-content:space-between;border-top:2px solid #172033;padding-top:12px;font-size:20px"><span>Total</span><strong>${money(data.total)}</strong></p></div>
+            <table style="width:100%;border-collapse:collapse;margin-top:28px"><thead><tr style="background:#eff6ff;color:#0f172a"><th style="padding:12px;text-align:left">Description</th><th style="padding:12px;text-align:right">Qty/Hours</th><th style="padding:12px;text-align:right">Rate</th><th style="padding:12px;text-align:right">Amount</th></tr></thead><tbody>${rows}</tbody></table>
+            <div style="margin:20px 0 20px auto;max-width:320px"><p style="display:flex;justify-content:space-between"><span>Subtotal</span><strong>${money(data.subtotal)}</strong></p>${data.discount ? `<p style="display:flex;justify-content:space-between"><span>Discount</span><strong>-${money(data.discount)}</strong></p>` : ""}${data.tax ? `<p style="display:flex;justify-content:space-between"><span>Tax (${data.taxRate}%)</span><strong>${money(data.tax)}</strong></p>` : ""}<p style="display:flex;justify-content:space-between;border-top:3px solid #2769BE;padding-top:12px;font-size:20px;color:#0f172a"><span>Total Investment</span><strong>${money(data.total)}</strong></p></div>
             ${data.notes ? `<div style="background:#f8fafc;padding:16px;border-radius:6px"><strong>Scope and notes</strong><p style="white-space:pre-wrap;margin-bottom:0">${escapeHtml(data.notes)}</p></div>` : ""}
             <p style="margin-top:24px">Questions or ready to approve? Reply to this email or call ${escapeHtml(this.businessPhone)}.</p>
             <p style="font-size:12px;color:#64748b">This quote covers only the listed scope and is valid for ${data.validDays} days. Changes require approval and may affect price or scheduling.</p>
@@ -500,10 +500,10 @@ export class EmailService {
       const formattedDate = this.formatDate(appointmentData.appointmentDate);
       const formattedTime = this.formatTime(appointmentData.appointmentTime);
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Cancelled</h2>
+        <h2 style="color: #dc2626; margin-bottom: 20px;">Appointment Cancelled</h2>
         <p>Dear ${appointmentData.firstName},</p>
         <p>Your HandyTech Solutions appointment has been cancelled.</p>
-        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #dc2626; margin: 20px 0; border-radius: 5px;">
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
           ${this.getServiceDetailsHtml(appointmentData)}
@@ -545,12 +545,12 @@ export class EmailService {
       const subject = this.createEnhancedSubject(appointmentData, formattedDate, formattedTime, 'New Appointment: ');
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">New Appointment Scheduled</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">New Appointment Scheduled</h2>
         
         <p>A new appointment has been scheduled and requires your attention.</p>
         
-        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
-          <h3 style="color: #BB0000; margin-top: 0;">Appointment Details</h3>
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #2769BE; margin: 20px 0; border-radius: 5px;">
+          <h3 style="color: #2769BE; margin-top: 0;">Appointment Details</h3>
           <p style="margin: 0 0 10px 0;"><strong>Appointment ID:</strong> ${appointmentData.id}</p>
           <p style="margin: 0 0 10px 0;"><strong>Date:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
@@ -688,18 +688,18 @@ export class EmailService {
       const subject = `${this.businessName}: Sign in to your customer portal`;
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Sign in to Your Customer Portal</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Sign in to Your Customer Portal</h2>
         
         <p>Dear ${customerName},</p>
         
         <p>You requested access to your HandyTech Solutions customer portal. Click the secure link below to sign in:</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${magicLink}" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Sign In to Portal</a>
+          <a href="${magicLink}" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold; font-size: 16px;">Sign In to Portal</a>
         </div>
         
         <div style="background-color: #f0f0f0; padding: 20px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="color: #BB0000; margin-top: 0; font-size: 16px;">What you can do in your portal:</h3>
+          <h3 style="color: #2769BE; margin-top: 0; font-size: 16px;">What you can do in your portal:</h3>
           <ul style="margin: 10px 0; padding-left: 20px;">
             <li>View your upcoming appointments</li>
             <li>Reschedule appointments when needed</li>
@@ -715,7 +715,7 @@ export class EmailService {
         
         <p style="color: #666; font-size: 14px;">
           Having trouble? You can also copy and paste this link into your browser:<br>
-          <a href="${magicLink}" style="color: #BB0000; word-break: break-all;">${magicLink}</a>
+          <a href="${magicLink}" style="color: #2769BE; word-break: break-all;">${magicLink}</a>
         </p>
       `;
 
@@ -755,13 +755,13 @@ export class EmailService {
       const subject = `${this.businessName}: Subscription Cancellation Confirmed`;
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Subscription Cancellation Confirmed</h2>
+        <h2 style="color: #dc2626; margin-bottom: 20px;">Subscription Cancellation Confirmed</h2>
         
         <p>Dear ${data.customerName},</p>
         
         <p>We've successfully processed your subscription cancellation request. Here are the details:</p>
         
-        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #dc2626; margin: 20px 0; border-radius: 5px;">
           <p style="margin: 0 0 10px 0;"><strong>Plan:</strong> ${planTypeDisplay} Maintenance Plan</p>
           <p style="margin: 0 0 10px 0;"><strong>Cancellation Type:</strong> ${isImmediate ? 'Immediate' : 'End of Billing Period'}</p>
           ${data.endDate ? `<p style="margin: 0 0 10px 0;"><strong>Service End Date:</strong> ${this.formatDate(data.endDate)}</p>` : ''}
@@ -774,7 +774,7 @@ export class EmailService {
         }
         
         <div style="background-color: #f0f0f0; padding: 15px; border-radius: 5px; margin: 20px 0;">
-          <h3 style="color: #BB0000; margin-top: 0;">What's Next?</h3>
+          <h3 style="color: #2769BE; margin-top: 0;">What's Next?</h3>
           <p style="margin: 0 0 10px 0;">• You'll receive confirmation of your final service date</p>
           <p style="margin: 0 0 10px 0;">• Any scheduled maintenance visits will be ${isImmediate ? 'cancelled' : 'completed through your service end date'}</p>
           <p style="margin: 0;">• You can reactivate your subscription anytime within 30 days</p>
@@ -783,7 +783,7 @@ export class EmailService {
         <p>We're sorry to see you go! If there's anything we could have done better, please reply to this email and let us know.</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${this.baseUrl}/portal" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Access Customer Portal</a>
+          <a href="${this.baseUrl}/portal" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Access Customer Portal</a>
         </div>
         
         <p>Thank you for being a valued customer. If you need any assistance or want to discuss your maintenance needs, please don't hesitate to contact us.</p>
@@ -823,13 +823,13 @@ export class EmailService {
       const subject = `${this.businessName}: Welcome Back! Subscription Reactivated`;
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Welcome Back!</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Welcome Back!</h2>
         
         <p>Dear ${data.customerName},</p>
         
         <p>Great news! Your subscription has been successfully reactivated. We're excited to continue providing you with excellent maintenance services.</p>
         
-        <div style="background-color: white; padding: 20px; border-left: 4px solid #BB0000; margin: 20px 0; border-radius: 5px;">
+        <div style="background-color: white; padding: 20px; border-left: 4px solid #2769BE; margin: 20px 0; border-radius: 5px;">
           <p style="margin: 0 0 10px 0;"><strong>Plan:</strong> ${planTypeDisplay} Maintenance Plan</p>
           <p style="margin: 0 0 10px 0;"><strong>Status:</strong> Active</p>
           <p style="margin: 0;"><strong>Next Billing Date:</strong> ${this.formatDate(data.nextBillingDate)}</p>
@@ -858,7 +858,7 @@ export class EmailService {
         <p>Your first maintenance visit will be scheduled soon. We'll contact you to arrange a convenient time that works with your schedule.</p>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${this.baseUrl}/portal" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Manage Your Subscription</a>
+          <a href="${this.baseUrl}/portal" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Manage Your Subscription</a>
         </div>
         
         <p>Thank you for choosing ${this.businessName} for your maintenance needs. We look forward to continuing to serve you!</p>
@@ -915,7 +915,7 @@ export class EmailService {
       const subject = `New Review Requires Approval - ${reviewData.rating} Star${reviewData.rating !== 1 ? 's' : ''} from ${reviewData.customerName}`;
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">New Customer Review Submitted</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">New Customer Review Submitted</h2>
         
         <p>A new customer review has been submitted and requires your approval.</p>
         
@@ -929,13 +929,13 @@ export class EmailService {
           <p style="margin: 0 0 10px 0;"><strong>Submitted:</strong> ${formattedDate}</p>
         </div>
         
-        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
           <h4 style="margin-top: 0; color: #333;">Review Content:</h4>
           <p style="margin: 0; font-style: italic;">"${reviewData.content}"</p>
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${this.baseUrl}/admin#reviews" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Review & Approve</a>
+          <a href="${this.baseUrl}/admin#reviews" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Review & Approve</a>
         </div>
         
         <p>Please review this submission and approve or reject it through the admin panel.</p>
@@ -973,7 +973,7 @@ export class EmailService {
 
     try {
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Email Service Test</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Email Service Test</h2>
         
         <p>This is a test email to verify that the email service is working correctly.</p>
         
@@ -1021,13 +1021,13 @@ export class EmailService {
       const formattedTime = this.formatTime(data.appointmentTime);
       
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">Appointment Reminder</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">Appointment Reminder</h2>
         
         <p>Hi ${data.customerName},</p>
         
         <p>Just a friendly reminder that your HandyTech appointment is scheduled for <strong>tomorrow</strong>!</p>
         
-        <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+        <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
           <p style="margin: 0 0 10px 0;"><strong>Tomorrow:</strong> ${formattedDate}</p>
           <p style="margin: 0 0 10px 0;"><strong>Time:</strong> ${formattedTime}</p>
           <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
@@ -1073,13 +1073,13 @@ export class EmailService {
       const formattedTime = this.formatTime(data.appointmentTime);
       
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">We're On Our Way!</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">We're On Our Way!</h2>
         
         <p>Hi ${data.customerName},</p>
         
         <p>Our technician will arrive for your appointment in approximately <strong>2 hours</strong>!</p>
         
-        <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+        <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
           <p style="margin: 0 0 10px 0;"><strong>Expected Arrival:</strong> ${formattedTime} (within 30 minutes)</p>
           <p style="margin: 0 0 10px 0;"><strong>Service:</strong> ${data.serviceType}</p>
           ${data.description ? `<p style="margin: 0 0 10px 0;"><strong>Details:</strong> ${data.description}</p>` : ''}
@@ -1135,13 +1135,13 @@ export class EmailService {
       const personalMessage = data.personalMessage?.trim() ? escapeHtml(data.personalMessage.trim()) : null;
       
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">How Was Your HandyTech Service?</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">How Was Your HandyTech Service?</h2>
         
         <p>Hi ${customerName},</p>
         
         <p>We hope you're satisfied with the <strong>${serviceType}</strong> service we completed for you. Your feedback is important to us!</p>
 
-        ${personalMessage ? `<div style="background-color: #fff7ed; border-left: 4px solid #BB0000; padding: 14px 16px; margin: 20px 0;"><strong>A note from HandyTech:</strong><br>${personalMessage}</div>` : ''}
+        ${personalMessage ? `<div style="background-color: #eff6ff; border-left: 4px solid #2769BE; padding: 14px 16px; margin: 20px 0;"><strong>A note from HandyTech:</strong><br>${personalMessage}</div>` : ''}
         
         <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
           <h3 style="margin-top: 0; color: #333;">Please take a moment to:</h3>
@@ -1153,7 +1153,7 @@ export class EmailService {
         </div>
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${reviewUrl}" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Leave a Review</a>
+          <a href="${reviewUrl}" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Leave a Review</a>
         </div>
         
         <p>If you need any additional work or have questions about our service, please don't hesitate to call us at <strong>${this.businessPhone}</strong>.</p>
@@ -1203,7 +1203,7 @@ export class EmailService {
       const subject = `New ${isMaintenancePlan ? 'Maintenance Plan' : 'Service'} Request from ${quoteData.customerName}`;
 
       const content = `
-        <h2 style="color: #BB0000; margin-bottom: 20px;">New ${isMaintenancePlan ? 'Maintenance Plan' : 'Service'} Quote Request</h2>
+        <h2 style="color: #2769BE; margin-bottom: 20px;">New ${isMaintenancePlan ? 'Maintenance Plan' : 'Service'} Quote Request</h2>
         
         <p>A new ${isMaintenancePlan ? 'maintenance plan' : 'service'} request has been submitted and requires your attention.</p>
         
@@ -1217,14 +1217,14 @@ export class EmailService {
         </div>
         
         ${quoteData.message ? `
-        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+        <div style="background-color: #fff; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
           <h4 style="margin-top: 0; color: #333;">Additional Details:</h4>
           <p style="margin: 0; font-style: italic;">"${quoteData.message}"</p>
         </div>
         ` : ''}
         
         <div style="text-align: center; margin: 30px 0;">
-          <a href="${this.baseUrl}/admin#quotes" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Quote Request</a>
+          <a href="${this.baseUrl}/admin#quotes" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">View Quote Request</a>
         </div>
         
         <p>${isMaintenancePlan ? 'Please review this maintenance plan request and contact the customer within 24 hours.' : 'Please prepare a quote and respond to the customer promptly.'}</p>

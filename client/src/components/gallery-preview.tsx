@@ -67,7 +67,7 @@ export default function GalleryPreview() {
               </div>
               <div className="flex flex-col gap-4 px-6 py-6 text-white sm:flex-row sm:items-center sm:justify-between sm:px-8">
                 <div>
-                  <Badge className="mb-3 bg-brand-red text-white">Featured Before &amp; After</Badge>
+                  <Badge className="mb-3 bg-brand-primary text-white">Featured Before &amp; After</Badge>
                   <h3 className="text-2xl font-bold">Davis Office Transformation</h3>
                   <p className="mt-2 max-w-2xl text-slate-300">A compact room transformed with custom work surfaces, open shelving, a feature wall, and refreshed flooring.</p>
                 </div>

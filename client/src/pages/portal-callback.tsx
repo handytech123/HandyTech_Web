@@ -104,8 +104,8 @@ export default function PortalCallback() {
         <div className="w-full max-w-md">
           <Card>
             <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-brand-red/10 rounded-full flex items-center justify-center mb-4">
-                <Loader2 className="h-6 w-6 text-brand-red animate-spin" />
+              <div className="mx-auto w-12 h-12 bg-brand-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Loader2 className="h-6 w-6 text-brand-primary animate-spin" />
               </div>
               <CardTitle className="text-2xl font-bold text-charcoal">Signing You In</CardTitle>
             </CardHeader>
@@ -143,7 +143,7 @@ export default function PortalCallback() {
               <p className="text-sm text-gray-500">
                 You'll be redirected to your dashboard in a moment...
               </p>
-              <Button asChild className="w-full bg-brand-red hover:bg-brand-red/90 text-white" data-testid="button-go-to-portal">
+              <Button asChild className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white" data-testid="button-go-to-portal">
                 <Link href="/portal">Go to Portal Now</Link>
               </Button>
             </CardContent>
@@ -178,7 +178,7 @@ export default function PortalCallback() {
                 {error.canRetry && (
                   <Button 
                     onClick={handleRetry}
-                    className="w-full bg-brand-red hover:bg-brand-red/90 text-white"
+                    className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white"
                     data-testid="button-retry"
                   >
                     Try Again
@@ -191,7 +191,7 @@ export default function PortalCallback() {
               </div>
 
               <div className="border-t pt-4">
-                <Link href="/" className="text-sm text-brand-red hover:underline block text-center">
+                <Link href="/" className="text-sm text-brand-primary hover:underline block text-center">
                   ← Back to HandyTech Solutions
                 </Link>
               </div>

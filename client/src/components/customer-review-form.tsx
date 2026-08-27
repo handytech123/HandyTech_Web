@@ -267,7 +267,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
                     <FormControl>
                       <select
                         {...field}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-red focus:border-transparent"
+                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                         data-testid="select-service"
                       >
                         <option value="">Select the service you received...</option>
@@ -411,7 +411,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               <h3 className="text-lg font-semibold text-charcoal">Share Project Photos</h3>
               <p className="text-sm text-gray-600">Optional — add up to four before, during, or after photos.</p>
             </div>
-            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+            <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-primary hover:text-brand-primary">
               <ImagePlus className="h-5 w-5" />
               <span>{photos.length >= 4 ? "Four photos selected" : "Choose photos from your phone or computer"}</span>
               <Input
@@ -440,7 +440,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
             )}
             <div className="pt-2">
               {!videoPreview ? (
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-primary hover:text-brand-primary">
                   <Video className="h-5 w-5" />
                   <span>Add one project video — automatically compressed (maximum 200 MB)</span>
                   <Input
@@ -478,7 +478,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
               type="button"
               onClick={form.handleSubmit(onSubmit, onInvalid)}
               disabled={submitReviewMutation.isPending}
-              className="w-full bg-brand-red hover:bg-brand-red-dark text-white py-3 text-lg font-semibold"
+              className="w-full bg-brand-primary hover:bg-brand-primary-dark text-white py-3 text-lg font-semibold"
               data-testid="button-submit-review"
             >
               {submitReviewMutation.isPending ? "Submitting Review..." : "Submit Review"}

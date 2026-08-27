@@ -21,7 +21,7 @@ export default function LeaveReview() {
         <div className="mb-6">
           <Link 
             href="/" 
-            className="text-brand-red hover:underline inline-flex items-center gap-2 text-sm font-medium"
+            className="text-brand-primary hover:underline inline-flex items-center gap-2 text-sm font-medium"
             data-testid="link-back-to-homepage"
           >
             <ArrowLeft className="h-4 w-4" />
@@ -55,7 +55,7 @@ export default function LeaveReview() {
           
           <div className="grid md:grid-cols-3 gap-6 mb-8">
             <div className="text-center">
-              <div className="bg-brand-red w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="bg-brand-primary w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-white text-2xl">🏆</span>
               </div>
               <h3 className="font-semibold text-charcoal mb-2">Quality Guarantee</h3>
@@ -63,7 +63,7 @@ export default function LeaveReview() {
             </div>
             
             <div className="text-center">
-              <div className="bg-brand-red w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="bg-brand-primary w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-white text-2xl">⚡</span>
               </div>
               <h3 className="font-semibold text-charcoal mb-2">Reliable Service</h3>
@@ -71,7 +71,7 @@ export default function LeaveReview() {
             </div>
             
             <div className="text-center">
-              <div className="bg-brand-red w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+              <div className="bg-brand-primary w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-white text-2xl">💰</span>
               </div>
               <h3 className="font-semibold text-charcoal mb-2">Fair Pricing</h3>
@@ -89,7 +89,7 @@ export default function LeaveReview() {
               href="https://proreferral.homedepot.com/public-profile/885948" 
               target="_blank"
               rel="noopener noreferrer"
-              className="text-brand-red hover:text-brand-red-dark font-semibold"
+              className="text-brand-primary hover:text-brand-primary-dark font-semibold"
             >
               Home Depot Pro profile
             </a>{" "}

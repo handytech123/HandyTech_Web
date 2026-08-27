@@ -123,7 +123,7 @@ export default function DynamicServicesSection() {
                     <Card key={service.id} className="group hover:shadow-lg transition-shadow duration-300">
                       <CardHeader className="pb-4">
                         <div className="flex justify-between items-start">
-                          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-brand-red transition-colors">
+                          <CardTitle className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-brand-primary transition-colors">
                             {service.name}
                           </CardTitle>
                           <Badge 
@@ -148,14 +148,14 @@ export default function DynamicServicesSection() {
                             </div>
                           )}
                           
-                          <div className="flex items-center gap-1 font-semibold text-brand-red">
+                          <div className="flex items-center gap-1 font-semibold text-brand-primary">
                             <DollarSign className="h-4 w-4" />
                             <span>{formatPrice(service.basePrice, service.priceUnit || "per hour")}</span>
                           </div>
                         </div>
 
                         <Button 
-                          className="w-full bg-brand-red hover:bg-brand-red-dark text-white"
+                          className="w-full bg-brand-primary hover:bg-brand-primary-dark text-white"
                           onClick={() => {
                             // Scroll to contact form
                             document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
@@ -189,7 +189,7 @@ export default function DynamicServicesSection() {
           </p>
           <Button 
             size="lg"
-            className="bg-brand-red hover:bg-brand-red-dark text-white"
+            className="bg-brand-primary hover:bg-brand-primary-dark text-white"
             onClick={() => {
               document.getElementById('contact')?.scrollIntoView({ behavior: 'smooth' });
             }}

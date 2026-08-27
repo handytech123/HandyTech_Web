@@ -180,7 +180,7 @@ export default function AvailabilityRulesManager() {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
-                  className="bg-brand-red hover:bg-brand-red-dark" 
+                  className="bg-brand-primary hover:bg-brand-primary-dark"
                   onClick={() => setEditingRule(null)}
                   data-testid="button-add-rule"
                 >
@@ -316,7 +316,7 @@ export default function AvailabilityRulesManager() {
                       </Button>
                       <Button 
                         type="submit" 
-                        className="bg-brand-red hover:bg-brand-red-dark"
+                        className="bg-brand-primary hover:bg-brand-primary-dark"
                         disabled={createRule.isPending || updateRule.isPending}
                         data-testid="button-save"
                       >

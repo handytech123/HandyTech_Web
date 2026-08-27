@@ -469,7 +469,7 @@ export default function AppointmentScheduler() {
             SCHEDULE SERVICE
           </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Book Your <span className="text-brand-red">HandyTech Appointment</span>
+            Book Your <span className="text-brand-primary">HandyTech Appointment</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Choose a time block that fits your project. Materials billed separately. Travel included within 20 miles of Hazelwood, MO.
@@ -488,7 +488,7 @@ export default function AppointmentScheduler() {
                 <div 
                   className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
                     currentStep === step.id 
-                      ? "bg-brand-red text-white" 
+                      ? "bg-brand-primary text-white"
                       : (index < ["contact", "date", "time"].indexOf(currentStep))
                         ? "bg-green-500 text-white"
                         : "bg-gray-200 text-gray-600"
@@ -512,7 +512,7 @@ export default function AppointmentScheduler() {
               <Card data-testid="card-contact-details">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <User className="h-5 w-5 text-brand-red" />
+                    <User className="h-5 w-5 text-brand-primary" />
                     Step 1: Your Information & Service Selection
                     {selectedCategory && (
                       <Badge variant="outline" className="ml-2">
@@ -745,7 +745,7 @@ export default function AppointmentScheduler() {
                           }
                         }}
                         disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !selectedService}
-                        className="w-full bg-brand-red hover:bg-red-700"
+                        className="w-full bg-brand-primary hover:bg-brand-primary-dark"
                         data-testid="button-proceed-to-date"
                       >
                         Continue to Date Selection
@@ -762,7 +762,7 @@ export default function AppointmentScheduler() {
               <Card data-testid="card-date-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <CalendarDays className="h-5 w-5 text-brand-red" />
+                    <CalendarDays className="h-5 w-5 text-brand-primary" />
                     Step 3: Select Date
                     <Button 
                       variant="outline" 
@@ -803,7 +803,7 @@ export default function AppointmentScheduler() {
               <Card data-testid="card-time-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
-                    <Clock className="h-5 w-5 text-brand-red" />
+                    <Clock className="h-5 w-5 text-brand-primary" />
                     Step 4: Choose Time
                     <Button 
                       variant="outline" 
@@ -827,7 +827,7 @@ export default function AppointmentScheduler() {
 
                   {loadingSlots ? (
                     <div className="flex items-center justify-center py-8">
-                      <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
+                      <Loader2 className="h-6 w-6 animate-spin text-brand-primary" />
                       <span className="ml-2 text-gray-600">Loading available times...</span>
                     </div>
                   ) : slotsError ? (
@@ -851,7 +851,7 @@ export default function AppointmentScheduler() {
                           key={slot.time}
                           onClick={() => handleTimeSelect(slot.time)}
                           variant="outline"
-                          className="w-full hover:bg-brand-red hover:text-white"
+                          className="w-full hover:bg-brand-primary hover:text-white"
                           data-testid={`button-time-${slot.displayTime.replace(/[^\w]/g, '-')}`}
                         >
                           {slot.displayTime}
@@ -869,7 +869,7 @@ export default function AppointmentScheduler() {
           <Card className="mt-8" data-testid="card-appointment-summary">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <CheckCircle className="h-5 w-5 text-brand-red" />
+                <CheckCircle className="h-5 w-5 text-brand-primary" />
                 Appointment Summary
               </CardTitle>
             </CardHeader>
@@ -993,7 +993,7 @@ export default function AppointmentScheduler() {
                   onClick={handleManualSubmit}
                   disabled={!isReadyToSubmit() || bookAppointmentMutation.isPending}
                   size="lg"
-                  className="bg-brand-red hover:bg-red-700 px-8 py-3 text-lg font-semibold"
+                  className="bg-brand-primary hover:bg-brand-primary-dark px-8 py-3 text-lg font-semibold"
                   data-testid="button-book-appointment"
                 >
                   {bookAppointmentMutation.isPending ? (

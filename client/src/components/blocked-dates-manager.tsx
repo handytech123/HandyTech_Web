@@ -300,7 +300,7 @@ export default function BlockedTimesManager() {
             </CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-brand-red hover:bg-brand-red-dark">
+                <Button className="bg-brand-primary hover:bg-brand-primary-dark">
                   <Plus className="h-4 w-4 mr-2" />
                   Block Time
                 </Button>
@@ -492,7 +492,7 @@ export default function BlockedTimesManager() {
                     </Button>
                     <Button
                       type="submit"
-                      className="bg-brand-red hover:bg-brand-red-dark"
+                      className="bg-brand-primary hover:bg-brand-primary-dark"
                       disabled={createBlockedTime.isPending}
                     >
                       {createBlockedTime.isPending ? "Creating..." : "Block Time"}

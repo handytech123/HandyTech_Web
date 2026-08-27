@@ -41,7 +41,7 @@ function FeaturedProject({ project }: { project: ProjectGallery }) {
     <section className="mb-12 overflow-hidden rounded-2xl border border-border bg-white shadow-sm" aria-labelledby={`featured-project-${project.id}`}>
       <div className="border-b border-border bg-gradient-to-r from-slate-950 to-slate-800 px-6 py-7 text-white sm:px-8">
         <div className="flex flex-wrap items-center gap-3">
-          <Badge className="bg-brand-red text-white">Featured Project</Badge>
+          <Badge className="bg-brand-primary text-white">Featured Project</Badge>
           <span className="flex items-center gap-1 text-sm text-slate-300">
             <Calendar className="h-4 w-4" /> Completed {format(new Date(project.completionDate), "MMMM yyyy")}
           </span>
@@ -69,7 +69,7 @@ function FeaturedProject({ project }: { project: ProjectGallery }) {
             </div>
             <div className="p-5">
               <h3 className="flex items-center gap-2 text-xl font-bold text-foreground">
-                <PlayCircle className="h-5 w-5 text-brand-red" /> {index === 0 && videos.length > 1 ? "Before" : index === 1 ? "After" : `Project Video ${index + 1}`}
+                <PlayCircle className="h-5 w-5 text-brand-primary" /> {index === 0 && videos.length > 1 ? "Before" : index === 1 ? "After" : `Project Video ${index + 1}`}
               </h3>
             </div>
           </article>
@@ -79,7 +79,7 @@ function FeaturedProject({ project }: { project: ProjectGallery }) {
       {photos.length > 0 && <div className="border-t border-border px-5 pb-6 pt-6 sm:px-8 sm:pb-8">
         <div className="mb-4 flex items-end justify-between gap-4">
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-red">Selected details</p>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-brand-primary">Selected details</p>
             <h3 className="mt-1 text-2xl font-bold text-foreground">Project photos</h3>
           </div>
         </div>
@@ -435,7 +435,7 @@ export default function Gallery() {
             <Link href="/">
               <Button
                 variant="outline"
-                className="absolute left-0 top-0 flex items-center gap-2 hover:bg-brand-red hover:text-white hover:border-brand-red transition-colors"
+                className="absolute left-0 top-0 flex items-center gap-2 hover:bg-brand-primary hover:text-white hover:border-brand-primary transition-colors"
                 data-testid="button-back-home"
               >
                 <Home className="w-4 h-4" />
@@ -468,8 +468,8 @@ export default function Gallery() {
                 className={`
                   transition-all duration-200
                   ${selectedCategory === category.value 
-                    ? 'bg-brand-red hover:bg-brand-red-dark text-white border-brand-red shadow-md' 
-                    : 'hover:bg-brand-red hover:text-white hover:border-brand-red'
+                    ? 'bg-brand-primary hover:bg-brand-primary-dark text-white border-brand-primary shadow-md'
+                    : 'hover:bg-brand-primary hover:text-white hover:border-brand-primary'
                   }
                 `}
                 data-testid={`button-filter-${category.value}`}
@@ -540,7 +540,7 @@ export default function Gallery() {
                   onClick={loadMore}
                   disabled={isLoadingMore}
                   size="lg"
-                  className="bg-brand-red hover:bg-brand-red-dark text-white"
+                  className="bg-brand-primary hover:bg-brand-primary-dark text-white"
                   data-testid="button-load-more"
                 >
                   {isLoadingMore ? (

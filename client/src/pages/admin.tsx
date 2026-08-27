@@ -2681,7 +2681,7 @@ function AuthenticatedDashboard() {
             <div className="flex items-center gap-3">
               <Link 
                 href="/" 
-                className="text-brand-red hover:underline inline-flex items-center gap-1 text-sm"
+                className="text-brand-primary hover:underline inline-flex items-center gap-1 text-sm"
                 data-testid="link-back-to-main-site"
               >
                 <Home className="h-4 w-4" />
@@ -2735,7 +2735,7 @@ function AuthenticatedDashboard() {
 
         <Tabs defaultValue="services" className="space-y-6">
           <TabsList className="flex w-full flex-wrap lg:grid lg:grid-cols-10 gap-1 h-auto p-1">
-            <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-red text-white data-[state=active]:bg-brand-red-dark">
+            <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
               Services
             </TabsTrigger>
             <TabsTrigger value="calendar" className="flex-1 min-w-[100px] text-sm">
@@ -3046,7 +3046,7 @@ export default function AdminDashboard() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-red mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand-primary mx-auto mb-4"></div>
           <p className="text-gray-600">Loading...</p>
         </div>
       </div>

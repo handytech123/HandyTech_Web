@@ -78,7 +78,7 @@ export class BrevoEmailService {
       
       sendSmtpEmail.htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #BB0000; color: white; padding: 20px; text-align: center;">
+          <div style="background-color: #2769BE; color: white; padding: 20px; text-align: center;">
             <h1>HandyTech Solutions</h1>
             <h2>Appointment Confirmed!</h2>
           </div>
@@ -88,7 +88,7 @@ export class BrevoEmailService {
             
             <p>Your appointment has been successfully scheduled! Here are the details:</p>
             
-            <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+            <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
               <p><strong>Date:</strong> ${this.formatDate(data.appointmentDate)}</p>
               <p><strong>Time:</strong> ${this.formatTime(data.appointmentTime)}</p>
               <p><strong>Service:</strong> ${data.serviceType}</p>
@@ -131,7 +131,7 @@ export class BrevoEmailService {
       
       sendSmtpEmail.htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #BB0000; color: white; padding: 20px; text-align: center;">
+          <div style="background-color: #2769BE; color: white; padding: 20px; text-align: center;">
             <h1>HandyTech Solutions</h1>
             <h2>Appointment Reminder</h2>
           </div>
@@ -141,7 +141,7 @@ export class BrevoEmailService {
             
             <p>Just a friendly reminder that your HandyTech appointment is scheduled for <strong>tomorrow</strong>!</p>
             
-            <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+            <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
               <p><strong>Tomorrow:</strong> ${this.formatDate(data.appointmentDate)}</p>
               <p><strong>Time:</strong> ${this.formatTime(data.appointmentTime)}</p>
               <p><strong>Service:</strong> ${data.serviceType}</p>
@@ -184,7 +184,7 @@ export class BrevoEmailService {
       
       sendSmtpEmail.htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #BB0000; color: white; padding: 20px; text-align: center;">
+          <div style="background-color: #2769BE; color: white; padding: 20px; text-align: center;">
             <h1>HandyTech Solutions</h1>
             <h2>We're On Our Way!</h2>
           </div>
@@ -194,7 +194,7 @@ export class BrevoEmailService {
             
             <p>Our technician will arrive for your appointment in approximately <strong>2 hours</strong>!</p>
             
-            <div style="background-color: white; padding: 15px; border-left: 4px solid #BB0000; margin: 20px 0;">
+            <div style="background-color: white; padding: 15px; border-left: 4px solid #2769BE; margin: 20px 0;">
               <p><strong>Expected Arrival:</strong> ${this.formatTime(data.appointmentTime)} (within 30 minutes)</p>
               <p><strong>Service:</strong> ${data.serviceType}</p>
             </div>
@@ -241,7 +241,7 @@ export class BrevoEmailService {
       
       sendSmtpEmail.htmlContent = `
         <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background-color: #BB0000; color: white; padding: 20px; text-align: center;">
+          <div style="background-color: #2769BE; color: white; padding: 20px; text-align: center;">
             <h1>HandyTech Solutions</h1>
             <h2>Thank You!</h2>
           </div>
@@ -254,7 +254,7 @@ export class BrevoEmailService {
             <p>We hope you're completely satisfied with the work completed. Your feedback means the world to us and helps us continue providing excellent service to our Missouri community.</p>
             
             <div style="text-align: center; margin: 30px 0;">
-              <a href="/leave-review" style="background-color: #BB0000; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Leave a Review</a>
+              <a href="/leave-review" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">Leave a Review</a>
             </div>
             
             <p>For any follow-up questions or future service needs, don't hesitate to reach out:</p>

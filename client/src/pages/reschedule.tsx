@@ -172,7 +172,7 @@ export default function ReschedulePage() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <Card className="w-full max-w-md">
           <CardContent className="flex flex-col items-center justify-center py-8">
-            <Loader2 className="h-8 w-8 animate-spin text-brand-red mb-4" />
+            <Loader2 className="h-8 w-8 animate-spin text-brand-primary mb-4" />
             <p className="text-muted-foreground">Loading appointment details...</p>
           </CardContent>
         </Card>
@@ -239,11 +239,11 @@ export default function ReschedulePage() {
       <div className="bg-charcoal text-white py-6">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <h1 className="text-2xl font-bold">
-            HandyTech<span className="text-brand-red">Solutions</span> - Reschedule Appointment
+            HandyTech<span className="text-brand-primary">Solutions</span> - Reschedule Appointment
           </h1>
           <Link 
             href="/" 
-            className="text-white hover:text-brand-red inline-flex items-center gap-1 text-sm"
+            className="text-white hover:text-brand-primary inline-flex items-center gap-1 text-sm"
             data-testid="link-back-to-main-site"
           >
             <Home className="h-4 w-4" />
@@ -260,7 +260,7 @@ export default function ReschedulePage() {
             <Card data-testid="card-current-appointment">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <CalendarDays className="h-5 w-5 text-brand-red" />
+                  <CalendarDays className="h-5 w-5 text-brand-primary" />
                   Current Appointment
                 </CardTitle>
               </CardHeader>
@@ -321,7 +321,7 @@ export default function ReschedulePage() {
             <Card data-testid="card-reschedule-form">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <ArrowRight className="h-5 w-5 text-brand-red" />
+                  <ArrowRight className="h-5 w-5 text-brand-primary" />
                   Select New Date & Time
                 </CardTitle>
               </CardHeader>
@@ -358,7 +358,7 @@ export default function ReschedulePage() {
                     <>
                       {loadingSlots ? (
                         <div className="flex items-center justify-center py-8">
-                          <Loader2 className="h-6 w-6 animate-spin text-brand-red" />
+                          <Loader2 className="h-6 w-6 animate-spin text-brand-primary" />
                           <span className="ml-2 text-muted-foreground">Loading available times...</span>
                         </div>
                       ) : slotsError ? (
@@ -383,7 +383,7 @@ export default function ReschedulePage() {
                               variant={selectedTimeSlot === slot.time ? "default" : "outline"}
                               size="sm"
                               onClick={() => setSelectedTimeSlot(slot.time)}
-                              className={selectedTimeSlot === slot.time ? "bg-brand-red hover:bg-brand-red-dark" : ""}
+                              className={selectedTimeSlot === slot.time ? "bg-brand-primary hover:bg-brand-primary-dark" : ""}
                               data-testid={`button-time-slot-${slot.displayTime.replace(/[^a-zA-Z0-9]/g, '-')}`}
                             >
                               {slot.displayTime}
@@ -401,7 +401,7 @@ export default function ReschedulePage() {
                 <Button
                   onClick={handleSubmit}
                   disabled={!selectedDate || !selectedTimeSlot || rescheduleMutation.isPending}
-                  className="w-full bg-brand-red hover:bg-brand-red-dark"
+                  className="w-full bg-brand-primary hover:bg-brand-primary-dark"
                   size="lg"
                   data-testid="button-submit-reschedule"
                 >

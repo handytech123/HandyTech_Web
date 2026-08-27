@@ -208,7 +208,7 @@ export function ChatWidget() {
         <div className="fixed bottom-3 left-3 right-3 z-50 h-[min(500px,calc(100vh-1.5rem))] shadow-2xl sm:bottom-6 sm:left-auto sm:right-6 sm:w-96">
           <Card className="h-full flex flex-col bg-white border-gray-300">
             {/* Header */}
-            <CardHeader className="bg-brand-red text-white p-4 rounded-t-lg">
+            <CardHeader className="bg-brand-primary text-white p-4 rounded-t-lg">
               <div className="flex items-center justify-between">
                 <div className="flex items-center space-x-2">
                   <div className="flex flex-col">
@@ -233,7 +233,7 @@ export function ChatWidget() {
                   variant="ghost"
                   size="sm"
                   onClick={toggleChat}
-                  className="text-white hover:bg-brand-red-dark h-8 w-8 p-0"
+                  className="text-white hover:bg-brand-primary-dark h-8 w-8 p-0"
                   data-testid="chat-close-button"
                 >
                   <X className="h-4 w-4" />
@@ -263,7 +263,7 @@ export function ChatWidget() {
                     "max-w-[280px] rounded-lg p-3 shadow-sm",
                     message.isBot || message.isAgent
                       ? "bg-gray-100 text-gray-900"
-                      : "bg-brand-red text-white"
+                      : "bg-brand-primary text-white"
                   )}>
                     <div className="text-sm whitespace-pre-wrap break-words">{message.text}</div>
                     <div className={cn(
@@ -315,7 +315,7 @@ export function ChatWidget() {
                 <Button
                   onClick={sendMessage}
                   disabled={!inputValue.trim() || !isConnected}
-                  className="bg-brand-red hover:bg-brand-red-dark"
+                  className="bg-brand-primary hover:bg-brand-primary-dark"
                   data-testid="chat-send-button"
                 >
                   <Send className="h-4 w-4" />

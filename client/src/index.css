@@ -8,39 +8,39 @@ html {
 }
 
 :root {
-  --background: 0 0% 95%; /* #F2F2F2 light gray background */
-  --foreground: 0 0% 15%; /* #262626 dark text */
-  --muted: 0 0% 90%; /* #E6E6E6 light gray sections */
-  --muted-foreground: 0 0% 35%; /* #595959 readable gray text */
-  --popover: 0 0% 98%; /* #FAFAFA white popover */
-  --popover-foreground: 0 0% 15%;
-  --card: 0 0% 98%; /* #FAFAFA white cards */
-  --card-foreground: 0 0% 15%;
-  --border: 0 0% 85%; /* #D9D9D9 light borders */
-  --input: 0 0% 98%; /* #FAFAFA white inputs */
-  --primary: 218 51% 21%; /* #1B2E52 HandyTech navy */
+  --background: 210 40% 98%; /* #F8FAFC slate-50 */
+  --foreground: 222 47% 11%; /* #0F172A slate-900 */
+  --muted: 210 40% 96%; /* #F1F5F9 slate-100 */
+  --muted-foreground: 215 16% 47%; /* #64748B slate-500 */
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 47% 11%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 47% 11%;
+  --border: 214 32% 91%; /* #E2E8F0 slate-200 */
+  --input: 0 0% 100%;
+  --primary: 212 63% 44%; /* #2769BE current HandyTech blue */
   --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 90%;
-  --secondary-foreground: 0 0% 15%;
-  --accent: 0 0% 90%;
-  --accent-foreground: 0 0% 15%;
+  --secondary: 210 40% 96%;
+  --secondary-foreground: 222 47% 11%;
+  --accent: 204 94% 94%; /* sky-100 */
+  --accent-foreground: 222 47% 11%;
   --destructive: 0 84% 60%;
   --destructive-foreground: 0 0% 98%;
-  --ring: 218 51% 21%;
+  --ring: 212 63% 44%;
   --radius: 0.5rem;
-  --chart-1: 218 51% 21%;
+  --chart-1: 212 63% 44%;
   --chart-2: 212 63% 44%;
   --chart-3: 0 0% 50%;
   --chart-4: 212 63% 60%;
   --chart-5: 0 0% 70%;
   
-  /* HandyTech brand colors - navy & blue from logo */
-  --brand-red: 218 51% 21%;      /* #1B2E52 deep navy (primary) */
-  --brand-red-dark: 218 56% 14%; /* #131F38 darker navy */
-  --brand-blue: 212 63% 44%;     /* #2769BE bright blue (accent) */
-  --brand-blue-dark: 212 68% 36%;/* #1C57A6 darker blue */
-  --charcoal: 0 0% 25%;          /* #404040 dark gray text */
-  --light-gray: 0 0% 90%;        /* #E6E6E6 light gray sections */
+  /* Current HandyTech palette: slate, blue, white, and sky */
+  --brand-primary: 222 47% 11%;      /* #0F172A deep slate */
+  --brand-primary-dark: 222 47% 8%;  /* #0B1120 darker slate */
+  --brand-blue: 212 63% 44%;         /* #2769BE bright blue */
+  --brand-blue-dark: 212 68% 36%;    /* #1C57A6 darker blue */
+  --charcoal: 222 47% 11%;           /* #0F172A slate text */
+  --light-gray: 210 40% 96%;         /* #F1F5F9 slate-100 */
 }
 
 /* HandyTech Dark Theme */
@@ -67,8 +67,8 @@ html {
   --radius: 0.5rem;
   
   /* Custom brand colors for dark theme */
-  --brand-red: 212 63% 55%;      /* brighter blue for dark bg */
-  --brand-red-dark: 212 68% 46%; /* slightly darker blue */
+  --brand-primary: 212 63% 55%;      /* brighter blue for dark bg */
+  --brand-primary-dark: 212 68% 46%; /* slightly darker blue */
   --brand-blue: 212 63% 65%;     /* even brighter blue accent */
   --brand-blue-dark: 212 68% 55%;
   --charcoal: 0 0% 95%;          /* #F2F2F2 bright text */
@@ -109,20 +109,20 @@ html {
 }
 
 @layer utilities {
-  .brand-red {
-    color: hsl(var(--brand-red));
+  .brand-primary {
+    color: hsl(var(--brand-primary));
   }
   
-  .bg-brand-red {
-    background-color: hsl(var(--brand-red));
+  .bg-brand-primary {
+    background-color: hsl(var(--brand-primary));
   }
   
-  .bg-brand-red-dark {
-    background-color: hsl(var(--brand-red-dark));
+  .bg-brand-primary-dark {
+    background-color: hsl(var(--brand-primary-dark));
   }
   
-  .text-brand-red {
-    color: hsl(var(--brand-red));
+  .text-brand-primary {
+    color: hsl(var(--brand-primary));
   }
 
   .bg-brand-blue {
@@ -165,24 +165,24 @@ html {
     background-color: hsl(var(--light-gray));
   }
   
-  .hover\:bg-brand-red-dark:hover {
-    background-color: hsl(var(--brand-red-dark));
+  .hover\:bg-brand-primary-dark:hover {
+    background-color: hsl(var(--brand-primary-dark));
   }
   
-  .hover\:text-brand-red:hover {
-    color: hsl(var(--brand-red));
+  .hover\:text-brand-primary:hover {
+    color: hsl(var(--brand-primary));
   }
   
-  .border-brand-red {
-    border-color: hsl(var(--brand-red));
+  .border-brand-primary {
+    border-color: hsl(var(--brand-primary));
   }
   
-  .focus\:ring-brand-red:focus {
-    --tw-ring-color: hsl(var(--brand-red));
+  .focus\:ring-brand-primary:focus {
+    --tw-ring-color: hsl(var(--brand-primary));
   }
   
-  .focus\:border-brand-red:focus {
-    border-color: hsl(var(--brand-red));
+  .focus\:border-brand-primary:focus {
+    border-color: hsl(var(--brand-primary));
   }
   
   /* Contact banner scrolling animation */

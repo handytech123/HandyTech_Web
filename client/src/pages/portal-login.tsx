@@ -67,8 +67,8 @@ export default function PortalLogin() {
         <div className="w-full max-w-md">
           <Card>
             <CardHeader className="text-center">
-              <div className="mx-auto w-12 h-12 bg-brand-red/10 rounded-full flex items-center justify-center mb-4">
-                <Mail className="h-6 w-6 text-brand-red" />
+              <div className="mx-auto w-12 h-12 bg-brand-primary/10 rounded-full flex items-center justify-center mb-4">
+                <Mail className="h-6 w-6 text-brand-primary" />
               </div>
               <CardTitle className="text-2xl font-bold text-charcoal">Check Your Email</CardTitle>
             </CardHeader>
@@ -124,7 +124,7 @@ export default function PortalLogin() {
         <Card>
           <CardHeader className="text-center">
             <CardTitle className="text-2xl font-bold text-charcoal">
-              HandyTech<span className="text-brand-red">Solutions</span>
+              HandyTech<span className="text-brand-primary">Solutions</span>
             </CardTitle>
             <p className="text-gray-600 mt-2">Customer Portal Sign In</p>
           </CardHeader>
@@ -151,7 +151,7 @@ export default function PortalLogin() {
 
               <Button 
                 type="submit" 
-                className="w-full bg-brand-red hover:bg-brand-red/90 text-white"
+                className="w-full bg-brand-primary hover:bg-brand-primary/90 text-white"
                 disabled={loginMutation.isPending}
                 data-testid="button-send-magic-link"
               >
@@ -178,7 +178,7 @@ export default function PortalLogin() {
               </div>
 
               <div className="border-t pt-4">
-                <Link href="/" className="text-sm text-brand-red hover:underline block text-center">
+                <Link href="/" className="text-sm text-brand-primary hover:underline block text-center">
                   ← Back to HandyTech Solutions
                 </Link>
               </div>

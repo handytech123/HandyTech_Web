@@ -44,6 +44,12 @@ export default {
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",
+        "brand-primary": "hsl(var(--brand-primary) / <alpha-value>)",
+        "brand-primary-dark": "hsl(var(--brand-primary-dark) / <alpha-value>)",
+        "brand-blue": "hsl(var(--brand-blue) / <alpha-value>)",
+        "brand-blue-dark": "hsl(var(--brand-blue-dark) / <alpha-value>)",
+        charcoal: "hsl(var(--charcoal) / <alpha-value>)",
+        "light-gray": "hsl(var(--light-gray) / <alpha-value>)",
         chart: {
           "1": "hsl(var(--chart-1))",
           "2": "hsl(var(--chart-2))",

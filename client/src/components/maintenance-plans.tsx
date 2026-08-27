@@ -279,7 +279,7 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
         <Button 
           type="submit" 
           data-testid="button-submit-contact"
-          className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
+          className="w-full bg-brand-primary text-white hover:bg-brand-primary-dark"
           disabled={submitContact.isPending}
         >
           {submitContact.isPending ? "Submitting..." : "Submit Request"}
@@ -322,19 +322,19 @@ export default function MaintenancePlans() {
               <Card 
                 key={index} 
                 className={`relative hover:shadow-lg transition-shadow ${
-                  plan.popular ? 'bg-white shadow-xl border-2 border-brand-red' : 'bg-light-gray'
+                  plan.popular ? 'bg-white shadow-xl border-2 border-brand-primary' : 'bg-light-gray'
                 }`}
               >
                 {plan.popular && (
                   <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                    <Badge className="bg-brand-red text-white">Most Popular</Badge>
+                    <Badge className="bg-brand-primary text-white">Most Popular</Badge>
                   </div>
                 )}
                 <CardContent className="p-8">
                   <div className="text-center mb-8">
                     <div className="text-3xl mb-4">{plan.icon}</div>
                     <h3 className="text-xl font-bold text-charcoal mb-2">{plan.name}</h3>
-                    <div className="text-3xl font-bold text-brand-red mb-2">
+                    <div className="text-3xl font-bold text-brand-primary mb-2">
                       {typeof plan.price === 'number' ? `$${plan.price}` : plan.price}
                       <span className="text-lg text-gray-600">/{plan.period}</span>
                     </div>
@@ -343,7 +343,7 @@ export default function MaintenancePlans() {
                   <ul className="space-y-3 mb-6">
                     {plan.features.map((feature, featureIndex) => (
                       <li key={featureIndex} className="flex items-start">
-                        <Check className="text-brand-red mr-3 mt-0.5 flex-shrink-0" size={16} />
+                        <Check className="text-brand-primary mr-3 mt-0.5 flex-shrink-0" size={16} />
                         <span className="text-sm text-gray-700">{feature}</span>
                       </li>
                     ))}
@@ -354,7 +354,7 @@ export default function MaintenancePlans() {
                   <Button 
                     onClick={() => handlePlanSelection(plan)}
                     data-testid={`button-plan-${plan.name.toLowerCase().replace(/\s+/g, '-')}`}
-                    className="w-full bg-brand-red text-white hover:bg-brand-red-dark"
+                    className="w-full bg-brand-primary text-white hover:bg-brand-primary-dark"
                   >
                     {typeof plan.price === 'number' ? `Get Started - $${plan.price}` : 'Get Quote'}
                   </Button>

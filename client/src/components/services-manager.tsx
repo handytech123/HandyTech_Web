@@ -207,7 +207,7 @@ export default function ServicesManager() {
             </CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-brand-red hover:bg-brand-red-dark" onClick={() => setEditingService(null)}>
+                <Button className="bg-brand-primary hover:bg-brand-primary-dark" onClick={() => setEditingService(null)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Service
                 </Button>
@@ -363,7 +363,7 @@ export default function ServicesManager() {
                     </Button>
                     <Button
                       type="submit"
-                      className="bg-brand-red hover:bg-brand-red-dark"
+                      className="bg-brand-primary hover:bg-brand-primary-dark"
                       disabled={createService.isPending || updateService.isPending}
                     >
                       {editingService ? "Update Service" : "Create Service"}

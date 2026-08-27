@@ -505,7 +505,7 @@ export default function CustomerPortal() {
       <div className="flex items-center justify-center min-h-screen bg-light-gray">
         <Card className="w-full max-w-md">
           <CardContent className="flex items-center justify-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-red mr-3"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-primary mr-3"></div>
             <span className="text-charcoal">Loading your portal...</span>
           </CardContent>
         </Card>
@@ -548,7 +548,7 @@ export default function CustomerPortal() {
             <div className="flex space-x-2">
               <Button 
                 onClick={() => window.location.href = "/portal/login"} 
-                className="flex-1 bg-brand-red hover:bg-brand-red/90 text-white"
+                className="flex-1 bg-brand-primary hover:bg-brand-primary/90 text-white"
                 data-testid="button-sign-in-again"
               >
                 Sign In Again
@@ -581,11 +581,11 @@ export default function CustomerPortal() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex justify-between items-center">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-bold">
-              HandyTech<span className="text-brand-red">Solutions</span> Customer Portal
+              HandyTech<span className="text-brand-primary">Solutions</span> Customer Portal
             </h1>
             <Link 
               href="/" 
-              className="text-white hover:text-brand-red inline-flex items-center gap-1 text-sm"
+              className="text-white hover:text-brand-primary inline-flex items-center gap-1 text-sm"
               data-testid="link-back-to-main-site"
             >
               <Home className="h-4 w-4" />
@@ -940,7 +940,7 @@ function ProfileCard({ customer, isEditing, setIsEditing, form, onProfileSubmit,
                 onClick={form.handleSubmit(onProfileSubmit)}
                 disabled={updateProfileMutation.isPending}
                 data-testid="button-save-profile"
-                className="flex items-center gap-2 bg-brand-red hover:bg-brand-red/90"
+                className="flex items-center gap-2 bg-brand-primary hover:bg-brand-primary/90"
               >
                 {updateProfileMutation.isPending ? (
                   <>
@@ -1194,7 +1194,7 @@ function SubscribeCard({ maintenancePlans, hasActivePlan, handleSubscribe, subsc
                         size="sm"
                         onClick={() => handleSubscribe(plan.type, plan.price)}
                         disabled={subscribeToPlan.isPending}
-                        className="bg-brand-red hover:bg-brand-red/90 text-white"
+                        className="bg-brand-primary hover:bg-brand-primary/90 text-white"
                         data-testid={`button-upgrade-${plan.type}`}
                       >
                         Upgrade
@@ -1215,12 +1215,12 @@ function SubscribeCard({ maintenancePlans, hasActivePlan, handleSubscribe, subsc
             
             <div className="space-y-3">
               {plans.map((plan) => (
-                <div key={plan.type} className={`p-4 border rounded-lg ${plan.popular ? 'border-brand-red bg-red-50 dark:bg-red-900/20' : 'border-gray-200'}`}>
+                <div key={plan.type} className={`p-4 border rounded-lg ${plan.popular ? 'border-brand-blue bg-blue-50 dark:bg-blue-950/30' : 'border-gray-200'}`}>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <h4 className="font-semibold">{plan.name}</h4>
                       {plan.popular && (
-                        <Badge className="bg-brand-red text-white text-xs">Most Popular</Badge>
+                        <Badge className="bg-brand-primary text-white text-xs">Most Popular</Badge>
                       )}
                     </div>
                     <div className="text-right">
@@ -1231,7 +1231,7 @@ function SubscribeCard({ maintenancePlans, hasActivePlan, handleSubscribe, subsc
                   <ul className="text-sm text-gray-600 mb-3 space-y-1">
                     {plan.features.map((feature, index) => (
                       <li key={index} className="flex items-center gap-2">
-                        <Star className="h-3 w-3 text-brand-red" />
+                        <Star className="h-3 w-3 text-brand-primary" />
                         {feature}
                       </li>
                     ))}
@@ -1239,7 +1239,7 @@ function SubscribeCard({ maintenancePlans, hasActivePlan, handleSubscribe, subsc
                   <Button
                     onClick={() => handleSubscribe(plan.type, plan.price)}
                     disabled={subscribeToPlan.isPending}
-                    className={`w-full ${plan.popular ? 'bg-brand-red hover:bg-brand-red/90 text-white' : 'variant="outline"'}`}
+                    className={`w-full ${plan.popular ? 'bg-brand-primary hover:bg-brand-primary/90 text-white' : 'variant="outline"'}`}
                     data-testid={`button-subscribe-${plan.type}`}
                   >
                     {subscribeToPlan.isPending ? 'Processing...' : getUpgradeText(plan.name, plan.price)}
@@ -1688,7 +1688,7 @@ function CancelSubscriptionDialog({
                   value="end_of_period"
                   checked={cancellationType === 'end_of_period'}
                   onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
-                  className="mt-1 h-4 w-4 text-brand-red"
+                  className="mt-1 h-4 w-4 text-brand-primary"
                   data-testid="radio-end-of-period"
                 />
                 <div className="flex-1">
@@ -1710,7 +1710,7 @@ function CancelSubscriptionDialog({
                   value="immediate"
                   checked={cancellationType === 'immediate'}
                   onChange={(e) => setCancellationType(e.target.value as 'immediate' | 'end_of_period')}
-                  className="mt-1 h-4 w-4 text-brand-red"
+                  className="mt-1 h-4 w-4 text-brand-primary"
                   data-testid="radio-immediate"
                 />
                 <div className="flex-1">
@@ -1731,7 +1731,7 @@ function CancelSubscriptionDialog({
               <strong>Need help instead?</strong> Our support team can help resolve issues or adjust your plan. 
               <Button 
                 variant="link" 
-                className="p-0 h-auto text-brand-red"
+                className="p-0 h-auto text-brand-primary"
                 onClick={() => {
                   setCancelDialogOpen(false);
                   window.open(`mailto:support@handytech-solutions.com?subject=Help with ${selectedPlan?.planType} Plan (ID: ${selectedPlan?.id})`);

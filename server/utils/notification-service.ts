@@ -41,10 +41,10 @@ export class NotificationService {
     
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2 style="color: #BB0000;">Live Chat Handoff Requested</h2>
+        <h2 style="color: #2769BE;">Live Chat Handoff Requested</h2>
         <p><strong>Session ID:</strong> ${sessionId}</p>
         <p><strong>Customer's Latest Message:</strong></p>
-        <div style="background: #f5f5f5; padding: 15px; border-left: 4px solid #BB0000; margin: 10px 0;">
+        <div style="background: #f5f5f5; padding: 15px; border-left: 4px solid #2769BE; margin: 10px 0;">
           "${customerMessage}"
         </div>
         <p>Please log into the admin portal to respond to this customer.</p>
@@ -79,7 +79,7 @@ Description: ${appointmentData.description}`;
 
     const html = `
       <div style="font-family: Arial, sans-serif; line-height: 1.6;">
-        <h2 style="color: #BB0000;">New Appointment Request</h2>
+        <h2 style="color: #2769BE;">New Appointment Request</h2>
         ${appointmentData.convId ? `<p><strong>Conversation ID:</strong> ${appointmentData.convId}</p>` : ''}
         <table style="border-collapse: collapse; width: 100%; margin: 20px 0;">
           <tr style="background: #f9f9f9;">

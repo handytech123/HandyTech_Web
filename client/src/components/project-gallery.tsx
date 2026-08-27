@@ -52,7 +52,7 @@ export default function ProjectGallery() {
             PROJECT GALLERY
           </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Our Work <span className="text-brand-red">Speaks for Itself</span>
+            Our Work <span className="text-brand-primary">Speaks for Itself</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             Take a look at our completed projects. From tech installations to home repairs, 
@@ -79,9 +79,9 @@ export default function ProjectGallery() {
                         }}
                         onLoad={() => console.log("Image loaded successfully:", project.imageUrl)}
                       />
-                      <div className="absolute inset-0 bg-brand-red/10 flex items-center justify-center">
-                        <div className="text-center text-brand-red">
-                          <div className="w-16 h-16 bg-brand-red rounded-lg flex items-center justify-center mx-auto mb-2">
+                      <div className="absolute inset-0 bg-brand-primary/10 flex items-center justify-center">
+                        <div className="text-center text-brand-primary">
+                          <div className="w-16 h-16 bg-brand-primary rounded-lg flex items-center justify-center mx-auto mb-2">
                             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                             </svg>
@@ -91,7 +91,7 @@ export default function ProjectGallery() {
                         </div>
                       </div>
                     </div>
-                    <Badge className="absolute top-4 left-4 bg-brand-red">Featured</Badge>
+                    <Badge className="absolute top-4 left-4 bg-brand-primary">Featured</Badge>
                     <Dialog>
                       <DialogTrigger asChild>
                         <Button
@@ -138,8 +138,8 @@ export default function ProjectGallery() {
               variant={selectedCategory === category.value ? "default" : "outline"}
               onClick={() => setSelectedCategory(category.value)}
               className={selectedCategory === category.value 
-                ? "bg-brand-red hover:bg-brand-red-dark" 
-                : "hover:bg-brand-red hover:text-white"
+                ? "bg-brand-primary hover:bg-brand-primary-dark"
+                : "hover:bg-brand-primary hover:text-white"
               }
             >
               {category.label}
@@ -163,9 +163,9 @@ export default function ProjectGallery() {
                     }}
                     onLoad={() => console.log("Image loaded successfully:", project.imageUrl)}
                   />
-                  <div className="absolute inset-0 bg-brand-red/10 flex items-center justify-center">
-                    <div className="text-center text-brand-red">
-                      <div className="w-12 h-12 bg-brand-red rounded-lg flex items-center justify-center mx-auto mb-1">
+                  <div className="absolute inset-0 bg-brand-primary/10 flex items-center justify-center">
+                    <div className="text-center text-brand-primary">
+                      <div className="w-12 h-12 bg-brand-primary rounded-lg flex items-center justify-center mx-auto mb-1">
                         <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
                         </svg>

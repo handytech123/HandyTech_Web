@@ -169,7 +169,7 @@ export default function ContactSection() {
             GET IN TOUCH
           </div>
           <h2 className="text-4xl font-bold text-charcoal mb-4">
-            Ready to Start Your <span className="text-brand-red">Next Project?</span>
+            Ready to Start Your <span className="text-brand-primary">Next Project?</span>
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto">
             HandyTech Solutions: Your family-owned premier choice for home improvement. With 10+ years of experience and full insurance coverage, we ensure high-quality service from minor repairs to major renovations.
@@ -187,7 +187,7 @@ export default function ContactSection() {
                     form.scrollIntoView({ behavior: 'smooth' });
                   }
                 }}
-                className="bg-brand-red hover:bg-brand-red-dark text-white px-12 py-6 rounded-lg text-2xl font-bold shadow-xl w-full"
+                className="bg-brand-primary hover:bg-brand-primary-dark text-white px-12 py-6 rounded-lg text-2xl font-bold shadow-xl w-full"
                 data-testid="button-get-estimate"
               >
                 Get Free Estimate
@@ -208,27 +208,27 @@ export default function ContactSection() {
             
             <div className="space-y-6">
               <div className="flex items-center">
-                <div className="bg-brand-red w-12 h-12 rounded-lg flex items-center justify-center mr-4">
+                <div className="bg-brand-primary w-12 h-12 rounded-lg flex items-center justify-center mr-4">
                   <Phone className="text-white" size={20} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-charcoal">Phone</h3>
-                  <a href="tel:+13143254575" className="text-gray-600 hover:text-brand-red hover:underline">(314) 325-4575</a>
+                  <a href="tel:+13143254575" className="text-gray-600 hover:text-brand-primary hover:underline">(314) 325-4575</a>
                 </div>
               </div>
               
               <div className="flex items-center">
-                <div className="bg-brand-red w-12 h-12 rounded-lg flex items-center justify-center mr-4">
+                <div className="bg-brand-primary w-12 h-12 rounded-lg flex items-center justify-center mr-4">
                   <Mail className="text-white" size={20} />
                 </div>
                 <div>
                   <h3 className="font-semibold text-charcoal">Email</h3>
-                  <a href="mailto:contact@handytech-solutions.com" className="text-gray-600 hover:text-brand-red hover:underline">contact@handytech-solutions.com</a>
+                  <a href="mailto:contact@handytech-solutions.com" className="text-gray-600 hover:text-brand-primary hover:underline">contact@handytech-solutions.com</a>
                 </div>
               </div>
               
               <div className="flex items-center">
-                <div className="bg-brand-red w-12 h-12 rounded-lg flex items-center justify-center mr-4">
+                <div className="bg-brand-primary w-12 h-12 rounded-lg flex items-center justify-center mr-4">
                   <Clock className="text-white" size={20} />
                 </div>
                 <div>
@@ -427,7 +427,7 @@ export default function ContactSection() {
 
               <div className="space-y-3">
                 <div><Label className="text-charcoal">Project Photos (Optional)</Label><p className="text-sm text-gray-600">Add up to 10 photos. They are resized automatically before uploading.</p></div>
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-primary hover:text-brand-primary">
                   <ImagePlus className="h-5 w-5" /><span>{photos.length >= 10 ? "Ten photos selected" : `Choose photos (${photos.length}/10)`}</span>
                   <Input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={photos.length >= 10} className="sr-only" onChange={(event) => { addQuotePhotos(event.target.files); event.target.value = ""; }} />
                 </label>
@@ -439,7 +439,7 @@ export default function ContactSection() {
                 ))}</div>}
 
                 <div className="pt-3"><Label className="text-charcoal">Project Videos (Optional)</Label><p className="text-sm text-gray-600">Add up to 2 videos, maximum 100 MB each. Videos are compressed by the website.</p></div>
-                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-red hover:text-brand-red">
+                <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-primary hover:text-brand-primary">
                   <Video className="h-5 w-5" /><span>{videos.length >= 2 ? "Two videos selected" : `Choose videos (${videos.length}/2)`}</span>
                   <Input type="file" accept="video/mp4,video/quicktime,video/webm" multiple disabled={videos.length >= 2} className="sr-only" onChange={(event) => { addQuoteVideos(event.target.files); event.target.value = ""; }} />
                 </label>
@@ -466,7 +466,7 @@ export default function ContactSection() {
                   document.getElementById("quote-form")?.scrollIntoView({ behavior: "smooth", block: "start" });
                 })}
                 disabled={submitQuote.isPending}
-                className="w-full bg-brand-red text-white hover:bg-brand-red-dark py-4 text-lg font-semibold"
+                className="w-full bg-brand-primary text-white hover:bg-brand-primary-dark py-4 text-lg font-semibold"
                 data-testid="button-submit-quote"
               >
                 {submitQuote.isPending ? "Submitting..." : "Get Free Estimate"}
