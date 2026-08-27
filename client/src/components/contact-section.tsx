@@ -163,7 +163,7 @@ export default function ContactSection() {
   };
 
   return (
-    <section id="contact" className="py-20 bg-light-gray">
+    <section id="contact" className="overflow-x-hidden bg-light-gray py-20">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
           <div className="bg-white text-charcoal px-4 py-2 rounded-full text-sm font-semibold inline-block mb-6">
@@ -177,9 +177,9 @@ export default function ContactSection() {
           </p>
         </div>
         
-        <div className="grid lg:grid-cols-2 gap-16">
+        <div className="grid min-w-0 gap-10 lg:grid-cols-2 lg:gap-16">
           {/* Contact Information */}
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
+          <div className="min-w-0 rounded-2xl bg-white p-5 shadow-lg sm:p-8">
             <div className="mb-6">
               <Button 
                 onClick={() => {
@@ -243,7 +243,7 @@ export default function ContactSection() {
           </div>
 
           {/* Contact Form */}
-          <div className="bg-white rounded-2xl p-8 shadow-lg">
+          <div className="min-w-0 rounded-2xl bg-white p-5 shadow-lg sm:p-8">
             <h3 className="text-2xl font-bold text-charcoal mb-6">Request Your Quote</h3>
             <form id="quote-form" onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <div className="grid md:grid-cols-2 gap-6">
