@@ -438,7 +438,7 @@ export default function ContactSection() {
                 <div><Label className="text-charcoal">Project Photos (Optional)</Label><p className="text-sm text-gray-600">Add up to 10 photos. They are resized automatically before uploading.</p></div>
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-primary hover:text-brand-primary">
                   <ImagePlus className="h-5 w-5" /><span>{photos.length >= 10 ? "Ten photos selected" : `Choose photos (${photos.length}/10)`}</span>
-                  <Input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={photos.length >= 10} className="sr-only" onChange={(event) => { addQuotePhotos(event.target.files); event.target.value = ""; }} />
+                  <input type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={photos.length >= 10} className="hidden" onChange={(event) => { addQuotePhotos(event.target.files); event.target.value = ""; }} />
                 </label>
                 {photoPreviews.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{photoPreviews.map((preview, index) => (
                   <div key={preview} className="relative aspect-square overflow-hidden rounded-lg border bg-gray-100">
@@ -450,7 +450,7 @@ export default function ContactSection() {
                 <div className="pt-3"><Label className="text-charcoal">Project Videos (Optional)</Label><p className="text-sm text-gray-600">Add up to 2 videos, maximum 100 MB each. Videos are compressed by the website.</p></div>
                 <label className="flex cursor-pointer items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 px-4 py-6 text-sm text-gray-600 transition-colors hover:border-brand-primary hover:text-brand-primary">
                   <Video className="h-5 w-5" /><span>{videos.length >= 2 ? "Two videos selected" : `Choose videos (${videos.length}/2)`}</span>
-                  <Input type="file" accept="video/mp4,video/quicktime,video/webm" multiple disabled={videos.length >= 2} className="sr-only" onChange={(event) => { addQuoteVideos(event.target.files); event.target.value = ""; }} />
+                  <input type="file" accept="video/mp4,video/quicktime,video/webm" multiple disabled={videos.length >= 2} className="hidden" onChange={(event) => { addQuoteVideos(event.target.files); event.target.value = ""; }} />
                 </label>
                 {videoPreviews.length > 0 && <div className="grid gap-3 sm:grid-cols-2">{videoPreviews.map((preview, index) => (
                   <div key={preview} className="relative overflow-hidden rounded-lg border bg-black">
