@@ -113,6 +113,8 @@ export default function AdminQuoteBuilder({ quote, onSchedule }: { quote: Quote;
       <div className="flex flex-wrap gap-2">
         <DialogTrigger asChild><Button size="sm" onClick={() => setViewingSaved(false)}><Send className="mr-2 h-4 w-4" />Build &amp; Send Quote</Button></DialogTrigger>
         {savedProposal && <Button type="button" size="sm" variant="outline" onClick={() => { setViewingSaved(true); setShowPreview(true); setOpen(true); }}><Eye className="mr-2 h-4 w-4" />View Generated Quote</Button>}
+        {savedProposal && <Button type="button" size="sm" variant="outline" onClick={() => onSchedule(quote)}><CalendarPlus className="mr-2 h-4 w-4" />Schedule</Button>}
+        {savedProposal && <Button type="button" size="sm" onClick={() => convertMutation.mutate()} disabled={convertMutation.isPending}><FileText className="mr-2 h-4 w-4" />{convertMutation.isPending ? "Creating..." : "Convert to Invoice"}</Button>}
       </div>
       <DialogContent className="max-h-[92vh] max-w-3xl overflow-y-auto">
         <DialogHeader>
