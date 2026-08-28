@@ -2201,6 +2201,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const processedVideoUrls = ((req as any).processedQuoteVideoUrls || []) as string[];
     try {
       const rawQuote = typeof req.body.quote === "string" ? JSON.parse(req.body.quote) : req.body;
+      if (String(rawQuote.serviceNeeded || "").startsWith("Consultation request:") && processedImages.length > 5) {
+        await cleanupUploadedFiles(processedImages);
+        return res.status(400).json({ message: "Consultation requests can include up to five photos." });
+      }
       const quoteData = insertQuoteSchema.parse({
         ...rawQuote,
         photoUrls: processedImages.map((image) => image.sizes.large.url),

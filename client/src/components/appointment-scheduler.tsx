@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network, ClipboardList } from "lucide-react";
+import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network, ClipboardList, ImagePlus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -23,6 +23,7 @@ import { z } from "zod";
 import { format, parseISO, isAfter } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import AddressAutocomplete from "@/components/address-autocomplete";
+import { createCsrfHeaders } from "@/lib/csrf";
 
 // Service interface — matches actual API/DB fields
 interface Service {
@@ -135,6 +136,8 @@ export default function AppointmentScheduler() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | undefined>(undefined);
   const [currentStep, setCurrentStep] = useState<"contact" | "date" | "time">("contact");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [consultationPhotos, setConsultationPhotos] = useState<File[]>([]);
+  const [consultationPhotoPreviews, setConsultationPhotoPreviews] = useState<string[]>([]);
   const { toast } = useToast();
 
   // Fetch services from API
@@ -293,17 +296,14 @@ export default function AppointmentScheduler() {
       };
       
       const response = await apiRequest("/api/appointments", "POST", payload);
-      
       return response.json();
     },
     onSuccess: (data) => {
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
       toast({
-        title: data.bookingType === "consultation" ? "Consultation Scheduled!" : "Appointment Booked!",
-        description: data.bookingType === "consultation"
-          ? "Your project consultation is scheduled. This visit is for evaluation and quoting; work is not scheduled yet."
-          : "Your service appointment has been successfully scheduled. You'll receive a confirmation email shortly."
+        title: "Appointment Booked!",
+        description: "Your service appointment has been successfully scheduled. You'll receive a confirmation email shortly."
       });
     },
     onError: (error: Error) => {
@@ -313,6 +313,46 @@ export default function AppointmentScheduler() {
         variant: "destructive"
       });
     }
+  });
+
+  const consultationRequestMutation = useMutation({
+    mutationFn: async () => {
+      const values = form.getValues();
+      if (!selectedService) throw new Error("Please choose the type of project you want evaluated.");
+
+      const body = new FormData();
+      body.append("quote", JSON.stringify({
+        firstName: values.firstName,
+        lastName: values.lastName,
+        email: values.email,
+        phone: values.phone,
+        company: null,
+        street: values.street,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
+        serviceNeeded: `Consultation request: ${selectedService.name}`,
+        selectedServices: [selectedService.name],
+        message: values.notes || null,
+      }));
+      consultationPhotos.forEach((photo) => body.append("images", photo));
+
+      const headers = await createCsrfHeaders();
+      const response = await fetch("/api/quotes", { method: "POST", body, headers, credentials: "include" });
+      const result = await response.json().catch(() => ({ message: "Consultation request failed" }));
+      if (!response.ok) throw new Error(result.message || "Consultation request failed");
+      return result;
+    },
+    onSuccess: () => {
+      setIsSubmitted(true);
+      setConsultationPhotos([]);
+      setConsultationPhotoPreviews([]);
+      toast({
+        title: "Consultation Request Received!",
+        description: "We will review your project details and photos, then contact you about the next step. No appointment has been scheduled yet.",
+      });
+    },
+    onError: (error: Error) => toast({ title: "Request Failed", description: error.message, variant: "destructive" }),
   });
 
   // Format time slots for display
@@ -461,10 +501,10 @@ export default function AppointmentScheduler() {
           <Card className="w-full max-w-md mx-auto">
             <CardContent className="flex flex-col items-center justify-center py-8 text-center">
               <CheckCircle className="h-12 w-12 text-green-500 mb-4" />
-              <h2 className="text-xl font-semibold mb-2" data-testid="text-booking-success">{bookingType === "consultation" ? "Consultation Scheduled!" : "Appointment Booked!"}</h2>
+              <h2 className="text-xl font-semibold mb-2" data-testid="text-booking-success">{bookingType === "consultation" ? "Consultation Request Received!" : "Appointment Booked!"}</h2>
               <p className="text-gray-600 mb-4">
                 {bookingType === "consultation"
-                  ? "Your consultation is for project evaluation and quoting. No service work is scheduled during this visit."
+                  ? "We will review your project details and photos, then contact you about the next step. No appointment has been scheduled."
                   : "Your service appointment has been scheduled. You'll receive a confirmation email with all the details shortly."}
               </p>
               <Button 
@@ -475,7 +515,7 @@ export default function AppointmentScheduler() {
                 }}
                 data-testid="button-book-another"
               >
-                Book Another Appointment
+                {bookingType === "consultation" ? "Send Another Request" : "Book Another Appointment"}
               </Button>
             </CardContent>
           </Card>
@@ -515,7 +555,7 @@ export default function AppointmentScheduler() {
         )}
 
         {/* Step Indicator */}
-        {bookingType && <div className="flex justify-center mb-8">
+        {bookingType === "service" && <div className="flex justify-center mb-8">
           <div className="flex space-x-2 sm:space-x-4">
             {[
               { id: "contact", label: "Contact" },
@@ -563,7 +603,7 @@ export default function AppointmentScheduler() {
                   <Alert className="mb-5">
                     <AlertDescription>
                       {bookingType === "consultation"
-                        ? "Consultation visit: we will evaluate the project and discuss a quote. Service work is not included in this booking."
+                        ? "Send the project details and photos first. We will review them before deciding whether an on-site appointment is needed."
                         : "Service appointment: this time is reserved to perform the selected work."}
                       <button type="button" className="ml-2 font-semibold text-brand-primary underline" onClick={() => setBookingType(undefined)}>Change</button>
                     </AlertDescription>
@@ -781,27 +821,38 @@ export default function AppointmentScheduler() {
                         )}
                       />
 
-                      <Button 
-                        onClick={() => {
-                          // Use proper form validation before advancing
-                          const formData = form.getValues();
-                          if (formData.firstName && formData.lastName && formData.email && selectedService) {
-                            // Trigger validation to show any errors
-                            const isValid = form.formState.isValid || (!form.formState.errors.firstName && !form.formState.errors.lastName && !form.formState.errors.email);
-                            if (isValid) {
-                              setCurrentStep("date");
-                            } else {
-                              // Trigger validation to show errors
-                              form.trigger(["firstName", "lastName", "email"]);
-                            }
+                      {bookingType === "consultation" && <div className="space-y-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 p-4">
+                        <div>
+                          <FormLabel className="flex items-center gap-2"><ImagePlus className="h-4 w-4" />Project Photos <span className="font-normal text-slate-500">(optional)</span></FormLabel>
+                          <p className="mt-1 text-sm text-slate-600">Add up to 5 photos showing the area or project you want evaluated.</p>
+                        </div>
+                        <Input type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => {
+                          const files = Array.from(event.target.files || []).slice(0, 5);
+                          if (files.some((file) => file.size > 10 * 1024 * 1024)) {
+                            toast({ title: "Photo too large", description: "Each photo must be 10 MB or smaller.", variant: "destructive" });
+                            event.target.value = "";
+                            return;
                           }
+                          setConsultationPhotos(files);
+                          Promise.all(files.map((file) => new Promise<string>((resolve) => { const reader = new FileReader(); reader.onload = () => resolve(String(reader.result)); reader.readAsDataURL(file); }))).then(setConsultationPhotoPreviews);
+                        }} data-testid="input-consultation-photos" />
+                        {consultationPhotoPreviews.length > 0 && <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">{consultationPhotoPreviews.map((preview, index) => <div key={`${consultationPhotos[index]?.name}-${index}`} className="relative"><img src={preview} alt={`Selected project photo ${index + 1}`} className="aspect-square w-full rounded-lg border object-cover" /><button type="button" aria-label={`Remove photo ${index + 1}`} className="absolute right-1 top-1 rounded-full bg-black/75 p-1 text-white" onClick={() => { setConsultationPhotos((current) => current.filter((_, i) => i !== index)); setConsultationPhotoPreviews((current) => current.filter((_, i) => i !== index)); }}><X className="h-3 w-3" /></button></div>)}</div>}
+                        <p className="text-xs text-slate-500">{consultationPhotos.length}/5 photos selected · JPG, PNG, or WebP · 10 MB each</p>
+                      </div>}
+
+                      <Button
+                        onClick={async () => {
+                          const requiredFields = ["firstName", "lastName", "email", "phone", "street", "city", "state", "zip", "serviceId"] as const;
+                          const valid = await form.trigger(requiredFields);
+                          if (!valid || !selectedService) return;
+                          if (bookingType === "consultation") consultationRequestMutation.mutate();
+                          else setCurrentStep("date");
                         }}
-                        disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !selectedService}
+                        disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !form.watch("phone") || !form.watch("street") || !form.watch("city") || !form.watch("state") || !form.watch("zip") || !selectedService || consultationRequestMutation.isPending}
                         className="w-full bg-brand-primary hover:bg-brand-primary-dark"
-                        data-testid="button-proceed-to-date"
+                        data-testid={bookingType === "consultation" ? "button-submit-consultation" : "button-proceed-to-date"}
                       >
-                        Continue to Date Selection
-                        <ArrowRight className="ml-2 h-4 w-4" />
+                        {consultationRequestMutation.isPending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending Request...</> : bookingType === "consultation" ? "Send Consultation Request" : <><span>Continue to Date Selection</span><ArrowRight className="ml-2 h-4 w-4" /></>}
                       </Button>
                     </div>
                   </Form>
@@ -810,7 +861,7 @@ export default function AppointmentScheduler() {
             )}
 
             {/* Step 3: Date Selection */}
-            {currentStep === "date" && (
+            {bookingType === "service" && currentStep === "date" && (
               <Card data-testid="card-date-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
@@ -848,7 +899,7 @@ export default function AppointmentScheduler() {
             )}
 
             {/* Step 4: Time Selection */}
-            {currentStep === "time" && (
+            {bookingType === "service" && currentStep === "time" && (
               <Card data-testid="card-time-selection">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2">
