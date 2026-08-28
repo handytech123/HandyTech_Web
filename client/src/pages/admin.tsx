@@ -319,10 +319,14 @@ type AdminAddAppointmentForm = z.infer<typeof adminAddAppointmentSchema>;
 // AppointmentsTab component
 function AppointmentsTab({ 
   appointments, 
-  updateAppointmentStatusMutation 
+  updateAppointmentStatusMutation,
+  quotePrefill,
+  onQuotePrefillConsumed,
 }: {
   appointments: Appointment[];
   updateAppointmentStatusMutation: any;
+  quotePrefill: Quote | null;
+  onQuotePrefillConsumed: () => void;
 }) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'consultation' | 'service'>('all');
@@ -352,6 +356,26 @@ function AppointmentsTab({
       status: "scheduled",
     },
   });
+
+  useEffect(() => {
+    if (!quotePrefill) return;
+    const address = [quotePrefill.street, quotePrefill.city, [quotePrefill.state, quotePrefill.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    addAppointmentForm.reset({
+      bookingType: "service",
+      firstName: quotePrefill.firstName,
+      lastName: quotePrefill.lastName,
+      phone: quotePrefill.phone || "",
+      email: quotePrefill.email,
+      address,
+      serviceType: quotePrefill.serviceNeeded || "Other",
+      appointmentDate: "",
+      appointmentTime: "",
+      notes: [`From quote: ${quotePrefill.serviceNeeded}`, quotePrefill.message].filter(Boolean).join("\n\n"),
+      status: "scheduled",
+    });
+    setAddAppointmentOpen(true);
+    onQuotePrefillConsumed();
+  }, [quotePrefill, addAppointmentForm, onQuotePrefillConsumed]);
 
   const visibleAppointments = appointments.filter((appointment) =>
     bookingTypeFilter === 'all' || (appointment.bookingType || 'service') === bookingTypeFilter
@@ -2623,6 +2647,7 @@ function AuthenticatedDashboard() {
   const [newQuoteService, setNewQuoteService] = useState("");
   const [newQuoteNotes, setNewQuoteNotes] = useState("");
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
+  const [quoteAppointmentPrefill, setQuoteAppointmentPrefill] = useState<Quote | null>(null);
   const [activeTab, setActiveTab] = useState("services");
 
 
@@ -2923,6 +2948,8 @@ function AuthenticatedDashboard() {
             <AppointmentsTab 
               appointments={appointments}
               updateAppointmentStatusMutation={updateAppointmentStatusMutation}
+              quotePrefill={quoteAppointmentPrefill}
+              onQuotePrefillConsumed={() => setQuoteAppointmentPrefill(null)}
             />
           </TabsContent>
 
@@ -2975,7 +3002,10 @@ function AuthenticatedDashboard() {
                         {quote.videoUrls && quote.videoUrls.length > 0 && <div className="mt-3 grid gap-2 sm:grid-cols-2">{quote.videoUrls.map((url, index) => <video key={url} src={url} controls preload="metadata" className="max-h-64 w-full rounded bg-black" aria-label={`Quote project video ${index + 1}`} />)}</div>}
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <AdminQuoteBuilder quote={quote} />
+                        <AdminQuoteBuilder quote={quote} onSchedule={(selectedQuote) => {
+                          setQuoteAppointmentPrefill(selectedQuote);
+                          setActiveTab("appointments");
+                        }} />
                         <Button 
                           size="sm" 
                           onClick={() => updateQuoteStatusMutation.mutate({ id: quote.id, status: "contacted" })}

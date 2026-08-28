@@ -3208,6 +3208,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!linkedQuote || !customer || linkedQuote.email.trim().toLowerCase() !== customer.email.trim().toLowerCase()) throw new Error("QUOTE_CUSTOMER_MISMATCH");
   };
 
+  app.post("/api/admin/quotes/:id/convert-to-invoice", requireAdmin, async (req, res) => {
+    try {
+      const quoteId = Number(req.params.id);
+      if (!Number.isInteger(quoteId) || quoteId <= 0) return res.status(400).json({ message: "Invalid quote" });
+      const [row] = await db.select({ proposal: quoteProposals, quote: quotes })
+        .from(quoteProposals)
+        .innerJoin(quotes, eq(quoteProposals.quoteId, quotes.id))
+        .where(eq(quoteProposals.quoteId, quoteId));
+      if (!row) return res.status(404).json({ message: "Generate and send the quote before converting it to an invoice" });
+      const customer = await storage.getCustomerByEmail(row.quote.email);
+      if (!customer) return res.status(404).json({ message: "Customer profile not found" });
+      const [existing] = await db.select().from(invoices).where(eq(invoices.quoteProposalId, row.proposal.id));
+      if (existing) return res.json({ invoice: existing, created: false });
+      const dueDate = new Date();
+      dueDate.setDate(dueDate.getDate() + 14);
+      const sequence = `${Date.now().toString().slice(-7)}${crypto.randomInt(10, 99)}`;
+      const [invoice] = await db.insert(invoices).values({
+        customerId: customer.id,
+        quoteProposalId: row.proposal.id,
+        invoiceNumber: `INV-${new Date().getFullYear()}-${sequence}`,
+        tokenHash: crypto.randomBytes(32).toString("hex"),
+        lineItems: row.proposal.lineItems,
+        discount: row.proposal.discount,
+        taxRate: row.proposal.taxRate,
+        subtotal: row.proposal.subtotal,
+        tax: row.proposal.tax,
+        total: row.proposal.total,
+        amountPaid: 0,
+        notes: row.proposal.notes || `Invoice for ${row.quote.serviceNeeded}.`,
+        terms: "Payment is due by the date shown above.",
+        status: "draft",
+        dueDate,
+      }).returning();
+      res.status(201).json({ invoice, created: true });
+    } catch (error) {
+      console.error("Convert quote to invoice error:", error);
+      res.status(500).json({ message: "The invoice draft could not be created" });
+    }
+  });
+
   app.post("/api/admin/invoices", requireAdmin, async (req, res) => {
     try {
       const input = invoiceInputSchema.parse(req.body);

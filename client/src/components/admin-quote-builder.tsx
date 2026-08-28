@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, Eye, Loader2, Plus, Send, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Eye, FileText, Loader2, Plus, Send, Sparkles, Trash2 } from "lucide-react";
 import type { Quote } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +14,7 @@ import { Textarea } from "@/components/ui/textarea";
 type LineItem = { description: string; quantity: number; rate: number };
 type SavedProposal = { quoteNumber: string; lineItems: LineItem[]; discount: number; taxRate: number; subtotal: number; tax: number; total: number; notes?: string; validUntil: string; status: string; sentAt: string; viewedAt?: string; respondedAt?: string; signerName?: string };
 
-export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
+export default function AdminQuoteBuilder({ quote, onSchedule }: { quote: Quote; onSchedule: (quote: Quote) => void }) {
   const [open, setOpen] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [viewingSaved, setViewingSaved] = useState(false);
@@ -66,6 +66,18 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
       toast({ title: "Quote sent", description: `The finished quote was emailed to ${quote.email}.` });
     },
     onError: (error: Error) => toast({ title: "Quote not sent", description: error.message, variant: "destructive" }),
+  });
+
+  const convertMutation = useMutation({
+    mutationFn: async () => (await apiRequest(`/api/admin/quotes/${quote.id}/convert-to-invoice`, "POST", {})).json(),
+    onSuccess: (result: { invoice: { invoiceNumber: string }; created: boolean }) => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
+      toast({
+        title: result.created ? "Invoice draft created" : "Invoice already exists",
+        description: `${result.invoice.invoiceNumber} is ready in the Invoices tab for review.`,
+      });
+    },
+    onError: (error: Error) => toast({ title: "Invoice not created", description: error.message, variant: "destructive" }),
   });
 
   const aiDraftMutation = useMutation({
@@ -210,7 +222,11 @@ export default function AdminQuoteBuilder({ quote }: { quote: Quote }) {
 
           <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
             <Button type="button" variant="outline" onClick={() => viewingSaved ? setOpen(false) : setShowPreview(false)}><ArrowLeft className="mr-2 h-4 w-4" />{viewingSaved ? "Close" : "Back to Edit"}</Button>
-            {viewingSaved && savedProposal ? <Button asChild><a href={`/api/admin/quotes/${quote.id}/proposal/pdf`} target="_blank" rel="noreferrer"><Eye className="mr-2 h-4 w-4" />View PDF</a></Button> : <Button disabled={sendMutation.isPending} onClick={() => sendMutation.mutate()}><Send className="mr-2 h-4 w-4" />{sendMutation.isPending ? "Sending..." : `Send $${totals.total.toFixed(2)} Quote to Customer`}</Button>}
+            {viewingSaved && savedProposal ? <div className="flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => { setOpen(false); onSchedule(quote); }}><CalendarPlus className="mr-2 h-4 w-4" />Schedule Appointment</Button>
+              <Button type="button" onClick={() => convertMutation.mutate()} disabled={convertMutation.isPending}><FileText className="mr-2 h-4 w-4" />{convertMutation.isPending ? "Creating Invoice..." : "Convert to Invoice"}</Button>
+              <Button asChild variant="outline"><a href={`/api/admin/quotes/${quote.id}/proposal/pdf`} target="_blank" rel="noreferrer"><Eye className="mr-2 h-4 w-4" />View PDF</a></Button>
+            </div> : <Button disabled={sendMutation.isPending} onClick={() => sendMutation.mutate()}><Send className="mr-2 h-4 w-4" />{sendMutation.isPending ? "Sending..." : `Send $${totals.total.toFixed(2)} Quote to Customer`}</Button>}
           </div>
         </div>}
       </DialogContent>
