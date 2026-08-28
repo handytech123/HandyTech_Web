@@ -33,7 +33,7 @@ import AdminQuoteBuilder from "@/components/admin-quote-builder";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import AdminInvoiceManager from "@/components/admin-invoice-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
-import type { Quote, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
+import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
@@ -2655,6 +2655,10 @@ function AuthenticatedDashboard() {
     queryKey: ["/api/quotes"]
   });
 
+  const { data: consultations = [] } = useQuery<Consultation[]>({
+    queryKey: ["/api/admin/consultations"]
+  });
+
 
   const { data: reviews = [] } = useQuery<Review[]>({
     queryKey: ["/api/admin/reviews"]
@@ -2781,6 +2785,18 @@ function AuthenticatedDashboard() {
     onError: (error: Error) => toast({ title: "Quote not deleted", description: error.message, variant: "destructive" }),
   });
 
+  const updateConsultationMutation = useMutation({
+    mutationFn: async ({ id, status }: { id: number; status: string }) => apiRequest(`/api/admin/consultations/${id}/status`, "PATCH", { status }),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["/api/admin/consultations"] }),
+    onError: (error: Error) => toast({ title: "Consultation not updated", description: error.message, variant: "destructive" }),
+  });
+
+  const deleteConsultationMutation = useMutation({
+    mutationFn: async (id: number) => apiRequest(`/api/admin/consultations/${id}`, "DELETE"),
+    onSuccess: () => { queryClient.invalidateQueries({ queryKey: ["/api/admin/consultations"] }); toast({ title: "Consultation request deleted" }); },
+    onError: (error: Error) => toast({ title: "Consultation not deleted", description: error.message, variant: "destructive" }),
+  });
+
   const updateAppointmentStatusMutation = useMutation({
     mutationFn: async ({ id, status }: { id: number; status: string }) => {
       await apiRequest(`/api/admin/appointments/${id}/status`, "PUT", { status });
@@ -2869,7 +2885,7 @@ function AuthenticatedDashboard() {
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex w-full flex-wrap xl:grid xl:grid-cols-11 gap-1 h-auto p-1">
+          <TabsList className="flex w-full flex-wrap xl:grid xl:grid-cols-12 gap-1 h-auto p-1">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
               Services
             </TabsTrigger>
@@ -2890,6 +2906,9 @@ function AuthenticatedDashboard() {
             </TabsTrigger>
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
+            </TabsTrigger>
+            <TabsTrigger value="consultations" className="flex-1 min-w-[100px] text-sm">
+              Consultations
             </TabsTrigger>
             <TabsTrigger value="invoices" className="flex-1 min-w-[100px] text-sm">
               Invoices
@@ -3157,6 +3176,42 @@ function AuthenticatedDashboard() {
                 setNewQuoteDialogOpen(true);
               }}
             />
+          </TabsContent>
+
+          <TabsContent value="consultations">
+            <Card>
+              <CardHeader>
+                <CardTitle>Consultation Requests</CardTitle>
+                <CardDescription>Simple contact requests only. These are separate from quotes and appointments.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {consultations.map((consultation) => <div key={consultation.id} className="rounded-lg border bg-white p-4 dark:bg-gray-800">
+                    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-start">
+                      <div>
+                        <h3 className="font-semibold">{consultation.firstName} {consultation.lastName}</h3>
+                        <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-muted-foreground">
+                          <a className="hover:underline" href={`mailto:${consultation.email}`}>{consultation.email}</a>
+                          <a className="hover:underline" href={`tel:${consultation.phone}`}>{consultation.phone}</a>
+                        </div>
+                      </div>
+                      <Badge variant={consultation.status === "new" ? "secondary" : "default"}>{consultation.status}</Badge>
+                    </div>
+                    <p className="mt-3 text-sm"><strong>Topic:</strong> {consultation.topic}</p>
+                    {consultation.message && <p className="mt-2 whitespace-pre-wrap text-sm"><strong>Message:</strong> {consultation.message}</p>}
+                    <p className="mt-2 text-xs text-muted-foreground">Received {format(new Date(consultation.createdAt), "MMM d, yyyy 'at' h:mm a")}</p>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button size="sm" asChild><a href={`tel:${consultation.phone}`}><Phone className="mr-2 h-4 w-4" />Call</a></Button>
+                      <Button size="sm" variant="outline" asChild><a href={`mailto:${consultation.email}`}><Mail className="mr-2 h-4 w-4" />Email</a></Button>
+                      {consultation.status === "new" && <Button size="sm" variant="outline" onClick={() => updateConsultationMutation.mutate({ id: consultation.id, status: "contacted" })}>Mark Contacted</Button>}
+                      {consultation.status !== "closed" && <Button size="sm" variant="outline" onClick={() => updateConsultationMutation.mutate({ id: consultation.id, status: "closed" })}>Close</Button>}
+                      <Button size="sm" variant="destructive" onClick={() => { if (window.confirm("Delete this consultation request?")) deleteConsultationMutation.mutate(consultation.id); }}><Trash2 className="mr-2 h-4 w-4" />Delete</Button>
+                    </div>
+                  </div>)}
+                  {consultations.length === 0 && <p className="py-8 text-center text-muted-foreground">No consultation requests yet</p>}
+                </div>
+              </CardContent>
+            </Card>
           </TabsContent>
 
           <TabsContent value="invoices">

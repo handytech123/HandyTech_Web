@@ -98,6 +98,17 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS photo_urls TEXT[]`,
       `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS video_url TEXT`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS selected_services TEXT[]`,
+      `CREATE TABLE IF NOT EXISTS consultations (
+        id SERIAL PRIMARY KEY,
+        first_name TEXT NOT NULL,
+        last_name TEXT NOT NULL,
+        email TEXT NOT NULL,
+        phone TEXT NOT NULL,
+        topic TEXT NOT NULL,
+        message TEXT,
+        status TEXT NOT NULL DEFAULT 'new',
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      )`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS estimated_price REAL`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS photo_urls TEXT[]`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS video_url TEXT`,

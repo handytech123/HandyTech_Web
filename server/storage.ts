@@ -1,10 +1,11 @@
 import { 
-  users, customers, maintenancePlans, reviews, quotes, quoteProposals, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens, chatConversations, chatMessages,
+  users, customers, maintenancePlans, reviews, quotes, consultations, quoteProposals, emailCampaigns, appointments, projectGallery, blockedTimes, availabilityRules, services, serviceAddons, portalLoginTokens, chatConversations, chatMessages,
   type User, type InsertUser,
   type Customer, type InsertCustomer,
   type MaintenancePlan, type InsertMaintenancePlan,
   type Review, type InsertReview,
   type Quote, type InsertQuote,
+  type Consultation, type InsertConsultation,
   type QuoteProposal, type InsertQuoteProposal,
   type EmailCampaign, type InsertEmailCampaign,
   type Appointment, type InsertAppointment,
@@ -75,6 +76,12 @@ export interface IStorage {
   getQuoteProposalByToken(rawToken: string): Promise<QuoteProposal | undefined>;
   getQuoteProposalByQuoteId(quoteId: number): Promise<QuoteProposal | undefined>;
   updateQuoteProposal(id: number, updates: Partial<InsertQuoteProposal>): Promise<void>;
+
+  // Consultation requests
+  getAllConsultations(): Promise<Consultation[]>;
+  createConsultation(consultation: InsertConsultation): Promise<Consultation>;
+  updateConsultationStatus(id: number, status: string): Promise<void>;
+  deleteConsultation(id: number): Promise<void>;
 
   // Email Campaigns
   createEmailCampaign(campaign: InsertEmailCampaign): Promise<EmailCampaign>;
@@ -182,6 +189,7 @@ export class MemStorage {
   private maintenancePlans: Map<number, MaintenancePlan> = new Map();
   private reviews: Map<number, Review> = new Map();
   private quotes: Map<number, Quote> = new Map();
+  private consultations: Map<number, Consultation> = new Map();
   private quoteProposals: Map<number, QuoteProposal> = new Map();
   private emailCampaigns: Map<number, EmailCampaign> = new Map();
   private appointments: Map<number, Appointment> = new Map();
@@ -191,6 +199,7 @@ export class MemStorage {
   private currentMaintenancePlanId = 1;
   private currentReviewId = 1;
   private currentQuoteId = 1;
+  private currentConsultationId = 1;
   private currentQuoteProposalId = 1;
   private currentEmailCampaignId = 1;
   private currentAppointmentId = 1;
@@ -754,6 +763,25 @@ export class MemStorage {
       quote.status = status;
       this.quotes.set(id, quote);
     }
+  }
+
+  async getAllConsultations(): Promise<Consultation[]> {
+    return Array.from(this.consultations.values()).sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+
+  async createConsultation(input: InsertConsultation): Promise<Consultation> {
+    const consultation: Consultation = { ...input, message: input.message ?? null, id: this.currentConsultationId++, status: "new", createdAt: new Date() };
+    this.consultations.set(consultation.id, consultation);
+    return consultation;
+  }
+
+  async updateConsultationStatus(id: number, status: string): Promise<void> {
+    const consultation = this.consultations.get(id);
+    if (consultation) this.consultations.set(id, { ...consultation, status });
+  }
+
+  async deleteConsultation(id: number): Promise<void> {
+    this.consultations.delete(id);
   }
 
   async saveQuoteProposal(proposal: InsertQuoteProposal): Promise<QuoteProposal> {
@@ -1710,6 +1738,23 @@ export class DatabaseStorage implements IStorage {
 
   async updateQuoteStatus(id: number, status: string): Promise<void> {
     await db.update(quotes).set({ status }).where(eq(quotes.id, id));
+  }
+
+  async getAllConsultations(): Promise<Consultation[]> {
+    return await db.select().from(consultations).orderBy(desc(consultations.createdAt));
+  }
+
+  async createConsultation(input: InsertConsultation): Promise<Consultation> {
+    const [created] = await db.insert(consultations).values(input).returning();
+    return created;
+  }
+
+  async updateConsultationStatus(id: number, status: string): Promise<void> {
+    await db.update(consultations).set({ status }).where(eq(consultations.id, id));
+  }
+
+  async deleteConsultation(id: number): Promise<void> {
+    await db.delete(consultations).where(eq(consultations.id, id));
   }
 
   async saveQuoteProposal(proposal: InsertQuoteProposal): Promise<QuoteProposal> {

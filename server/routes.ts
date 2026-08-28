@@ -6,6 +6,7 @@ import {
   insertMaintenancePlanSchema, 
   insertReviewSchema, 
   insertQuoteSchema,
+  insertConsultationSchema,
   insertEmailCampaignSchema,
   insertAppointmentSchema,
   insertProjectGallerySchema,
@@ -2196,15 +2197,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/consultations", async (req: Request, res: Response) => {
+    try {
+      const data = insertConsultationSchema.parse(req.body);
+      const consultation = await storage.createConsultation(data);
+
+      const existingCustomer = await storage.getCustomerByEmail(data.email);
+      if (!existingCustomer) {
+        await storage.createCustomer({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone, company: "", street: "", city: "", state: "", zip: "" });
+      } else {
+        await fillMissingCustomerProfile(existingCustomer, { phone: data.phone });
+      }
+
+      try {
+        await getEmailService().sendConsultationNotification({
+          customerName: `${data.firstName} ${data.lastName}`,
+          customerEmail: data.email,
+          customerPhone: data.phone,
+          topic: data.topic,
+          message: data.message || undefined,
+          submittedAt: new Date(),
+        });
+      } catch (emailError) {
+        console.error("Failed to send consultation notification:", emailError);
+      }
+
+      res.status(201).json(consultation);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check your consultation request.", errors: error.errors });
+      console.error("Consultation request failed:", error);
+      res.status(500).json({ message: "Failed to submit consultation request." });
+    }
+  });
+
+  app.get("/api/admin/consultations", requireAdmin, async (_req, res) => {
+    res.json(await storage.getAllConsultations());
+  });
+
+  app.patch("/api/admin/consultations/:id/status", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      const { status } = z.object({ status: z.enum(["new", "contacted", "closed"]) }).parse(req.body);
+      await storage.updateConsultationStatus(id, status);
+      res.json({ success: true });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Invalid consultation status." });
+      res.status(500).json({ message: "Could not update consultation." });
+    }
+  });
+
+  app.delete("/api/admin/consultations/:id", requireAdmin, async (req, res) => {
+    await storage.deleteConsultation(Number(req.params.id));
+    res.json({ success: true });
+  });
+
   app.post("/api/quotes", handleOptionalQuoteMediaUpload(), async (req: Request, res: Response) => {
     const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
     const processedVideoUrls = ((req as any).processedQuoteVideoUrls || []) as string[];
     try {
       const rawQuote = typeof req.body.quote === "string" ? JSON.parse(req.body.quote) : req.body;
-      if (String(rawQuote.serviceNeeded || "").startsWith("Consultation request:") && processedImages.length > 5) {
-        await cleanupUploadedFiles(processedImages);
-        return res.status(400).json({ message: "Consultation requests can include up to five photos." });
-      }
       const quoteData = insertQuoteSchema.parse({
         ...rawQuote,
         photoUrls: processedImages.map((image) => image.sizes.large.url),

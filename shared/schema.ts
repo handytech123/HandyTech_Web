@@ -73,6 +73,18 @@ export const quotes = pgTable("quotes", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const consultations = pgTable("consultations", {
+  id: serial("id").primaryKey(),
+  firstName: text("first_name").notNull(),
+  lastName: text("last_name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone").notNull(),
+  topic: text("topic").notNull(),
+  message: text("message"),
+  status: text("status").notNull().default("new"), // new, contacted, closed
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
 export type QuoteLineItem = { description: string; quantity: number; rate: number };
 
 export const quoteProposals = pgTable("quote_proposals", {
@@ -313,6 +325,19 @@ export const insertAppointmentSchema = createInsertSchema(appointments).omit({
   smsConsent: z.boolean().optional().default(false),
 });
 
+export const insertConsultationSchema = createInsertSchema(consultations).omit({
+  id: true,
+  status: true,
+  createdAt: true,
+}).extend({
+  firstName: z.string().trim().min(1).max(100),
+  lastName: z.string().trim().min(1).max(100),
+  email: z.string().trim().email().max(254),
+  phone: z.string().trim().min(7).max(30),
+  topic: z.string().trim().min(2).max(200),
+  message: z.string().trim().max(3000).optional().nullable(),
+});
+
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
   id: true,
   createdAt: true,
@@ -491,6 +516,8 @@ export type InsertReview = z.infer<typeof insertReviewSchema>;
 
 export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
+export type Consultation = typeof consultations.$inferSelect;
+export type InsertConsultation = z.infer<typeof insertConsultationSchema>;
 export type QuoteProposal = typeof quoteProposals.$inferSelect;
 export type InsertQuoteProposal = typeof quoteProposals.$inferInsert;
 export type Invoice = typeof invoices.$inferSelect;

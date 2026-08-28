@@ -1270,6 +1270,42 @@ export class EmailService {
     }
   }
 
+  async sendConsultationNotification(data: {
+    customerName: string;
+    customerEmail: string;
+    customerPhone: string;
+    topic: string;
+    message?: string;
+    submittedAt: Date;
+  }): Promise<boolean> {
+    if (!this.isConfigured) return false;
+    try {
+      const content = `
+        <h2 style="color: #2769BE; margin-bottom: 20px;">New Consultation Request</h2>
+        <p>A customer would like to speak with HandyTech. This is not a quote or scheduled appointment.</p>
+        <div style="background-color: #f4f4f4; padding: 20px; border-radius: 5px; margin: 20px 0;">
+          <p><strong>Name:</strong> ${data.customerName}</p>
+          <p><strong>Email:</strong> <a href="mailto:${data.customerEmail}">${data.customerEmail}</a></p>
+          <p><strong>Phone:</strong> <a href="tel:${data.customerPhone}">${data.customerPhone}</a></p>
+          <p><strong>Topic:</strong> ${data.topic}</p>
+          <p><strong>Submitted:</strong> ${this.formatDateTime(data.submittedAt)}</p>
+        </div>
+        ${data.message ? `<div style="border-left: 4px solid #2769BE; padding: 15px;"><strong>Message:</strong><p>${data.message}</p></div>` : ""}
+        <div style="text-align: center; margin: 30px 0;"><a href="${this.baseUrl}/admin#consultations" style="background-color: #2769BE; color: white; padding: 15px 30px; text-decoration: none; border-radius: 5px; font-weight: bold;">View Consultation Request</a></div>
+      `;
+      await this.transporter.sendMail({
+        from: `"${this.businessName} Consultations" <${this.fromEmail}>`,
+        to: this.adminEmail,
+        subject: `New Consultation Request from ${data.customerName}`,
+        html: this.getEmailTemplate(content),
+      });
+      return true;
+    } catch (error) {
+      console.error("Failed to send consultation notification email:", error);
+      return false;
+    }
+  }
+
   async sendQuoteNotification(quoteData: { 
     customerName: string; 
     customerEmail: string; 
