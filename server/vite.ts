@@ -86,7 +86,9 @@ export function serveStatic(app: Express) {
       const escapeHtml = (value: string) => value.replace(/[&<>\"]/g, (character) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '\"': "&quot;" }[character] || character));
       const safeJson = (value: unknown) => JSON.stringify(value).replace(/</g, "\\u003c");
       const absoluteMedia = (value?: string | null) => value ? (value.startsWith("http") ? value : `${SITE_URL}${value.startsWith("/") ? "" : "/"}${value}`) : undefined;
-      const pathname = req.path.replace(/\/+$/, "") || "/";
+      // Express rewrites req.path to "/" inside an app.use("*") handler.
+      // originalUrl preserves the customer-facing path needed for per-page SEO.
+      const pathname = new URL(req.originalUrl, SITE_URL).pathname.replace(/\/+$/, "") || "/";
       const privateRoute = /^\/(admin|customer-portal|portal|leave-review|review-thank-you|quote-thank-you|reschedule|quote|invoice)(\/|$)/.test(pathname);
       let status = 200;
       let title = "HandyTech Solutions | Handyman Services in St. Louis, MO";
