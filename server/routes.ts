@@ -78,6 +78,10 @@ function schedulingHoursFromEstimate(estimatedDuration?: string | null): number 
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/google5fb6625abfb841e9.html", (_req, res) => {
+    res.type("text/plain").send("google-site-verification: google5fb6625abfb841e9.html");
+  });
+
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").set("Cache-Control", "public, max-age=3600").send([
       "User-agent: *",
