@@ -7,6 +7,7 @@ import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 import { storage } from "./storage";
 import { seoSlug, SITE_URL } from "@shared/seo";
+import { SERVICE_SEO_CONTENT } from "@shared/service-content";
 
 const viteLogger = createLogger();
 
@@ -108,7 +109,7 @@ export function serveStatic(app: Express) {
         const service = (await storage.getAllServices()).find((item) => item.isActive && seoSlug(item.name) === slug);
         if (service) {
           title = `${service.name} in St. Louis, MO | HandyTech Solutions`;
-          description = (service.description || `Professional ${service.name.toLowerCase()} from HandyTech Solutions in the St. Louis area.`).slice(0, 160);
+          description = SERVICE_SEO_CONTENT[slug]?.metaDescription || (service.description || `Professional ${service.name.toLowerCase()} from HandyTech Solutions in the St. Louis area.`).slice(0, 160);
           schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Service", name: service.name, description: service.description, provider: { "@type": "LocalBusiness", name: "HandyTech Solutions", telephone: "+1-314-325-4575", url: SITE_URL }, areaServed: ["St. Louis, MO", "Hazelwood, MO", "Florissant, MO", "Ferguson, MO", "Bridgeton, MO"], url: canonical }, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Services", item: `${SITE_URL}/services` }, { "@type": "ListItem", position: 3, name: service.name, item: canonical }] }] };
         } else {
           status = 404; robots = "noindex, follow"; title = "Service Not Found | HandyTech Solutions"; description = "The requested HandyTech service page could not be found.";
