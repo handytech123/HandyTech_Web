@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import { storage } from "./storage";
 import { seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_SEO_CONTENT } from "@shared/service-content";
+import { SERVICE_AREA_BY_SLUG } from "@shared/service-area-content";
 
 const viteLogger = createLogger();
 
@@ -117,6 +118,19 @@ export function serveStatic(app: Express) {
       } else if (pathname === "/gallery") {
         title = "Handyman Project Gallery | HandyTech Solutions St. Louis";
         description = "See completed HandyTech repair, renovation, installation, painting, carpentry, and smart-home projects in the St. Louis area.";
+      } else if (pathname === "/service-areas") {
+        title = "St. Louis Area Handyman Service Locations | HandyTech";
+        description = "HandyTech Solutions serves St. Louis, Hazelwood, Florissant, Ferguson, and Bridgeton with professional handyman and smart-home services.";
+      } else if (pathname.startsWith("/service-areas/")) {
+        const slug = pathname.split("/")[2];
+        const area = SERVICE_AREA_BY_SLUG[slug];
+        if (area) {
+          title = `${area.title} | HandyTech Solutions`;
+          description = area.metaDescription;
+          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "HomeAndConstructionBusiness", name: "HandyTech Solutions", url: canonical, telephone: "+1-314-325-4575", email: "contact@handytech-solutions.com", areaServed: { "@type": "City", name: `${area.city}, Missouri` } }, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Service Areas", item: `${SITE_URL}/service-areas` }, { "@type": "ListItem", position: 3, name: area.city, item: canonical }] }] };
+        } else {
+          status = 404; robots = "noindex, follow"; title = "Service Area Not Found | HandyTech Solutions"; description = "The requested HandyTech service-area page could not be found.";
+        }
       } else if (pathname.startsWith("/projects/")) {
         const slug = pathname.split("/")[2];
         const project = (await storage.getAllProjectGalleryItems()).find((item) => seoSlug(item.title) === slug);

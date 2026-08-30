@@ -49,6 +49,12 @@ export default function PrivacyPolicy() {
             </section>
 
             <section>
+              <h2 className="text-2xl font-bold text-slate-950">Website analytics and cookies</h2>
+              <p className="mt-3">We use Google Analytics to understand how visitors find and use our website and which pages or actions are helpful. Google Analytics may use cookies and similar identifiers to collect information such as pages viewed, approximate location, device and browser information, referral source, and interactions with website features. We do not intentionally send names, email addresses, telephone numbers, street addresses, or uploaded project media to Google Analytics.</p>
+              <p className="mt-3">Google explains how it uses information from sites that use its services at <a className="font-medium text-brand-blue underline" href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noreferrer">Google's partner-sites privacy page</a>. You can limit cookies through your browser settings or use Google's Analytics opt-out tools.</p>
+            </section>
+
+            <section>
               <h2 className="text-2xl font-bold text-slate-950">Data security and retention</h2>
               <p className="mt-3">We use reasonable administrative and technical safeguards to protect personal information. We retain information only as long as reasonably necessary for business, legal, accounting, and service purposes. No internet transmission or storage system can be guaranteed completely secure.</p>
             </section>

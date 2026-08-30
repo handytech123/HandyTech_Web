@@ -15,6 +15,7 @@ import { createCsrfHeaders } from "@/lib/csrf";
 import { Phone, Mail, Clock, ImagePlus, Maximize2, Video, X } from "lucide-react";
 import { z } from "zod";
 import AddressAutocomplete from "@/components/address-autocomplete";
+import { trackEvent } from "@/lib/analytics";
 
 const quoteFormSchema = insertQuoteSchema.extend({
   serviceNeeded: z.string().min(1, "Please select a service"),
@@ -89,6 +90,7 @@ export default function ContactSection() {
       return response.json();
     },
     onSuccess: () => {
+      trackEvent("quote_request_submitted", { form_name: "website_quote_request" });
       form.reset();
       setSmsConsent(false);
       setSelectedServiceIds([]);

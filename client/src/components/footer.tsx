@@ -100,6 +100,7 @@ export default function Footer() {
             <ul className="space-y-2 text-blue-100">
               <li><Link href="/services" className="hover:text-white transition-colors">Our Services</Link></li>
               <li><Link href="/gallery" className="hover:text-white transition-colors" data-testid="link-gallery-footer">Project Gallery</Link></li>
+              <li><Link href="/service-areas" className="hover:text-white transition-colors">Service Areas</Link></li>
               <li><a href="/#scheduler" className="hover:text-white transition-colors">Book a Visit</a></li>
               <li><a href="/#testimonials" className="hover:text-white transition-colors">Customer Reviews</a></li>
               <li><a href="/#contact" className="hover:text-white transition-colors">Contact</a></li>

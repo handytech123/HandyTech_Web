@@ -23,6 +23,7 @@ import { z } from "zod";
 import { format, parseISO, isAfter } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import AddressAutocomplete from "@/components/address-autocomplete";
+import { trackEvent } from "@/lib/analytics";
 
 // Service interface — matches actual API/DB fields
 interface Service {
@@ -296,6 +297,7 @@ export default function AppointmentScheduler() {
       return response.json();
     },
     onSuccess: (data) => {
+      trackEvent("appointment_booked", { booking_source: "website" });
       setIsSubmitted(true);
       queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
       toast({
@@ -330,6 +332,7 @@ export default function AppointmentScheduler() {
       return result;
     },
     onSuccess: () => {
+      trackEvent("consultation_requested", { request_source: "website" });
       setIsSubmitted(true);
       toast({
         title: "Consultation Request Received!",

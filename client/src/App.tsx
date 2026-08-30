@@ -1,28 +1,50 @@
-import { Switch, Route } from "wouter";
+import { lazy, Suspense, useEffect } from "react";
+import { Switch, Route, useLocation } from "wouter";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { ChatWidget } from "@/components/chat-widget";
-import Home from "@/pages/home";
-import Gallery from "@/pages/gallery";
-import CustomerPortal from "@/pages/customer-portal";
-import PortalLogin from "@/pages/portal-login";
-import PortalCallback from "@/pages/portal-callback";
-import AdminDashboard from "@/pages/admin";
-import AdminChat from "@/pages/admin-chat";
-import LeaveReview from "@/pages/leave-review";
-import ReviewThankYou from "@/pages/review-thank-you";
-import QuoteThankYou from "@/pages/quote-thank-you";
-import ReschedulePage from "@/pages/reschedule";
-import NotFound from "@/pages/not-found";
-import PrivacyPolicy from "@/pages/privacy-policy";
-import Terms from "@/pages/terms";
-import QuoteProposalPage from "@/pages/quote-proposal";
-import InvoicePage from "@/pages/invoice";
-import ServicesPage from "@/pages/services";
-import ServiceDetailPage from "@/pages/service-detail";
-import ProjectDetailPage from "@/pages/project-detail";
+import { trackEvent, trackPageView } from "@/lib/analytics";
+
+const ChatWidget = lazy(() => import("@/components/chat-widget").then((module) => ({ default: module.ChatWidget })));
+const Home = lazy(() => import("@/pages/home"));
+const Gallery = lazy(() => import("@/pages/gallery"));
+const CustomerPortal = lazy(() => import("@/pages/customer-portal"));
+const PortalLogin = lazy(() => import("@/pages/portal-login"));
+const PortalCallback = lazy(() => import("@/pages/portal-callback"));
+const AdminDashboard = lazy(() => import("@/pages/admin"));
+const AdminChat = lazy(() => import("@/pages/admin-chat"));
+const LeaveReview = lazy(() => import("@/pages/leave-review"));
+const ReviewThankYou = lazy(() => import("@/pages/review-thank-you"));
+const QuoteThankYou = lazy(() => import("@/pages/quote-thank-you"));
+const ReschedulePage = lazy(() => import("@/pages/reschedule"));
+const NotFound = lazy(() => import("@/pages/not-found"));
+const PrivacyPolicy = lazy(() => import("@/pages/privacy-policy"));
+const Terms = lazy(() => import("@/pages/terms"));
+const QuoteProposalPage = lazy(() => import("@/pages/quote-proposal"));
+const InvoicePage = lazy(() => import("@/pages/invoice"));
+const ServicesPage = lazy(() => import("@/pages/services"));
+const ServiceDetailPage = lazy(() => import("@/pages/service-detail"));
+const ProjectDetailPage = lazy(() => import("@/pages/project-detail"));
+const ServiceAreasPage = lazy(() => import("@/pages/service-areas"));
+const ServiceAreaDetailPage = lazy(() => import("@/pages/service-area-detail"));
+
+function AnalyticsObserver() {
+  const [location] = useLocation();
+  useEffect(() => { trackPageView(location); }, [location]);
+  useEffect(() => {
+    const handleClick = (event: MouseEvent) => {
+      const link = (event.target as Element | null)?.closest("a");
+      const href = link?.getAttribute("href") || "";
+      if (href.startsWith("tel:")) trackEvent("phone_call_click", { link_url: href });
+      else if (href.includes("#contact")) trackEvent("quote_cta_click", { link_url: href });
+      else if (href.includes("#scheduler")) trackEvent("schedule_cta_click", { link_url: href });
+    };
+    document.addEventListener("click", handleClick);
+    return () => document.removeEventListener("click", handleClick);
+  }, []);
+  return null;
+}
 
 function Router() {
   return (
@@ -32,6 +54,8 @@ function Router() {
       <Route path="/services" component={ServicesPage} />
       <Route path="/services/:slug" component={ServiceDetailPage} />
       <Route path="/projects/:slug" component={ProjectDetailPage} />
+      <Route path="/service-areas" component={ServiceAreasPage} />
+      <Route path="/service-areas/:slug" component={ServiceAreaDetailPage} />
       <Route path="/customer-portal" component={CustomerPortal} />
       <Route path="/portal/login" component={PortalLogin} />
       <Route path="/portal/callback" component={PortalCallback} />
@@ -56,8 +80,9 @@ function App() {
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Router />
-        <ChatWidget />
+        <AnalyticsObserver />
+        <Suspense fallback={<div className="min-h-screen bg-slate-50 pt-32 text-center text-slate-600">Loading HandyTech...</div>}><Router /></Suspense>
+        <Suspense fallback={null}><ChatWidget /></Suspense>
       </TooltipProvider>
     </QueryClientProvider>
   );

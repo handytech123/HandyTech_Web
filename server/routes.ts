@@ -51,6 +51,7 @@ import sharp from "sharp";
 import { generateQuotePdfBuffer } from "./utils/quote-pdf";
 import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
 import { seoSlug, SITE_URL } from "@shared/seo";
+import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -105,10 +106,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { loc: `${SITE_URL}/`, priority: "1.0", changefreq: "weekly" },
         { loc: `${SITE_URL}/services`, priority: "0.9", changefreq: "weekly" },
         { loc: `${SITE_URL}/gallery`, priority: "0.8", changefreq: "weekly" },
+        { loc: `${SITE_URL}/service-areas`, priority: "0.8", changefreq: "monthly" },
         { loc: `${SITE_URL}/privacy-policy`, priority: "0.2", changefreq: "yearly" },
         { loc: `${SITE_URL}/terms`, priority: "0.2", changefreq: "yearly" },
         ...services.filter((service) => service.isActive).map((service) => ({ loc: `${SITE_URL}/services/${seoSlug(service.name)}`, priority: "0.8", changefreq: "monthly" })),
         ...projects.map((project) => ({ loc: `${SITE_URL}/projects/${seoSlug(project.title)}`, priority: "0.7", changefreq: "monthly", lastmod: new Date(project.completionDate).toISOString().slice(0, 10) })),
+        ...SERVICE_AREA_CONTENT.map((area) => ({ loc: `${SITE_URL}/service-areas/${area.slug}`, priority: "0.8", changefreq: "monthly" })),
       ];
       const urls = entries.map((entry) => `<url><loc>${xmlEscape(entry.loc)}</loc>${entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ""}<changefreq>${entry.changefreq}</changefreq><priority>${entry.priority}</priority></url>`).join("");
       res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);

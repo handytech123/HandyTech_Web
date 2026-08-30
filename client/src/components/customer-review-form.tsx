@@ -12,6 +12,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { publicReviewSubmissionSchema } from "@shared/schema";
 import { z } from "zod";
+import { trackEvent } from "@/lib/analytics";
 
 // Extended schema to include customer information fields not in the base review schema
 const reviewFormSchema = publicReviewSubmissionSchema.extend({
@@ -89,6 +90,7 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
       return response.json();
     },
     onSuccess: () => {
+      trackEvent("review_submitted", { form_name: "customer_review" });
       toast({
         title: "Review Submitted Successfully!",
         description: "Thank you for your feedback. Your review is pending approval and will appear on our site soon.",

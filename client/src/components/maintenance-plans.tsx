@@ -15,6 +15,7 @@ import { insertQuoteSchema } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 import { z } from "zod";
 import AddressAutocomplete from "@/components/address-autocomplete";
+import { trackEvent } from "@/lib/analytics";
 
 // Form schema for maintenance plan contact form
 const maintenancePlanContactSchema = insertQuoteSchema.extend({
@@ -99,6 +100,7 @@ function MaintenancePlanContactForm({ plan, onSuccess }: { plan: typeof plans[0]
       return apiRequest("/api/quotes", "POST", data);
     },
     onSuccess: () => {
+      trackEvent("quote_request_submitted", { form_name: "maintenance_plan_request", plan_name: plan.name });
       toast({ 
         title: "Request Submitted Successfully!", 
         description: `Thank you! We'll contact you about the ${plan.name} plan within 24 hours.` 
