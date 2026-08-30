@@ -10,6 +10,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon, Home, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
 import type { ProjectGallery } from "@shared/schema";
+import { seoSlug } from "@shared/seo";
 
 interface GalleryResponse {
   projects: ProjectGallery[];
@@ -168,6 +169,9 @@ function ProjectCard({ project, onClick }: { project: ProjectGallery; onClick: (
               {format(new Date(project.completionDate), "MMM yyyy")}
             </div>
           </div>
+          <Link href={`/projects/${seoSlug(project.title)}`} onClick={(event) => event.stopPropagation()} className="mt-3 inline-flex text-sm font-semibold underline underline-offset-4">
+            View project details
+          </Link>
         </div>
       </div>
     </Card>

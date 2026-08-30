@@ -14,7 +14,6 @@ export default function Navigation() {
   };
 
   const sectionLinks = [
-    { label: "Services", id: "services" },
     { label: "Maintenance Plans", id: "maintenance" },
     { label: "Reviews", id: "testimonials" },
   ];
@@ -27,6 +26,7 @@ export default function Navigation() {
         </Link>
 
         <div className="hidden items-center gap-1 lg:flex">
+          <Link href="/services" className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-brand-blue">Services</Link>
           {sectionLinks.map((link) => (
             <button key={link.id} onClick={() => scrollToSection(link.id)} className="rounded-md px-3 py-2 text-sm font-medium text-slate-700 transition-colors hover:bg-slate-100 hover:text-brand-blue">
               {link.label}
@@ -57,6 +57,7 @@ export default function Navigation() {
             <SheetContent>
               <div className="mt-7 flex flex-col gap-2">
                 <img src={logoPath} alt="HandyTech Solutions" className="mb-5 h-14 w-auto self-start object-contain" />
+                <Link href="/services" onClick={() => setIsOpen(false)} className="rounded-md px-3 py-3 font-medium text-slate-800 hover:bg-slate-100">Services</Link>
                 {sectionLinks.map((link) => (
                   <button key={link.id} onClick={() => scrollToSection(link.id)} className="rounded-md px-3 py-3 text-left font-medium text-slate-800 hover:bg-slate-100">
                     {link.label}

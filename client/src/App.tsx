@@ -20,12 +20,18 @@ import PrivacyPolicy from "@/pages/privacy-policy";
 import Terms from "@/pages/terms";
 import QuoteProposalPage from "@/pages/quote-proposal";
 import InvoicePage from "@/pages/invoice";
+import ServicesPage from "@/pages/services";
+import ServiceDetailPage from "@/pages/service-detail";
+import ProjectDetailPage from "@/pages/project-detail";
 
 function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/gallery" component={Gallery} />
+      <Route path="/services" component={ServicesPage} />
+      <Route path="/services/:slug" component={ServiceDetailPage} />
+      <Route path="/projects/:slug" component={ProjectDetailPage} />
       <Route path="/customer-portal" component={CustomerPortal} />
       <Route path="/portal/login" component={PortalLogin} />
       <Route path="/portal/callback" component={PortalCallback} />

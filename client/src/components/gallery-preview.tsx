@@ -10,6 +10,7 @@ import type { ProjectGallery } from "@shared/schema";
 import davisAfterDesk from "@assets/davis-office/after-desk.webp";
 import davisAfterEntry from "@assets/davis-office/after-entry.webp";
 import davisAfterWide from "@assets/davis-office/after-wide.webp";
+import { seoSlug } from "@shared/seo";
 
 interface GalleryResponse { projects: ProjectGallery[]; totalCount: number; }
 
@@ -52,7 +53,7 @@ export default function GalleryPreview() {
           <div className="grid gap-6 md:grid-cols-3">{[0, 1, 2].map((i) => <Skeleton key={i} className="aspect-[4/3] rounded-xl" />)}</div>
         ) : projects.length > 0 ? (
           <>
-            <div className="grid gap-6 md:grid-cols-3">{projects.map((project) => <Link key={project.id} href="/gallery"><ProjectCard project={project} /></Link>)}</div>
+            <div className="grid gap-6 md:grid-cols-3">{projects.map((project) => <Link key={project.id} href={`/projects/${seoSlug(project.title)}`}><ProjectCard project={project} /></Link>)}</div>
             <div className="mt-10 text-center"><Button asChild size="lg" className="bg-brand-blue text-white hover:bg-brand-blue-dark"><Link href="/gallery">View All Projects<ArrowRight className="ml-2 h-4 w-4" /></Link></Button></div>
           </>
         ) : (

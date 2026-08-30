@@ -50,6 +50,7 @@ import path from "path";
 import sharp from "sharp";
 import { generateQuotePdfBuffer } from "./utils/quote-pdf";
 import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
+import { seoSlug, SITE_URL } from "@shared/seo";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -77,6 +78,42 @@ function schedulingHoursFromEstimate(estimatedDuration?: string | null): number 
 }
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  app.get("/robots.txt", (_req, res) => {
+    res.type("text/plain").set("Cache-Control", "public, max-age=3600").send([
+      "User-agent: *",
+      "Allow: /",
+      "Disallow: /admin",
+      "Disallow: /customer-portal",
+      "Disallow: /portal",
+      "Disallow: /quote/",
+      "Disallow: /invoice/",
+      "Disallow: /reschedule/",
+      `Sitemap: ${SITE_URL}/sitemap.xml`,
+      "",
+    ].join("\n"));
+  });
+
+  app.get("/sitemap.xml", async (_req, res) => {
+    const xmlEscape = (value: string) => value.replace(/[<>&'\"]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '\"': "&quot;" }[character] || character));
+    try {
+      const [services, projects] = await Promise.all([storage.getAllServices(), storage.getAllProjectGalleryItems()]);
+      const entries: Array<{ loc: string; priority: string; changefreq: string; lastmod?: string }> = [
+        { loc: `${SITE_URL}/`, priority: "1.0", changefreq: "weekly" },
+        { loc: `${SITE_URL}/services`, priority: "0.9", changefreq: "weekly" },
+        { loc: `${SITE_URL}/gallery`, priority: "0.8", changefreq: "weekly" },
+        { loc: `${SITE_URL}/privacy-policy`, priority: "0.2", changefreq: "yearly" },
+        { loc: `${SITE_URL}/terms`, priority: "0.2", changefreq: "yearly" },
+        ...services.filter((service) => service.isActive).map((service) => ({ loc: `${SITE_URL}/services/${seoSlug(service.name)}`, priority: "0.8", changefreq: "monthly" })),
+        ...projects.map((project) => ({ loc: `${SITE_URL}/projects/${seoSlug(project.title)}`, priority: "0.7", changefreq: "monthly", lastmod: new Date(project.completionDate).toISOString().slice(0, 10) })),
+      ];
+      const urls = entries.map((entry) => `<url><loc>${xmlEscape(entry.loc)}</loc>${entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ""}<changefreq>${entry.changefreq}</changefreq><priority>${entry.priority}</priority></url>`).join("");
+      res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+    } catch (error) {
+      console.error("Sitemap generation failed:", error);
+      res.status(500).type("text/plain").send("Sitemap temporarily unavailable");
+    }
+  });
+
   // Mount Google Calendar admin routes
   const { default: googleAdminRoutes } = await import("./routes/google-admin.js");
   app.use("/api/admin/google", requireAdmin, googleAdminRoutes);
@@ -3584,6 +3621,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(appointments);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch upcoming appointments" });
+    }
+  });
+
+  // Public, stable project URLs give search engines and customers a direct project record.
+  app.get("/api/projects/:slug", async (req, res) => {
+    try {
+      const project = (await storage.getAllProjectGalleryItems()).find(
+        (item) => seoSlug(item.title) === req.params.slug,
+      );
+      if (!project) return res.status(404).json({ message: "Project not found" });
+      res.json(project);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to fetch project" });
     }
   });
 

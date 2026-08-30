@@ -86,11 +86,11 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4 text-brand-blue" style={{color: '#7BB3E8'}}>Services</h4>
             <ul className="space-y-2 text-blue-100">
-              <li><a href="/#services" className="hover:text-white transition-colors">General Handyman</a></li>
-              <li><a href="/#services" className="hover:text-white transition-colors">Electrical Work</a></li>
-              <li><a href="/#services" className="hover:text-white transition-colors">Plumbing Services</a></li>
-              <li><a href="/#services" className="hover:text-white transition-colors">Smart Home Technology</a></li>
-              <li><a href="/#services" className="hover:text-white transition-colors">Carpentry &amp; Repairs</a></li>
+              <li><Link href="/services" className="hover:text-white transition-colors">General Handyman</Link></li>
+              <li><Link href="/services" className="hover:text-white transition-colors">Electrical Work</Link></li>
+              <li><Link href="/services" className="hover:text-white transition-colors">Plumbing Services</Link></li>
+              <li><Link href="/services" className="hover:text-white transition-colors">Smart Home Technology</Link></li>
+              <li><Link href="/services" className="hover:text-white transition-colors">Carpentry &amp; Repairs</Link></li>
             </ul>
           </div>
 
@@ -98,7 +98,7 @@ export default function Footer() {
           <div>
             <h4 className="font-semibold mb-4" style={{color: '#7BB3E8'}}>Company</h4>
             <ul className="space-y-2 text-blue-100">
-              <li><a href="/#services" className="hover:text-white transition-colors">Our Services</a></li>
+              <li><Link href="/services" className="hover:text-white transition-colors">Our Services</Link></li>
               <li><Link href="/gallery" className="hover:text-white transition-colors" data-testid="link-gallery-footer">Project Gallery</Link></li>
               <li><a href="/#scheduler" className="hover:text-white transition-colors">Book a Visit</a></li>
               <li><a href="/#testimonials" className="hover:text-white transition-colors">Customer Reviews</a></li>
