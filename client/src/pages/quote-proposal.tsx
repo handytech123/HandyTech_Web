@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { useParams } from "wouter";
 import { CheckCircle2, Download, FileSignature, Loader2, MessageSquareText, ShieldCheck, XCircle } from "lucide-react";
-import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -74,7 +73,20 @@ export default function QuoteProposalPage() {
   const [finished, setFinished] = useState<string | null>(null);
   const query = useQuery<ProposalData>({ queryKey: ["/api/quote-proposals", token], queryFn: async () => { const response = await fetch(`/api/quote-proposals/${token}`, { credentials: "include" }); if (!response.ok) throw new Error((await response.json()).message || "Quote unavailable"); return response.json(); } });
   const responseMutation = useMutation({
-    mutationFn: async () => { const response = await apiRequest(`/api/quote-proposals/${token}/respond`, "POST", { decision, signerName, signatureData, acceptedTerms, message }); return response.json(); },
+    mutationFn: async () => {
+      // This public action is authenticated by the unguessable token in the
+      // URL, not by a login session. Avoid making the customer's response
+      // depend on cookies surviving an email app's embedded browser.
+      const response = await fetch(`/api/quote-proposals/${token}/respond`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ decision, signerName, signatureData, acceptedTerms, message }),
+        credentials: "omit",
+      });
+      const result = await response.json().catch(() => ({ message: "Your response could not be recorded." }));
+      if (!response.ok) throw new Error(result.message || "Your response could not be recorded.");
+      return result;
+    },
     onSuccess: (data) => { setFinished(data.status); window.scrollTo({ top: 0, behavior: "smooth" }); },
   });
 
