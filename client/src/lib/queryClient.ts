@@ -1,5 +1,5 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
-import { createCsrfHeaders } from "./csrf";
+import { clearCsrfToken, createCsrfHeaders } from "./csrf";
 
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
@@ -72,6 +72,11 @@ export async function apiRequest(
       console.log(`[API] CSRF error detected, retrying ${method} ${url} with fresh token`);
       
       try {
+        // The rejected token may still be cached locally. Clear it before
+        // rebuilding the headers so the retry fetches a token for the
+        // browser's current session instead of resending the stale token.
+        clearCsrfToken();
+
         // Get fresh CSRF token and retry
         headers = await createCsrfHeaders(baseHeaders, false); // Don't retry in createCsrfHeaders since we're doing it here
         
