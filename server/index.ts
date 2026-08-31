@@ -56,8 +56,10 @@ app.use((req, res, next) => {
 // Apply CSRF protection after body parsing but before routes
 app.use(useCSRF);
 
-// Apply public rate limiting to all routes
-app.use(rlPublic);
+// Rate-limit API traffic, not HTML pages or static assets. Applying this to
+// every request causes a single browser page load (with many JS chunks,
+// images, and fonts) to consume the entire allowance and lock the user out.
+app.use('/api', rlPublic);
 
 app.use((req, res, next) => {
   const start = Date.now();
