@@ -548,6 +548,16 @@ export class EmailService {
     await this.transporter.sendMail({ from: `"${this.businessName}" <${this.fromEmail}>`, to: this.fromEmail, replyTo: data.customerEmail, subject: `Admin copy - ${data.invoiceNumber} sent to ${data.customerName}`, html: `<p>Invoice <strong>${clean(data.invoiceNumber)}</strong> was sent to ${clean(data.customerName)} (${clean(data.customerEmail)}).</p><p>Total: ${money(data.total)}; balance due: ${money(data.balanceDue)}.</p><p>This admin copy does not contain the tracked customer link.</p>`, attachments: [attachment] });
   }
 
+  async sendPaymentReceipt(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; amountPaid: number; balanceDue: number; latestPayment: { amount: number; method: string; reference?: string | null; paidAt: Date }; pdfBuffer: Buffer }): Promise<void> {
+    if (!this.isConfigured) throw new Error("Email service is not configured");
+    const clean = (value: string) => value.replace(/[&<>'"]/g, "");
+    const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+    const method = data.latestPayment.method.replace(/_/g, " ");
+    const paidInFull = data.balanceDue <= 0.005;
+    const html = `<div style="margin:0 auto;max-width:680px;font-family:Arial,sans-serif;color:#172033"><div style="background:#0f172a;color:#fff;padding:28px;border-top:6px solid #2769BE"><h1 style="margin:0">HandyTech Solutions</h1><p style="color:#bae6fd">Payment receipt for ${clean(data.invoiceNumber)}</p></div><div style="padding:28px;border:1px solid #e5e7eb;border-top:0"><p>Hi ${clean(data.customerName)},</p><p>Thank you. This email confirms that we recorded your payment.</p><div style="background:#eff6ff;padding:18px;margin:22px 0"><p><strong>Payment received:</strong> ${money(data.latestPayment.amount)}</p><p><strong>Payment date:</strong> ${data.latestPayment.paidAt.toLocaleDateString("en-US")}</p><p><strong>Method:</strong> ${clean(method)}</p>${data.latestPayment.reference ? `<p><strong>Reference:</strong> ${clean(data.latestPayment.reference)}</p>` : ""}<p><strong>Invoice total:</strong> ${money(data.total)}</p><p><strong>Total paid:</strong> ${money(data.amountPaid)}</p><p><strong>${paidInFull ? "Status" : "Balance remaining"}:</strong> ${paidInFull ? "Paid in full" : money(data.balanceDue)}</p></div><p>A PDF receipt is attached for your records. Questions? Reply to this email or call 314-325-4575.</p></div></div>`;
+    await this.transporter.sendMail({ from: `"${this.businessName}" <${this.fromEmail}>`, to: data.customerEmail, replyTo: this.fromEmail, subject: `${data.invoiceNumber} - Payment receipt from ${this.businessName}`, html, attachments: [{ filename: `Receipt-${data.invoiceNumber}.pdf`, content: data.pdfBuffer, contentType: "application/pdf" }] });
+  }
+
   async sendInvoiceViewedNotification(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; balanceDue: number }): Promise<void> {
     if (!this.isConfigured) return;
     const clean = (value: string) => value.replace(/[&<>'"]/g, "");

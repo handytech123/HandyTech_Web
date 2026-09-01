@@ -14,6 +14,20 @@ export class ReminderScheduler {
     this.emailService = new EmailService();
   }
 
+  // Appointment dates are calendar dates, not UTC instants. Converting a
+  // midnight database value with a Chicago time zone can move it to the prior
+  // day (for example, September 2 UTC becomes September 1 locally).
+  private appointmentDateKey(appointment: Appointment): string {
+    return appointment.appointmentDate instanceof Date
+      ? appointment.appointmentDate.toISOString().slice(0, 10)
+      : String(appointment.appointmentDate).slice(0, 10);
+  }
+
+  private appointmentDateLabel(appointment: Appointment): string {
+    const [year, month, day] = this.appointmentDateKey(appointment).split('-').map(Number);
+    return new Date(year, month - 1, day, 12).toLocaleDateString('en-US');
+  }
+
   // FIXED: Robust appointment date/time parser that handles multiple formats
   private parseAppointmentDateTime(appointment: Appointment): Date | null {
     try {
@@ -247,7 +261,7 @@ export class ReminderScheduler {
       const emailSent = await this.emailService.send24HourReminder({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: new Date(appointment.appointmentDate).toDateString(),
+        appointmentDate: `${this.appointmentDateKey(appointment)}T12:00:00`,
         appointmentTime: appointment.appointmentTime,
         serviceType: appointment.serviceType,
         description: appointment.notes || undefined
@@ -258,7 +272,7 @@ export class ReminderScheduler {
         if (appointment.smsConsent && appointment.phone) {
           await smsService.sendAppointmentReminder(
             appointment.phone,
-            new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+            this.appointmentDateLabel(appointment),
             appointment.appointmentTime
           );
         }
@@ -281,7 +295,7 @@ export class ReminderScheduler {
       const emailSent = await this.emailService.send2HourReminder({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: new Date(appointment.appointmentDate).toDateString(),
+        appointmentDate: `${this.appointmentDateKey(appointment)}T12:00:00`,
         appointmentTime: appointment.appointmentTime,
         serviceType: appointment.serviceType,
         description: appointment.notes || undefined
@@ -292,7 +306,7 @@ export class ReminderScheduler {
         if (appointment.smsConsent && appointment.phone) {
           await smsService.sendAppointmentReminder(
             appointment.phone,
-            new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
+            this.appointmentDateLabel(appointment),
             appointment.appointmentTime
           );
         }
@@ -315,7 +329,7 @@ export class ReminderScheduler {
       const emailSent = await this.emailService.sendFollowUpEmail({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: new Date(appointment.appointmentDate).toDateString(),
+        appointmentDate: `${this.appointmentDateKey(appointment)}T12:00:00`,
         appointmentTime: appointment.appointmentTime,
         serviceType: appointment.serviceType,
         description: appointment.notes || undefined
