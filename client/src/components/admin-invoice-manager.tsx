@@ -317,9 +317,26 @@ export default function AdminInvoiceManager({
     setBeforePhotos([]);
     setAfterPhotos([]);
   };
-  const addSelectedPhotos = (kind: "before" | "after", selected: FileList | null) => {
+  const addSelectedPhotos = async (kind: "before" | "after", selected: FileList | null) => {
     if (!selected?.length) return;
-    const incoming = Array.from(selected);
+    let incoming: File[];
+    try {
+      // Windows exposes connected-phone photos through temporary MTP handles.
+      // Snapshot them immediately so a later form submission does not lose access.
+      incoming = await Promise.all(Array.from(selected).map(async (file) =>
+        new File([await file.arrayBuffer()], file.name, {
+          type: file.type,
+          lastModified: file.lastModified,
+        }),
+      ));
+    } catch {
+      toast({
+        title: "Photo could not be read",
+        description: "Keep the phone unlocked and try that photo again, or copy it to the PC first.",
+        variant: "destructive",
+      });
+      return;
+    }
     const current = kind === "before" ? beforePhotos : afterPhotos;
     const otherCount = kind === "before" ? afterPhotos.length : beforePhotos.length;
     const unique = incoming.filter(
@@ -878,13 +895,13 @@ export default function AdminInvoiceManager({
                 <Camera className="mx-auto mb-2 h-6 w-6 text-slate-500" />
                 <span className="block font-medium">Before photos</span>
                 <span className="block text-xs text-slate-500">{beforePhotos.length ? `${beforePhotos.length} selected` : "Optional — select multiple"}</span>
-                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { addSelectedPhotos("before", event.target.files); event.target.value = ""; }} />
+                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addSelectedPhotos("before", event.target.files); event.target.value = ""; }} />
               </label>
               <label className="cursor-pointer rounded-lg border-2 border-dashed border-brand-primary p-4 text-center">
                 <Camera className="mx-auto mb-2 h-6 w-6 text-brand-primary" />
                 <span className="block font-medium">After photos *</span>
                 <span className="block text-xs text-slate-500">{afterPhotos.length ? `${afterPhotos.length} selected` : "Select multiple — first is the cover"}</span>
-                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { addSelectedPhotos("after", event.target.files); event.target.value = ""; }} />
+                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { void addSelectedPhotos("after", event.target.files); event.target.value = ""; }} />
               </label>
             </div>
             {(beforePhotos.length > 0 || afterPhotos.length > 0) && (
