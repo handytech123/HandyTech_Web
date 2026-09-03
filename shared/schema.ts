@@ -128,6 +128,8 @@ export const invoices = pgTable("invoices", {
   tax: real("tax").notNull().default(0),
   total: real("total").notNull(),
   amountPaid: real("amount_paid").notNull().default(0),
+  depositRequired: real("deposit_required").notNull().default(0),
+  paymentUrl: text("payment_url"),
   notes: text("notes"),
   terms: text("terms"),
   status: text("status").notNull().default("draft"), // draft, sent, viewed, partial, paid, overdue, void
@@ -148,6 +150,56 @@ export const invoicePayments = pgTable("invoice_payments", {
   reference: text("reference"),
   notes: text("notes"),
   paidAt: timestamp("paid_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const jobs = pgTable("jobs", {
+  id: serial("id").primaryKey(),
+  customerId: integer("customer_id").references(() => customers.id, { onDelete: "cascade" }).notNull(),
+  quoteProposalId: integer("quote_proposal_id").references(() => quoteProposals.id, { onDelete: "set null" }),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
+  appointmentId: integer("appointment_id"),
+  jobNumber: varchar("job_number", { length: 32 }).notNull().unique(),
+  title: text("title").notNull(),
+  description: text("description"),
+  address: text("address"),
+  status: text("status").notNull().default("lead"), // lead, quoted, approved, scheduled, in_progress, completed, invoiced, paid, closed
+  scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
+  scheduledEnd: timestamp("scheduled_end", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const jobExpenses = pgTable("job_expenses", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),
+  category: text("category").notNull().default("materials"),
+  description: text("description").notNull(),
+  amount: real("amount").notNull(),
+  expenseDate: timestamp("expense_date", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const changeOrders = pgTable("change_orders", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),
+  description: text("description").notNull(),
+  amount: real("amount").notNull().default(0),
+  status: text("status").notNull().default("draft"), // draft, sent, accepted, declined
+  tokenHash: varchar("token_hash", { length: 64 }).unique(),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  respondedAt: timestamp("responded_at", { withTimezone: true }),
+  signerName: text("signer_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const automationLog = pgTable("automation_log", {
+  id: serial("id").primaryKey(),
+  automationType: text("automation_type").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: integer("entity_id").notNull(),
+  outcome: text("outcome").notNull(),
+  details: text("details"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
@@ -524,6 +576,9 @@ export type Invoice = typeof invoices.$inferSelect;
 export type InsertInvoice = typeof invoices.$inferInsert;
 export type InvoicePayment = typeof invoicePayments.$inferSelect;
 export type InsertInvoicePayment = typeof invoicePayments.$inferInsert;
+export type Job = typeof jobs.$inferSelect;
+export type JobExpense = typeof jobExpenses.$inferSelect;
+export type ChangeOrder = typeof changeOrders.$inferSelect;
 
 export type EmailCampaign = typeof emailCampaigns.$inferSelect;
 export type InsertEmailCampaign = z.infer<typeof insertEmailCampaignSchema>;

@@ -32,6 +32,7 @@ import AppointmentDetailsDialog from "@/components/appointment-details-dialog";
 import AdminQuoteBuilder from "@/components/admin-quote-builder";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import AdminInvoiceManager from "@/components/admin-invoice-manager";
+import BusinessOperationsManager from "@/components/business-operations-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -885,8 +886,14 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
   const [editCustomerDialogOpen, setEditCustomerDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
   const [deleteCustomerId, setDeleteCustomerId] = useState<number | null>(null);
+  const [timelineCustomer, setTimelineCustomer] = useState<Customer | null>(null);
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { data: customerTimeline = [], isLoading: timelineLoading } = useQuery<Array<{ type: string; title: string; status?: string; at: string }>>({
+    queryKey: ["customer-activity", timelineCustomer?.id],
+    queryFn: async () => (await apiRequest(`/api/admin/customers/${timelineCustomer!.id}/activity`, "GET")).json(),
+    enabled: !!timelineCustomer,
+  });
   
   const form = useForm<InsertCustomer>({
     resolver: zodResolver(insertCustomerSchema),
@@ -1261,7 +1268,10 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                     </div>
                   </div>
                   
-                  <div className="grid grid-cols-3 gap-2 sm:flex">
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
+                    <Button variant="outline" size="sm" onClick={() => setTimelineCustomer(customer)} className="flex items-center gap-1">
+                      <Eye className="h-4 w-4" />History
+                    </Button>
                     <Button
                       size="sm"
                       onClick={() => onCreateQuote(customer)}
@@ -1330,6 +1340,24 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={!!timelineCustomer} onOpenChange={(open) => !open && setTimelineCustomer(null)}>
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-xl">
+          <DialogHeader>
+            <DialogTitle>{timelineCustomer?.firstName} {timelineCustomer?.lastName} · Activity</DialogTitle>
+            <DialogDescription>Quotes, appointments, jobs, and invoices in one chronological history.</DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            {timelineLoading ? <p>Loading history…</p> : customerTimeline.map((item, index) => (
+              <div key={`${item.type}-${index}`} className="flex gap-3 border-l-2 border-brand-primary pl-3">
+                <div className="flex-1"><p className="font-medium">{item.title}</p><p className="text-xs capitalize text-muted-foreground">{item.type}{item.status ? ` · ${item.status.replace('_', ' ')}` : ''}</p></div>
+                <time className="text-xs text-muted-foreground">{new Date(item.at).toLocaleDateString()}</time>
+              </div>
+            ))}
+            {!timelineLoading && !customerTimeline.length && <p className="text-muted-foreground">No activity yet.</p>}
+          </div>
+        </DialogContent>
+      </Dialog>
       
       {/* Edit Customer Dialog */}
       <Dialog open={editCustomerDialogOpen} onOpenChange={setEditCustomerDialogOpen}>
@@ -2910,11 +2938,14 @@ function AuthenticatedDashboard() {
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+                <SelectItem value="operations">Operations</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <TabsList className="hidden w-full flex-wrap gap-1 h-auto p-1 md:flex xl:grid xl:grid-cols-12">
+          <TabsList className="hidden w-full flex-wrap gap-1 h-auto p-1 md:flex xl:grid xl:grid-cols-7">
+            <TabsTrigger value="operations" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
+              Operations
+            </TabsTrigger>
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
               Services
             </TabsTrigger>
@@ -2952,6 +2983,10 @@ function AuthenticatedDashboard() {
               Live Chat
             </TabsTrigger>
           </TabsList>
+
+          <TabsContent value="operations">
+            <BusinessOperationsManager customers={customers} />
+          </TabsContent>
 
           <TabsContent value="calendar">
             <Card className="mb-4">

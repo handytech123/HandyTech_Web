@@ -29,10 +29,15 @@ import {
   invoicePayments,
   customers,
   quotes,
-  quoteProposals
+  quoteProposals,
+  appointments,
+  jobs,
+  jobExpenses,
+  changeOrders,
+  automationLog
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc } from "drizzle-orm";
+import { eq, desc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import OpenAI from "openai";
 import { notificationService } from './utils/notification-service';
@@ -3278,6 +3283,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     lineItems: z.array(z.object({ description: z.string().trim().min(1).max(240), quantity: z.coerce.number().positive().max(10000), rate: z.coerce.number().min(0).max(1000000) })).min(1).max(50),
     discount: z.coerce.number().min(0).max(1000000).default(0),
     taxRate: z.coerce.number().min(0).max(30).default(0),
+    depositRequired: z.coerce.number().min(0).max(1000000).default(0),
+    paymentUrl: z.string().trim().url().or(z.literal("")).default(""),
     dueDate: z.coerce.date(),
     notes: z.string().trim().max(4000).default(""),
     terms: z.string().trim().max(2000).default("Payment is due by the date shown above."),
@@ -4700,6 +4707,140 @@ export async function registerRoutes(app: Express): Promise<Server> {
         message: 'Failed to process uploaded images'
       });
     }
+  });
+
+  // Unified business operations: one job record connects the customer, quote,
+  // appointment, invoice, expenses, and approved changes.
+  const jobInputSchema = z.object({
+    customerId: z.number().int().positive(),
+    title: z.string().trim().min(2).max(200),
+    description: z.string().trim().max(4000).optional(),
+    address: z.string().trim().max(500).optional(),
+    quoteProposalId: z.number().int().positive().nullable().optional(),
+    invoiceId: z.number().int().positive().nullable().optional(),
+    appointmentId: z.number().int().positive().nullable().optional(),
+  });
+  const jobStatuses = ["lead", "quoted", "approved", "scheduled", "in_progress", "completed", "invoiced", "paid", "closed"] as const;
+
+  app.get("/api/admin/operations/jobs", requireAdmin, async (_req, res) => {
+    const result = await db.execute(sql.raw(`
+      SELECT j.*, c.first_name, c.last_name, c.email, c.phone,
+        COALESCE(i.total, 0) AS invoice_total,
+        COALESCE(i.amount_paid, 0) AS amount_paid,
+        COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id), 0) AS expenses,
+        COALESCE((SELECT SUM(co.amount) FROM change_orders co WHERE co.job_id = j.id AND co.status = 'accepted'), 0) AS approved_changes
+      FROM jobs j JOIN customers c ON c.id = j.customer_id
+      LEFT JOIN invoices i ON i.id = j.invoice_id
+      ORDER BY CASE j.status WHEN 'in_progress' THEN 1 WHEN 'scheduled' THEN 2 WHEN 'approved' THEN 3 WHEN 'quoted' THEN 4 WHEN 'lead' THEN 5 ELSE 6 END, j.updated_at DESC
+    `));
+    res.json((result as any).rows || result);
+  });
+
+  app.post("/api/admin/operations/jobs", requireAdmin, async (req, res) => {
+    try {
+      const input = jobInputSchema.parse(req.body);
+      const [customer] = await db.select().from(customers).where(eq(customers.id, input.customerId));
+      if (!customer) return res.status(404).json({ message: "Customer not found" });
+      const count = await db.execute(sql.raw("SELECT nextval(pg_get_serial_sequence('jobs','id')) AS id"));
+      const id = Number((count as any).rows?.[0]?.id);
+      const [job] = await db.insert(jobs).values({ id, ...input, jobNumber: `JOB-${new Date().getFullYear()}-${String(id).padStart(5, "0")}` }).returning();
+      res.status(201).json(job);
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the job details", errors: error.errors }); throw error; }
+  });
+
+  app.patch("/api/admin/operations/jobs/:id", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const input = z.object({ status: z.enum(jobStatuses) }).parse(req.body);
+    const [job] = await db.update(jobs).set({ status: input.status, updatedAt: new Date() }).where(eq(jobs.id, id)).returning();
+    if (!job) return res.status(404).json({ message: "Job not found" });
+    res.json(job);
+  });
+
+  app.post("/api/admin/operations/jobs/:id/expenses", requireAdmin, async (req, res) => {
+    const jobId = Number(req.params.id);
+    const input = z.object({ category: z.enum(["materials", "labor", "fuel", "fees", "other"]), description: z.string().trim().min(2).max(500), amount: z.number().positive() }).parse(req.body);
+    const [expense] = await db.insert(jobExpenses).values({ jobId, ...input }).returning();
+    res.status(201).json(expense);
+  });
+
+  app.delete("/api/admin/operations/expenses/:id", requireAdmin, async (req, res) => {
+    const [deleted] = await db.delete(jobExpenses).where(eq(jobExpenses.id, Number(req.params.id))).returning();
+    if (!deleted) return res.status(404).json({ message: "Expense not found" });
+    res.json({ message: "Expense removed" });
+  });
+
+  app.post("/api/admin/operations/jobs/:id/change-orders", requireAdmin, async (req, res) => {
+    const jobId = Number(req.params.id);
+    const input = z.object({ description: z.string().trim().min(2).max(2000), amount: z.number() }).parse(req.body);
+    const [order] = await db.insert(changeOrders).values({ jobId, ...input }).returning();
+    res.status(201).json(order);
+  });
+
+  app.patch("/api/admin/operations/change-orders/:id", requireAdmin, async (req, res) => {
+    const input = z.object({ status: z.enum(["draft", "sent", "accepted", "declined"]) }).parse(req.body);
+    const [order] = await db.update(changeOrders).set({ status: input.status, sentAt: input.status === "sent" ? new Date() : undefined, respondedAt: ["accepted", "declined"].includes(input.status) ? new Date() : undefined }).where(eq(changeOrders.id, Number(req.params.id))).returning();
+    if (!order) return res.status(404).json({ message: "Change order not found" });
+    res.json(order);
+  });
+
+  app.get("/api/admin/customers/:id/activity", requireAdmin, async (req, res) => {
+    const customerId = Number(req.params.id);
+    const [customer] = await db.select().from(customers).where(eq(customers.id, customerId));
+    if (!customer) return res.status(404).json({ message: "Customer not found" });
+    const [customerAppointments, customerInvoices, customerJobs] = await Promise.all([
+      db.select().from(appointments).where(eq(appointments.customerId, customerId)),
+      db.select().from(invoices).where(eq(invoices.customerId, customerId)),
+      db.select().from(jobs).where(eq(jobs.customerId, customerId)),
+    ]);
+    const customerQuotes = await db.select({ quote: quotes, proposal: quoteProposals }).from(quotes).leftJoin(quoteProposals, eq(quoteProposals.quoteId, quotes.id)).where(eq(quotes.email, customer.email));
+    const timeline = [
+      { type: "customer", title: "Customer profile created", at: customer.createdAt },
+      ...customerQuotes.map(({ quote, proposal }) => ({ type: "quote", title: `${proposal?.quoteNumber || "Quote request"}: ${quote.serviceNeeded}`, status: proposal?.status || quote.status, at: proposal?.sentAt || quote.createdAt })),
+      ...customerAppointments.map((item) => ({ type: "appointment", title: item.serviceType, status: item.status, at: item.startTimestamptz || item.appointmentDate })),
+      ...customerInvoices.map((item) => ({ type: "invoice", title: `${item.invoiceNumber} · $${item.total.toFixed(2)}`, status: item.status, at: item.issueDate })),
+      ...customerJobs.map((item) => ({ type: "job", title: `${item.jobNumber}: ${item.title}`, status: item.status, at: item.updatedAt })),
+    ].sort((a, b) => new Date(b.at).getTime() - new Date(a.at).getTime());
+    res.json(timeline);
+  });
+
+  app.get("/api/admin/operations/summary", requireAdmin, async (_req, res) => {
+    const [invoiceResult, expenseResult, jobResult] = await Promise.all([
+      db.execute(sql.raw(`SELECT COALESCE(SUM(total),0) billed, COALESCE(SUM(amount_paid),0) collected, COALESCE(SUM(total-amount_paid) FILTER (WHERE status NOT IN ('void','paid')),0) outstanding FROM invoices`)),
+      db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) expenses FROM job_expenses`)),
+      db.execute(sql.raw(`SELECT COUNT(*) FILTER (WHERE status NOT IN ('paid','closed')) active, COUNT(*) FILTER (WHERE status='completed') completed FROM jobs`)),
+    ]);
+    const moneyRow = (invoiceResult as any).rows?.[0] || {}; const expenseRow = (expenseResult as any).rows?.[0] || {}; const jobRow = (jobResult as any).rows?.[0] || {};
+    res.json({ billed: Number(moneyRow.billed || 0), collected: Number(moneyRow.collected || 0), outstanding: Number(moneyRow.outstanding || 0), expenses: Number(expenseRow.expenses || 0), grossProfit: Number(moneyRow.collected || 0) - Number(expenseRow.expenses || 0), activeJobs: Number(jobRow.active || 0), completedJobs: Number(jobRow.completed || 0) });
+  });
+
+  app.get("/api/admin/operations/accounting.csv", requireAdmin, async (_req, res) => {
+    const result = await db.execute(sql.raw(`SELECT i.invoice_number, i.issue_date, i.due_date, c.first_name, c.last_name, c.email, i.status, i.subtotal, i.tax, i.total, i.amount_paid, (i.total-i.amount_paid) balance FROM invoices i JOIN customers c ON c.id=i.customer_id ORDER BY i.issue_date DESC`));
+    const rows = (result as any).rows || []; const fields = ["invoice_number","issue_date","due_date","first_name","last_name","email","status","subtotal","tax","total","amount_paid","balance"];
+    const csv = [fields.join(","), ...rows.map((row: any) => fields.map((field) => `"${String(row[field] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", `attachment; filename="handytech-accounting-${new Date().toISOString().slice(0,10)}.csv"`); res.send(csv);
+  });
+
+  app.post("/api/admin/operations/sync", requireAdmin, async (_req, res) => {
+    const result = await db.execute(sql.raw(`
+      INSERT INTO jobs (customer_id, quote_proposal_id, invoice_id, appointment_id, job_number, title, description, address, status, scheduled_start, scheduled_end)
+      SELECT c.id, qp.id, i.id, a.id, 'JOB-' || EXTRACT(YEAR FROM NOW())::int || '-' || LPAD(nextval(pg_get_serial_sequence('jobs','id'))::text,5,'0'),
+        COALESCE(q.service_needed, a.service_type, i.invoice_number), COALESCE(q.message, i.notes),
+        CONCAT_WS(', ', NULLIF(c.street,''), NULLIF(c.city,''), NULLIF(CONCAT_WS(' ',c.state,c.zip),'')),
+        CASE WHEN i.status='paid' THEN 'paid' WHEN i.id IS NOT NULL THEN 'invoiced' WHEN a.status='completed' THEN 'completed' WHEN a.id IS NOT NULL THEN 'scheduled' WHEN qp.status='accepted' THEN 'approved' ELSE 'quoted' END,
+        a.start_timestamptz, a.end_timestamptz
+      FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id JOIN customers c ON LOWER(c.email)=LOWER(q.email)
+      LEFT JOIN invoices i ON i.quote_proposal_id=qp.id
+      LEFT JOIN LATERAL (
+        SELECT appointment.* FROM appointments appointment
+        WHERE appointment.customer_id=c.id
+          AND LOWER(appointment.service_type)=LOWER(q.service_needed)
+        ORDER BY appointment.start_timestamptz DESC NULLS LAST, appointment.id DESC
+        LIMIT 1
+      ) a ON true
+      WHERE NOT EXISTS (SELECT 1 FROM jobs j WHERE j.quote_proposal_id=qp.id)
+    `));
+    await db.insert(automationLog).values({ automationType: "operations_sync", entityType: "system", entityId: 0, outcome: "success", details: "Quote, appointment, and invoice records synchronized into jobs" });
+    res.json({ message: "Business records synchronized", imported: (result as any).rowCount || 0 });
   });
 
   // Enhanced appointment endpoint with SMS/Email notifications

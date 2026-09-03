@@ -99,6 +99,8 @@ export default function AdminInvoiceManager({
   });
   const [notes, setNotes] = useState("");
   const [terms, setTerms] = useState("Payment is due by the date shown above.");
+  const [depositRequired, setDepositRequired] = useState(0);
+  const [paymentUrl, setPaymentUrl] = useState("");
   const [paymentInvoice, setPaymentInvoice] = useState<InvoiceRow | null>(null);
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("check");
@@ -140,6 +142,8 @@ export default function AdminInvoiceManager({
     setDiscount(0);
     setTaxRate(0);
     setNotes("");
+    setDepositRequired(0);
+    setPaymentUrl("");
   };
   const refresh = () =>
     queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
@@ -152,6 +156,8 @@ export default function AdminInvoiceManager({
           lineItems: items,
           discount,
           taxRate,
+          depositRequired,
+          paymentUrl,
           dueDate: new Date(`${dueDate}T12:00:00`).toISOString(),
           notes,
           terms,
@@ -651,6 +657,16 @@ export default function AdminInvoiceManager({
                   onChange={(event) => setTerms(event.target.value)}
                   rows={2}
                 />
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div>
+                  <Label>Deposit requested</Label>
+                  <Input type="number" min="0" max={total} step="0.01" value={depositRequired} onChange={(event) => setDepositRequired(Number(event.target.value))} placeholder="0.00" />
+                </div>
+                <div>
+                  <Label>Secure online payment link (optional)</Label>
+                  <Input type="url" value={paymentUrl} onChange={(event) => setPaymentUrl(event.target.value)} placeholder="https://square.link/... or Stripe link" />
+                </div>
               </div>
               <Button
                 className="w-full"

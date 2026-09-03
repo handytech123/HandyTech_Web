@@ -75,6 +75,60 @@ export async function runProductionMigration(): Promise<void> {
     `));
     console.log("  Quote proposal storage verified");
 
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS jobs (
+        id SERIAL PRIMARY KEY,
+        customer_id INTEGER NOT NULL REFERENCES customers(id) ON DELETE CASCADE,
+        quote_proposal_id INTEGER REFERENCES quote_proposals(id) ON DELETE SET NULL,
+        invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL,
+        appointment_id INTEGER REFERENCES appointments(id) ON DELETE SET NULL,
+        job_number VARCHAR(32) NOT NULL UNIQUE,
+        title TEXT NOT NULL,
+        description TEXT,
+        address TEXT,
+        status TEXT NOT NULL DEFAULT 'lead',
+        scheduled_start TIMESTAMPTZ,
+        scheduled_end TIMESTAMPTZ,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS job_expenses (
+        id SERIAL PRIMARY KEY,
+        job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+        category TEXT NOT NULL DEFAULT 'materials',
+        description TEXT NOT NULL,
+        amount REAL NOT NULL,
+        expense_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS change_orders (
+        id SERIAL PRIMARY KEY,
+        job_id INTEGER NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+        description TEXT NOT NULL,
+        amount REAL NOT NULL DEFAULT 0,
+        status TEXT NOT NULL DEFAULT 'draft',
+        token_hash VARCHAR(64) UNIQUE,
+        sent_at TIMESTAMPTZ,
+        responded_at TIMESTAMPTZ,
+        signer_name TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS automation_log (
+        id SERIAL PRIMARY KEY,
+        automation_type TEXT NOT NULL,
+        entity_type TEXT NOT NULL,
+        entity_id INTEGER NOT NULL,
+        outcome TEXT NOT NULL,
+        details TEXT,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS jobs_customer_id_idx ON jobs(customer_id);
+      CREATE INDEX IF NOT EXISTS jobs_status_idx ON jobs(status);
+      CREATE INDEX IF NOT EXISTS job_expenses_job_id_idx ON job_expenses(job_id);
+      CREATE INDEX IF NOT EXISTS change_orders_job_id_idx ON change_orders(job_id);
+    `));
+    console.log("  Business operations storage verified");
+
     // Step 1: Add missing columns safely (IF NOT EXISTS prevents errors if already present)
     const columnMigrations = [
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS show_as_quick_pick BOOLEAN DEFAULT false`,
@@ -115,6 +169,8 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS before_image_urls TEXT[]`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS deposit_required REAL NOT NULL DEFAULT 0`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_url TEXT`,
     ];
 
     for (const migration of columnMigrations) {
