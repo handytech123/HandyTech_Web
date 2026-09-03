@@ -1,17 +1,21 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Camera,
   Download,
   Eye,
   FileText,
+  Images,
   Plus,
   Receipt,
   Send,
+  Star,
   Trash2,
   WalletCards,
 } from "lucide-react";
 import type { Customer, Invoice, InvoicePayment } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
+import { createCsrfHeaders } from "@/lib/csrf";
 import { useToast } from "@/hooks/use-toast";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -99,6 +103,13 @@ export default function AdminInvoiceManager({
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("check");
   const [paymentReference, setPaymentReference] = useState("");
+  const [projectInvoice, setProjectInvoice] = useState<InvoiceRow | null>(null);
+  const [projectTitle, setProjectTitle] = useState("");
+  const [projectDescription, setProjectDescription] = useState("");
+  const [projectCategory, setProjectCategory] = useState("general");
+  const [projectLocation, setProjectLocation] = useState("");
+  const [beforePhoto, setBeforePhoto] = useState<File | null>(null);
+  const [afterPhoto, setAfterPhoto] = useState<File | null>(null);
   const { data: rows = [] } = useQuery<InvoiceRow[]>({
     queryKey: ["/api/admin/invoices"],
   });
@@ -237,6 +248,72 @@ export default function AdminInvoiceManager({
         variant: "destructive",
       }),
   });
+  const requestReview = useMutation({
+    mutationFn: async (row: InvoiceRow) => {
+      if (!row.customer) throw new Error("This invoice does not have a customer profile.");
+      const serviceType = row.invoice.lineItems[0]?.description || "HandyTech service";
+      return apiRequest("/api/admin/review-requests/send-manual", "POST", {
+        customerName: `${row.customer.firstName} ${row.customer.lastName}`,
+        customerEmail: row.customer.email,
+        serviceType: serviceType.slice(0, 160),
+        personalMessage: `Thank you for choosing HandyTech Solutions for ${serviceType}.`,
+      });
+    },
+    onSuccess: (_data, row) =>
+      toast({
+        title: "Review request sent",
+        description: `The review link was emailed to ${row.customer?.firstName}.`,
+      }),
+    onError: (error: Error) =>
+      toast({ title: "Review request not sent", description: error.message, variant: "destructive" }),
+  });
+  const addProject = useMutation({
+    mutationFn: async () => {
+      if (!afterPhoto) throw new Error("Choose an After photo for the gallery cover.");
+      const formData = new FormData();
+      formData.append("images", afterPhoto);
+      if (beforePhoto) formData.append("images", beforePhoto);
+      formData.append("hasBeforeImage", beforePhoto ? "true" : "false");
+      formData.append("title", projectTitle.trim());
+      formData.append("description", projectDescription.trim());
+      formData.append("category", projectCategory);
+      if (projectLocation.trim()) formData.append("location", projectLocation.trim());
+      formData.append("completionDate", new Date().toISOString());
+      formData.append("featured", "false");
+      formData.append("videoUrls", "[]");
+      const headers = await createCsrfHeaders();
+      const response = await fetch("/api/admin/gallery", {
+        method: "POST",
+        headers,
+        body: formData,
+        credentials: "include",
+      });
+      if (!response.ok) {
+        const result = await response.json().catch(() => null);
+        throw new Error(result?.message || "Project photos could not be saved.");
+      }
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
+      setProjectInvoice(null);
+      setBeforePhoto(null);
+      setAfterPhoto(null);
+      toast({ title: "Before and after project added", description: "It is now available in Gallery Management." });
+    },
+    onError: (error: Error) =>
+      toast({ title: "Photos not added", description: error.message, variant: "destructive" }),
+  });
+  const openProjectUpload = (row: InvoiceRow) => {
+    const service = row.invoice.lineItems[0]?.description || "Completed project";
+    const customer = row.customer;
+    setProjectInvoice(row);
+    setProjectTitle(service);
+    setProjectDescription(`Completed ${service.toLowerCase()} for ${customer ? `${customer.firstName} ${customer.lastName}` : "a HandyTech customer"}.`);
+    setProjectLocation(customer ? [customer.city, customer.state].filter(Boolean).join(", ") : "");
+    setBeforePhoto(null);
+    setAfterPhoto(null);
+  };
   const filtered = customers
     .filter((customer) =>
       `${customer.firstName} ${customer.lastName} ${customer.email} ${customer.phone || ""}`
@@ -639,6 +716,23 @@ export default function AdminInvoiceManager({
                         Send receipt
                       </Button>
                     )}
+                    {row.invoice.status === "paid" && (
+                      <Button size="sm" variant="outline" onClick={() => openProjectUpload(row)}>
+                        <Images className="mr-1 h-4 w-4" />
+                        Add Before/After
+                      </Button>
+                    )}
+                    {row.invoice.status === "paid" && row.customer && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => requestReview.mutate(row)}
+                        disabled={requestReview.isPending}
+                      >
+                        <Star className="mr-1 h-4 w-4" />
+                        Request Review
+                      </Button>
+                    )}
                     {row.invoice.amountPaid === 0 &&
                       row.invoice.status !== "void" && (
                         <Button
@@ -719,6 +813,66 @@ export default function AdminInvoiceManager({
               onClick={() => recordPayment.mutate()}
             >
               {recordPayment.isPending ? "Recording…" : "Record Payment"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+      <Dialog open={!!projectInvoice} onOpenChange={(value) => !value && setProjectInvoice(null)}>
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Add Before &amp; After Project</DialogTitle>
+            <DialogDescription>
+              Add photos from this completed invoice. You can edit, feature, or publish the project from Gallery Management afterward.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Project title</Label>
+              <Input value={projectTitle} onChange={(event) => setProjectTitle(event.target.value)} />
+            </div>
+            <div>
+              <Label>Description</Label>
+              <Textarea rows={3} value={projectDescription} onChange={(event) => setProjectDescription(event.target.value)} />
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>Category</Label>
+                <Select value={projectCategory} onValueChange={setProjectCategory}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="general">General</SelectItem>
+                    <SelectItem value="plumbing">Plumbing</SelectItem>
+                    <SelectItem value="electrical">Electrical</SelectItem>
+                    <SelectItem value="carpentry">Carpentry</SelectItem>
+                    <SelectItem value="tech">Technology</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div>
+                <Label>Location</Label>
+                <Input value={projectLocation} onChange={(event) => setProjectLocation(event.target.value)} placeholder="City, State" />
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <label className="cursor-pointer rounded-lg border-2 border-dashed p-4 text-center">
+                <Camera className="mx-auto mb-2 h-6 w-6 text-slate-500" />
+                <span className="block font-medium">Before photo</span>
+                <span className="block truncate text-xs text-slate-500">{beforePhoto?.name || "Optional"}</span>
+                <Input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setBeforePhoto(event.target.files?.[0] || null)} />
+              </label>
+              <label className="cursor-pointer rounded-lg border-2 border-dashed border-brand-primary p-4 text-center">
+                <Camera className="mx-auto mb-2 h-6 w-6 text-brand-primary" />
+                <span className="block font-medium">After photo *</span>
+                <span className="block truncate text-xs text-slate-500">{afterPhoto?.name || "Used as the gallery cover"}</span>
+                <Input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setAfterPhoto(event.target.files?.[0] || null)} />
+              </label>
+            </div>
+            <Button
+              className="w-full"
+              disabled={!projectTitle.trim() || !projectDescription.trim() || !afterPhoto || addProject.isPending}
+              onClick={() => addProject.mutate()}
+            >
+              {addProject.isPending ? "Uploading…" : "Add Project to Gallery"}
             </Button>
           </div>
         </DialogContent>
