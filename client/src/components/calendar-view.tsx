@@ -93,12 +93,12 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <CardTitle className="flex items-center gap-2">
               <Calendar className="h-5 w-5" />
               Appointment Calendar
             </CardTitle>
-            <div className="flex items-center gap-2">
+            <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start">
               <Button 
                 variant="outline" 
                 size="sm" 
@@ -106,7 +106,7 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
               >
                 ←
               </Button>
-              <span className="text-lg font-semibold min-w-[160px] text-center">
+              <span className="min-w-0 flex-1 text-center text-base font-semibold sm:min-w-[160px] sm:text-lg">
                 {format(currentDate, 'MMMM yyyy')}
               </span>
               <Button 
@@ -122,8 +122,8 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
         <CardContent>
           <div className="grid grid-cols-7 gap-1 mb-4">
             {['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].map(day => (
-              <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
-                {day}
+              <div key={day} className="py-1 text-center text-xs font-medium text-gray-500 sm:p-2 sm:text-sm">
+                <span className="sm:hidden">{day.slice(0, 1)}</span><span className="hidden sm:inline">{day}</span>
               </div>
             ))}
           </div>
@@ -141,7 +141,7 @@ export default function CalendarView({ appointments = [], onEventClick }: Calend
                 <div
                   key={day.toISOString()}
                   className={`
-                    min-h-[80px] p-1 border cursor-pointer transition-colors
+                    min-h-[54px] p-0.5 border cursor-pointer transition-colors sm:min-h-[80px] sm:p-1
                     ${isCurrentMonth ? 'bg-white hover:bg-gray-50' : 'bg-gray-100 text-gray-400'}
                     ${isSelected ? 'ring-2 ring-brand-primary bg-brand-primary/5' : ''}
                     ${isTodayDate ? 'bg-blue-50 border-blue-200' : 'border-gray-200'}

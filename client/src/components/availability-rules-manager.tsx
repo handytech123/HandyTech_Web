@@ -172,7 +172,7 @@ export default function AvailabilityRulesManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <CardTitle className="flex items-center gap-2">
               <Clock className="h-5 w-5" />
               Availability Rules Management
@@ -180,7 +180,7 @@ export default function AvailabilityRulesManager() {
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
                 <Button 
-                  className="bg-brand-primary hover:bg-brand-primary-dark"
+                  className="w-full bg-brand-primary hover:bg-brand-primary-dark sm:w-auto"
                   onClick={() => setEditingRule(null)}
                   data-testid="button-add-rule"
                 >
@@ -223,7 +223,7 @@ export default function AvailabilityRulesManager() {
                       )}
                     />
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <FormField
                         control={form.control}
                         name="startTime"

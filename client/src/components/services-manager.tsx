@@ -200,14 +200,14 @@ export default function ServicesManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <CardTitle className="flex items-center gap-2">
               <Settings className="h-5 w-5" />
               Services Management
             </CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-brand-primary hover:bg-brand-primary-dark" onClick={() => setEditingService(null)}>
+                <Button className="w-full bg-brand-primary hover:bg-brand-primary-dark sm:w-auto" onClick={() => setEditingService(null)}>
                   <Plus className="h-4 w-4 mr-2" />
                   Add Service
                 </Button>
@@ -217,7 +217,7 @@ export default function ServicesManager() {
                   <DialogTitle>{editingService ? "Edit Service" : "Add New Service"}</DialogTitle>
                 </DialogHeader>
                 <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="name">Service Name</Label>
                       <Input {...form.register("name")} placeholder="e.g., Outlet Installation" />
@@ -256,7 +256,7 @@ export default function ServicesManager() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="basePrice">Base Price ($)</Label>
                       <Input
@@ -287,7 +287,7 @@ export default function ServicesManager() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="estimatedDuration">Estimated Duration</Label>
                       <Input
@@ -315,7 +315,7 @@ export default function ServicesManager() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                     <div className="space-y-2">
                       <Label htmlFor="displayOrder">Display Order</Label>
                       <Input

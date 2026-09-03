@@ -379,7 +379,7 @@ export default function AdminInvoiceManager({
 
   return (
     <Card>
-      <CardHeader className="flex flex-row items-start justify-between gap-4">
+      <CardHeader className="flex flex-col items-start justify-between gap-4 sm:flex-row">
         <div>
           <CardTitle>Invoices</CardTitle>
           <CardDescription>
@@ -388,7 +388,7 @@ export default function AdminInvoiceManager({
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button>
+            <Button className="w-full sm:w-auto">
               <Plus className="mr-2 h-4 w-4" />
               New Invoice
             </Button>
@@ -708,7 +708,7 @@ export default function AdminInvoiceManager({
                       </p>
                     )}
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
                     <Button asChild size="sm" variant="outline">
                       <a
                         href={`/api/admin/invoices/${row.invoice.id}/pdf`}
@@ -855,7 +855,7 @@ export default function AdminInvoiceManager({
         </DialogContent>
       </Dialog>
       <Dialog open={!!projectInvoice} onOpenChange={(value) => !value && setProjectInvoice(null)}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
+        <DialogContent className="max-h-[96dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:max-h-[90vh] sm:p-6">
           <DialogHeader>
             <DialogTitle>Add Before &amp; After Project</DialogTitle>
             <DialogDescription>

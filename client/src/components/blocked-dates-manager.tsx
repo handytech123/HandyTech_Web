@@ -293,14 +293,14 @@ export default function BlockedTimesManager() {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-center">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-center">
             <CardTitle className="flex items-center gap-2">
               <CalendarIcon className="h-5 w-5" />
               Blocked Times Management
             </CardTitle>
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="bg-brand-primary hover:bg-brand-primary-dark">
+                <Button className="w-full bg-brand-primary hover:bg-brand-primary-dark sm:w-auto">
                   <Plus className="h-4 w-4 mr-2" />
                   Block Time
                 </Button>
@@ -441,7 +441,7 @@ export default function BlockedTimesManager() {
                   </div>
 
                   {!isFullDay && (
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label>Start Time</Label>
                         <Select
@@ -511,7 +511,7 @@ export default function BlockedTimesManager() {
                 .map((blockedTime) => (
                   <div
                     key={blockedTime.id}
-                    className="flex items-center justify-between p-4 border rounded-lg bg-red-50 border-red-200"
+                    className="flex flex-col gap-3 p-4 border rounded-lg bg-red-50 border-red-200 sm:flex-row sm:items-center sm:justify-between"
                   >
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">

@@ -453,7 +453,7 @@ function AppointmentsTab({
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <CalendarDays className="h-5 w-5" />
@@ -461,9 +461,9 @@ function AppointmentsTab({
               </CardTitle>
               <CardDescription>View and manage customer appointments</CardDescription>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:items-center sm:flex-wrap">
               <Select value={bookingTypeFilter} onValueChange={(value: 'all' | 'consultation' | 'service') => setBookingTypeFilter(value)}>
-                <SelectTrigger className="w-[175px]" data-testid="select-booking-type-filter"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="col-span-2 w-full sm:w-[175px]" data-testid="select-booking-type-filter"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All bookings</SelectItem>
                   <SelectItem value="consultation">Consultations</SelectItem>
@@ -523,7 +523,7 @@ function AppointmentsTab({
                     className="border rounded-lg p-4 bg-white dark:bg-gray-800"
                     data-testid={`card-appointment-${appointment.id}`}
                   >
-                    <div className="flex justify-between items-start mb-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start mb-3">
                       <div>
                         <h3 className="font-semibold text-lg" data-testid={`text-customer-name-${appointment.id}`}>
                           {appointment.firstName} {appointment.lastName}
@@ -546,7 +546,7 @@ function AppointmentsTab({
                           </div>
                         )}
                       </div>
-                      <div className="text-right">
+                      <div className="text-left sm:text-right">
                         <Badge 
                           className={`${getStatusColor(appointment.status)} mb-2`}
                           data-testid={`badge-status-${appointment.id}`}
@@ -791,7 +791,7 @@ function AppointmentsTab({
                   Book Today
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={addAppointmentForm.control}
                   name="appointmentDate"
@@ -1014,7 +1014,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
     <>
       <Card>
         <CardHeader>
-          <div className="flex justify-between items-start">
+          <div className="flex flex-col gap-3 sm:flex-row sm:justify-between sm:items-start">
             <div>
               <CardTitle className="flex items-center gap-2">
                 <Users className="h-5 w-5" />
@@ -1024,7 +1024,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
             </div>
             <Dialog open={addCustomerDialogOpen} onOpenChange={setAddCustomerDialogOpen}>
               <DialogTrigger asChild>
-                <Button className="flex items-center gap-2" data-testid="button-add-customer">
+                <Button className="flex w-full items-center gap-2 sm:w-auto" data-testid="button-add-customer">
                   <UserPlus className="h-4 w-4" />
                   Add Customer
                 </Button>
@@ -1038,7 +1038,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                 </DialogHeader>
                 <Form {...form}>
                   <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4" data-testid="form-add-customer">
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <FormField
                         control={form.control}
                         name="firstName"
@@ -1067,7 +1067,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                       />
                     </div>
                     
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                       <FormField
                         control={form.control}
                         name="email"
@@ -1135,7 +1135,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                       )}
                     />
 
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                       <FormField
                         control={form.control}
                         name="city"
@@ -1208,7 +1208,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                 className="border rounded-lg p-4 bg-white dark:bg-gray-800"
                 data-testid={`card-customer-${customer.id}`}
               >
-                <div className="flex justify-between items-start">
+                <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-start">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4 flex-1">
                     <div>
                       <h3 className="font-semibold text-lg" data-testid={`text-customer-name-${customer.id}`}>
@@ -1261,15 +1261,15 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                     </div>
                   </div>
                   
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-3 gap-2 sm:flex">
                     <Button
                       size="sm"
                       onClick={() => onCreateQuote(customer)}
-                      className="flex items-center gap-1"
+                      className="flex items-center gap-1 px-2"
                       data-testid={`button-create-quote-${customer.id}`}
                     >
                       <DollarSign className="h-4 w-4" />
-                      Create Quote
+                      <span className="hidden sm:inline">Create </span>Quote
                     </Button>
                     <Button
                       variant="outline"
@@ -1342,7 +1342,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
           </DialogHeader>
           <Form {...editForm}>
             <form onSubmit={editForm.handleSubmit(onEditSubmit)} className="space-y-4" data-testid="form-edit-customer">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={editForm.control}
                   name="firstName"
@@ -1371,7 +1371,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                 />
               </div>
               
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <FormField
                   control={editForm.control}
                   name="email"
@@ -1439,7 +1439,7 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                 )}
               />
 
-              <div className="grid grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
                 <FormField
                   control={editForm.control}
                   name="city"
@@ -2826,19 +2826,19 @@ function AuthenticatedDashboard() {
   const pendingQuotes = quotes.filter(q => q.status === "pending").length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
+    <div className="admin-dashboard min-h-screen overflow-x-hidden bg-gradient-to-br from-gray-50 to-gray-100 p-2 dark:from-gray-900 dark:to-gray-800 sm:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="mb-8">
-          <div className="flex justify-between items-center">
+        <div className="mb-5 sm:mb-8">
+          <div className="flex flex-col gap-4 sm:flex-row sm:justify-between sm:items-center">
             <div>
-              <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+              <h1 className="text-2xl font-bold leading-tight text-gray-900 dark:text-white mb-2 sm:text-3xl">
                 HandyTech Solutions - Admin Dashboard
               </h1>
               <p className="text-gray-600 dark:text-gray-300">
                 Manage your business operations and customer relationships
               </p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between gap-3 sm:justify-start">
               <Link 
                 href="/" 
                 className="text-brand-primary hover:underline inline-flex items-center gap-1 text-sm"
@@ -2860,41 +2860,50 @@ function AuthenticatedDashboard() {
         </div>
 
         {/* KPI Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+        <div className="grid grid-cols-3 gap-2 mb-5 sm:gap-6 sm:mb-8">
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Customers</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium sm:text-sm">Customers</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{customers.length}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl font-bold sm:text-2xl">{customers.length}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Monthly Revenue</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium sm:text-sm">Revenue</CardTitle>
               <DollarSign className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">${totalRevenue.toFixed(2)}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="truncate text-lg font-bold sm:text-2xl">${totalRevenue.toFixed(2)}</div>
             </CardContent>
           </Card>
 
           <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Pending Quotes</CardTitle>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
+              <CardTitle className="text-xs font-medium sm:text-sm">Quotes</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{pendingQuotes}</div>
+            <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
+              <div className="text-xl font-bold sm:text-2xl">{pendingQuotes}</div>
             </CardContent>
           </Card>
 
         </div>
 
         <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-          <TabsList className="flex w-full flex-wrap xl:grid xl:grid-cols-12 gap-1 h-auto p-1">
+          <div className="sticky top-0 z-20 rounded-lg border bg-white/95 p-3 shadow-sm backdrop-blur md:hidden">
+            <label className="mb-1 block text-xs font-semibold uppercase tracking-wide text-slate-500">Admin section</label>
+            <Select value={activeTab} onValueChange={setActiveTab}>
+              <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <TabsList className="hidden w-full flex-wrap gap-1 h-auto p-1 md:flex xl:grid xl:grid-cols-12">
             <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
               Services
             </TabsTrigger>
@@ -2993,7 +3002,7 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="quotes">
             <Card>
-              <CardHeader className="flex flex-row items-start justify-between gap-4">
+              <CardHeader className="flex flex-col items-start justify-between gap-4 sm:flex-row">
                 <div><CardTitle>Quote Requests</CardTitle><CardDescription>Manage incoming requests or start a quote for an existing customer</CardDescription></div>
                 <Dialog open={newQuoteDialogOpen} onOpenChange={setNewQuoteDialogOpen}>
                   <DialogTrigger asChild><Button><Plus className="mr-2 h-4 w-4" />New Customer Quote</Button></DialogTrigger>
