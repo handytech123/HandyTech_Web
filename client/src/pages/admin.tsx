@@ -2180,6 +2180,17 @@ function GalleryTab() {
                       )}
                     />
 
+                    <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-950">
+                      <p className="font-semibold">Search visibility checklist</p>
+                      <ul className="mt-2 grid gap-1 sm:grid-cols-2">
+                        <li>{uploadForm.watch("title")?.trim().length >= 12 ? "✓" : "○"} Descriptive project title</li>
+                        <li>{uploadForm.watch("location")?.trim() ? "✓" : "○"} City or service area added</li>
+                        <li>{uploadForm.watch("description")?.trim().length >= 80 ? "✓" : "○"} Detailed description (80+ characters)</li>
+                        <li>{finishedImagePreviews.length > 0 || Boolean(imagePreview) ? "✓" : "○"} At least one project photo</li>
+                      </ul>
+                      <p className="mt-2 text-xs text-emerald-800">Do not enter a customer’s full street address. Use only the city or neighborhood.</p>
+                    </div>
+
                     <FormField
                       control={uploadForm.control}
                       name="videoUrls"

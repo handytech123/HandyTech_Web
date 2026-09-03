@@ -133,11 +133,11 @@ function ProjectCard({ project, onClick }: { project: ProjectGallery; onClick: (
       <div className="relative aspect-square overflow-hidden bg-muted">
         <img
           src={project.imageUrl}
-          alt={project.title}
+          alt={`${project.title}${project.location ? ` in ${project.location}` : ""} completed by HandyTech Solutions`}
           className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-110"
           loading="lazy"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-100 transition-opacity duration-300 sm:opacity-0 sm:group-hover:opacity-100" />
         <Badge 
           className={`absolute top-2 left-2 ${categoryInfo.color} text-white`}
           data-testid={`badge-category-${project.id}`}
@@ -153,7 +153,7 @@ function ProjectCard({ project, onClick }: { project: ProjectGallery; onClick: (
             Before/After
           </Badge>
         )}
-        <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform translate-y-2 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-300">
+        <div className="absolute bottom-0 left-0 right-0 p-4 text-white transform opacity-100 transition-all duration-300 sm:translate-y-2 sm:opacity-0 sm:group-hover:translate-y-0 sm:group-hover:opacity-100">
           <h3 className="font-semibold text-lg mb-1" data-testid={`text-title-${project.id}`}>
             {project.title}
           </h3>

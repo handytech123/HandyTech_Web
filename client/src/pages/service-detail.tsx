@@ -5,13 +5,14 @@ import { ArrowLeft, CheckCircle, Clock, MapPin } from "lucide-react";
 import Navigation from "@/components/navigation";
 import Footer from "@/components/footer";
 import { Button } from "@/components/ui/button";
-import type { Service } from "@shared/schema";
+import type { ProjectGallery, Service } from "@shared/schema";
 import { seoSlug, SITE_URL, SERVICE_AREAS } from "@shared/seo";
 import { SERVICE_SEO_CONTENT } from "@shared/service-content";
 
 export default function ServiceDetailPage() {
   const { slug } = useParams<{ slug: string }>();
   const { data: services = [], isLoading } = useQuery<Service[]>({ queryKey: ["/api/services", { active: "true" }], queryFn: () => fetch("/api/services?active=true").then((response) => response.json()) });
+  const { data: projectData } = useQuery<{ items: ProjectGallery[] }>({ queryKey: ["/api/gallery", "service-links"], queryFn: () => fetch("/api/gallery?page=1&limit=50").then((response) => response.json()) });
   const service = services.find((item) => seoSlug(item.name) === slug);
   if (!isLoading && !service) return <><Navigation /><main className="mx-auto min-h-[70vh] max-w-3xl px-4 pt-36 text-center"><h1 className="text-3xl font-bold">Service not found</h1><Button asChild className="mt-6"><Link href="/services">Browse all services</Link></Button></main><Footer /></>;
   if (!service) return <main className="min-h-screen pt-40 text-center">Loading service...</main>;
@@ -19,6 +20,7 @@ export default function ServiceDetailPage() {
   const canonical = `${SITE_URL}/services/${seoSlug(service.name)}`;
   const content = SERVICE_SEO_CONTENT[seoSlug(service.name)];
   const description = content?.metaDescription || service.description.slice(0, 160);
+  const relatedProjects = (projectData?.items || []).filter((project) => project.category.toLowerCase() === service.category.toLowerCase()).slice(0, 3);
   const schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Service", name: service.name, description, provider: { "@type": "LocalBusiness", name: "HandyTech Solutions", telephone: "+1-314-325-4575", url: SITE_URL }, areaServed: SERVICE_AREAS.map((name) => `${name}, MO`), url: canonical }, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Services", item: `${SITE_URL}/services` }, { "@type": "ListItem", position: 3, name: service.name, item: canonical }] }] };
 
   return <div className="min-h-screen bg-white">
@@ -44,6 +46,7 @@ export default function ServiceDetailPage() {
         <section className="rounded-3xl border bg-white p-8 sm:p-10"><h2 className="text-2xl font-bold">How the project works</h2><ol className="mt-7 grid gap-5">{content.process.map((item, index) => <li key={item} className="flex gap-4"><span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand-primary font-bold text-white">{index + 1}</span><p className="pt-1 text-slate-700">{item}</p></li>)}</ol></section>
       </>}
       <section className="py-14"><h2 className="text-2xl font-bold">Why choose HandyTech?</h2><ul className="mt-6 grid gap-4 sm:grid-cols-2">{["Clear project communication", "Professional, careful workmanship", "Local St. Louis-area service", "Quote and scheduling options online"].map((item) => <li key={item} className="flex gap-3"><CheckCircle className="mt-0.5 h-5 w-5 text-green-600" />{item}</li>)}</ul></section>
+      {relatedProjects.length > 0 && <section className="pb-14"><h2 className="text-2xl font-bold">Related completed projects</h2><div className="mt-6 grid gap-5 sm:grid-cols-3">{relatedProjects.map((project) => <Link key={project.id} href={`/projects/${seoSlug(project.title)}`} className="overflow-hidden rounded-2xl border bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-md"><img src={project.imageUrl} alt={`${project.title} completed project`} loading="lazy" className="aspect-[4/3] w-full object-cover" /><div className="p-4"><h3 className="font-semibold text-slate-900">{project.title}</h3>{project.location && <p className="mt-1 text-sm text-slate-500">{project.location}</p>}</div></Link>)}</div></section>}
     </main>
     <Footer />
   </div>;

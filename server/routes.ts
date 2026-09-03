@@ -102,7 +102,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const xmlEscape = (value: string) => value.replace(/[<>&'\"]/g, (character) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;", "'": "&apos;", '\"': "&quot;" }[character] || character));
     try {
       const [services, projects] = await Promise.all([storage.getAllServices(), storage.getAllProjectGalleryItems()]);
-      const entries: Array<{ loc: string; priority: string; changefreq: string; lastmod?: string }> = [
+      const absoluteMedia = (value: string) => value.startsWith("http") ? value : `${SITE_URL}${value.startsWith("/") ? "" : "/"}${value}`;
+      type SitemapEntry = { loc: string; priority: string; changefreq: string; lastmod?: string; images?: string[]; videos?: Array<{ url: string; thumbnail: string; title: string; description: string }> };
+      const entries: SitemapEntry[] = [
         { loc: `${SITE_URL}/`, priority: "1.0", changefreq: "weekly" },
         { loc: `${SITE_URL}/services`, priority: "0.9", changefreq: "weekly" },
         { loc: `${SITE_URL}/gallery`, priority: "0.8", changefreq: "weekly" },
@@ -110,11 +112,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { loc: `${SITE_URL}/privacy-policy`, priority: "0.2", changefreq: "yearly" },
         { loc: `${SITE_URL}/terms`, priority: "0.2", changefreq: "yearly" },
         ...services.filter((service) => service.isActive).map((service) => ({ loc: `${SITE_URL}/services/${seoSlug(service.name)}`, priority: "0.8", changefreq: "monthly" })),
-        ...projects.map((project) => ({ loc: `${SITE_URL}/projects/${seoSlug(project.title)}`, priority: "0.7", changefreq: "monthly", lastmod: new Date(project.completionDate).toISOString().slice(0, 10) })),
+        ...projects.map((project) => {
+          const images = Array.from(new Set([project.imageUrl, project.beforeImageUrl, ...(project.imageUrls || []), ...(project.beforeImageUrls || [])].filter((value): value is string => Boolean(value)))).map(absoluteMedia);
+          const thumbnail = images[0];
+          return {
+            loc: `${SITE_URL}/projects/${seoSlug(project.title)}`,
+            priority: "0.7",
+            changefreq: "monthly",
+            lastmod: new Date(project.completionDate).toISOString().slice(0, 10),
+            images,
+            videos: thumbnail ? (project.videoUrls || []).map((url) => ({ url: absoluteMedia(url), thumbnail, title: project.title, description: project.description.slice(0, 180) })) : [],
+          };
+        }),
         ...SERVICE_AREA_CONTENT.map((area) => ({ loc: `${SITE_URL}/service-areas/${area.slug}`, priority: "0.8", changefreq: "monthly" })),
       ];
-      const urls = entries.map((entry) => `<url><loc>${xmlEscape(entry.loc)}</loc>${entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ""}<changefreq>${entry.changefreq}</changefreq><priority>${entry.priority}</priority></url>`).join("");
-      res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${urls}</urlset>`);
+      const urls = entries.map((entry) => {
+        const images = (entry.images || []).map((url) => `<image:image><image:loc>${xmlEscape(url)}</image:loc></image:image>`).join("");
+        const videos = (entry.videos || []).map((video) => `<video:video><video:thumbnail_loc>${xmlEscape(video.thumbnail)}</video:thumbnail_loc><video:title>${xmlEscape(video.title)}</video:title><video:description>${xmlEscape(video.description)}</video:description><video:content_loc>${xmlEscape(video.url)}</video:content_loc></video:video>`).join("");
+        return `<url><loc>${xmlEscape(entry.loc)}</loc>${entry.lastmod ? `<lastmod>${entry.lastmod}</lastmod>` : ""}<changefreq>${entry.changefreq}</changefreq><priority>${entry.priority}</priority>${images}${videos}</url>`;
+      }).join("");
+      res.type("application/xml").set("Cache-Control", "public, max-age=3600").send(`<?xml version="1.0" encoding="UTF-8"?><urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9" xmlns:image="http://www.google.com/schemas/sitemap-image/1.1" xmlns:video="http://www.google.com/schemas/sitemap-video/1.1">${urls}</urlset>`);
     } catch (error) {
       console.error("Sitemap generation failed:", error);
       res.status(500).type("text/plain").send("Sitemap temporarily unavailable");
