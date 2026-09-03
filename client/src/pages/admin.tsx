@@ -383,13 +383,22 @@ function AppointmentsTab({
 
   const addAppointmentMutation = useMutation({
     mutationFn: async (data: AdminAddAppointmentForm) => {
-      return await apiRequest("/api/admin/appointments", "POST", data);
+      return (await apiRequest("/api/admin/appointments", "POST", data)).json();
     },
-    onSuccess: () => {
+    onSuccess: (createdAppointment: { calendarSynced?: boolean; calendarSyncMessage?: string | null }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schedule"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/admin/google/status"] });
       setAddAppointmentOpen(false);
       addAppointmentForm.reset();
-      toast({ title: "Appointment created", description: "The appointment has been added successfully." });
+      if (createdAppointment.calendarSynced === false) {
+        toast({
+          title: "Appointment saved — Calendar not synced",
+          description: createdAppointment.calendarSyncMessage || "Reconnect Google Calendar from the Calendar tab. The site will retry automatically.",
+          variant: "destructive",
+        });
+      } else {
+        toast({ title: "Appointment created", description: "The appointment was added to HandyTech and Google Calendar." });
+      }
     },
     onError: (error: Error) => {
       toast({ title: "Error", description: error.message || "Failed to create appointment.", variant: "destructive" });

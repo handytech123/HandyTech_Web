@@ -1367,6 +1367,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Admin-created appointments should reach Google Calendar immediately,
       // with a navigable service location just like customer-created bookings.
+      let calendarSynced = false;
+      let calendarSyncMessage: string | null = null;
       try {
         const event = await createEvent({
           summary: `${bookingType === "consultation" ? "CONSULTATION" : "SERVICE"} — ${firstName} ${lastName} — ${serviceType}`,
@@ -1381,12 +1383,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
           attendees: [email],
           appointmentId: appointment.id,
         });
-        if (event.id) await storage.updateAppointmentGoogleEventId(appointment.id, event.id);
+        if (event.id) {
+          await storage.updateAppointmentGoogleEventId(appointment.id, event.id);
+          calendarSynced = true;
+        }
       } catch (googleError) {
-        console.error("Admin appointment Google Calendar sync failed:", googleError instanceof Error ? googleError.message : googleError);
+        const googleMessage = googleError instanceof Error ? googleError.message : String(googleError);
+        calendarSyncMessage = googleMessage === "invalid_grant"
+          ? "Google Calendar authorization needs to be renewed. Open the Calendar tab and reconnect it."
+          : "Google Calendar sync failed. The site will retry automatically.";
+        console.error("Admin appointment Google Calendar sync failed:", googleMessage);
       }
 
-      res.status(201).json(appointment);
+      res.status(201).json({ ...appointment, calendarSynced, calendarSyncMessage });
     } catch (error) {
       console.error("Admin create appointment error:", error);
       res.status(500).json({ message: "Failed to create appointment" });
