@@ -366,7 +366,8 @@ export default function CustomerPortal() {
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric' 
+      day: 'numeric',
+      timeZone: 'America/Chicago'
     });
   };
 
@@ -374,7 +375,7 @@ export default function CustomerPortal() {
     if (appointment.startTimestamptz) {
       const startTime = new Date(appointment.startTimestamptz);
       const endTime = appointment.endTimestamptz ? new Date(appointment.endTimestamptz) : new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
-      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Chicago' })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Chicago' })} CT`;
     }
     return appointment.appointmentTime || 'TBD';
   };
@@ -819,7 +820,8 @@ function AppointmentsCard({ appointments, onReschedule }: AppointmentsCardProps)
       weekday: 'long', 
       year: 'numeric', 
       month: 'long', 
-      day: 'numeric' 
+      day: 'numeric',
+      timeZone: 'America/Chicago'
     });
   };
 
@@ -827,7 +829,7 @@ function AppointmentsCard({ appointments, onReschedule }: AppointmentsCardProps)
     if (appointment.startTimestamptz) {
       const startTime = new Date(appointment.startTimestamptz);
       const endTime = appointment.endTimestamptz ? new Date(appointment.endTimestamptz) : new Date(startTime.getTime() + 2 * 60 * 60 * 1000);
-      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
+      return `${startTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Chicago' })} - ${endTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/Chicago' })} CT`;
     }
     return appointment.appointmentTime || 'TBD';
   };

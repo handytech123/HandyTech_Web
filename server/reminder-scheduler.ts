@@ -3,6 +3,7 @@ import { EmailService } from './utils/mail';
 import type { Appointment } from '../shared/schema';
 import { smsService } from './utils/sms-service';
 import { createEvent, findEventByAppointmentId } from './utils/google.js';
+import { fromZonedTime } from 'date-fns-tz';
 
 export class ReminderScheduler {
   private emailService: EmailService;
@@ -25,7 +26,7 @@ export class ReminderScheduler {
 
   private appointmentDateLabel(appointment: Appointment): string {
     const [year, month, day] = this.appointmentDateKey(appointment).split('-').map(Number);
-    return new Date(year, month - 1, day, 12).toLocaleDateString('en-US');
+    return new Date(Date.UTC(year, month - 1, day, 12)).toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
   }
 
   // FIXED: Robust appointment date/time parser that handles multiple formats
@@ -59,11 +60,11 @@ export class ReminderScheduler {
         }
         
         // Create date with converted 24-hour format
-        const appointmentDateTime = new Date(`${appointmentDateStr}T${hour24.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:00`);
+        const appointmentDateTime = fromZonedTime(`${appointmentDateStr}T${hour24.toString().padStart(2, '0')}:${min.toString().padStart(2, '0')}:00`, 'America/Chicago');
         return appointmentDateTime;
       } else if (/^\d{1,2}:\d{2}$/.test(timeStr)) {
         // 24-hour format: "10:00" or "14:30"
-        const appointmentDateTime = new Date(`${appointmentDateStr}T${timeStr}:00`);
+        const appointmentDateTime = fromZonedTime(`${appointmentDateStr}T${timeStr}:00`, 'America/Chicago');
         return appointmentDateTime;
       } else {
         console.error(`Invalid time format for appointment ${appointment.id}: "${timeStr}"`);

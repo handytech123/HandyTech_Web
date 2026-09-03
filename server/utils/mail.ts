@@ -151,7 +151,8 @@ export class EmailService {
       weekday: 'long',
       year: 'numeric',
       month: 'long',
-      day: 'numeric'
+      day: 'numeric',
+      timeZone: 'America/Chicago'
     });
   }
 
@@ -174,13 +175,7 @@ export class EmailService {
     const minutes = Number(twentyFourHourMatch[2]);
     if (hours < 0 || hours > 23 || minutes < 0 || minutes > 59) return normalized;
 
-    const date = new Date();
-    date.setHours(hours, minutes, 0, 0);
-    return date.toLocaleTimeString('en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
+    return `${hours % 12 || 12}:${minutes.toString().padStart(2, '0')} ${hours >= 12 ? 'PM' : 'AM'}`;
   }
 
   private formatDateTime(date: Date): string {
@@ -192,7 +187,8 @@ export class EmailService {
       hour: 'numeric',
       minute: '2-digit',
       hour12: true,
-      timeZoneName: 'short'
+      timeZoneName: 'short',
+      timeZone: 'America/Chicago'
     });
   }
 
