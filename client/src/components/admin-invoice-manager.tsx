@@ -108,8 +108,8 @@ export default function AdminInvoiceManager({
   const [projectDescription, setProjectDescription] = useState("");
   const [projectCategory, setProjectCategory] = useState("general");
   const [projectLocation, setProjectLocation] = useState("");
-  const [beforePhoto, setBeforePhoto] = useState<File | null>(null);
-  const [afterPhoto, setAfterPhoto] = useState<File | null>(null);
+  const [beforePhotos, setBeforePhotos] = useState<File[]>([]);
+  const [afterPhotos, setAfterPhotos] = useState<File[]>([]);
   const { data: rows = [] } = useQuery<InvoiceRow[]>({
     queryKey: ["/api/admin/invoices"],
   });
@@ -269,11 +269,14 @@ export default function AdminInvoiceManager({
   });
   const addProject = useMutation({
     mutationFn: async () => {
-      if (!afterPhoto) throw new Error("Choose an After photo for the gallery cover.");
+      if (!afterPhotos.length) throw new Error("Choose at least one After photo for the gallery cover.");
+      if (beforePhotos.length + afterPhotos.length > 10) throw new Error("Choose no more than 10 photos total.");
       const formData = new FormData();
-      formData.append("images", afterPhoto);
-      if (beforePhoto) formData.append("images", beforePhoto);
-      formData.append("hasBeforeImage", beforePhoto ? "true" : "false");
+      afterPhotos.forEach((photo) => formData.append("images", photo));
+      beforePhotos.forEach((photo) => formData.append("images", photo));
+      formData.append("beforeImageCount", String(beforePhotos.length));
+      formData.append("afterImageCount", String(afterPhotos.length));
+      formData.append("hasBeforeImage", beforePhotos.length ? "true" : "false");
       formData.append("title", projectTitle.trim());
       formData.append("description", projectDescription.trim());
       formData.append("category", projectCategory);
@@ -297,8 +300,8 @@ export default function AdminInvoiceManager({
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/gallery"] });
       setProjectInvoice(null);
-      setBeforePhoto(null);
-      setAfterPhoto(null);
+      setBeforePhotos([]);
+      setAfterPhotos([]);
       toast({ title: "Before and after project added", description: "It is now available in Gallery Management." });
     },
     onError: (error: Error) =>
@@ -311,8 +314,8 @@ export default function AdminInvoiceManager({
     setProjectTitle(service);
     setProjectDescription(`Completed ${service.toLowerCase()} for ${customer ? `${customer.firstName} ${customer.lastName}` : "a HandyTech customer"}.`);
     setProjectLocation(customer ? [customer.city, customer.state].filter(Boolean).join(", ") : "");
-    setBeforePhoto(null);
-    setAfterPhoto(null);
+    setBeforePhotos([]);
+    setAfterPhotos([]);
   };
   const filtered = customers
     .filter((customer) =>
@@ -856,20 +859,23 @@ export default function AdminInvoiceManager({
             <div className="grid gap-3 sm:grid-cols-2">
               <label className="cursor-pointer rounded-lg border-2 border-dashed p-4 text-center">
                 <Camera className="mx-auto mb-2 h-6 w-6 text-slate-500" />
-                <span className="block font-medium">Before photo</span>
-                <span className="block truncate text-xs text-slate-500">{beforePhoto?.name || "Optional"}</span>
-                <Input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setBeforePhoto(event.target.files?.[0] || null)} />
+                <span className="block font-medium">Before photos</span>
+                <span className="block text-xs text-slate-500">{beforePhotos.length ? `${beforePhotos.length} selected` : "Optional — select multiple"}</span>
+                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => setBeforePhotos(Array.from(event.target.files || []))} />
               </label>
               <label className="cursor-pointer rounded-lg border-2 border-dashed border-brand-primary p-4 text-center">
                 <Camera className="mx-auto mb-2 h-6 w-6 text-brand-primary" />
-                <span className="block font-medium">After photo *</span>
-                <span className="block truncate text-xs text-slate-500">{afterPhoto?.name || "Used as the gallery cover"}</span>
-                <Input className="sr-only" type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => setAfterPhoto(event.target.files?.[0] || null)} />
+                <span className="block font-medium">After photos *</span>
+                <span className="block text-xs text-slate-500">{afterPhotos.length ? `${afterPhotos.length} selected` : "Select multiple — first is the cover"}</span>
+                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => setAfterPhotos(Array.from(event.target.files || []))} />
               </label>
             </div>
+            <p className={`text-sm ${beforePhotos.length + afterPhotos.length > 10 ? "font-semibold text-red-600" : "text-slate-500"}`}>
+              {beforePhotos.length + afterPhotos.length} of 10 photos selected
+            </p>
             <Button
               className="w-full"
-              disabled={!projectTitle.trim() || !projectDescription.trim() || !afterPhoto || addProject.isPending}
+              disabled={!projectTitle.trim() || !projectDescription.trim() || !afterPhotos.length || beforePhotos.length + afterPhotos.length > 10 || addProject.isPending}
               onClick={() => addProject.mutate()}
             >
               {addProject.isPending ? "Uploading…" : "Add Project to Gallery"}

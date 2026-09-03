@@ -4203,11 +4203,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      // Organize images by type. The client sends the cover first, followed by an
-      // optional before photo, then any additional finished photos.
+      // New clients send all finished photos first, then all before photos, and
+      // include explicit counts. Keep the original single-before format working
+      // for older admin pages and saved browser bundles.
       const imageUrls = processedImages.map(img => img.sizes.large.url);
       const hasBeforeImage = req.body.hasBeforeImage === 'true' || req.body.hasBeforeImage === true;
-      const additionalImagesStart = hasBeforeImage ? 2 : 1;
+      const requestedBeforeCount = Number.parseInt(req.body.beforeImageCount, 10);
+      const requestedAfterCount = Number.parseInt(req.body.afterImageCount, 10);
+      const hasExplicitCounts = Number.isInteger(requestedBeforeCount) && Number.isInteger(requestedAfterCount)
+        && requestedBeforeCount >= 0 && requestedAfterCount >= 1
+        && requestedBeforeCount + requestedAfterCount === processedImages.length;
+      const afterCount = hasExplicitCounts ? requestedAfterCount : 1;
+      const beforeUrls = hasExplicitCounts
+        ? imageUrls.slice(afterCount, afterCount + requestedBeforeCount)
+        : (hasBeforeImage && imageUrls[1] ? [imageUrls[1]] : []);
+      const finishedUrls = hasExplicitCounts
+        ? imageUrls.slice(1, afterCount)
+        : imageUrls.slice(hasBeforeImage ? 2 : 1);
       let videoUrls: string[] | undefined;
       if (req.body.videoUrls) {
         try {
@@ -4227,9 +4239,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         completionDate: req.body.completionDate ? new Date(req.body.completionDate) : new Date(),
         featured: req.body.featured === 'true' || req.body.featured === true,
         imageUrl: processedImages[0].sizes.large.url, // Use first image as main image
-        beforeImageUrl: hasBeforeImage ? processedImages[1]?.sizes.large.url || null : null,
-        beforeImageUrls: hasBeforeImage && processedImages[1] ? [processedImages[1].sizes.large.url] : undefined,
-        imageUrls: processedImages.length > additionalImagesStart ? imageUrls.slice(additionalImagesStart) : undefined,
+        beforeImageUrl: beforeUrls[0] || null,
+        beforeImageUrls: beforeUrls.length ? beforeUrls : undefined,
+        imageUrls: finishedUrls.length ? finishedUrls : undefined,
         videoUrls,
       };
 
