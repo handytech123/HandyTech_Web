@@ -317,6 +317,23 @@ export default function AdminInvoiceManager({
     setBeforePhotos([]);
     setAfterPhotos([]);
   };
+  const addSelectedPhotos = (kind: "before" | "after", selected: FileList | null) => {
+    if (!selected?.length) return;
+    const incoming = Array.from(selected);
+    const current = kind === "before" ? beforePhotos : afterPhotos;
+    const otherCount = kind === "before" ? afterPhotos.length : beforePhotos.length;
+    const unique = incoming.filter(
+      (file) => !current.some((existing) =>
+        existing.name === file.name && existing.size === file.size && existing.lastModified === file.lastModified),
+    );
+    const available = Math.max(0, 10 - otherCount - current.length);
+    const next = [...current, ...unique.slice(0, available)];
+    if (kind === "before") setBeforePhotos(next);
+    else setAfterPhotos(next);
+    if (unique.length > available) {
+      toast({ title: "10-photo limit reached", description: "Remove a selected photo before adding another." });
+    }
+  };
   const filtered = customers
     .filter((customer) =>
       `${customer.firstName} ${customer.lastName} ${customer.email} ${customer.phone || ""}`
@@ -861,15 +878,35 @@ export default function AdminInvoiceManager({
                 <Camera className="mx-auto mb-2 h-6 w-6 text-slate-500" />
                 <span className="block font-medium">Before photos</span>
                 <span className="block text-xs text-slate-500">{beforePhotos.length ? `${beforePhotos.length} selected` : "Optional — select multiple"}</span>
-                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => setBeforePhotos(Array.from(event.target.files || []))} />
+                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { addSelectedPhotos("before", event.target.files); event.target.value = ""; }} />
               </label>
               <label className="cursor-pointer rounded-lg border-2 border-dashed border-brand-primary p-4 text-center">
                 <Camera className="mx-auto mb-2 h-6 w-6 text-brand-primary" />
                 <span className="block font-medium">After photos *</span>
                 <span className="block text-xs text-slate-500">{afterPhotos.length ? `${afterPhotos.length} selected` : "Select multiple — first is the cover"}</span>
-                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => setAfterPhotos(Array.from(event.target.files || []))} />
+                <Input className="sr-only" type="file" multiple accept="image/jpeg,image/png,image/webp" onChange={(event) => { addSelectedPhotos("after", event.target.files); event.target.value = ""; }} />
               </label>
             </div>
+            {(beforePhotos.length > 0 || afterPhotos.length > 0) && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-2">
+                  {beforePhotos.map((photo, index) => (
+                    <div key={`${photo.name}-${photo.lastModified}`} className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate">Before {index + 1}: {photo.name}</span>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setBeforePhotos(beforePhotos.filter((_, photoIndex) => photoIndex !== index))}>Remove</Button>
+                    </div>
+                  ))}
+                </div>
+                <div className="space-y-2">
+                  {afterPhotos.map((photo, index) => (
+                    <div key={`${photo.name}-${photo.lastModified}`} className="flex items-center justify-between gap-2 rounded border px-3 py-2 text-sm">
+                      <span className="min-w-0 truncate">After {index + 1}: {photo.name}{index === 0 ? " (cover)" : ""}</span>
+                      <Button type="button" size="sm" variant="ghost" onClick={() => setAfterPhotos(afterPhotos.filter((_, photoIndex) => photoIndex !== index))}>Remove</Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <p className={`text-sm ${beforePhotos.length + afterPhotos.length > 10 ? "font-semibold text-red-600" : "text-slate-500"}`}>
               {beforePhotos.length + afterPhotos.length} of 10 photos selected
             </p>
