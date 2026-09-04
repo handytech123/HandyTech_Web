@@ -98,6 +98,10 @@ export async function runProductionMigration(): Promise<void> {
         category TEXT NOT NULL DEFAULT 'materials',
         description TEXT NOT NULL,
         amount REAL NOT NULL,
+        vendor TEXT,
+        receipt_url TEXT,
+        labor_hours REAL,
+        hourly_rate REAL,
         expense_date TIMESTAMPTZ NOT NULL DEFAULT NOW(),
         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
@@ -143,6 +147,10 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT NOW()`,
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW()`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent BOOLEAN NOT NULL DEFAULT false`,
+      `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS vendor TEXT`,
+      `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS receipt_url TEXT`,
+      `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS labor_hours REAL`,
+      `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS hourly_rate REAL`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS booking_type TEXT NOT NULL DEFAULT 'service'`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_at TIMESTAMPTZ`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_source TEXT`,

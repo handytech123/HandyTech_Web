@@ -4728,6 +4728,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         COALESCE(i.total, 0) AS invoice_total,
         COALESCE(i.amount_paid, 0) AS amount_paid,
         COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id), 0) AS expenses,
+        COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id AND e.category = 'materials'), 0) AS material_cost,
+        COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id AND e.category = 'labor'), 0) AS labor_cost,
         COALESCE((SELECT SUM(co.amount) FROM change_orders co WHERE co.job_id = j.id AND co.status = 'accepted'), 0) AS approved_changes
       FROM jobs j JOIN customers c ON c.id = j.customer_id
       LEFT JOIN invoices i ON i.id = j.invoice_id
@@ -4756,16 +4758,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(job);
   });
 
-  app.post("/api/admin/operations/jobs/:id/expenses", requireAdmin, async (req, res) => {
+  app.get("/api/admin/operations/jobs/:id/expenses", requireAdmin, async (req, res) => {
+    const rows = await db.select().from(jobExpenses).where(eq(jobExpenses.jobId, Number(req.params.id))).orderBy(desc(jobExpenses.expenseDate));
+    res.json(rows);
+  });
+
+  app.post("/api/admin/operations/jobs/:id/expenses", requireAdmin, handleOptionalImageUpload("receipt", 1), async (req: Request, res: Response) => {
     const jobId = Number(req.params.id);
-    const input = z.object({ category: z.enum(["materials", "labor", "fuel", "fees", "other"]), description: z.string().trim().min(2).max(500), amount: z.number().positive() }).parse(req.body);
-    const [expense] = await db.insert(jobExpenses).values({ jobId, ...input }).returning();
-    res.status(201).json(expense);
+    const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
+    try {
+      const input = z.object({
+        category: z.enum(["materials", "labor", "fuel", "fees", "other"]),
+        description: z.string().trim().min(2).max(500),
+        amount: z.coerce.number().positive(),
+        vendor: z.string().trim().max(200).optional(),
+        laborHours: z.coerce.number().positive().optional(),
+        hourlyRate: z.coerce.number().positive().optional(),
+        expenseDate: z.string().optional(),
+      }).parse(req.body);
+      const receiptUrl = processedImages[0]?.sizes.large.url;
+      const [expense] = await db.insert(jobExpenses).values({
+        jobId,
+        category: input.category,
+        description: input.description,
+        amount: input.amount,
+        vendor: input.vendor || null,
+        receiptUrl: receiptUrl || null,
+        laborHours: input.category === "labor" ? input.laborHours : null,
+        hourlyRate: input.category === "labor" ? input.hourlyRate : null,
+        expenseDate: input.expenseDate ? fromZonedTime(`${input.expenseDate}T12:00:00`, "America/Chicago") : new Date(),
+      }).returning();
+      res.status(201).json(expense);
+    } catch (error) {
+      if (processedImages.length) await cleanupUploadedFiles(processedImages);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the expense details", errors: error.errors });
+      throw error;
+    }
   });
 
   app.delete("/api/admin/operations/expenses/:id", requireAdmin, async (req, res) => {
     const [deleted] = await db.delete(jobExpenses).where(eq(jobExpenses.id, Number(req.params.id))).returning();
     if (!deleted) return res.status(404).json({ message: "Expense not found" });
+    if (deleted.receiptUrl) {
+      const relativePath = deleted.receiptUrl.replace(/^\/uploads\//, "");
+      const directory = path.join(process.cwd(), "server", "public", "uploads", path.dirname(relativePath));
+      const stem = path.basename(relativePath).replace(/-(?:large|medium|thumbnail)\.webp$/, "");
+      await Promise.all(["large", "medium", "thumbnail"].map((size) => fs.unlink(path.join(directory, `${stem}-${size}.webp`)).catch(() => undefined)));
+    }
     res.json({ message: "Expense removed" });
   });
 
@@ -4810,12 +4849,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       db.execute(sql.raw(`SELECT COUNT(*) FILTER (WHERE status NOT IN ('paid','closed')) active, COUNT(*) FILTER (WHERE status='completed') completed FROM jobs`)),
     ]);
     const moneyRow = (invoiceResult as any).rows?.[0] || {}; const expenseRow = (expenseResult as any).rows?.[0] || {}; const jobRow = (jobResult as any).rows?.[0] || {};
-    res.json({ billed: Number(moneyRow.billed || 0), collected: Number(moneyRow.collected || 0), outstanding: Number(moneyRow.outstanding || 0), expenses: Number(expenseRow.expenses || 0), grossProfit: Number(moneyRow.collected || 0) - Number(expenseRow.expenses || 0), activeJobs: Number(jobRow.active || 0), completedJobs: Number(jobRow.completed || 0) });
+    res.json({ billed: Number(moneyRow.billed || 0), collected: Number(moneyRow.collected || 0), outstanding: Number(moneyRow.outstanding || 0), expenses: Number(expenseRow.expenses || 0), grossProfit: Number(moneyRow.billed || 0) - Number(expenseRow.expenses || 0), activeJobs: Number(jobRow.active || 0), completedJobs: Number(jobRow.completed || 0) });
   });
 
   app.get("/api/admin/operations/accounting.csv", requireAdmin, async (_req, res) => {
-    const result = await db.execute(sql.raw(`SELECT i.invoice_number, i.issue_date, i.due_date, c.first_name, c.last_name, c.email, i.status, i.subtotal, i.tax, i.total, i.amount_paid, (i.total-i.amount_paid) balance FROM invoices i JOIN customers c ON c.id=i.customer_id ORDER BY i.issue_date DESC`));
-    const rows = (result as any).rows || []; const fields = ["invoice_number","issue_date","due_date","first_name","last_name","email","status","subtotal","tax","total","amount_paid","balance"];
+    const result = await db.execute(sql.raw(`SELECT j.job_number, j.title, j.status, c.first_name, c.last_name, c.email,
+      COALESCE(i.total,0) revenue, COALESCE(i.amount_paid,0) collected,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.category='materials'),0) materials,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.category='labor'),0) labor,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.category NOT IN ('materials','labor')),0) other_costs,
+      COALESCE(SUM(e.amount),0) total_costs, COALESCE(i.total,0)-COALESCE(SUM(e.amount),0) gross_profit
+      FROM jobs j JOIN customers c ON c.id=j.customer_id LEFT JOIN invoices i ON i.id=j.invoice_id LEFT JOIN job_expenses e ON e.job_id=j.id
+      GROUP BY j.id,c.id,i.id ORDER BY j.created_at DESC`));
+    const rows = (result as any).rows || []; const fields = ["job_number","title","status","first_name","last_name","email","revenue","collected","materials","labor","other_costs","total_costs","gross_profit"];
     const csv = [fields.join(","), ...rows.map((row: any) => fields.map((field) => `"${String(row[field] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
     res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", `attachment; filename="handytech-accounting-${new Date().toISOString().slice(0,10)}.csv"`); res.send(csv);
   });

@@ -176,6 +176,10 @@ export const jobExpenses = pgTable("job_expenses", {
   category: text("category").notNull().default("materials"),
   description: text("description").notNull(),
   amount: real("amount").notNull(),
+  vendor: text("vendor"),
+  receiptUrl: text("receipt_url"),
+  laborHours: real("labor_hours"),
+  hourlyRate: real("hourly_rate"),
   expenseDate: timestamp("expense_date", { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
