@@ -81,6 +81,8 @@ export default function AvailabilityRulesManager() {
     onSuccess: () => {
       toast({ title: "Success", description: "Availability rule created successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/availability-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability-rules/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
       resetForm();
     },
     onError: () => {
@@ -96,6 +98,8 @@ export default function AvailabilityRulesManager() {
     onSuccess: () => {
       toast({ title: "Success", description: "Availability rule updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/availability-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability-rules/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
       resetForm();
     },
     onError: () => {
@@ -111,6 +115,8 @@ export default function AvailabilityRulesManager() {
     onSuccess: () => {
       toast({ title: "Success", description: "Availability rule deleted successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/availability-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability-rules/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to delete availability rule", variant: "destructive" });
@@ -125,6 +131,8 @@ export default function AvailabilityRulesManager() {
     onSuccess: () => {
       toast({ title: "Success", description: "Availability rule status updated successfully" });
       queryClient.invalidateQueries({ queryKey: ["/api/availability-rules"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability-rules/active"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/availability"] });
     },
     onError: () => {
       toast({ title: "Error", description: "Failed to update availability rule status", variant: "destructive" });

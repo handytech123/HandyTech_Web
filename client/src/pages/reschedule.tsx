@@ -45,6 +45,10 @@ export default function ReschedulePage() {
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const [isSubmitted, setIsSubmitted] = useState(false);
   const { toast } = useToast();
+  const { data: activeAvailabilityRules = [] } = useQuery<Array<{ weekday: number }>>({
+    queryKey: ["/api/availability-rules/active"],
+  });
+  const activeWeekdays = new Set(activeAvailabilityRules.map((rule) => rule.weekday));
 
   // Fetch appointment details
   const { 
@@ -329,7 +333,7 @@ export default function ReschedulePage() {
                     selected={selectedDate}
                     onSelect={setSelectedDate}
                     disabled={(date) => {
-                      if (date.getDay() === 0 || date.getDay() === 6) return true;
+                      if (!activeWeekdays.has(date.getDay())) return true;
                       const dateText = format(date, "yyyy-MM-dd");
                       const endOfBusinessDay = fromZonedTime(`${dateText}T17:00:00`, "America/Chicago");
                       return endOfBusinessDay.getTime() < Date.now() + (12 * 60 * 60 * 1000);

@@ -34,6 +34,10 @@ export default function RescheduleAppointmentDialog({
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedTimeSlot, setSelectedTimeSlot] = useState<string>("");
   const { toast } = useToast();
+  const { data: activeAvailabilityRules = [] } = useQuery<Array<{ weekday: number }>>({
+    queryKey: ["/api/availability-rules/active"],
+  });
+  const activeWeekdays = new Set(activeAvailabilityRules.map((rule) => rule.weekday));
 
   // Reset selections when dialog opens/closes
   const handleOpenChange = (isOpen: boolean) => {
@@ -275,7 +279,7 @@ export default function RescheduleAppointmentDialog({
                   mode="single"
                   selected={selectedDate}
                   onSelect={handleDateSelect}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0)) || date.getDay() === 0 || date.getDay() === 6}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0)) || !activeWeekdays.has(date.getDay())}
                   className="rounded-md border"
                   data-testid="reschedule-calendar"
                 />

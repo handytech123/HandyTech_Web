@@ -314,6 +314,7 @@ const adminAddAppointmentSchema = z.object({
   appointmentTime: z.string().min(1, "Time is required"),
   notes: z.string().optional(),
   status: z.enum(["scheduled", "confirmed"]),
+  smsConsent: z.boolean().default(false),
 });
 type AdminAddAppointmentForm = z.infer<typeof adminAddAppointmentSchema>;
 
@@ -322,12 +323,16 @@ function AppointmentsTab({
   appointments, 
   updateAppointmentStatusMutation,
   quotePrefill,
+  customerPrefill,
   onQuotePrefillConsumed,
+  onCustomerPrefillConsumed,
 }: {
   appointments: Appointment[];
   updateAppointmentStatusMutation: any;
   quotePrefill: Quote | null;
+  customerPrefill: Customer | null;
   onQuotePrefillConsumed: () => void;
+  onCustomerPrefillConsumed: () => void;
 }) {
   const [viewMode, setViewMode] = useState<'list' | 'calendar'>('list');
   const [bookingTypeFilter, setBookingTypeFilter] = useState<'all' | 'consultation' | 'service'>('all');
@@ -355,6 +360,7 @@ function AppointmentsTab({
       appointmentTime: "",
       notes: "",
       status: "scheduled",
+      smsConsent: false,
     },
   });
 
@@ -373,10 +379,32 @@ function AppointmentsTab({
       appointmentTime: "",
       notes: [`From quote: ${quotePrefill.serviceNeeded}`, quotePrefill.message].filter(Boolean).join("\n\n"),
       status: "scheduled",
+      smsConsent: false,
     });
     setAddAppointmentOpen(true);
     onQuotePrefillConsumed();
   }, [quotePrefill, addAppointmentForm, onQuotePrefillConsumed]);
+
+  useEffect(() => {
+    if (!customerPrefill) return;
+    const address = [customerPrefill.street, customerPrefill.city, [customerPrefill.state, customerPrefill.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    addAppointmentForm.reset({
+      bookingType: "service",
+      firstName: customerPrefill.firstName,
+      lastName: customerPrefill.lastName,
+      phone: customerPrefill.phone || "",
+      email: customerPrefill.email,
+      address,
+      serviceType: "",
+      appointmentDate: "",
+      appointmentTime: "",
+      notes: "",
+      status: "scheduled",
+      smsConsent: false,
+    });
+    setAddAppointmentOpen(true);
+    onCustomerPrefillConsumed();
+  }, [customerPrefill, addAppointmentForm, onCustomerPrefillConsumed]);
 
   const visibleAppointments = appointments.filter((appointment) =>
     bookingTypeFilter === 'all' || (appointment.bookingType || 'service') === bookingTypeFilter
@@ -386,19 +414,20 @@ function AppointmentsTab({
     mutationFn: async (data: AdminAddAppointmentForm) => {
       return (await apiRequest("/api/admin/appointments", "POST", data)).json();
     },
-    onSuccess: (createdAppointment: { calendarSynced?: boolean; calendarSyncMessage?: string | null }) => {
+    onSuccess: (createdAppointment: { calendarSynced?: boolean; calendarSyncMessage?: string | null; emailSent?: boolean; smsSent?: boolean; smsSkippedReason?: string | null }) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/schedule"] });
       queryClient.invalidateQueries({ queryKey: ["/api/admin/google/status"] });
       setAddAppointmentOpen(false);
       addAppointmentForm.reset();
+      const delivery = [createdAppointment.emailSent ? "email sent" : "email not sent", createdAppointment.smsSent ? "text sent" : createdAppointment.smsSkippedReason || "text not sent"].join(" · ");
       if (createdAppointment.calendarSynced === false) {
         toast({
           title: "Appointment saved — Calendar not synced",
-          description: createdAppointment.calendarSyncMessage || "Reconnect Google Calendar from the Calendar tab. The site will retry automatically.",
+          description: `${createdAppointment.calendarSyncMessage || "Reconnect Google Calendar from the Calendar tab."} Customer delivery: ${delivery}.`,
           variant: "destructive",
         });
       } else {
-        toast({ title: "Appointment created", description: "The appointment was added to HandyTech and Google Calendar." });
+        toast({ title: "Appointment created", description: `Added to HandyTech and Google Calendar · ${delivery}.` });
       }
     },
     onError: (error: Error) => {
@@ -859,6 +888,24 @@ function AppointmentsTab({
                 )}
               />
 
+              <FormField
+                control={addAppointmentForm.control}
+                name="smsConsent"
+                render={({ field }) => (
+                  <FormItem className="flex items-start gap-3 rounded-md border p-3">
+                    <FormControl>
+                      <Checkbox checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <div className="space-y-1 leading-none">
+                      <FormLabel>Send the customer a text confirmation</FormLabel>
+                      <FormDescription>
+                        Check this only after the customer agrees to receive appointment-related texts. An email confirmation is sent automatically.
+                      </FormDescription>
+                    </div>
+                  </FormItem>
+                )}
+              />
+
               <div className="flex justify-end gap-3 pt-2">
                 <Button type="button" variant="outline" onClick={() => { setAddAppointmentOpen(false); addAppointmentForm.reset(); }}>
                   Cancel
@@ -881,7 +928,7 @@ function AppointmentsTab({
 }
 
 // CustomersTab component
-function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onCreateQuote: (customer: Customer) => void }) {
+function CustomersTab({ customers, onCreateQuote, onScheduleAppointment }: { customers: Customer[]; onCreateQuote: (customer: Customer) => void; onScheduleAppointment: (customer: Customer) => void }) {
   const [addCustomerDialogOpen, setAddCustomerDialogOpen] = useState(false);
   const [editCustomerDialogOpen, setEditCustomerDialogOpen] = useState(false);
   const [editingCustomer, setEditingCustomer] = useState<Customer | null>(null);
@@ -1271,6 +1318,16 @@ function CustomersTab({ customers, onCreateQuote }: { customers: Customer[]; onC
                   <div className="grid grid-cols-2 gap-2 sm:flex">
                     <Button variant="outline" size="sm" onClick={() => setTimelineCustomer(customer)} className="flex items-center gap-1">
                       <Eye className="h-4 w-4" />History
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => onScheduleAppointment(customer)}
+                      className="flex items-center gap-1"
+                      data-testid={`button-schedule-customer-${customer.id}`}
+                    >
+                      <CalendarDays className="h-4 w-4" />
+                      Schedule
                     </Button>
                     <Button
                       size="sm"
@@ -2696,6 +2753,7 @@ function AuthenticatedDashboard() {
   const [newQuoteNotes, setNewQuoteNotes] = useState("");
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
   const [quoteAppointmentPrefill, setQuoteAppointmentPrefill] = useState<Quote | null>(null);
+  const [customerAppointmentPrefill, setCustomerAppointmentPrefill] = useState<Customer | null>(null);
   const [activeTab, setActiveTab] = useState("services");
 
 
@@ -3032,7 +3090,9 @@ function AuthenticatedDashboard() {
               appointments={appointments}
               updateAppointmentStatusMutation={updateAppointmentStatusMutation}
               quotePrefill={quoteAppointmentPrefill}
+              customerPrefill={customerAppointmentPrefill}
               onQuotePrefillConsumed={() => setQuoteAppointmentPrefill(null)}
+              onCustomerPrefillConsumed={() => setCustomerAppointmentPrefill(null)}
             />
           </TabsContent>
 
@@ -3238,6 +3298,10 @@ function AuthenticatedDashboard() {
                 setNewQuoteNotes("");
                 setActiveTab("quotes");
                 setNewQuoteDialogOpen(true);
+              }}
+              onScheduleAppointment={(customer) => {
+                setCustomerAppointmentPrefill(customer);
+                setActiveTab("appointments");
               }}
             />
           </TabsContent>

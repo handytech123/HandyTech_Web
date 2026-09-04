@@ -53,8 +53,8 @@ function parseDurationHours(estimatedDuration?: string | null): number {
   return 2;
 }
 
-function isPublicBookingDateUnavailable(date: Date): boolean {
-  if (date.getDay() === 0 || date.getDay() === 6) return true;
+function isPublicBookingDateUnavailable(date: Date, activeWeekdays: Set<number>): boolean {
+  if (!activeWeekdays.has(date.getDay())) return true;
   const dateText = format(date, "yyyy-MM-dd");
   const endOfBusinessDay = fromZonedTime(`${dateText}T17:00:00`, "America/Chicago");
   return endOfBusinessDay.getTime() < Date.now() + (12 * 60 * 60 * 1000);
@@ -129,6 +129,10 @@ interface AvailableSlot {
 }
 
 export default function AppointmentScheduler() {
+  const { data: activeAvailabilityRules = [] } = useQuery<Array<{ weekday: number; active?: boolean }>>({
+    queryKey: ["/api/availability-rules/active"],
+  });
+  const activeWeekdays = new Set(activeAvailabilityRules.map((rule) => rule.weekday));
   const [bookingType, setBookingType] = useState<"consultation" | "service" | undefined>(undefined);
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(undefined);
   const [selectedService, setSelectedService] = useState<Service | undefined>(undefined);
@@ -859,12 +863,12 @@ export default function AppointmentScheduler() {
                     mode="single"
                     selected={selectedDate}
                     onSelect={handleDateSelect}
-                    disabled={isPublicBookingDateUnavailable}
+                    disabled={(date) => isPublicBookingDateUnavailable(date, activeWeekdays)}
                     className="rounded-md border w-full"
                     data-testid="calendar-date-picker"
                   />
                   <p className="text-sm text-gray-500 mt-2">
-                    Appointments must be booked at least 12 hours in advance. Scheduling is available Monday through Friday.
+                    Appointments must be booked at least 12 hours in advance. Select any enabled working day to see current openings.
                   </p>
                 </CardContent>
               </Card>

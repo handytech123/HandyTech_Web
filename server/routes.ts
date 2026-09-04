@@ -1324,6 +1324,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         appointmentTime,
         notes,
         status,
+        smsConsent = false,
       } = req.body;
 
       if (!firstName || !lastName || !email || !serviceType || !appointmentDate || !appointmentTime) {
@@ -1341,6 +1342,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       if (requestedStart.getTime() <= Date.now()) {
         return res.status(400).json({ message: "Admin appointments must be scheduled for a future time." });
+      }
+
+      const durationHours = bookingType === "consultation" ? 1 : 2;
+      const requestedEnd = new Date(requestedStart.getTime() + durationHours * 60 * 60 * 1000);
+      const availableSlots = await getOpenSlots(
+        storage,
+        new Date(requestedStart.getTime() - 60 * 60 * 1000),
+        new Date(requestedEnd.getTime() + 60 * 60 * 1000),
+        durationHours * 60,
+        30,
+        APPOINTMENT_BUFFER_MINUTES,
+      );
+      if (!availableSlots.some((slot) => new Date(slot).getTime() === requestedStart.getTime())) {
+        return res.status(409).json({ message: "That time conflicts with the schedule or falls outside your availability. Choose another time." });
       }
 
       // Find existing customer by email or create a new one
@@ -1364,6 +1379,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      const rescheduleToken = crypto.randomBytes(24).toString("hex");
+      const rescheduleExpires = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
       const appointment = await storage.createAppointment({
         customerId: customer.id,
         firstName,
@@ -1375,13 +1392,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         appointmentDate: new Date(appointmentDate),
         appointmentTime,
         startTimestamptz: requestedStart,
-        endTimestamptz: new Date(requestedStart.getTime() + (bookingType === "consultation" ? 1 : 2) * 60 * 60 * 1000),
+        endTimestamptz: requestedEnd,
         address: address || null,
         street: address || "Not provided",
         city: "Not provided",
         state: "MO",
         zip: "Not provided",
-        smsConsent: false,
+        rescheduleToken,
+        rescheduleExpires,
+        sequence: 0,
+        smsConsent: smsConsent === true,
+        smsConsentAt: smsConsent === true ? new Date() : null,
+        smsConsentSource: smsConsent === true ? "admin-confirmed-customer-consent" : null,
+        smsDisclosureVersion: smsConsent === true ? "2026-08-24" : null,
+        smsConsentIp: smsConsent === true ? req.ip : null,
+        smsConsentUserAgent: smsConsent === true ? String(req.get("user-agent") || "admin").slice(0, 500) : null,
         notes: notes || null,
         status: status || "scheduled",
         source: "manual",
@@ -1417,7 +1442,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
         console.error("Admin appointment Google Calendar sync failed:", googleMessage);
       }
 
-      res.status(201).json({ ...appointment, calendarSynced, calendarSyncMessage });
+      let emailSent = false;
+      let smsSent = false;
+      try {
+        emailSent = await getEmailService().sendAppointmentConfirmation(appointment, rescheduleToken);
+      } catch (emailError) {
+        console.error("Admin-created appointment customer email failed:", emailError);
+      }
+      try {
+        await getEmailService().sendAdminNotification(appointment);
+      } catch (adminEmailError) {
+        console.error("Admin-created appointment admin email failed:", adminEmailError);
+      }
+      if (appointment.smsConsent && appointment.phone) {
+        const centralDate = requestedStart.toLocaleDateString("en-US", { timeZone: "America/Chicago" });
+        const centralTime = requestedStart.toLocaleTimeString("en-US", { timeZone: "America/Chicago", hour: "numeric", minute: "2-digit" });
+        smsSent = await smsService.sendAppointmentConfirmation(appointment.phone, centralDate, centralTime);
+      }
+
+      res.status(201).json({
+        ...appointment,
+        calendarSynced,
+        calendarSyncMessage,
+        emailSent,
+        smsSent,
+        smsSkippedReason: appointment.smsConsent ? (appointment.phone ? null : "Customer has no phone number") : "SMS consent was not confirmed",
+      });
     } catch (error) {
       console.error("Admin create appointment error:", error);
       res.status(500).json({ message: "Failed to create appointment" });
