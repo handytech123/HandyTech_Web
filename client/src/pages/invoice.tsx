@@ -1,9 +1,11 @@
+import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useRoute } from "wouter";
 import { CheckCircle, CreditCard, Download, FileText } from "lucide-react";
 import type { Invoice, InvoicePayment } from "@shared/schema";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { trackEvent } from "@/lib/analytics";
 
 const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
 
@@ -16,6 +18,7 @@ export default function InvoicePage() {
     enabled: !!token,
     retry: false,
   });
+  useEffect(() => { if (data?.invoice) trackEvent("invoice_viewed", { invoice_number: data.invoice.invoiceNumber, value: data.invoice.total, currency: "USD" }); }, [data?.invoice?.invoiceNumber]);
   if (isLoading) return <main className="grid min-h-screen place-items-center bg-slate-50"><p>Loading invoice…</p></main>;
   if (error || !data) return <main className="grid min-h-screen place-items-center bg-slate-50 p-6"><Card><CardContent className="p-8 text-center"><FileText className="mx-auto mb-4 h-10 w-10 text-slate-400" /><h1 className="text-xl font-bold">Invoice unavailable</h1><p className="mt-2 text-slate-600">This link is invalid or no longer available. Contact HandyTech Solutions at 314-325-4575.</p></CardContent></Card></main>;
   const { invoice, customer, payments } = data;

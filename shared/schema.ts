@@ -69,6 +69,11 @@ export const quotes = pgTable("quotes", {
   videoUrl: text("video_url"),
   videoUrls: text("video_urls").array(),
   message: text("message"),
+  leadSource: text("lead_source"),
+  leadMedium: text("lead_medium"),
+  leadCampaign: text("lead_campaign"),
+  landingPage: text("landing_page"),
+  referrer: text("referrer"),
   status: text("status").notNull().default("pending"), // 'pending', 'contacted', 'converted', 'declined'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -81,6 +86,11 @@ export const consultations = pgTable("consultations", {
   phone: text("phone").notNull(),
   topic: text("topic").notNull(),
   message: text("message"),
+  leadSource: text("lead_source"),
+  leadMedium: text("lead_medium"),
+  leadCampaign: text("lead_campaign"),
+  landingPage: text("landing_page"),
+  referrer: text("referrer"),
   status: text("status").notNull().default("new"), // new, contacted, closed
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });

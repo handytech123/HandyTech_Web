@@ -5,6 +5,7 @@ import { queryClient } from "./lib/queryClient";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { trackEvent, trackPageView } from "@/lib/analytics";
+import { captureAttribution } from "@/lib/attribution";
 
 const ChatWidget = lazy(() => import("@/components/chat-widget").then((module) => ({ default: module.ChatWidget })));
 const Home = lazy(() => import("@/pages/home"));
@@ -31,6 +32,7 @@ const ServiceAreaDetailPage = lazy(() => import("@/pages/service-area-detail"));
 
 function AnalyticsObserver() {
   const [location] = useLocation();
+  useEffect(() => { captureAttribution(); }, []);
   useEffect(() => { trackPageView(location); }, [location]);
   useEffect(() => {
     const handleClick = (event: MouseEvent) => {

@@ -2381,8 +2381,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const processedVideoUrls = ((req as any).processedQuoteVideoUrls || []) as string[];
     try {
       const rawQuote = typeof req.body.quote === "string" ? JSON.parse(req.body.quote) : req.body;
+      let attribution: Record<string, unknown> = {};
+      try { attribution = typeof req.body.attribution === "string" ? JSON.parse(req.body.attribution) : (req.body.attribution || {}); } catch { attribution = {}; }
       const quoteData = insertQuoteSchema.parse({
         ...rawQuote,
+        ...attribution,
         photoUrls: processedImages.map((image) => image.sizes.large.url),
         videoUrl: processedVideoUrls[0] || null,
         videoUrls: processedVideoUrls,
@@ -4770,9 +4773,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const servicesResult = await db.execute(sql.raw(rankedQuery("service_needed")));
       const citiesResult = await db.execute(sql.raw(rankedQuery("city")));
       const monthsResult = await db.execute(sql.raw("SELECT TO_CHAR(month,'YYYY-MM') month, COUNT(DISTINCT q.id) leads, COUNT(DISTINCT qp.id) FILTER (WHERE qp.status='accepted') accepted, COALESCE(SUM(i.amount_paid),0) revenue FROM generate_series(date_trunc('month',NOW() - INTERVAL '" + interval + "'),date_trunc('month',NOW()),INTERVAL '1 month') month LEFT JOIN quotes q ON date_trunc('month',q.created_at)=month LEFT JOIN quote_proposals qp ON qp.quote_id=q.id LEFT JOIN invoices i ON i.quote_proposal_id=qp.id AND i.amount_paid>0 GROUP BY month ORDER BY month"));
+      const sourcesResult = await db.execute(sql.raw("SELECT name, SUM(leads)::int leads FROM (SELECT COALESCE(NULLIF(TRIM(lead_source),''),'direct') name, COUNT(*) leads FROM quotes WHERE created_at >= NOW() - INTERVAL '" + interval + "' GROUP BY 1 UNION ALL SELECT COALESCE(NULLIF(TRIM(lead_source),''),'direct') name, COUNT(*) leads FROM consultations WHERE created_at >= NOW() - INTERVAL '" + interval + "' GROUP BY 1) attribution GROUP BY name ORDER BY leads DESC LIMIT 8"));
       const total = rows(totalsResult)[0] || {};
       const ranked = (result: any) => rows(result).map((item: any) => ({ name: item.name, leads: Number(item.leads || 0), accepted: Number(item.accepted || 0), revenue: Number(item.revenue || 0) }));
-      res.json({ periodDays: days, totals: { quoteRequests: Number(total.quote_requests||0), consultations: Number(total.consultations||0), leads: Number(total.quote_requests||0)+Number(total.consultations||0), proposalsSent: Number(total.proposals_sent||0), proposalsViewed: Number(total.proposals_viewed||0), proposalsAccepted: Number(total.proposals_accepted||0), invoicesPaid: Number(total.invoices_paid||0), revenue: Number(total.revenue||0), reviews: Number(total.reviews||0), averageRating: Number(total.average_rating||0) }, services: ranked(servicesResult), cities: ranked(citiesResult), months: rows(monthsResult).map((item: any) => ({ month: item.month, leads: Number(item.leads||0), accepted: Number(item.accepted||0), revenue: Number(item.revenue||0) })) });
+      res.json({ periodDays: days, totals: { quoteRequests: Number(total.quote_requests||0), consultations: Number(total.consultations||0), leads: Number(total.quote_requests||0)+Number(total.consultations||0), proposalsSent: Number(total.proposals_sent||0), proposalsViewed: Number(total.proposals_viewed||0), proposalsAccepted: Number(total.proposals_accepted||0), invoicesPaid: Number(total.invoices_paid||0), revenue: Number(total.revenue||0), reviews: Number(total.reviews||0), averageRating: Number(total.average_rating||0) }, sources: rows(sourcesResult).map((item: any) => ({ name: item.name, leads: Number(item.leads || 0) })), services: ranked(servicesResult), cities: ranked(citiesResult), months: rows(monthsResult).map((item: any) => ({ month: item.month, leads: Number(item.leads||0), accepted: Number(item.accepted||0), revenue: Number(item.revenue||0) })) });
     } catch (error) {
       console.error("Marketing summary error:", error);
       res.status(500).json({ message: "Marketing report could not be generated" });

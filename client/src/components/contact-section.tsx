@@ -16,6 +16,7 @@ import { Phone, Mail, Clock, ImagePlus, Maximize2, Video, X } from "lucide-react
 import { z } from "zod";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import { trackEvent } from "@/lib/analytics";
+import { getAttribution } from "@/lib/attribution";
 
 const quoteFormSchema = insertQuoteSchema.extend({
   serviceNeeded: z.string().min(1, "Please select a service"),
@@ -65,6 +66,7 @@ export default function ContactSection() {
       setUploadProgress(1);
       const body = new FormData();
       body.append("quote", JSON.stringify(data));
+      body.append("attribution", JSON.stringify(getAttribution()));
       photos.forEach((photo) => body.append("photos", photo));
       videos.forEach((video) => body.append("videos", video));
       const headers = await createCsrfHeaders();

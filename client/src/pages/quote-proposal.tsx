@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
+import { trackEvent } from "@/lib/analytics";
 
 type ProposalData = {
   quote: { firstName: string; lastName: string; email: string; phone?: string; serviceNeeded: string; street?: string; city?: string; state?: string; zip?: string };
@@ -72,6 +73,7 @@ export default function QuoteProposalPage() {
   const [message, setMessage] = useState("");
   const [finished, setFinished] = useState<string | null>(null);
   const query = useQuery<ProposalData>({ queryKey: ["/api/quote-proposals", token], queryFn: async () => { const response = await fetch(`/api/quote-proposals/${token}`, { credentials: "include" }); if (!response.ok) throw new Error((await response.json()).message || "Quote unavailable"); return response.json(); } });
+  useEffect(() => { if (query.data) trackEvent("quote_viewed", { quote_number: query.data.proposal.quoteNumber, value: query.data.proposal.total, currency: "USD" }); }, [query.data?.proposal.quoteNumber]);
   const responseMutation = useMutation({
     mutationFn: async () => {
       // This public action is authenticated by the unguessable token in the
@@ -87,7 +89,7 @@ export default function QuoteProposalPage() {
       if (!response.ok) throw new Error(result.message || "Your response could not be recorded.");
       return result;
     },
-    onSuccess: (data) => { setFinished(data.status); window.scrollTo({ top: 0, behavior: "smooth" }); },
+    onSuccess: (data) => { trackEvent("quote_response", { response: data.status, value: query.data?.proposal.total || 0, currency: "USD" }); setFinished(data.status); window.scrollTo({ top: 0, behavior: "smooth" }); },
   });
 
   if (query.isLoading) return <div className="flex min-h-screen items-center justify-center bg-slate-50"><Loader2 className="h-8 w-8 animate-spin text-blue-600" /></div>;

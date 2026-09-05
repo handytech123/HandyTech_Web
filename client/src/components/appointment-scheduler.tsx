@@ -24,6 +24,7 @@ import { format, parseISO, isAfter } from "date-fns";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import { trackEvent } from "@/lib/analytics";
+import { getAttribution } from "@/lib/attribution";
 
 // Service interface — matches actual API/DB fields
 interface Service {
@@ -330,6 +331,7 @@ export default function AppointmentScheduler() {
         phone: values.phone,
         topic: selectedService.name,
         message: values.notes || null,
+        ...getAttribution(),
       });
       const result = await response.json().catch(() => ({ message: "Consultation request failed" }));
       if (!response.ok) throw new Error(result.message || "Consultation request failed");

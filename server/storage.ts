@@ -743,6 +743,11 @@ export class MemStorage {
       photoUrls: insertQuote.photoUrls || null,
       videoUrl: insertQuote.videoUrl || null,
       videoUrls: insertQuote.videoUrls || null,
+      leadSource: insertQuote.leadSource || null,
+      leadMedium: insertQuote.leadMedium || null,
+      leadCampaign: insertQuote.leadCampaign || null,
+      landingPage: insertQuote.landingPage || null,
+      referrer: insertQuote.referrer || null,
       status: "pending",
       createdAt: new Date(),
     };
@@ -770,7 +775,7 @@ export class MemStorage {
   }
 
   async createConsultation(input: InsertConsultation): Promise<Consultation> {
-    const consultation: Consultation = { ...input, message: input.message ?? null, id: this.currentConsultationId++, status: "new", createdAt: new Date() };
+    const consultation: Consultation = { ...input, message: input.message ?? null, leadSource: input.leadSource || null, leadMedium: input.leadMedium || null, leadCampaign: input.leadCampaign || null, landingPage: input.landingPage || null, referrer: input.referrer || null, id: this.currentConsultationId++, status: "new", createdAt: new Date() };
     this.consultations.set(consultation.id, consultation);
     return consultation;
   }
