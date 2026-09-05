@@ -4759,6 +4759,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/marketing/summary", requireAdmin, async (req, res) => {
+    try {
+      const requestedDays = Number(req.query.days || 90);
+      const days = [30, 90, 180, 365].includes(requestedDays) ? requestedDays : 90;
+      const interval = days + " days";
+      const rows = (result: any) => result.rows || result;
+      const totalsResult = await db.execute(sql.raw("SELECT (SELECT COUNT(*) FROM quotes WHERE created_at >= NOW() - INTERVAL '" + interval + "') quote_requests, (SELECT COUNT(*) FROM consultations WHERE created_at >= NOW() - INTERVAL '" + interval + "') consultations, (SELECT COUNT(*) FROM quote_proposals WHERE sent_at >= NOW() - INTERVAL '" + interval + "') proposals_sent, (SELECT COUNT(*) FROM quote_proposals WHERE viewed_at IS NOT NULL AND sent_at >= NOW() - INTERVAL '" + interval + "') proposals_viewed, (SELECT COUNT(*) FROM quote_proposals WHERE status='accepted' AND sent_at >= NOW() - INTERVAL '" + interval + "') proposals_accepted, (SELECT COUNT(*) FROM invoices WHERE status='paid' AND paid_at >= NOW() - INTERVAL '" + interval + "') invoices_paid, (SELECT COALESCE(SUM(amount_paid),0) FROM invoices WHERE amount_paid>0 AND COALESCE(paid_at,updated_at) >= NOW() - INTERVAL '" + interval + "') revenue, (SELECT COUNT(*) FROM reviews WHERE created_at >= NOW() - INTERVAL '" + interval + "') reviews, (SELECT COALESCE(AVG(rating),0) FROM reviews WHERE created_at >= NOW() - INTERVAL '" + interval + "') average_rating"));
+      const rankedQuery = (field: "service_needed" | "city") => "SELECT COALESCE(NULLIF(TRIM(q." + field + "),''),'Not recorded') name, COUNT(DISTINCT q.id) leads, COUNT(DISTINCT qp.id) FILTER (WHERE qp.status='accepted') accepted, COALESCE(SUM(CASE WHEN i.amount_paid>0 THEN i.amount_paid ELSE 0 END),0) revenue FROM quotes q LEFT JOIN quote_proposals qp ON qp.quote_id=q.id LEFT JOIN invoices i ON i.quote_proposal_id=qp.id WHERE q.created_at >= NOW() - INTERVAL '" + interval + "' GROUP BY 1 ORDER BY leads DESC, revenue DESC LIMIT 8";
+      const servicesResult = await db.execute(sql.raw(rankedQuery("service_needed")));
+      const citiesResult = await db.execute(sql.raw(rankedQuery("city")));
+      const monthsResult = await db.execute(sql.raw("SELECT TO_CHAR(month,'YYYY-MM') month, COUNT(DISTINCT q.id) leads, COUNT(DISTINCT qp.id) FILTER (WHERE qp.status='accepted') accepted, COALESCE(SUM(i.amount_paid),0) revenue FROM generate_series(date_trunc('month',NOW() - INTERVAL '" + interval + "'),date_trunc('month',NOW()),INTERVAL '1 month') month LEFT JOIN quotes q ON date_trunc('month',q.created_at)=month LEFT JOIN quote_proposals qp ON qp.quote_id=q.id LEFT JOIN invoices i ON i.quote_proposal_id=qp.id AND i.amount_paid>0 GROUP BY month ORDER BY month"));
+      const total = rows(totalsResult)[0] || {};
+      const ranked = (result: any) => rows(result).map((item: any) => ({ name: item.name, leads: Number(item.leads || 0), accepted: Number(item.accepted || 0), revenue: Number(item.revenue || 0) }));
+      res.json({ periodDays: days, totals: { quoteRequests: Number(total.quote_requests||0), consultations: Number(total.consultations||0), leads: Number(total.quote_requests||0)+Number(total.consultations||0), proposalsSent: Number(total.proposals_sent||0), proposalsViewed: Number(total.proposals_viewed||0), proposalsAccepted: Number(total.proposals_accepted||0), invoicesPaid: Number(total.invoices_paid||0), revenue: Number(total.revenue||0), reviews: Number(total.reviews||0), averageRating: Number(total.average_rating||0) }, services: ranked(servicesResult), cities: ranked(citiesResult), months: rows(monthsResult).map((item: any) => ({ month: item.month, leads: Number(item.leads||0), accepted: Number(item.accepted||0), revenue: Number(item.revenue||0) })) });
+    } catch (error) {
+      console.error("Marketing summary error:", error);
+      res.status(500).json({ message: "Marketing report could not be generated" });
+    }
+  });
   // Unified business operations: one job record connects the customer, quote,
   // appointment, invoice, expenses, and approved changes.
   const jobInputSchema = z.object({
