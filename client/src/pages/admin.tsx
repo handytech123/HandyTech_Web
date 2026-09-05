@@ -2754,7 +2754,7 @@ function AuthenticatedDashboard() {
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
   const [quoteAppointmentPrefill, setQuoteAppointmentPrefill] = useState<Quote | null>(null);
   const [customerAppointmentPrefill, setCustomerAppointmentPrefill] = useState<Customer | null>(null);
-  const [activeTab, setActiveTab] = useState("services");
+  const [activeTab, setActiveTab] = useState("operations");
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -3043,7 +3043,7 @@ function AuthenticatedDashboard() {
           </TabsList>
 
           <TabsContent value="operations">
-            <BusinessOperationsManager customers={customers} />
+            <BusinessOperationsManager customers={customers} onNavigate={setActiveTab} />
           </TabsContent>
 
           <TabsContent value="calendar">

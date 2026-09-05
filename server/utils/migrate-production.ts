@@ -179,6 +179,14 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS before_image_urls TEXT[]`,
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS deposit_required REAL NOT NULL DEFAULT 0`,
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_url TEXT`,
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
+      `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
+      `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
+      `ALTER TABLE reviews ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
+      `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
+      `CREATE INDEX IF NOT EXISTS quotes_job_id_idx ON quotes(job_id)`,
+      `CREATE INDEX IF NOT EXISTS appointments_job_id_idx ON appointments(job_id)`,
+      `CREATE INDEX IF NOT EXISTS invoices_job_id_idx ON invoices(job_id)`,
     ];
 
     for (const migration of columnMigrations) {

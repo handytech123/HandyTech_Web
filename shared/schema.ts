@@ -118,6 +118,7 @@ export type InvoiceLineItem = { description: string; quantity: number; rate: num
 export const invoices = pgTable("invoices", {
   id: serial("id").primaryKey(),
   customerId: integer("customer_id").references(() => customers.id).notNull(),
+  jobId: integer("job_id"),
   quoteProposalId: integer("quote_proposal_id").references(() => quoteProposals.id),
   invoiceNumber: varchar("invoice_number", { length: 32 }).notNull().unique(),
   tokenHash: varchar("token_hash", { length: 64 }).notNull().unique(),

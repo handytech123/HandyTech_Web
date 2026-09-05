@@ -4788,6 +4788,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json((result as any).rows || result);
   });
 
+  app.get("/api/admin/operations/action-center", requireAdmin, async (_req, res) => {
+    const result = await db.execute(sql.raw(`
+      SELECT
+        (SELECT COUNT(*) FROM consultations WHERE status = 'new') AS new_consultations,
+        (SELECT COUNT(*) FROM quotes WHERE status = 'pending') AS quote_requests,
+        (SELECT COUNT(*) FROM quote_proposals WHERE status IN ('sent','viewed','changes_requested')) AS quotes_waiting,
+        (SELECT COUNT(*) FROM invoices WHERE status IN ('sent','viewed','partial','overdue') AND amount_paid < total) AS invoices_due,
+        (SELECT COUNT(*) FROM appointments WHERE status NOT IN ('cancelled','completed') AND (start_timestamptz AT TIME ZONE 'America/Chicago')::date = (NOW() AT TIME ZONE 'America/Chicago')::date) AS today_appointments,
+        (SELECT COUNT(*) FROM jobs j WHERE j.status = 'completed' AND NOT EXISTS (SELECT 1 FROM reviews r WHERE r.customer_id = j.customer_id AND r.created_at >= j.updated_at)) AS reviews_needed
+    `));
+    const row = (result as any).rows?.[0] || {};
+    res.json({ newConsultations: Number(row.new_consultations || 0), quoteRequests: Number(row.quote_requests || 0), quotesWaiting: Number(row.quotes_waiting || 0), invoicesDue: Number(row.invoices_due || 0), todayAppointments: Number(row.today_appointments || 0), reviewsNeeded: Number(row.reviews_needed || 0) });
+  });
+
+  app.get("/api/admin/operations/jobs/:id/workspace", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id < 1) return res.status(400).json({ message: "Invalid project" });
+    const projectResult = await db.execute(sql.raw(`SELECT j.*, row_to_json(c) customer FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.id=${id}`));
+    const project = (projectResult as any).rows?.[0];
+    if (!project) return res.status(404).json({ message: "Project not found" });
+    const customerId = Number(project.customer_id);
+    const email = String(project.customer?.email || "").replace(/'/g, "''");
+    const [quoteResult, appointmentResult, invoiceResult, expenseResult, changeResult, reviewResult, galleryResult] = await Promise.all([
+      db.execute(sql.raw(`SELECT q.*, qp.id proposal_id, qp.quote_number, qp.status proposal_status, qp.total, qp.sent_at, qp.viewed_at, qp.responded_at FROM quotes q LEFT JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.job_id=${id} OR LOWER(q.email)=LOWER('${email}') ORDER BY q.created_at DESC`)),
+      db.execute(sql.raw(`SELECT * FROM appointments WHERE job_id=${id} OR customer_id=${customerId} ORDER BY start_timestamptz DESC NULLS LAST, id DESC`)),
+      db.execute(sql.raw(`SELECT * FROM invoices WHERE job_id=${id} OR customer_id=${customerId} ORDER BY issue_date DESC`)),
+      db.execute(sql.raw(`SELECT * FROM job_expenses WHERE job_id=${id} ORDER BY expense_date DESC`)),
+      db.execute(sql.raw(`SELECT * FROM change_orders WHERE job_id=${id} ORDER BY created_at DESC`)),
+      db.execute(sql.raw(`SELECT * FROM reviews WHERE job_id=${id} OR customer_id=${customerId} ORDER BY created_at DESC`)),
+      db.execute(sql.raw(`SELECT * FROM project_gallery WHERE job_id=${id} ORDER BY created_at DESC`)),
+    ]);
+    const rows = (value: any) => value.rows || value;
+    const projectInvoices = rows(invoiceResult);
+    const projectExpenses = rows(expenseResult);
+    const billed = projectInvoices.reduce((sum: number, item: any) => sum + Number(item.total || 0), 0);
+    const collected = projectInvoices.reduce((sum: number, item: any) => sum + Number(item.amount_paid || 0), 0);
+    const costs = projectExpenses.reduce((sum: number, item: any) => sum + Number(item.amount || 0), 0);
+    res.json({ project, quotes: rows(quoteResult), appointments: rows(appointmentResult), invoices: projectInvoices, expenses: projectExpenses, changeOrders: rows(changeResult), reviews: rows(reviewResult), gallery: rows(galleryResult), financials: { billed, collected, costs, grossProfit: billed - costs, balance: billed - collected } });
+  });
+
   app.post("/api/admin/operations/jobs", requireAdmin, async (req, res) => {
     try {
       const input = jobInputSchema.parse(req.body);
@@ -4935,7 +4975,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       ) a ON true
       WHERE NOT EXISTS (SELECT 1 FROM jobs j WHERE j.quote_proposal_id=qp.id)
     `));
-    await db.insert(automationLog).values({ automationType: "operations_sync", entityType: "system", entityId: 0, outcome: "success", details: "Quote, appointment, and invoice records synchronized into jobs" });
+    await db.execute(sql.raw(`UPDATE quotes q SET job_id=j.id FROM jobs j JOIN quote_proposals qp ON qp.id=j.quote_proposal_id WHERE q.id=qp.quote_id AND q.job_id IS NULL`));
+    await db.execute(sql.raw(`UPDATE invoices i SET job_id=j.id FROM jobs j WHERE (i.id=j.invoice_id OR i.quote_proposal_id=j.quote_proposal_id) AND i.job_id IS NULL`));
+    await db.execute(sql.raw(`UPDATE appointments a SET job_id=j.id FROM jobs j WHERE a.id=j.appointment_id AND a.job_id IS NULL`));
+    await db.insert(automationLog).values({ automationType: "operations_sync", entityType: "system", entityId: 0, outcome: "success", details: "Quote, appointment, and invoice records synchronized into projects" });
     res.json({ message: "Business records synchronized", imported: (result as any).rowCount || 0 });
   });
 
