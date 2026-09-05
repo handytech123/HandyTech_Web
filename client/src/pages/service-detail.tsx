@@ -7,13 +7,14 @@ import Footer from "@/components/footer";
 import { Button } from "@/components/ui/button";
 import type { ProjectGallery, Service } from "@shared/schema";
 import { seoSlug, SITE_URL, SERVICE_AREAS } from "@shared/seo";
-import { SERVICE_SEO_CONTENT } from "@shared/service-content";
+import { SERVICE_SEO_CONTENT, resolveServiceSlug } from "@shared/service-content";
 
 export default function ServiceDetailPage() {
   const { slug } = useParams<{ slug: string }>();
+  const resolvedSlug = resolveServiceSlug(slug || "");
   const { data: services = [], isLoading } = useQuery<Service[]>({ queryKey: ["/api/services", { active: "true" }], queryFn: () => fetch("/api/services?active=true").then((response) => response.json()) });
   const { data: projectData } = useQuery<{ items: ProjectGallery[] }>({ queryKey: ["/api/gallery", "service-links"], queryFn: () => fetch("/api/gallery?page=1&limit=50").then((response) => response.json()) });
-  const service = services.find((item) => seoSlug(item.name) === slug);
+  const service = services.find((item) => seoSlug(item.name) === resolvedSlug);
   if (!isLoading && !service) return <><Navigation /><main className="mx-auto min-h-[70vh] max-w-3xl px-4 pt-36 text-center"><h1 className="text-3xl font-bold">Service not found</h1><Button asChild className="mt-6"><Link href="/services">Browse all services</Link></Button></main><Footer /></>;
   if (!service) return <main className="min-h-screen pt-40 text-center">Loading service...</main>;
 

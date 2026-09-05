@@ -38,6 +38,23 @@ export const SERVICE_SEO_CONTENT: Record<string, ServiceSeoContent> = {
   },
 };
 
+// Keep older links from search engines, bookmarks, and service-area pages working.
+export const SERVICE_SLUG_ALIASES: Record<string, string> = {
+  "drywall-repair": "drywall-patch-small",
+  "interior-painting": "single-room-painting",
+  "light-fixture-installation": "light-fixture-replacement",
+  "smart-home-installation": "smart-home-hub-setup",
+  "general-handyman-services": "other",
+  "tv-mounting": "tv-wall-mount",
+  "bathroom-remodeling": "small-bathroom-remodel",
+  "security-camera-installation": "security-camera-install-1-2-units",
+  "network-cabling": "structured-cabling-low-voltage-runs",
+};
+
+export function resolveServiceSlug(slug: string): string {
+  return SERVICE_SLUG_ALIASES[slug] ?? slug;
+}
+
 const standardProcess = (item: string): string[] => [
   `Review the ${item}, work area, and compatible customer-provided equipment`,
   "Confirm the scope, access requirements, and any visible concerns",
