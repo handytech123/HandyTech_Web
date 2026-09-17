@@ -133,6 +133,39 @@ export async function runProductionMigration(): Promise<void> {
     `));
     console.log("  Business operations storage verified");
 
+    await db.execute(sql.raw(`
+      CREATE TABLE IF NOT EXISTS referral_leads (
+        id SERIAL PRIMARY KEY,
+        provider TEXT NOT NULL DEFAULT 'home_depot',
+        external_job_id TEXT NOT NULL UNIQUE,
+        customer_name TEXT NOT NULL,
+        email TEXT,
+        phone TEXT,
+        service TEXT NOT NULL,
+        city TEXT,
+        state TEXT,
+        zip TEXT,
+        customer_timeframe TEXT,
+        customer_notes TEXT,
+        photo_urls TEXT[],
+        lead_cost_points INTEGER,
+        response_due_at TIMESTAMPTZ,
+        portal_url TEXT,
+        status TEXT NOT NULL DEFAULT 'new',
+        score INTEGER NOT NULL DEFAULT 0,
+        score_reasons TEXT[],
+        customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+        quote_id INTEGER REFERENCES quotes(id) ON DELETE SET NULL,
+        claimed_at TIMESTAMPTZ,
+        last_synced_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS referral_leads_status_idx ON referral_leads(status);
+      CREATE INDEX IF NOT EXISTS referral_leads_due_idx ON referral_leads(response_due_at);
+    `));
+    console.log("  Home Depot referral lead storage verified");
+
     // Step 1: Add missing columns safely (IF NOT EXISTS prevents errors if already present)
     const columnMigrations = [
       `ALTER TABLE services ADD COLUMN IF NOT EXISTS show_as_quick_pick BOOLEAN DEFAULT false`,

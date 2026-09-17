@@ -95,7 +95,35 @@ export const consultations = pgTable("consultations", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
-export type QuoteLineItem = { description: string; quantity: number; rate: number };
+export const referralLeads = pgTable("referral_leads", {
+  id: serial("id").primaryKey(),
+  provider: text("provider").notNull().default("home_depot"),
+  externalJobId: text("external_job_id").notNull().unique(),
+  customerName: text("customer_name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  service: text("service").notNull(),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  customerTimeframe: text("customer_timeframe"),
+  customerNotes: text("customer_notes"),
+  photoUrls: text("photo_urls").array(),
+  leadCostPoints: integer("lead_cost_points"),
+  responseDueAt: timestamp("response_due_at", { withTimezone: true }),
+  portalUrl: text("portal_url"),
+  status: text("status").notNull().default("new"),
+  score: integer("score").notNull().default(0),
+  scoreReasons: text("score_reasons").array(),
+  customerId: integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
+  quoteId: integer("quote_id").references(() => quotes.id, { onDelete: "set null" }),
+  claimedAt: timestamp("claimed_at", { withTimezone: true }),
+  lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export type QuoteLineItem = { description: string; quantity: number; rate: number; details?: string; estimatedHours?: string; materials?: string };
 
 export const quoteProposals = pgTable("quote_proposals", {
   id: serial("id").primaryKey(),
@@ -405,6 +433,23 @@ export const insertConsultationSchema = createInsertSchema(consultations).omit({
   message: z.string().trim().max(3000).optional().nullable(),
 });
 
+export const insertReferralLeadSchema = createInsertSchema(referralLeads).omit({
+  id: true,
+  customerId: true,
+  quoteId: true,
+  claimedAt: true,
+  lastSyncedAt: true,
+  createdAt: true,
+  updatedAt: true,
+}).extend({
+  externalJobId: z.string().trim().min(2).max(100),
+  customerName: z.string().trim().min(2).max(200),
+  service: z.string().trim().min(2).max(200),
+  email: z.string().trim().email().optional().nullable().or(z.literal("")),
+  phone: z.string().trim().max(40).optional().nullable(),
+  portalUrl: z.string().url().optional().nullable().or(z.literal("")),
+});
+
 export const insertProjectGallerySchema = createInsertSchema(projectGallery).omit({
   id: true,
   createdAt: true,
@@ -585,6 +630,8 @@ export type Quote = typeof quotes.$inferSelect;
 export type InsertQuote = z.infer<typeof insertQuoteSchema>;
 export type Consultation = typeof consultations.$inferSelect;
 export type InsertConsultation = z.infer<typeof insertConsultationSchema>;
+export type ReferralLead = typeof referralLeads.$inferSelect;
+export type InsertReferralLead = z.infer<typeof insertReferralLeadSchema>;
 export type QuoteProposal = typeof quoteProposals.$inferSelect;
 export type InsertQuoteProposal = typeof quoteProposals.$inferInsert;
 export type Invoice = typeof invoices.$inferSelect;

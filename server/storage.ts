@@ -19,10 +19,11 @@ import {
   type ChatMessage, type InsertChatMessage
 } from "@shared/schema";
 import { db } from "./db";
-import { eq, desc, and, gte, lte, lt, gt, isNull, count } from "drizzle-orm";
+import { eq, desc, and, gte, lte, lt, gt, isNull, count, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import { withDatabaseRetry, withGracefulFailure, checkDatabaseHealth } from "./utils/database-error-handling";
+import { appointmentStart, appointmentTimeLabel, legacyCalendarDate } from "./utils/appointment-time";
 
 // Security utility functions for token hashing
 function hashToken(token: string): string {
@@ -1896,8 +1897,11 @@ export class DatabaseStorage implements IStorage {
   async getUpcomingAppointments(): Promise<Appointment[]> {
     const now = new Date();
     return await db.select(appointmentColumns).from(appointments)
-      .where(and(gte(appointments.appointmentDate, now), eq(appointments.status, "scheduled")))
-      .orderBy(appointments.appointmentDate);
+      .where(and(
+        sql`coalesce(${appointments.startTimestamptz}, ${appointments.appointmentDate}) >= ${now}`,
+        inArray(appointments.status, ["scheduled", "confirmed"]),
+      ))
+      .orderBy(sql`coalesce(${appointments.startTimestamptz}, ${appointments.appointmentDate})`);
   }
 
   async getAppointmentByRescheduleToken(token: string): Promise<Appointment | undefined> {
@@ -1912,16 +1916,11 @@ export class DatabaseStorage implements IStorage {
     rescheduleToken?: string, 
     rescheduleExpires?: Date
   ): Promise<void> {
-    const localStart = toZonedTime(startTimestamptz, 'America/Chicago');
-    const localHours = localStart.getHours();
-    const localMinutes = localStart.getMinutes();
-    const period = localHours >= 12 ? 'PM' : 'AM';
-    const displayHours = localHours === 0 ? 12 : localHours > 12 ? localHours - 12 : localHours;
     const updateData: any = {
       startTimestamptz,
       endTimestamptz,
-      appointmentDate: localStart,
-      appointmentTime: `${displayHours}:${localMinutes.toString().padStart(2, '0')} ${period}`,
+      appointmentDate: legacyCalendarDate(startTimestamptz, true),
+      appointmentTime: appointmentTimeLabel({ appointmentDate: startTimestamptz, appointmentTime: "12:00 AM", startTimestamptz }),
       reminder24hSent: null,
       reminder2hSent: null,
     };
@@ -1967,12 +1966,7 @@ export class DatabaseStorage implements IStorage {
     const [currentAppointment] = await db.select(appointmentColumns).from(appointments).where(eq(appointments.id, id));
     
     // Format time in 12-hour format for appointmentTime
-    const localStart = toZonedTime(startTimestamptz, 'America/Chicago');
-    const hours = localStart.getHours();
-    const minutes = localStart.getMinutes();
-    const period = hours >= 12 ? 'PM' : 'AM';
-    const displayHours = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    const appointmentTime = `${displayHours}:${minutes.toString().padStart(2, '0')} ${period}`;
+    const appointmentTime = appointmentTimeLabel({ appointmentDate: startTimestamptz, appointmentTime: "12:00 AM", startTimestamptz });
     
     // Generate new reschedule token for customer self-service
     const { randomBytes } = await import('crypto');
@@ -1982,7 +1976,7 @@ export class DatabaseStorage implements IStorage {
     const updateData = {
       startTimestamptz,
       endTimestamptz,
-      appointmentDate: localStart, // Update legacy field for compatibility
+      appointmentDate: legacyCalendarDate(startTimestamptz, true), // date-only compatibility field
       appointmentTime,
       rescheduleToken,
       rescheduleExpires,

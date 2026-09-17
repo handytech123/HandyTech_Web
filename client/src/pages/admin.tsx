@@ -29,11 +29,13 @@ import ServicesManager from "@/components/services-manager";
 import AvailabilityRulesManager from "@/components/availability-rules-manager";
 import RescheduleAppointmentDialog from "@/components/reschedule-appointment-dialog";
 import AppointmentDetailsDialog from "@/components/appointment-details-dialog";
+import AppointmentAiBrief from "@/components/appointment-ai-brief";
 import AdminQuoteBuilder from "@/components/admin-quote-builder";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import AdminInvoiceManager from "@/components/admin-invoice-manager";
 import BusinessOperationsManager from "@/components/business-operations-manager";
 import MarketingDashboard from "@/components/marketing-dashboard";
+import HomeDepotLeadsManager from "@/components/home-depot-leads-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -637,6 +639,7 @@ function AppointmentsTab({
                         <RotateCcw className="h-4 w-4" />
                         Reschedule
                       </Button>
+                      <AppointmentAiBrief appointmentId={appointment.id} customerName={`${appointment.firstName} ${appointment.lastName}`} />
                     </div>
                   </div>
                 ))
@@ -2997,7 +3000,7 @@ function AuthenticatedDashboard() {
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="operations">Operations</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+                <SelectItem value="operations">Operations</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -3029,6 +3032,7 @@ function AuthenticatedDashboard() {
             <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
               Quotes
             </TabsTrigger>
+            <TabsTrigger value="home-depot" className="flex-1 min-w-[100px] text-sm">Home Depot</TabsTrigger>
             <TabsTrigger value="consultations" className="flex-1 min-w-[100px] text-sm">
               Consultations
             </TabsTrigger>
@@ -3052,6 +3056,10 @@ function AuthenticatedDashboard() {
 
           <TabsContent value="marketing">
             <MarketingDashboard />
+          </TabsContent>
+
+          <TabsContent value="home-depot">
+            <HomeDepotLeadsManager onOpenQuotes={() => setActiveTab("quotes")} />
           </TabsContent>
 
           <TabsContent value="calendar">

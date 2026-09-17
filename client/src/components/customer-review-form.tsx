@@ -182,19 +182,17 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
   };
 
   const serviceTypes = [
-    "Electrical Work",
-    "Plumbing Services", 
-    "Smart Home Installation",
-    "Home Repairs",
-    "Furniture Assembly",
-    "TV Mounting",
-    "Grab Bar Installation",
-    "Dishwasher Installation",
-    "Microwave Installation",
-    "Door Hardware Installation",
-    "Bathroom Hardware Installation",
-    "Drywall Repair",
-    "Other"
+    "General Repairs & Maintenance",
+    "Assembly, Mounting & Installation",
+    "Painting, Drywall & Finishing",
+    "Carpentry, Trim & Doors",
+    "Plumbing & Fixture Work",
+    "Lighting & Electrical Fixtures",
+    "Kitchen & Bathroom Improvements",
+    "Decks, Exterior Work & Pressure Washing",
+    "Accessibility & Home Safety",
+    "Smart Home, Security & Technology",
+    "Other Home Improvement Work",
   ];
 
   return (
@@ -265,19 +263,22 @@ export default function CustomerReviewForm({ onSuccess }: CustomerReviewFormProp
                 name="serviceType"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Service Received *</FormLabel>
+                    <FormLabel>Type of Work *</FormLabel>
                     <FormControl>
                       <select
                         {...field}
                         className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand-primary focus:border-transparent"
                         data-testid="select-service"
                       >
-                        <option value="">Select the service you received...</option>
+                        <option value="">Choose the closest category...</option>
                         {serviceTypes.map((service, index) => (
                           <option key={index} value={service}>{service}</option>
                         ))}
                       </select>
                     </FormControl>
+                    <p className="text-xs text-gray-500">
+                      Pick the closest match. It does not need to describe every part of your project.
+                    </p>
                     <FormMessage />
                   </FormItem>
                 )}

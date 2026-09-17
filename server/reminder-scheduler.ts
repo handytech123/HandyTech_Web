@@ -4,6 +4,7 @@ import type { Appointment } from '../shared/schema';
 import { smsService } from './utils/sms-service';
 import { createEvent, findEventByAppointmentId } from './utils/google.js';
 import { fromZonedTime } from 'date-fns-tz';
+import { appointmentDateLabel, appointmentStart, appointmentTimeLabel } from './utils/appointment-time.js';
 
 export class ReminderScheduler {
   private emailService: EmailService;
@@ -25,17 +26,14 @@ export class ReminderScheduler {
   }
 
   private appointmentDateLabel(appointment: Appointment): string {
-    const [year, month, day] = this.appointmentDateKey(appointment).split('-').map(Number);
-    return new Date(Date.UTC(year, month - 1, day, 12)).toLocaleDateString('en-US', { timeZone: 'America/Chicago' });
+    return appointmentDateLabel(appointment);
   }
 
   // FIXED: Robust appointment date/time parser that handles multiple formats
   private parseAppointmentDateTime(appointment: Appointment): Date | null {
     try {
       // Prefer startTimestamptz if available (most reliable)
-      if (appointment.startTimestamptz) {
-        return new Date(appointment.startTimestamptz);
-      }
+      if (appointment.startTimestamptz) return appointmentStart(appointment);
 
       // Extract appointment date
       const appointmentDateStr = appointment.appointmentDate instanceof Date 
@@ -262,8 +260,8 @@ export class ReminderScheduler {
       const emailSent = await this.emailService.send24HourReminder({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: `${this.appointmentDateKey(appointment)}T12:00:00`,
-        appointmentTime: appointment.appointmentTime,
+        appointmentDate: appointmentStart(appointment).toISOString(),
+        appointmentTime: appointmentTimeLabel(appointment),
         serviceType: appointment.serviceType,
         description: appointment.notes || undefined
       });
@@ -274,7 +272,7 @@ export class ReminderScheduler {
           await smsService.sendAppointmentReminder(
             appointment.phone,
             this.appointmentDateLabel(appointment),
-            appointment.appointmentTime
+            appointmentTimeLabel(appointment)
           );
         }
       }
@@ -296,8 +294,8 @@ export class ReminderScheduler {
       const emailSent = await this.emailService.send2HourReminder({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: `${this.appointmentDateKey(appointment)}T12:00:00`,
-        appointmentTime: appointment.appointmentTime,
+        appointmentDate: appointmentStart(appointment).toISOString(),
+        appointmentTime: appointmentTimeLabel(appointment),
         serviceType: appointment.serviceType,
         description: appointment.notes || undefined
       });
@@ -308,7 +306,7 @@ export class ReminderScheduler {
           await smsService.sendAppointmentReminder(
             appointment.phone,
             this.appointmentDateLabel(appointment),
-            appointment.appointmentTime
+            appointmentTimeLabel(appointment)
           );
         }
       }
@@ -330,8 +328,8 @@ export class ReminderScheduler {
       const emailSent = await this.emailService.sendFollowUpEmail({
         customerName,
         customerEmail: appointment.email,
-        appointmentDate: `${this.appointmentDateKey(appointment)}T12:00:00`,
-        appointmentTime: appointment.appointmentTime,
+        appointmentDate: appointmentStart(appointment).toISOString(),
+        appointmentTime: appointmentTimeLabel(appointment),
         serviceType: appointment.serviceType,
         description: appointment.notes || undefined
       });

@@ -1,6 +1,7 @@
 import type { IStorage } from "../storage";
 import type { AvailabilityRule, Appointment, BlockedTime } from "@shared/schema";
-import { fromZonedTime } from "date-fns-tz";
+import { formatInTimeZone, fromZonedTime } from "date-fns-tz";
+import { appointmentStart, BUSINESS_TIME_ZONE } from "./appointment-time.js";
 
 // Interface for time intervals representing busy periods
 interface TimeInterval {
@@ -68,18 +69,19 @@ export async function getOpenSlots(
     const availableSlots: string[] = [];
     
     // Iterate through each day in the range
-    const currentDate = new Date(from);
-    while (currentDate < to) {
+    let dateKey = formatInTimeZone(from, BUSINESS_TIME_ZONE, "yyyy-MM-dd");
+    const lastDateKey = formatInTimeZone(new Date(to.getTime() - 1), BUSINESS_TIME_ZONE, "yyyy-MM-dd");
+    while (dateKey <= lastDateKey) {
       // Get availability windows for this day of the week
-      const weekday = currentDate.getDay(); // 0=Sunday, 6=Saturday
+      const weekday = new Date(`${dateKey}T12:00:00Z`).getUTCDay(); // 0=Sunday, 6=Saturday
       const dayAvailabilityRules = availabilityRules.filter(rule => rule.weekday === weekday);
       
       // Process each availability window for this day
       for (const rule of dayAvailabilityRules) {
-        const window = createAvailabilityWindow(currentDate, rule);
+        const window = createAvailabilityWindow(dateKey, rule);
         
         // Intersect the availability window with the requested [from, to] bounds
-        const boundedWindow = intersectWindowWithBounds(window, from, to, currentDate);
+        const boundedWindow = intersectWindowWithBounds(window, from, to);
         
         // Only find slots if the bounded window is valid
         if (boundedWindow.start < boundedWindow.end) {
@@ -89,8 +91,9 @@ export async function getOpenSlots(
       }
       
       // Move to next day
-      currentDate.setDate(currentDate.getDate() + 1);
-      currentDate.setHours(0, 0, 0, 0); // Reset to start of day
+      const next = new Date(`${dateKey}T12:00:00Z`);
+      next.setUTCDate(next.getUTCDate() + 1);
+      dateKey = next.toISOString().slice(0, 10);
     }
 
     // Remove duplicates that can occur when multiple availability rules overlap
@@ -136,23 +139,7 @@ function filterAppointmentsInRange(appointments: Appointment[], from: Date, to: 
  * Parse legacy date and time format into a Date object
  */
 function parseLegacyDateTime(date: Date, timeString: string): Date {
-  const appointmentDate = new Date(date);
-  
-  // Parse time string like "9:00 AM" or "2:00 PM"
-  const [time, period] = timeString.split(' ');
-  const [hoursStr, minutesStr] = time.split(':');
-  let hours = parseInt(hoursStr, 10);
-  const minutes = parseInt(minutesStr, 10);
-  
-  // Convert to 24-hour format
-  if (period === 'PM' && hours !== 12) {
-    hours += 12;
-  } else if (period === 'AM' && hours === 12) {
-    hours = 0;
-  }
-  
-  appointmentDate.setHours(hours, minutes, 0, 0);
-  return appointmentDate;
+  return appointmentStart({ appointmentDate: date, appointmentTime: timeString });
 }
 
 /**
@@ -199,65 +186,25 @@ function buildBusyIntervals(appointments: Appointment[], blockedTimes: BlockedTi
  * Intersect an availability window with the requested [from, to] bounds
  * This ensures slots are only returned within the requested date range
  */
-function intersectWindowWithBounds(
-  window: AvailabilityWindow,
-  from: Date,
-  to: Date,
-  currentDate: Date
-): AvailabilityWindow {
-  // Start with the original window bounds
-  let boundedStart = new Date(window.start);
-  let boundedEnd = new Date(window.end);
-  
-  // Get the start and end of the current day for comparison
-  const dayStart = new Date(currentDate);
-  dayStart.setHours(0, 0, 0, 0);
-  
-  const dayEnd = new Date(currentDate);
-  dayEnd.setDate(dayEnd.getDate() + 1);
-  dayEnd.setHours(0, 0, 0, 0);
-  
-  // On the first day of the range, only clip window start to 'from' if 'from' is later than window start
-  if (dayStart.getTime() === new Date(from.getFullYear(), from.getMonth(), from.getDate()).getTime()) {
-    // Only clip if 'from' is actually later than the natural window start
-    if (from.getTime() > window.start.getTime()) {
-      boundedStart = new Date(from.getTime());
-    }
-    // Otherwise keep the natural window start so earliest slot remains eligible
-  }
-  
-  // On the last day of the range, clip window end to 'to' if needed
-  if (dayEnd.getTime() > to.getTime()) {
-    // This is the last day (partial or complete), clip end to 'to'
-    boundedEnd = new Date(Math.min(window.end.getTime(), to.getTime()));
-  }
-  
-  return { start: boundedStart, end: boundedEnd };
+function intersectWindowWithBounds(window: AvailabilityWindow, from: Date, to: Date): AvailabilityWindow {
+  return {
+    start: new Date(Math.max(window.start.getTime(), from.getTime())),
+    end: new Date(Math.min(window.end.getTime(), to.getTime())),
+  };
 }
 
 /**
  * Create an availability window for a specific day and availability rule
  * Properly handles timezone conversion for Central Time business hours
  */
-function createAvailabilityWindow(date: Date, rule: AvailabilityRule): AvailabilityWindow {
-  const startTime = parseTimeString(rule.startTime);
-  const endTime = parseTimeString(rule.endTime);
-
+function createAvailabilityWindow(dateStr: string, rule: AvailabilityRule): AvailabilityWindow {
   // Convert business local times to UTC properly
-  const businessTz = 'America/Chicago';
-  
-  // Format the date for timezone conversion
-  const year = date.getFullYear();
-  const month = (date.getMonth() + 1).toString().padStart(2, '0');
-  const day = date.getDate().toString().padStart(2, '0');
-  const dateStr = `${year}-${month}-${day}`;
-  
   // Create local time strings and convert to UTC
   const startTimeStr = `${rule.startTime}:00`;
   const endTimeStr = `${rule.endTime}:00`;
   
-  const windowStart = fromZonedTime(`${dateStr}T${startTimeStr}`, businessTz);
-  const windowEnd = fromZonedTime(`${dateStr}T${endTimeStr}`, businessTz);
+  const windowStart = fromZonedTime(`${dateStr}T${startTimeStr}`, BUSINESS_TIME_ZONE);
+  const windowEnd = fromZonedTime(`${dateStr}T${endTimeStr}`, BUSINESS_TIME_ZONE);
 
   // Validate for overnight rules (endTime < startTime)
   if (windowEnd <= windowStart) {
@@ -275,14 +222,6 @@ function createAvailabilityWindow(date: Date, rule: AvailabilityRule): Availabil
 /**
  * Parse time string like "09:00" into hours and minutes
  */
-function parseTimeString(timeStr: string): { hours: number; minutes: number } {
-  const [hoursStr, minutesStr] = timeStr.split(':');
-  return {
-    hours: parseInt(hoursStr, 10),
-    minutes: parseInt(minutesStr, 10)
-  };
-}
-
 /**
  * Find available slots within a specific availability window
  */

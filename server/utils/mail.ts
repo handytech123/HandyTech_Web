@@ -1,6 +1,8 @@
 import nodemailer from 'nodemailer';
+import { ImapFlow } from 'imapflow';
 import type { Appointment } from '../../shared/schema.js';
 import { getServiceById, type Service } from './services.js';
+import { appointmentStart, appointmentTimeLabel } from './appointment-time.js';
 
 interface EmailAttachment {
   filename: string;
@@ -93,8 +95,8 @@ export class EmailService {
       phone: appointment.phone,
       address: appointment.address,
       serviceType: appointment.serviceType,
-      appointmentDate: new Date(appointment.appointmentDate),
-      appointmentTime: appointment.appointmentTime,
+      appointmentDate: appointmentStart(appointment),
+      appointmentTime: appointmentTimeLabel(appointment),
       startTimestamptz: appointment.startTimestamptz,
       endTimestamptz: appointment.endTimestamptz,
       notes: appointment.notes,
@@ -217,7 +219,7 @@ export class EmailService {
 
   private generateIcsContent(appointment: AppointmentEmailData, method: 'REQUEST' | 'CANCEL' = 'REQUEST'): string {
     const now = new Date();
-    const startDate = appointment.startTimestamptz || new Date(`${appointment.appointmentDate.toISOString().split('T')[0]}T${appointment.appointmentTime}:00`);
+    const startDate = appointmentStart(appointment);
     
     // Calculate end date based on priority: endTimestamptz > suggestedHours > default 2 hours
     let endDate: Date;
@@ -436,6 +438,35 @@ export class EmailService {
     }
   }
 
+  private async archiveInSentFolder(rawMessage: Buffer): Promise<void> {
+    const user = process.env.IMAP_USER || process.env.SMTP_USER;
+    const pass = process.env.IMAP_PASS || process.env.SMTP_PASS;
+    if (!user || !pass) throw new Error("IMAP mailbox credentials are not configured");
+
+    const client = new ImapFlow({
+      host: process.env.IMAP_HOST || "imap.ionos.com",
+      port: Number(process.env.IMAP_PORT || 993),
+      secure: process.env.IMAP_SECURE !== "false",
+      auth: { user, pass },
+      logger: false,
+      connectionTimeout: 30000,
+      greetingTimeout: 15000,
+      socketTimeout: 30000,
+    });
+    try {
+      await client.connect();
+      const mailboxes = await client.list();
+      const configuredFolder = process.env.IMAP_SENT_FOLDER?.trim();
+      const sentFolder = configuredFolder
+        || mailboxes.find((mailbox) => mailbox.specialUse === "\\Sent")?.path
+        || mailboxes.find((mailbox) => /(^|[/.])sent($|[/.])|sent (mail|items)/i.test(mailbox.path))?.path;
+      if (!sentFolder) throw new Error("The mailbox Sent folder could not be located");
+      await client.append(sentFolder, rawMessage, ["\\Seen"], new Date());
+    } finally {
+      if (client.usable) await client.logout().catch(() => undefined);
+    }
+  }
+
   async sendPreparedQuote(data: {
     quoteNumber: string;
     customerName: string;
@@ -532,6 +563,48 @@ export class EmailService {
       subject: `${data.quoteNumber} - ${statusLabel}`,
       html: `<div style="font-family:Arial,sans-serif;max-width:640px"><h2 style="color:#0f172a">${statusLabel}: ${data.quoteNumber}</h2><p><strong>${data.customerName}</strong> responded to the ${data.total.toLocaleString("en-US", { style: "currency", currency: "USD" })} quote.</p>${data.message ? `<p style="background:#f1f5f9;padding:16px">${data.message.replace(/[&<>'"]/g, "")}</p>` : ""}<p>Open the HandyTech admin dashboard for the quote details.</p></div>`,
     });
+  }
+
+  async sendQuoteFollowUp(data: { customerName: string; customerEmail: string; subject: string; body: string }): Promise<void> {
+    if (!this.isConfigured) throw new Error("Email service is not configured");
+    const subject = data.subject.replace(/[\r\n]+/g, " ").trim();
+    const escape = (value: string) => value.replace(/[&<>"']/g, (character) => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;",
+    }[character] || character));
+    const bodyHtml = escape(data.body).replace(/\r?\n/g, "<br>");
+    const message = {
+      from: `"${this.businessName}" <${this.fromEmail}>`,
+      to: data.customerEmail,
+      replyTo: this.fromEmail,
+      subject,
+      text: data.body,
+      html: `<div style="margin:0 auto;max-width:680px;font-family:Arial,sans-serif;color:#172033"><div style="background:#0f172a;color:#fff;padding:24px;border-top:6px solid #2769BE"><h1 style="margin:0;font-size:22px">${escape(this.businessName)}</h1></div><div style="padding:26px;border:1px solid #e5e7eb;border-top:0"><p style="line-height:1.6">${bodyHtml}</p><p style="margin-top:24px">Questions? Reply to this email or call ${escape(this.businessPhone)}.</p></div></div>`,
+      headers: {
+        "X-HandyTech-Message-Type": "website-follow-up",
+        "X-HandyTech-Customer": data.customerEmail,
+      },
+    };
+    const compiler = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "windows" });
+    const compiled = await compiler.sendMail(message);
+    let rawMessage: Buffer;
+    if (Buffer.isBuffer(compiled.message)) {
+      rawMessage = compiled.message;
+    } else if (typeof compiled.message === "string") {
+      rawMessage = Buffer.from(compiled.message);
+    } else {
+      const chunks: Buffer[] = [];
+      for await (const chunk of compiled.message) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+      rawMessage = Buffer.concat(chunks);
+    }
+    await this.transporter.sendMail({
+      envelope: { from: this.fromEmail, to: [data.customerEmail, this.fromEmail] },
+      raw: rawMessage,
+    });
+    try {
+      await this.archiveInSentFolder(rawMessage);
+    } catch (error) {
+      console.error("Follow-up was delivered but could not be archived in IMAP Sent folder:", error);
+    }
   }
 
   async sendInvoice(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; balanceDue: number; dueDate: Date; invoiceUrl: string; pdfBuffer: Buffer }): Promise<void> {

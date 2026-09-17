@@ -4,6 +4,10 @@ import fs from "node:fs";
 import path from "node:path";
 
 const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
+const parseQuoteSections = (notes = "") => {
+  const matches = Array.from(notes.matchAll(/^\[([^\]]+)\]\s*\n([\s\S]*?)(?=\n\n\[[^\]]+\]|$)/gm));
+  return { structured: matches.length > 0, sections: Object.fromEntries(matches.map((match) => [match[1], match[2].trim()])) as Record<string, string> };
+};
 
 export async function generateQuotePdfBuffer(quote: Quote, proposal: QuoteProposal): Promise<Buffer> {
   const doc = new PDFDocument({ size: "LETTER", margin: 48, info: { Title: `${proposal.quoteNumber} - HandyTech Solutions` } });
@@ -20,6 +24,8 @@ export async function generateQuotePdfBuffer(quote: Quote, proposal: QuotePropos
   const muted = "#64748B";
   const left = 48;
   const right = 564;
+  const quoteContent = parseQuoteSections(proposal.notes || "");
+  const fixedProjectPrice = quoteContent.sections["PRICING PRESENTATION"] === "fixed_project";
 
   doc.rect(0, 0, 612, 116).fill(slate);
   doc.rect(0, 0, 612, 7).fill(blue);
@@ -42,22 +48,34 @@ export async function generateQuotePdfBuffer(quote: Quote, proposal: QuotePropos
     .text(`Valid through: ${proposal.validUntil.toLocaleDateString("en-US")}`, 386, y + 35, { width: 178, align: "right" });
 
   y = Math.max(244, doc.y + 20);
+  const detailSection = (title: string, body?: string) => {
+    if (!body) return;
+    const bodyHeight = doc.font("Helvetica").fontSize(9).heightOfString(body, { width: right - left - 20, lineGap: 2 });
+    const height = bodyHeight + 43;
+    if (y + height > 690) { doc.addPage(); y = 54; }
+    doc.roundedRect(left, y, right - left, height, 5).fill("#F8FAFC");
+    doc.fillColor(blue).font("Helvetica-Bold").fontSize(9).text(title, left + 10, y + 10);
+    doc.fillColor(slate).font("Helvetica").fontSize(9).text(body, left + 10, y + 27, { width: right - left - 20, lineGap: 2 });
+    y += height + 10;
+  };
+  if (quoteContent.structured) {
+    detailSection("PROJECT OVERVIEW", quoteContent.sections["PROJECT SUMMARY"]);
+    detailSection("WHAT IS INCLUDED", quoteContent.sections["INCLUDED WORK"]);
+    detailSection("EXCLUSIONS & ASSUMPTIONS", quoteContent.sections["EXCLUSIONS & ASSUMPTIONS"]);
+    detailSection("ESTIMATED DURATION", quoteContent.sections["ESTIMATED DURATION"]);
+  }
+  if (y + 70 > 690) { doc.addPage(); y = 54; }
   doc.roundedRect(left, y, right - left, 28, 4).fill(pale);
-  doc.fillColor(slate).font("Helvetica-Bold").fontSize(9)
-    .text("DESCRIPTION", left + 10, y + 10, { width: 265 })
-    .text("QTY", 330, y + 10, { width: 45, align: "right" })
-    .text("RATE", 383, y + 10, { width: 75, align: "right" })
-    .text("AMOUNT", 466, y + 10, { width: 88, align: "right" });
+  doc.fillColor(slate).font("Helvetica-Bold").fontSize(9).text(fixedProjectPrice ? "PROJECT PHASES INCLUDED IN FIXED PRICE" : "DESCRIPTION", left + 10, y + 10, { width: 265 });
+  if (!fixedProjectPrice) doc.text("QTY", 330, y + 10, { width: 45, align: "right" }).text("RATE", 383, y + 10, { width: 75, align: "right" }).text("AMOUNT", 466, y + 10, { width: 88, align: "right" });
   y += 34;
 
   for (const item of proposal.lineItems) {
-    const height = Math.max(29, doc.heightOfString(item.description, { width: 265 }) + 14);
+    const phaseText = fixedProjectPrice ? [item.description, item.details, item.estimatedHours ? `Approximate labor effort: ${item.estimatedHours}` : "", item.materials ? `Materials included: ${item.materials}` : ""].filter(Boolean).join("\n") : item.description;
+    const height = Math.max(29, doc.heightOfString(phaseText, { width: fixedProjectPrice ? 496 : 265 }) + 14);
     if (y + height > 690) { doc.addPage(); y = 54; }
-    doc.fillColor(slate).font("Helvetica").fontSize(9)
-      .text(item.description, left + 10, y + 7, { width: 265 })
-      .text(String(item.quantity), 330, y + 7, { width: 45, align: "right" })
-      .text(money(item.rate), 383, y + 7, { width: 75, align: "right" })
-      .text(money(item.quantity * item.rate), 466, y + 7, { width: 88, align: "right" });
+    doc.fillColor(slate).font("Helvetica").fontSize(9).text(phaseText, left + 10, y + 7, { width: fixedProjectPrice ? 496 : 265 });
+    if (!fixedProjectPrice) doc.text(String(item.quantity), 330, y + 7, { width: 45, align: "right" }).text(money(item.rate), 383, y + 7, { width: 75, align: "right" }).text(money(item.quantity * item.rate), 466, y + 7, { width: 88, align: "right" });
     doc.strokeColor("#E2E8F0").moveTo(left, y + height).lineTo(right, y + height).stroke();
     y += height;
   }
@@ -69,16 +87,19 @@ export async function generateQuotePdfBuffer(quote: Quote, proposal: QuotePropos
       .text(label, totalX, y, { width: 100 }).text(value, 456, y, { width: 98, align: "right" });
     y += strong ? 23 : 17;
   };
-  totalRow("Subtotal", money(proposal.subtotal));
+  totalRow(fixedProjectPrice ? "Fixed project price" : "Subtotal", money(proposal.subtotal));
   if (proposal.discount) totalRow("Discount", `-${money(proposal.discount)}`);
   if (proposal.tax) totalRow(`Tax (${proposal.taxRate}%)`, money(proposal.tax));
   doc.strokeColor(blue).lineWidth(2).moveTo(totalX, y).lineTo(right, y).stroke(); y += 9;
-  totalRow("TOTAL", money(proposal.total), true);
+  totalRow("TOTAL INVESTMENT", money(proposal.total), true);
 
-  if (proposal.notes) {
+  const closingNotes = quoteContent.structured
+    ? [quoteContent.sections["PAYMENT TERMS"] ? `Payment terms: ${quoteContent.sections["PAYMENT TERMS"]}` : "", quoteContent.sections["WORKMANSHIP"] ? `Workmanship: ${quoteContent.sections["WORKMANSHIP"]}` : "", quoteContent.sections["ADDITIONAL NOTES"] || ""].filter(Boolean).join("\n\n")
+    : proposal.notes;
+  if (closingNotes) {
     if (y > 650) { doc.addPage(); y = 54; }
     doc.fillColor(slate).font("Helvetica-Bold").fontSize(10).text("SCOPE & NOTES", left, y + 8);
-    doc.fillColor(muted).font("Helvetica").fontSize(9).text(proposal.notes, left, y + 26, { width: right - left, lineGap: 2 });
+    doc.fillColor(muted).font("Helvetica").fontSize(9).text(closingNotes, left, y + 26, { width: right - left, lineGap: 2 });
     y = doc.y + 14;
   }
 

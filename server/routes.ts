@@ -35,6 +35,8 @@ import {
   jobExpenses,
   changeOrders,
   automationLog
+  ,referralLeads,
+  insertReferralLeadSchema
 } from "@shared/schema";
 import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
@@ -43,6 +45,7 @@ import OpenAI from "openai";
 import { notificationService } from './utils/notification-service';
 import { EmailService } from "./utils/mail";
 import crypto from "crypto";
+import { connectorKeyMatches, homeDepotConnectorKey, homeDepotLeadInput, scoreHomeDepotLead } from "./utils/home-depot-leads";
 import { getOpenSlots } from "./utils/availability";
 import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
@@ -57,6 +60,7 @@ import { generateQuotePdfBuffer } from "./utils/quote-pdf";
 import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
 import { seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
+import { appointmentShortDateLabel, appointmentStart, appointmentTimeLabel, centralAppointmentInstant, legacyCalendarDate } from "./utils/appointment-time";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -952,8 +956,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (updatedAppointment.smsConsent && updatedAppointment.phone) {
             await smsService.sendRescheduleConfirmation(
               updatedAppointment.phone,
-              new Date(updatedAppointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
-              updatedAppointment.appointmentTime
+              appointmentShortDateLabel(updatedAppointment),
+              appointmentTimeLabel(updatedAppointment)
             );
           }
           console.log(`[PORTAL_RESCHEDULE] Confirmation email sent for appointment ${appointmentId}`);
@@ -1076,7 +1080,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           await getEmailService().sendAppointmentCancellation({ ...appointment, status: "cancelled" });
           if (appointment.smsConsent && appointment.phone) {
-            await smsService.sendCancellationConfirmation(appointment.phone, new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }), appointment.appointmentTime);
+            await smsService.sendCancellationConfirmation(appointment.phone, appointmentShortDateLabel(appointment), appointmentTimeLabel(appointment));
           }
         } catch (emailError) {
           console.error(`Cancellation email failed for appointment ${appointmentId}:`, emailError);
@@ -1194,8 +1198,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (updatedAppointment.smsConsent && updatedAppointment.phone) {
             await smsService.sendRescheduleConfirmation(
               updatedAppointment.phone,
-              new Date(updatedAppointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
-              updatedAppointment.appointmentTime
+              appointmentShortDateLabel(updatedAppointment),
+              appointmentTimeLabel(updatedAppointment)
             );
           }
         } catch (emailError) {
@@ -1252,7 +1256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         try {
           await getEmailService().sendAppointmentCancellation({ ...appointment, status: "cancelled" });
           if (appointment.smsConsent && appointment.phone) {
-            await smsService.sendCancellationConfirmation(appointment.phone, new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }), appointment.appointmentTime);
+            await smsService.sendCancellationConfirmation(appointment.phone, appointmentShortDateLabel(appointment), appointmentTimeLabel(appointment));
           }
         } catch (emailError) {
           console.error(`Cancellation email failed for appointment ${appointmentId}:`, emailError);
@@ -1389,7 +1393,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         phone: phone || null,
         bookingType,
         serviceType,
-        appointmentDate: new Date(appointmentDate),
+        appointmentDate: legacyCalendarDate(appointmentDate),
         appointmentTime,
         startTimestamptz: requestedStart,
         endTimestamptz: requestedEnd,
@@ -2050,8 +2054,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         const delivered = await getEmailService().sendFollowUpEmail({
           customerName: `${customer.firstName} ${customer.lastName}`,
           customerEmail: customer.email,
-          appointmentDate: new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
-          appointmentTime: appointment.appointmentTime,
+          appointmentDate: appointmentStart(appointment).toISOString(),
+          appointmentTime: appointmentTimeLabel(appointment),
           serviceType: appointment.serviceType,
           description: appointment.notes || undefined,
         });
@@ -2493,29 +2497,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         durationHours = serviceDurations[appointmentData.serviceType] || 2;
       }
       
-      // Compute timestamps from appointmentDate and appointmentTime in Central Time
-      const [timeStr, period] = appointmentData.appointmentTime.split(' ');
-      const [hoursStr, minutesStr] = timeStr.split(':');
-      let hours = parseInt(hoursStr, 10);
-      const minutes = parseInt(minutesStr, 10);
-      
-      // Convert to 24-hour format
-      if (period === 'PM' && hours !== 12) {
-        hours += 12;
-      } else if (period === 'AM' && hours === 12) {
-        hours = 0;
-      }
-      
-      // Create appointment time in Central Time, then convert to UTC
-      const businessTz = 'America/Chicago';
-      const appointmentDate = new Date(appointmentData.appointmentDate);
-      const year = appointmentDate.getFullYear();
-      const month = (appointmentDate.getMonth() + 1).toString().padStart(2, '0');
-      const day = appointmentDate.getDate().toString().padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
-      
-      const timeStr24 = `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:00`;
-      const startTimestamptz = fromZonedTime(`${dateStr}T${timeStr24}`, businessTz);
+      // Treat the submitted YYYY-MM-DD as a Central calendar date. Never parse
+      // it as UTC midnight, which can turn Monday into Sunday in messages.
+      const submittedDate = typeof req.body.appointmentDate === "string"
+        ? req.body.appointmentDate
+        : appointmentData.appointmentDate;
+      const startTimestamptz = centralAppointmentInstant(submittedDate, appointmentData.appointmentTime);
       const endTimestamptz = new Date(startTimestamptz.getTime() + (durationHours * 60 * 60 * 1000));
 
       const minimumPublicStart = new Date(Date.now() + (PUBLIC_SCHEDULING_NOTICE_HOURS * 60 * 60 * 1000));
@@ -2578,6 +2565,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Create appointment with computed timestamps and reschedule token
       const enhancedAppointmentData = {
         ...appointmentData,
+        appointmentDate: legacyCalendarDate(submittedDate),
         serviceType: serviceInfo?.name || appointmentData.serviceType,
         startTimestamptz,
         endTimestamptz,
@@ -2660,8 +2648,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (appointment.smsConsent && appointment.phone) {
           await smsService.sendAppointmentConfirmation(
             appointment.phone,
-            new Date(appointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
-            appointment.appointmentTime
+            appointmentShortDateLabel(appointment),
+            appointmentTimeLabel(appointment)
           );
         }
         
@@ -2888,8 +2876,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           if (updatedAppointment.smsConsent && updatedAppointment.phone) {
             await smsService.sendRescheduleConfirmation(
               updatedAppointment.phone,
-              new Date(updatedAppointment.appointmentDate).toLocaleDateString('en-US', { timeZone: 'America/Chicago' }),
-              updatedAppointment.appointmentTime
+              appointmentShortDateLabel(updatedAppointment),
+              appointmentTimeLabel(updatedAppointment)
             );
           }
         } catch (emailError) {
@@ -3111,14 +3099,201 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
 
+  app.post("/api/admin/quotes/:id/analyze-intake", requireAdmin, async (req, res) => {
+    const intakeSchema = z.object({ contractorNotes: z.string().trim().max(30000).default("") });
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const input = intakeSchema.parse(req.body || {});
+      const client = getOpenAI();
+      if (!client) return res.status(503).json({ message: "The AI intake assistant is not configured yet." });
+      const baseUrl = process.env.BASE_URL || "https://handytech-solutions.com";
+      const photoUrls = (quote.photoUrls || []).slice(0, 4).map((url) =>
+        url.startsWith("http://") || url.startsWith("https://") ? url : `${baseUrl}${url.startsWith("/") ? "" : "/"}${url}`
+      );
+      const requestPayload = { customerRequest: {
+        customerName: `${quote.firstName} ${quote.lastName}`.trim(), service: quote.serviceNeeded,
+        selectedServices: quote.selectedServices || [], message: quote.message || "",
+        serviceAddress: formatServiceAddress(quote), photoCount: quote.photoUrls?.length || 0,
+        videoCount: quote.videoUrls?.length || (quote.videoUrl ? 1 : 0),
+      }, contractorNotes: input.contractorNotes };
+      const response = await client.responses.create({
+        model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        instructions: `You are an intake assistant for HandyTech Solutions, a home-repair and improvement business. Turn the customer's request and the contractor's optional notes into a concise internal job brief. Do not estimate price, diagnose hidden conditions, promise availability, or claim a permit or licensed trade is unnecessary. Flag electrical, gas, structural, water intrusion, mold, asbestos, lead, fire, and active leak concerns for human review when supported by the supplied facts. Missing information must be genuinely useful before estimating or scheduling. Customer questions must be friendly, short, and answerable. If the request is sufficiently clear, return empty missingInformation and customerQuestions lists. You may describe clearly visible details in supplied photos, but state uncertainty and never infer hidden conditions. Videos are attachments for human review and are not visually analyzed.`,
+        input: [{ role: "user", content: [
+          { type: "input_text", text: JSON.stringify(requestPayload) },
+          ...photoUrls.map((image_url) => ({ type: "input_image" as const, image_url, detail: "low" as const })),
+        ] }],
+        text: { format: { type: "json_schema", name: "handytech_intake_analysis", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: {
+            jobTitle: { type: "string", minLength: 1, maxLength: 100 }, category: { type: "string", minLength: 1, maxLength: 80 },
+            summary: { type: "string", minLength: 1, maxLength: 1200 },
+            readiness: { type: "string", enum: ["ready_to_price", "needs_information", "needs_site_visit", "needs_urgent_review"] },
+            urgency: { type: "string", enum: ["routine", "soon", "urgent"] },
+            missingInformation: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: 180 } },
+            customerQuestions: { type: "array", maxItems: 6, items: { type: "string", minLength: 1, maxLength: 220 } },
+            safetyFlags: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: 220 } },
+            suggestedNextStep: { type: "string", minLength: 1, maxLength: 300 }, contractorBrief: { type: "string", minLength: 1, maxLength: 2400 },
+          },
+          required: ["jobTitle", "category", "summary", "readiness", "urgency", "missingInformation", "customerQuestions", "safetyFlags", "suggestedNextStep", "contractorBrief"],
+        } } }, max_output_tokens: 1600,
+      });
+      if (!response.output_text) return res.status(502).json({ message: "The AI assistant did not return an intake analysis. Please try again." });
+      const analysis = z.object({
+        jobTitle: z.string().trim().min(1).max(100), category: z.string().trim().min(1).max(80), summary: z.string().trim().min(1).max(1200),
+        readiness: z.enum(["ready_to_price", "needs_information", "needs_site_visit", "needs_urgent_review"]), urgency: z.enum(["routine", "soon", "urgent"]),
+        missingInformation: z.array(z.string().trim().min(1).max(180)).max(8), customerQuestions: z.array(z.string().trim().min(1).max(220)).max(6),
+        safetyFlags: z.array(z.string().trim().min(1).max(220)).max(8), suggestedNextStep: z.string().trim().min(1).max(300), contractorBrief: z.string().trim().min(1).max(2400),
+      }).parse(JSON.parse(response.output_text));
+      res.json(analysis);
+    } catch (error) {
+      console.error("AI intake analysis error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The request could not be analyzed.", errors: error.errors });
+      if ((error as any)?.status === 429 && (error as any)?.code === "credit_balance_exhausted") return res.status(503).json({ message: "OpenAI API billing needs credits before intake analysis can run." });
+      res.status(500).json({ message: "The intake analysis could not be generated. No quote data was changed." });
+    }
+  });
+
+  app.post("/api/admin/quotes/:id/ai-follow-up", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      purpose: z.enum(["missing_information", "quote_reminder", "changes_reply"]),
+      context: z.string().trim().max(4000).default(""),
+    });
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const proposal = await storage.getQuoteProposalByQuoteId(id);
+      const input = schema.parse(req.body || {});
+      const client = getOpenAI();
+      if (!client) return res.status(503).json({ message: "The AI assistant is not configured yet." });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        instructions: `Draft a friendly, concise customer follow-up for HandyTech Solutions. The contractor must review and manually send it. Do not invent discounts, deadlines, availability, work scope, prices, or facts. Do not pressure the customer. For missing information, ask only useful questions found in the context. For a quote reminder, mention the quote only if proposal data is present. End the email with the exact signature "Thank you,\nLou\nHandyTech Solutions". End the SMS with "- Lou, HandyTech Solutions" and keep it under 480 characters. Do not add marketing language.`,
+        input: JSON.stringify({
+          purpose: input.purpose,
+          customer: { firstName: quote.firstName, service: quote.serviceNeeded },
+          request: quote.message || "",
+          contractorContext: input.context,
+          proposal: proposal ? { quoteNumber: proposal.quoteNumber, total: proposal.total, status: proposal.status, validUntil: proposal.validUntil } : null,
+        }),
+        text: { format: { type: "json_schema", name: "handytech_follow_up", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: { subject: { type: "string", minLength: 1, maxLength: 140 }, emailBody: { type: "string", minLength: 1, maxLength: 2400 }, smsBody: { type: "string", minLength: 1, maxLength: 480 } },
+          required: ["subject", "emailBody", "smsBody"],
+        } } }, max_output_tokens: 900,
+      });
+      if (!response.output_text) return res.status(502).json({ message: "No follow-up draft was returned." });
+      res.json(z.object({ subject: z.string().max(140), emailBody: z.string().max(2400), smsBody: z.string().max(480) }).parse(JSON.parse(response.output_text)));
+    } catch (error) {
+      console.error("AI quote follow-up error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the follow-up details and try again.", errors: error.errors });
+      res.status(500).json({ message: "The follow-up draft could not be generated. Nothing was sent." });
+    }
+  });
+
+  app.post("/api/admin/quotes/:id/send-follow-up", requireAdmin, async (req, res) => {
+    const schema = z.object({
+      channel: z.enum(["email", "sms", "both"]),
+      subject: z.string().trim().min(1).max(140),
+      emailBody: z.string().trim().min(1).max(2400),
+      smsBody: z.string().trim().min(1).max(480),
+      smsConsentConfirmed: z.boolean().default(false),
+    });
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const input = schema.parse(req.body || {});
+      const sendEmail = input.channel === "email" || input.channel === "both";
+      const sendSms = input.channel === "sms" || input.channel === "both";
+      if (sendEmail && !quote.email) return res.status(400).json({ message: "This customer does not have an email address." });
+      if (sendSms && !quote.phone) return res.status(400).json({ message: "This customer does not have a phone number." });
+      if (sendSms && !input.smsConsentConfirmed) return res.status(400).json({ message: "Confirm the customer agreed to receive this text before sending." });
+
+      const result = { emailSent: false, smsSent: false };
+      if (sendEmail) {
+        await getEmailService().sendQuoteFollowUp({
+          customerName: quote.firstName,
+          customerEmail: quote.email,
+          subject: input.subject,
+          body: input.emailBody,
+        });
+        result.emailSent = true;
+      }
+      if (sendSms && quote.phone) {
+        const smsBody = /\bstop\b/i.test(input.smsBody)
+          ? input.smsBody
+          : `${input.smsBody.replace(/\s+$/, "")} Reply STOP to unsubscribe.`;
+        result.smsSent = await smsService.sendCustomerMessage(quote.phone, smsBody);
+        if (!result.smsSent) {
+          return res.status(result.emailSent ? 207 : 503).json({
+            ...result,
+            message: result.emailSent
+              ? "The email was sent, but the text could not be delivered. Check the Twilio settings and customer phone number."
+              : "The text could not be delivered. Check the Twilio settings and customer phone number.",
+          });
+        }
+      }
+      res.json({ ...result, message: input.channel === "both" ? "Email and text sent." : input.channel === "email" ? "Email sent." : "Text sent." });
+    } catch (error) {
+      console.error("Quote follow-up delivery error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the follow-up message and try again.", errors: error.errors });
+      res.status(500).json({ message: "The follow-up could not be sent. Please try again." });
+    }
+  });
+
+  app.post("/api/admin/appointments/:id/ai-brief", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid appointment" });
+      const appointment = await storage.getAppointment(id);
+      if (!appointment) return res.status(404).json({ message: "Appointment not found" });
+      const client = getOpenAI();
+      if (!client) return res.status(503).json({ message: "The AI assistant is not configured yet." });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        instructions: `Create a practical pre-job brief for the HandyTech Solutions contractor from confirmed appointment facts. Do not invent site conditions, tools, materials, measurements, prices, permits, or customer promises. Suggested tools and materials must be labeled as items to verify. Surface safety concerns without diagnosing hidden conditions. Keep it compact and useful on a phone.`,
+        input: JSON.stringify({ appointment: {
+          customerName: `${appointment.firstName} ${appointment.lastName}`.trim(), bookingType: appointment.bookingType,
+          serviceType: appointment.serviceType, address: appointment.address || [appointment.street, appointment.city, appointment.state, appointment.zip].filter(Boolean).join(", "),
+          notes: appointment.notes || "", status: appointment.status,
+        } }),
+        text: { format: { type: "json_schema", name: "handytech_job_brief", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: {
+            summary: { type: "string", minLength: 1, maxLength: 800 }, customerGoal: { type: "string", minLength: 1, maxLength: 400 },
+            checklist: { type: "array", maxItems: 10, items: { type: "string", minLength: 1, maxLength: 180 } },
+            toolsAndMaterialsToVerify: { type: "array", maxItems: 12, items: { type: "string", minLength: 1, maxLength: 180 } },
+            questions: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: 200 } },
+            riskFlags: { type: "array", maxItems: 8, items: { type: "string", minLength: 1, maxLength: 220 } },
+          }, required: ["summary", "customerGoal", "checklist", "toolsAndMaterialsToVerify", "questions", "riskFlags"],
+        } } }, max_output_tokens: 1200,
+      });
+      if (!response.output_text) return res.status(502).json({ message: "No job brief was returned." });
+      res.json(JSON.parse(response.output_text));
+    } catch (error) {
+      console.error("AI appointment brief error:", error);
+      res.status(500).json({ message: "The job brief could not be generated. No appointment data was changed." });
+    }
+  });
+
   app.post("/api/admin/quotes/:id/ai-draft", requireAdmin, async (req, res) => {
     const aiQuoteDraftSchema = z.object({
-      roughNotes: z.string().trim().min(3).max(8000),
+      roughNotes: z.string().trim().min(3).max(30000),
       detailLevel: z.enum(["concise", "detailed"]).default("detailed"),
       existingItems: z.array(z.object({
         description: z.string().trim().max(240),
         quantity: z.coerce.number().positive().max(10000),
         rate: z.coerce.number().min(0).max(1000000),
+        details: z.string().trim().max(800).optional(),
+        estimatedHours: z.string().trim().max(100).optional(),
+        materials: z.string().trim().max(500).optional(),
       })).max(50).default([]),
       currentNotes: z.string().trim().max(4000).default(""),
       targetSubtotal: z.coerce.number().positive().max(10000000).optional(),
@@ -3135,17 +3310,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const response = await client.responses.create({
         model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
-        instructions: `You write clear, professional home-repair quotes for HandyTech Solutions. Convert the contractor's rough notes into customer-facing line items and scope language. Determine the quote subtotal from an explicit dollar total or explicit item prices in the contractor's message. If contractorSubtotalOverride is present, it takes priority. Never invent a total when no pricing is supplied; return null for detectedSubtotal instead. Assign each line item a relative allocation weight based on explicit relative/item pricing first, then apparent labor, materials, and complexity. The server converts weights into dollar amounts totaling the approved subtotal. Do not add work, measurements, materials, warranties, permits, dates, or promises unsupported by the notes. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
+        instructions: `You write clear, professional fixed-project home-repair quotes for HandyTech Solutions. The contractorNotes field is the sole authority for scope. Convert only that supplied scope into customer-facing project phases and clearer wording. Never merge, revive, infer, or carry over work from the original customer request, current quote, prior line items, typical project practices, or your general knowledge. If contractorNotes do not expressly include an item, it must not appear as included work, a project phase, a material, or a promised result. You may estimate a cautious labor-effort range for expressly listed work, but that estimate may not create additional tasks. Use 2-3 phases for a small repair, 4-6 for a normal multi-step project, and 6-10 only for a full remodel expressly described in contractorNotes. Never split one listed task into repetitive phases merely to increase detail. Each phase needs a short title, useful details limited to the listed work, a cautious estimated labor-hours range, and only material categories expressly named or unavoidably required by that listed task. Never represent estimated hours as time-and-material billing or a promised completion time. Do not put dollar amounts in the project summary, phase details, included-work list, estimated-hours field, or materials field; customer-facing dollars belong only in pricing totals. Also produce a project summary, a specific included-work list, a cautious exclusions/assumptions list, and an estimated duration. When duration, labor effort, or materials are not supported, explicitly say they must be confirmed instead of inventing them. Determine the quote subtotal from an explicit dollar total or explicit item prices in contractorNotes. If contractorSubtotalOverride is present, it takes priority. Never invent a total when no pricing is supplied; return null for detectedSubtotal instead. Assign each phase a relative allocation weight based on explicit relative/item pricing first, then apparent labor and complexity of only the authorized work. The server converts weights into internal dollar allocations totaling the approved subtotal. Do not add work, measurements, materials, warranties, permits, dates, or promises unsupported by contractorNotes. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
         input: JSON.stringify({
-          customerRequest: {
-            service: quote.serviceNeeded,
-            message: quote.message,
+          contractorNotes: input.roughNotes,
+          administrativeContext: {
+            serviceCategory: quote.serviceNeeded,
             city: quote.city,
             state: quote.state,
           },
-          contractorNotes: input.roughNotes,
-          existingLineItems: input.existingItems,
-          currentScopeNotes: input.currentNotes,
           contractorSubtotalOverride: input.targetSubtotal ?? null,
         }),
         text: {
@@ -3159,22 +3331,29 @@ export async function registerRoutes(app: Express): Promise<Server> {
               properties: {
                 lineItems: {
                   type: "array",
-                  minItems: 1,
+                  minItems: 2,
                   maxItems: 20,
                   items: {
                     type: "object",
                     additionalProperties: false,
                     properties: {
                       description: { type: "string", minLength: 1, maxLength: 240 },
+                      details: { type: "string", minLength: 1, maxLength: 800 },
+                      estimatedHours: { type: "string", minLength: 1, maxLength: 100 },
+                      materials: { type: "string", minLength: 1, maxLength: 500 },
                       allocationWeight: { type: "number", exclusiveMinimum: 0, maximum: 1000000 },
                     },
-                    required: ["description", "allocationWeight"],
+                    required: ["description", "details", "estimatedHours", "materials", "allocationWeight"],
                   },
                 },
                 scopeNotes: { type: "string", minLength: 1, maxLength: 4000 },
+                projectSummary: { type: "string", minLength: 1, maxLength: 1200 },
+                includedWork: { type: "array", minItems: 1, maxItems: 12, items: { type: "string", minLength: 1, maxLength: 240 } },
+                exclusions: { type: "array", maxItems: 10, items: { type: "string", minLength: 1, maxLength: 240 } },
+                estimatedDuration: { type: "string", minLength: 1, maxLength: 160 },
                 detectedSubtotal: { anyOf: [{ type: "number", exclusiveMinimum: 0, maximum: 10000000 }, { type: "null" }] },
               },
-              required: ["lineItems", "scopeNotes", "detectedSubtotal"],
+              required: ["lineItems", "scopeNotes", "projectSummary", "includedWork", "exclusions", "estimatedDuration", "detectedSubtotal"],
             },
           },
         },
@@ -3185,9 +3364,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const draft = z.object({
         lineItems: z.array(z.object({
           description: z.string().trim().min(1).max(240),
+          details: z.string().trim().min(1).max(800),
+          estimatedHours: z.string().trim().min(1).max(100),
+          materials: z.string().trim().min(1).max(500),
           allocationWeight: z.number().positive().max(1000000),
-        })).min(1).max(20),
+        })).min(2).max(20),
         scopeNotes: z.string().trim().min(1).max(4000),
+        projectSummary: z.string().trim().min(1).max(1200),
+        includedWork: z.array(z.string().trim().min(1).max(240)).min(1).max(12),
+        exclusions: z.array(z.string().trim().min(1).max(240)).max(10),
+        estimatedDuration: z.string().trim().min(1).max(160),
         detectedSubtotal: z.number().positive().max(10000000).nullable(),
       }).parse(JSON.parse(response.output_text));
       const usedSubtotal = input.targetSubtotal ?? draft.detectedSubtotal;
@@ -3202,8 +3388,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       [...allocations].sort((a, b) => b.fraction - a.fraction).forEach((allocation) => {
         if (remainingCents > 0) { allocations[allocation.index].cents += 1; remainingCents -= 1; }
       });
-      const lineItems = draft.lineItems.map((item, index) => ({ description: item.description, quantity: 1, rate: allocations[index].cents / 100 }));
-      res.json({ lineItems, scopeNotes: draft.scopeNotes, usedSubtotal });
+      const lineItems = draft.lineItems.map((item, index) => ({ description: item.description, details: item.details, estimatedHours: item.estimatedHours, materials: item.materials, quantity: 1, rate: allocations[index].cents / 100 }));
+      res.json({ lineItems, scopeNotes: draft.scopeNotes, projectSummary: draft.projectSummary, includedWork: draft.includedWork, exclusions: draft.exclusions, estimatedDuration: draft.estimatedDuration, usedSubtotal });
     } catch (error) {
       console.error("AI quote draft error:", error);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Add a few clear job notes and try again.", errors: error.errors });
@@ -3220,11 +3406,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
         description: z.string().trim().min(1).max(240),
         quantity: z.coerce.number().positive().max(10000),
         rate: z.coerce.number().min(0).max(1000000),
+        details: z.string().trim().max(800).optional(),
+        estimatedHours: z.string().trim().max(100).optional(),
+        materials: z.string().trim().max(500).optional(),
       })).min(1).max(50),
       discount: z.coerce.number().min(0).max(1000000).default(0),
       taxRate: z.coerce.number().min(0).max(30).default(0),
       validDays: z.coerce.number().int().min(1).max(90).default(14),
       notes: z.string().trim().max(4000).default(""),
+      projectSummary: z.string().trim().max(1200).default(""),
+      includedWork: z.string().trim().max(3000).default(""),
+      exclusions: z.string().trim().max(3000).default(""),
+      estimatedDuration: z.string().trim().max(200).default("To be scheduled after approval"),
+      paymentTerms: z.string().trim().max(1000).default("Payment is due according to the agreed project schedule."),
+      workmanship: z.string().trim().max(1000).default("Work will be completed in a professional manner using appropriate methods and materials."),
+      pricingPresentation: z.enum(["fixed_project", "itemized"]).default("fixed_project"),
     });
 
     try {
@@ -3243,6 +3439,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rawToken = crypto.randomBytes(32).toString("hex");
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + prepared.validDays);
+      const detailedNotes = [
+        `[PROJECT SUMMARY]\n${prepared.projectSummary || quote.message || quote.serviceNeeded}`,
+        `[PRICING PRESENTATION]\n${prepared.pricingPresentation}`,
+        `[INCLUDED WORK]\n${prepared.includedWork || prepared.lineItems.map((item) => `- ${item.description}`).join("\n")}`,
+        prepared.exclusions ? `[EXCLUSIONS & ASSUMPTIONS]\n${prepared.exclusions}` : "",
+        `[ESTIMATED DURATION]\n${prepared.estimatedDuration}`,
+        `[PAYMENT TERMS]\n${prepared.paymentTerms}`,
+        `[WORKMANSHIP]\n${prepared.workmanship}`,
+        prepared.notes ? `[ADDITIONAL NOTES]\n${prepared.notes}` : "",
+      ].filter(Boolean).join("\n\n");
       const proposal = await storage.saveQuoteProposal({
         quoteId: quote.id,
         quoteNumber,
@@ -3253,7 +3459,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal,
         tax,
         total,
-        notes: prepared.notes,
+        notes: detailedNotes,
         validUntil,
         status: "sent",
         sentAt: new Date(),
@@ -3272,7 +3478,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tax,
         total,
         validDays: prepared.validDays,
-        notes: prepared.notes,
+        notes: detailedNotes,
         proposalUrl,
         pdfBuffer,
       });
@@ -4781,6 +4987,124 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.error("Marketing summary error:", error);
       res.status(500).json({ message: "Marketing report could not be generated" });
     }
+  });
+
+  app.get("/api/admin/referral-leads", requireAdmin, async (_req, res) => {
+    const rows = await db.select().from(referralLeads).orderBy(desc(referralLeads.createdAt));
+    res.json(rows);
+  });
+
+  app.get("/api/admin/referral-leads/connection", requireAdmin, async (_req, res) => {
+    const connectorReady = Boolean(homeDepotConnectorKey());
+    res.json({
+      provider: "Home Depot Pro Referral",
+      mode: "observation",
+      connected: connectorReady,
+      spendingEnabled: false,
+      automaticMessagingEnabled: false,
+      message: connectorReady
+        ? "The secure PC connector is configured in observation mode. It can import visible leads but cannot spend points or message customers automatically."
+        : "The lead workspace is ready. Add a secure connector key on the server, then load the HandyTech Home Depot extension on the main PC.",
+    });
+  });
+
+  app.get("/api/admin/referral-leads/connector-setup", requireAdmin, (_req, res) => {
+    const connectorKey = homeDepotConnectorKey();
+    if (!connectorKey) return res.status(503).json({ message: "The server security key is unavailable. Check JWT_SECRET." });
+    res.setHeader("Cache-Control", "no-store");
+    res.json({ connectorKey, siteUrl: SITE_URL, installFolder: "tools/home-depot-connector", mode: "observation" });
+  });
+
+  const requireHomeDepotConnector = (req: any, res: any, next: any) => {
+    if (!connectorKeyMatches(req.headers["x-home-depot-connector-key"])) {
+      return res.status(401).json({ message: "The Home Depot connector key is missing or invalid." });
+    }
+    next();
+  };
+
+  app.get("/api/connectors/home-depot/status", requireHomeDepotConnector, (_req, res) => {
+    res.json({ connected: true, mode: "observation", spendingEnabled: false, automaticMessagingEnabled: false, serverTime: new Date().toISOString() });
+  });
+
+  app.post("/api/connectors/home-depot/leads", requireHomeDepotConnector, async (req, res) => {
+    try {
+      const parsed = homeDepotLeadInput.parse(req.body || {});
+      const rating = scoreHomeDepotLead(parsed);
+      const status = rating.recommendation === "strong_match" ? "reviewing" : rating.recommendation === "pass" ? "passed" : "new";
+      const values = {
+        ...parsed,
+        email: parsed.email || null,
+        phone: parsed.phone || null,
+        portalUrl: parsed.portalUrl || null,
+        responseDueAt: parsed.responseDueAt || null,
+        score: rating.score,
+        scoreReasons: rating.reasons,
+        status,
+        updatedAt: new Date(),
+        lastSyncedAt: new Date(),
+      };
+      const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
+      if (rating.recommendation === "strong_match") {
+        void notificationService.notifyAdmin(
+          "HandyTech - Strong Home Depot Lead",
+          `${parsed.customerName}: ${parsed.service} in ${[parsed.city, parsed.state, parsed.zip].filter(Boolean).join(" ")} (${rating.score}% fit). Review this lead in the HandyTech admin before spending points.`,
+        ).catch((error) => console.error("Home Depot lead alert failed:", error));
+      }
+      res.status(201).json({ lead: row, recommendation: rating.recommendation, blockers: rating.blockers });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.errors });
+      console.error("Home Depot connector ingest failed:", error);
+      res.status(500).json({ message: "The lead could not be imported into HandyTech." });
+    }
+  });
+
+  app.post("/api/admin/referral-leads", requireAdmin, async (req, res) => {
+    try {
+      const parsed = insertReferralLeadSchema.parse(req.body);
+      const rating = scoreHomeDepotLead(parsed);
+      const values = { ...parsed, email: parsed.email || null, portalUrl: parsed.portalUrl || null, score: rating.score, scoreReasons: rating.reasons, updatedAt: new Date(), lastSyncedAt: new Date() };
+      const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
+      res.status(201).json(row);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The lead is missing required information", errors: error.errors });
+      console.error("Referral lead save failed:", error);
+      res.status(500).json({ message: "The Home Depot lead could not be saved" });
+    }
+  });
+
+  app.patch("/api/admin/referral-leads/:id", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const allowed = z.object({ status: z.enum(["new", "reviewing", "claimed", "passed", "hired", "archived"]).optional(), email: z.string().email().nullable().optional(), phone: z.string().max(40).nullable().optional() }).parse(req.body);
+    const [row] = await db.update(referralLeads).set({ ...allowed, claimedAt: allowed.status === "claimed" ? new Date() : undefined, updatedAt: new Date() }).where(eq(referralLeads.id, id)).returning();
+    if (!row) return res.status(404).json({ message: "Lead not found" });
+    res.json(row);
+  });
+
+  app.post("/api/admin/referral-leads/:id/create-customer", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const [lead] = await db.select().from(referralLeads).where(eq(referralLeads.id, id));
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+    if (!lead.email) return res.status(409).json({ message: "Claim the lead and save the customer's email before creating their profile." });
+    const existing = await storage.getCustomerByEmail(lead.email);
+    let customer = existing;
+    if (!customer) {
+      const names = lead.customerName.trim().split(/\s+/);
+      customer = await storage.createCustomer({ firstName: names[0], lastName: names.slice(1).join(" ") || "Customer", email: lead.email, phone: lead.phone || "Not provided", street: "Not provided", city: lead.city || "Not provided", state: lead.state || "MO", zip: lead.zip || "Not provided" });
+    }
+    const [updated] = await db.update(referralLeads).set({ customerId: customer.id, updatedAt: new Date() }).where(eq(referralLeads.id, id)).returning();
+    res.json({ lead: updated, customer });
+  });
+
+  app.post("/api/admin/referral-leads/:id/create-quote", requireAdmin, async (req, res) => {
+    const id = Number(req.params.id);
+    const [lead] = await db.select().from(referralLeads).where(eq(referralLeads.id, id));
+    if (!lead) return res.status(404).json({ message: "Lead not found" });
+    if (!lead.email || !lead.customerId) return res.status(409).json({ message: "Create the customer profile first so the quote has complete contact information." });
+    const customer = await storage.getCustomer(lead.customerId);
+    if (!customer) return res.status(409).json({ message: "The linked customer profile is unavailable." });
+    const [quote] = await db.insert(quotes).values({ firstName: customer.firstName, lastName: customer.lastName, email: customer.email, phone: customer.phone, company: customer.company, street: customer.street, city: customer.city, state: customer.state, zip: customer.zip, serviceNeeded: lead.service, message: lead.customerNotes, leadSource: "home_depot_pro_referral", leadMedium: "referral", landingPage: lead.portalUrl, status: "pending" }).returning();
+    await db.update(referralLeads).set({ quoteId: quote.id, updatedAt: new Date() }).where(eq(referralLeads.id, id));
+    res.status(201).json(quote);
   });
   // Unified business operations: one job record connects the customer, quote,
   // appointment, invoice, expenses, and approved changes.

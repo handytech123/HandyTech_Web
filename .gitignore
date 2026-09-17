@@ -124,6 +124,7 @@ Thumbs.db
 temp_*
 tmp/
 cookies.txt
+.codex-remote-attachments/
 
 # Deployment artifacts
 *.zip
