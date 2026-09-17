@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { sql } from "drizzle-orm";
+import { runOperatingSystemMigrations } from "./operating-system-migrations";
 
 const VALID_CATEGORIES = ["essential", "improvement", "specialized"];
 
@@ -357,6 +358,11 @@ export async function runProductionMigration(): Promise<void> {
     }
 
     console.log("✅ Production migration complete");
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS === "true") {
+      await runOperatingSystemMigrations();
+    } else {
+      console.log("  Operating-system migrations are staged but not activated. Run the production inventory/reconciliation preflight first.");
+    }
   } catch (error) {
     console.error("❌ Production migration error:", error instanceof Error ? error.message : error);
   }

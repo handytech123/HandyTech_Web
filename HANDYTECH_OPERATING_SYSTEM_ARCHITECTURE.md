@@ -916,3 +916,129 @@ Completion Photos
 These belong primarily to:
 
 - Contact
+
+## 35. Explicit Data Migration Requirement
+
+The operating-system redesign is a data-preserving transformation of the existing production system. It is not permission to replace, discard, or silently reinterpret historical data.
+
+The required migration sequence is:
+
+```text
+Existing production data
+        ↓
+Inventory and classify
+        ↓
+Transform / map into the new architecture
+        ↓
+Reconcile every source record
+        ↓
+Verify production behavior and history
+        ↓
+Retire legacy structures only after an approved compatibility period
+```
+
+### 35.1 Mandatory legacy-to-target accounting
+
+The migration must explicitly account for mappings including:
+
+| Existing production record | Target architecture |
+| --- | --- |
+| `customers` | Contacts; existing IDs remain stable |
+| Customer addresses | Properties and Contact/Property relationships |
+| `quotes` | Requests |
+| `consultations` | Requests and/or Request activity |
+| Quote photos, videos, and files | Request media |
+| `quote_proposals` | Proposals attached to Requests |
+| Accepted Proposals | Immutable Approved Scope attached to the resulting Job |
+| `jobs` | Jobs linked to their originating Request, Contact, and Property |
+| `appointments` | Request or Job schedule items |
+| `job_expenses` | Job direct costs |
+| `change_orders` | Job Change Orders |
+| `invoices` | Job/Contact financial history |
+| `invoice_payments` | Auditable payment ledger |
+| Gallery media | Completed-Job media where the relationship can be established safely |
+
+These mappings may be implemented incrementally. Existing tables may coexist with new tables and compatibility relationships throughout the migration.
+
+### 35.2 Match classification
+
+Every migrated or linkable legacy record must receive one of these explicit classifications:
+
+- **Automatically matched** — a high-confidence relationship supported by an explicit foreign key, stable unique identifier, or another deterministic rule.
+- **Needs review** — one or more plausible relationships exist, but selecting one automatically could attach history to the wrong Contact, Property, Request, or Job.
+- **Unmatched historical** — no sufficiently reliable relationship is currently available. The source record remains intact and accessible until resolved.
+
+Names, email addresses, phone numbers, or street addresses alone may produce candidates, but ambiguous candidates must never be silently promoted to authoritative relationships.
+
+Each inferred relationship must preserve:
+
+- Source table and source record ID
+- Target table and target record ID when assigned
+- Match classification
+- Match rule
+- Confidence level or score where useful
+- Migration version
+- Review status and reviewer when manually resolved
+- Created and resolved timestamps
+
+### 35.3 No-loss invariant
+
+> No existing production record may disappear simply because it cannot immediately be mapped to the new model.
+
+Unmatched or ambiguous records must remain in their original tables, remain included in migration accounting, and remain recoverable through compatibility views or administrative review tools.
+
+No migration may delete, merge, or re-parent production history solely to make reconciliation totals look complete.
+
+### 35.4 Reconciliation report
+
+Every production migration/backfill must generate a durable reconciliation report containing source counts before migration and disposition counts afterward.
+
+Example:
+
+```text
+Before migration
+247 customers
+391 quotes
+84 consultations
+312 appointments
+126 proposals
+97 jobs
+104 invoices
+
+After migration
+247/247 customer records accounted for
+391/391 quote records accounted for
+84/84 consultation records accounted for
+312/312 appointment records accounted for
+
+Automatically matched: 347
+Needs review:           31
+Unmatched historical:  13
+Lost/deleted:            0
+```
+
+For every source type, the following equation must hold:
+
+```text
+source total = automatically matched + needs review + unmatched historical
+```
+
+`lost/deleted` must equal zero. A nonzero value blocks migration approval and production cutover.
+
+Reports must be reproducible, timestamped, associated with a migration version, and retained for audit.
+
+### 35.5 Activation and retirement gates
+
+Before activating new authoritative reads or writes:
+
+1. Inventory the actual production schema and source counts without mutation.
+2. Run the mapping logic in dry-run mode.
+3. Review ambiguous-match rules and reconciliation output.
+4. Take and verify a recoverable database backup.
+5. Apply additive schema changes.
+6. Run idempotent backfills with provenance.
+7. Verify all reconciliation equations and confirm zero record loss.
+8. Run legacy and new workflow regression tests.
+9. Enable new behavior behind compatibility layers or feature flags.
+
+Legacy columns, tables, routes, identifiers, tokens, Proposal/invoice links, portal access, and customer history must not be removed until all dependents have migrated, reconciliation has passed, rollback has been demonstrated, and retirement has been explicitly approved.

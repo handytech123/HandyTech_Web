@@ -36,6 +36,7 @@ import AdminInvoiceManager from "@/components/admin-invoice-manager";
 import BusinessOperationsManager from "@/components/business-operations-manager";
 import MarketingDashboard from "@/components/marketing-dashboard";
 import HomeDepotLeadsManager from "@/components/home-depot-leads-manager";
+import RequestsManager from "@/components/requests-manager";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -2758,7 +2759,7 @@ function AuthenticatedDashboard() {
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
   const [quoteAppointmentPrefill, setQuoteAppointmentPrefill] = useState<Quote | null>(null);
   const [customerAppointmentPrefill, setCustomerAppointmentPrefill] = useState<Customer | null>(null);
-  const [activeTab, setActiveTab] = useState("operations");
+  const [activeTab, setActiveTab] = useState("today");
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -3000,58 +3001,41 @@ function AuthenticatedDashboard() {
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="operations">Operations</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+                <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Legacy Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Legacy Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
               </SelectContent>
             </Select>
           </div>
-          <TabsList className="hidden w-full flex-wrap gap-1 h-auto p-1 md:flex xl:grid xl:grid-cols-7">
-            <TabsTrigger value="operations" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
-              Operations
-            </TabsTrigger>
-            <TabsTrigger value="marketing" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
-              Marketing
-            </TabsTrigger>
-            <TabsTrigger value="services" className="flex-1 min-w-[100px] text-sm font-semibold bg-brand-primary text-white data-[state=active]:bg-brand-primary-dark">
-              Services
-            </TabsTrigger>
-            <TabsTrigger value="calendar" className="flex-1 min-w-[100px] text-sm">
-              Calendar
-            </TabsTrigger>
-            <TabsTrigger value="blocked-dates" className="flex-1 min-w-[100px] text-sm">
-              Block Dates
-            </TabsTrigger>
-            <TabsTrigger value="availability-rules" className="flex-1 min-w-[100px] text-sm">
-              Availability
-            </TabsTrigger>
-            <TabsTrigger value="appointments" className="flex-1 min-w-[100px] text-sm">
-              Appointments
-            </TabsTrigger>
-            <TabsTrigger value="gallery" className="flex-1 min-w-[100px] text-sm">
-              Gallery
-            </TabsTrigger>
-            <TabsTrigger value="quotes" className="flex-1 min-w-[100px] text-sm">
-              Quotes
-            </TabsTrigger>
-            <TabsTrigger value="home-depot" className="flex-1 min-w-[100px] text-sm">Home Depot</TabsTrigger>
-            <TabsTrigger value="consultations" className="flex-1 min-w-[100px] text-sm">
-              Consultations
-            </TabsTrigger>
-            <TabsTrigger value="invoices" className="flex-1 min-w-[100px] text-sm">
-              Invoices
-            </TabsTrigger>
-            <TabsTrigger value="reviews" className="flex-1 min-w-[100px] text-sm">
-              Reviews
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="flex-1 min-w-[100px] text-sm">
-              Customers
-            </TabsTrigger>
-            <TabsTrigger value="live-chat" className="flex-1 min-w-[100px] text-sm bg-blue-600 text-white data-[state=active]:bg-blue-700">
-              Live Chat
-            </TabsTrigger>
+          <TabsList className="hidden h-auto w-full grid-cols-6 gap-1 p-1 md:grid">
+            <TabsTrigger value="today">Today</TabsTrigger>
+            <TabsTrigger value="requests">Requests</TabsTrigger>
+            <TabsTrigger value="jobs">Jobs</TabsTrigger>
+            <TabsTrigger value="contacts">Contacts</TabsTrigger>
+            <TabsTrigger value="money">Money</TabsTrigger>
+            <TabsTrigger value="business">Business</TabsTrigger>
           </TabsList>
 
-          <TabsContent value="operations">
+          <TabsContent value="today">
             <BusinessOperationsManager customers={customers} onNavigate={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="requests">
+            <RequestsManager customers={customers} onLegacyNavigate={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="jobs">
+            <BusinessOperationsManager customers={customers} onNavigate={setActiveTab} />
+          </TabsContent>
+
+          <TabsContent value="contacts">
+            <CustomersTab customers={customers} onCreateQuote={(customer) => { setNewQuoteCustomerSearch(`${customer.firstName} ${customer.lastName}`); setNewQuoteCustomerId(String(customer.id)); setNewQuoteService(""); setNewQuoteNotes(""); setActiveTab("quotes"); setNewQuoteDialogOpen(true); }} onScheduleAppointment={(customer) => { setCustomerAppointmentPrefill(customer); setActiveTab("appointments"); }} />
+          </TabsContent>
+
+          <TabsContent value="money">
+            <AdminInvoiceManager customers={customers} />
+          </TabsContent>
+
+          <TabsContent value="business">
+            <Card><CardHeader><CardTitle>Business</CardTitle><CardDescription>Configuration, publishing, growth, automation, and integrations.</CardDescription></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[["Schedule & Calendar","calendar"],["Availability","availability-rules"],["Blocked Time","blocked-dates"],["Services","services"],["Website & Gallery","gallery"],["Reviews","reviews"],["Marketing","marketing"],["Communications","live-chat"],["Referral Integrations","home-depot"]].map(([label,tab])=><Button key={tab} variant="outline" className="h-14 justify-start" onClick={()=>setActiveTab(tab)}>{label}</Button>)}</CardContent></Card>
           </TabsContent>
 
           <TabsContent value="marketing">

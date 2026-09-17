@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, real, date, varchar, time, jsonb } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, real, numeric, date, varchar, time, jsonb } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -123,6 +123,92 @@ export const referralLeads = pgTable("referral_leads", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+// Operating-system entities. The legacy customers table remains the physical
+// Contact store so existing IDs, portal sessions, and foreign keys stay valid.
+export const properties = pgTable("properties", {
+  id: serial("id").primaryKey(),
+  label: text("label"),
+  propertyType: text("property_type"),
+  street: text("street"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  normalizedAddress: text("normalized_address"),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const contactProperties = pgTable("contact_properties", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").references(() => customers.id, { onDelete: "cascade" }).notNull(),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "cascade" }).notNull(),
+  relationship: text("relationship").notNull().default("owner"),
+  isPrimary: boolean("is_primary").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const requests = pgTable("requests", {
+  id: serial("id").primaryKey(),
+  requestNumber: varchar("request_number", { length: 32 }).notNull().unique(),
+  contactId: integer("contact_id").references(() => customers.id, { onDelete: "set null" }),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+  source: text("source").notNull().default("manual"),
+  sourceDetail: text("source_detail"),
+  legacyType: text("legacy_type"),
+  legacyId: text("legacy_id"),
+  title: text("title"),
+  customerDescription: text("customer_description").notNull().default(""),
+  status: text("status").notNull().default("new"),
+  nextAction: text("next_action"),
+  serviceClassification: text("service_classification"),
+  receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
+  closedAt: timestamp("closed_at", { withTimezone: true }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const requestActivities = pgTable("request_activities", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "cascade" }).notNull(),
+  activityType: text("activity_type").notNull(),
+  summary: text("summary").notNull(),
+  details: jsonb("details").$type<Record<string, unknown>>(),
+  visibility: text("visibility").notNull().default("internal"),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const estimates = pgTable("estimates", {
+  id: serial("id").primaryKey(),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "cascade" }).notNull(),
+  version: integer("version").notNull().default(1),
+  status: text("status").notNull().default("draft"),
+  crewSize: integer("crew_size"),
+  estimatedLaborHours: real("estimated_labor_hours"),
+  internalLaborCost: numeric("internal_labor_cost", { precision: 12, scale: 2 }),
+  estimatedDirectCost: numeric("estimated_direct_cost", { precision: 12, scale: 2 }),
+  contingency: numeric("contingency", { precision: 12, scale: 2 }),
+  targetMarginPercent: numeric("target_margin_percent", { precision: 7, scale: 3 }),
+  recommendedPrice: numeric("recommended_price", { precision: 12, scale: 2 }),
+  ownerSelectedPrice: numeric("owner_selected_price", { precision: 12, scale: 2 }),
+  notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const estimateItems = pgTable("estimate_items", {
+  id: serial("id").primaryKey(),
+  estimateId: integer("estimate_id").references(() => estimates.id, { onDelete: "cascade" }).notNull(),
+  category: text("category").notNull(),
+  description: text("description").notNull(),
+  quantity: numeric("quantity", { precision: 12, scale: 3 }).notNull().default("1"),
+  unitCost: numeric("unit_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  totalCost: numeric("total_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export type QuoteLineItem = { description: string; quantity: number; rate: number; details?: string; estimatedHours?: string; materials?: string };
 
 export const quoteProposals = pgTable("quote_proposals", {
@@ -198,6 +284,8 @@ export const jobs = pgTable("jobs", {
   quoteProposalId: integer("quote_proposal_id").references(() => quoteProposals.id, { onDelete: "set null" }),
   invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
   appointmentId: integer("appointment_id"),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
   jobNumber: varchar("job_number", { length: 32 }).notNull().unique(),
   title: text("title").notNull(),
   description: text("description"),
@@ -205,6 +293,9 @@ export const jobs = pgTable("jobs", {
   status: text("status").notNull().default("lead"), // lead, quoted, approved, scheduled, in_progress, completed, invoiced, paid, closed
   scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
   scheduledEnd: timestamp("scheduled_end", { withTimezone: true }),
+  originalContractValue: numeric("original_contract_value", { precision: 12, scale: 2 }).notNull().default("0"),
+  estimatedDirectCost: numeric("estimated_direct_cost", { precision: 12, scale: 2 }).notNull().default("0"),
+  closeoutStatus: text("closeout_status").notNull().default("not_started"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -243,6 +334,93 @@ export const automationLog = pgTable("automation_log", {
   entityId: integer("entity_id").notNull(),
   outcome: text("outcome").notNull(),
   details: text("details"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const automationActions = pgTable("automation_actions", {
+  id: serial("id").primaryKey(),
+  actionType: text("action_type").notNull(),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id"),
+  riskLevel: text("risk_level").notNull().default("low"),
+  proposedPayload: jsonb("proposed_payload").$type<Record<string, unknown>>().notNull(),
+  status: text("status").notNull().default("prepared"),
+  preparedBy: text("prepared_by").notNull().default("ai"),
+  approvedBy: text("approved_by"),
+  approvedAt: timestamp("approved_at", { withTimezone: true }),
+  executedAt: timestamp("executed_at", { withTimezone: true }),
+  outcome: text("outcome"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const approvedScopes = pgTable("approved_scopes", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }),
+  proposalId: integer("proposal_id").references(() => quoteProposals.id, { onDelete: "restrict" }).notNull(),
+  proposalSnapshot: jsonb("proposal_snapshot").$type<Record<string, unknown>>().notNull(),
+  approvedPrice: numeric("approved_price", { precision: 12, scale: 2 }).notNull(),
+  approvedAt: timestamp("approved_at", { withTimezone: true }).notNull(),
+  signerName: text("signer_name"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workLogs = pgTable("work_logs", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),
+  workerName: text("worker_name"),
+  entryType: text("entry_type").notNull().default("field_note"),
+  note: text("note"),
+  startedAt: timestamp("started_at", { withTimezone: true }),
+  endedAt: timestamp("ended_at", { withTimezone: true }),
+  laborHours: numeric("labor_hours", { precision: 10, scale: 2 }),
+  internalLaborCost: numeric("internal_labor_cost", { precision: 12, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const activityEvents = pgTable("activity_events", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").references(() => customers.id, { onDelete: "set null" }),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "cascade" }),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }),
+  entityType: text("entity_type").notNull(),
+  entityId: text("entity_id"),
+  eventType: text("event_type").notNull(),
+  summary: text("summary").notNull(),
+  channel: text("channel"),
+  direction: text("direction"),
+  visibility: text("visibility").notNull().default("internal"),
+  metadata: jsonb("metadata").$type<Record<string, unknown>>(),
+  occurredAt: timestamp("occurred_at", { withTimezone: true }).defaultNow().notNull(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const mediaAssets = pgTable("media_assets", {
+  id: serial("id").primaryKey(),
+  contactId: integer("contact_id").references(() => customers.id, { onDelete: "set null" }),
+  propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
+  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "set null" }),
+  entityType: text("entity_type"),
+  entityId: text("entity_id"),
+  mediaType: text("media_type").notNull().default("photo"),
+  stage: text("stage").notNull().default("other"),
+  url: text("url").notNull(),
+  caption: text("caption"),
+  publishable: boolean("publishable").notNull().default(false),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const jobCloseoutItems = pgTable("job_closeout_items", {
+  id: serial("id").primaryKey(),
+  jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),
+  itemKey: text("item_key").notNull(),
+  label: text("label").notNull(),
+  completed: boolean("completed").notNull().default(false),
+  completedAt: timestamp("completed_at", { withTimezone: true }),
+  notes: text("notes"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

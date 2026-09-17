@@ -49,6 +49,11 @@ interface PortalProfileData {
   invoices: Invoice[];
 }
 
+interface PortalProjectsData {
+  enabled: boolean;
+  projects: Array<{ id:number; job_number:string; title:string; description?:string; status:string; address?:string; closeout_status:string; original_contract_value:number|string; approved_changes:number|string; billed:number|string; collected:number|string; schedule:any[]; documents:any[]; invoices:any[]; activity:any[] }>;
+}
+
 interface ServiceHistoryData {
   success: boolean;
   serviceHistory: ServiceHistoryItem[];
@@ -89,6 +94,7 @@ export default function CustomerPortal() {
     enabled: isAuthenticated, // Only fetch when authenticated
     retry: false
   });
+  const { data: projectsData } = useQuery<PortalProjectsData>({ queryKey: ["/api/portal/projects"], enabled: isAuthenticated, retry: false });
 
   // SECURITY: Use standard TanStack Query fetcher with CSRF protection and proper URL construction  
   // Construct secure URL with query parameters for default fetcher using useMemo
@@ -115,6 +121,7 @@ export default function CustomerPortal() {
   const emailCampaigns = profileData?.emailCampaigns || [];
   const appointments = profileData?.appointments || [];
   const invoices = profileData?.invoices || [];
+  const projects = projectsData?.projects || [];
   const serviceHistory = serviceHistoryData?.serviceHistory || [];
   const serviceHistorySummary = serviceHistoryData?.summary;
   
@@ -665,6 +672,7 @@ export default function CustomerPortal() {
 
         {/* Detailed Sections */}
         <div className="space-y-12">
+          {projectsData?.enabled && <PortalProjectsSection projects={projects} />}
           <CustomerInvoicesSection invoices={invoices} />
           <MaintenancePlansSection 
             maintenancePlans={maintenancePlans}
@@ -723,6 +731,11 @@ export default function CustomerPortal() {
       </div>
     </div>
   );
+}
+
+function PortalProjectsSection({projects}:{projects:PortalProjectsData["projects"]}) {
+  const money=(value:number|string)=>Number(value||0).toLocaleString("en-US",{style:"currency",currency:"USD"});
+  return <section><div className="mb-4"><h2 className="text-2xl font-bold text-charcoal">Your Projects</h2><p className="text-gray-600">Status, schedule, documents, and payments in one place.</p></div><div className="grid gap-4">{projects.map(project=>{const contract=Number(project.original_contract_value||0)+Number(project.approved_changes||0);const balance=Math.max(0,Number(project.billed||0)-Number(project.collected||0));const next=project.schedule?.find((item:any)=>new Date(item.start_timestamptz||item.appointment_date).getTime()>=Date.now());return <Card key={project.id}><CardHeader><div className="flex flex-col justify-between gap-2 sm:flex-row sm:items-start"><div><CardTitle>{project.title}</CardTitle><p className="text-sm text-gray-600">{project.job_number}{project.address?` · ${project.address}`:""}</p></div><Badge className="capitalize">{project.status.replaceAll("_"," ")}</Badge></div></CardHeader><CardContent className="space-y-4"><p className="text-sm">{project.description||"Project details are being prepared."}</p><div className="grid grid-cols-2 gap-2 sm:grid-cols-4"><div className="rounded bg-slate-50 p-3"><span className="text-xs text-gray-500">Contract</span><strong className="block">{money(contract)}</strong></div><div className="rounded bg-slate-50 p-3"><span className="text-xs text-gray-500">Billed</span><strong className="block">{money(project.billed)}</strong></div><div className="rounded bg-slate-50 p-3"><span className="text-xs text-gray-500">Paid</span><strong className="block">{money(project.collected)}</strong></div><div className="rounded bg-slate-50 p-3"><span className="text-xs text-gray-500">Balance due</span><strong className="block">{money(balance)}</strong></div></div>{next&&<Alert><CalendarDays className="h-4 w-4"/><AlertDescription>Next scheduled visit: {new Date(next.start_timestamptz||next.appointment_date).toLocaleString()}</AlertDescription></Alert>}<div className="flex flex-wrap gap-2 text-sm"><Badge variant="outline">{project.schedule?.length||0} schedule item(s)</Badge><Badge variant="outline">{project.documents?.length||0} document(s)</Badge><Badge variant="outline">{project.invoices?.length||0} invoice(s)</Badge></div></CardContent></Card>})}{!projects.length&&<Card><CardContent className="py-10 text-center text-gray-500">No active projects are linked to your account yet.</CardContent></Card>}</div></section>;
 }
 
 function CustomerInvoicesSection({ invoices }: { invoices: Invoice[] }) {
