@@ -58,6 +58,7 @@ type Workspace = {
   media: any[];
   proposals: any[];
   jobs: any[];
+  properties: any[];
 };
 type Preflight = {
   enabled: boolean;
@@ -140,6 +141,16 @@ export default function RequestsManager({
         nextAction,
       }),
     onSuccess: refresh,
+  });
+  const assignProperty = useMutation({
+    mutationFn: (propertyId: number) =>
+      apiRequest(`/api/admin/os/requests/${selected}/property`, "PATCH", {
+        propertyId,
+      }),
+    onSuccess: () => {
+      refresh();
+      toast({ title: "Request Property updated" });
+    },
   });
   const create = useMutation({
     mutationFn: () =>
@@ -341,17 +352,12 @@ export default function RequestsManager({
                     {workspace.request.contact?.first_name}{" "}
                     {workspace.request.contact?.last_name}
                   </strong>
-                  <p className="text-sm">{workspace.request.contact?.email}</p>
+                  <a className="block break-all text-sm text-blue-700 hover:underline" href={`mailto:${workspace.request.contact?.email}`}>{workspace.request.contact?.email || "No email recorded"}</a>
+                  <a className="block text-sm text-blue-700 hover:underline" href={`tel:${workspace.request.contact?.phone}`}>{workspace.request.contact?.phone || "No phone recorded"}</a>
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Property</p>
-                  <strong>
-                    {workspace.request.property?.street || "Not resolved"}
-                  </strong>
-                  <p className="text-sm">
-                    {workspace.request.property?.city}{" "}
-                    {workspace.request.property?.state}
-                  </p>
+                  {workspace.properties.length ? <Select value={workspace.request.property?.id ? String(workspace.request.property.id) : undefined} onValueChange={(value)=>assignProperty.mutate(Number(value))}><SelectTrigger className="mt-1 h-auto min-h-10 text-left"><SelectValue placeholder="Select the service Property"/></SelectTrigger><SelectContent>{workspace.properties.map((property)=><SelectItem key={property.id} value={String(property.id)}>{[property.street,property.city,property.state,property.zip].filter(Boolean).join(", ")}</SelectItem>)}</SelectContent></Select> : <><strong>Not resolved</strong><p className="text-sm text-muted-foreground">No migrated Property is available for this Contact.</p></>}
                 </div>
                 <div className="rounded-lg border p-3">
                   <p className="text-xs text-muted-foreground">Next action</p>

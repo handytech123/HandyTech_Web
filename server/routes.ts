@@ -5267,16 +5267,37 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const requestResult = await db.execute(sql`SELECT r.*,row_to_json(c) contact,row_to_json(p) property FROM requests r LEFT JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id WHERE r.id=${id}`);
     const request = (requestResult as any).rows?.[0];
     if (!request) return res.status(404).json({ message: "Request not found" });
-    const [activity,estimatesResult,appointmentsResult,mediaResult,proposalResult,jobsResult] = await Promise.all([
+    const [activity,estimatesResult,appointmentsResult,mediaResult,proposalResult,jobsResult,propertiesResult] = await Promise.all([
       db.execute(sql`SELECT * FROM activity_events WHERE request_id=${id} ORDER BY occurred_at DESC`),
       db.execute(sql`SELECT e.*,COALESCE((SELECT json_agg(i ORDER BY i.id) FROM estimate_items i WHERE i.estimate_id=e.id),'[]'::json) items FROM estimates e WHERE e.request_id=${id} ORDER BY version DESC`),
       db.execute(sql`SELECT * FROM appointments WHERE request_id=${id} ORDER BY start_timestamptz DESC NULLS LAST`),
       db.execute(sql`SELECT * FROM media_assets WHERE request_id=${id} ORDER BY created_at DESC`),
       db.execute(sql`SELECT qp.* FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id WHERE q.request_id=${id} ORDER BY qp.updated_at DESC`),
       db.execute(sql`SELECT * FROM jobs WHERE request_id=${id} ORDER BY created_at DESC`),
+      db.execute(sql`SELECT p.*,cp.relationship,cp.is_primary FROM contact_properties cp JOIN properties p ON p.id=cp.property_id WHERE cp.contact_id=${request.contact_id} ORDER BY cp.is_primary DESC,p.street`),
     ]);
     const rows = (value: any) => value.rows || value;
-    res.json({ request, activity: rows(activity), estimates: rows(estimatesResult), appointments: rows(appointmentsResult), media: rows(mediaResult), proposals: rows(proposalResult), jobs: rows(jobsResult) });
+    res.json({ request, activity: rows(activity), estimates: rows(estimatesResult), appointments: rows(appointmentsResult), media: rows(mediaResult), proposals: rows(proposalResult), jobs: rows(jobsResult), properties: rows(propertiesResult) });
+  });
+
+  app.patch("/api/admin/os/requests/:id/property", requireAdmin, async (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const input = z.object({ propertyId: z.coerce.number().int().positive() }).parse(req.body);
+    const requestResult = await db.execute(sql`SELECT id,contact_id,legacy_type,legacy_id FROM requests WHERE id=${id}`);
+    const request = (requestResult as any).rows?.[0];
+    if (!request) return res.status(404).json({ message: "Request not found" });
+    const relationshipResult = await db.execute(sql`SELECT 1 FROM contact_properties WHERE contact_id=${request.contact_id} AND property_id=${input.propertyId}`);
+    if (!(relationshipResult as any).rows?.length) return res.status(409).json({ message: "Choose a Property associated with this Contact" });
+    const updated = await db.transaction(async (tx) => {
+      const result = await tx.execute(sql`UPDATE requests SET property_id=${input.propertyId},updated_at=NOW() WHERE id=${id} RETURNING *`);
+      await tx.execute(sql`UPDATE activity_events SET property_id=${input.propertyId} WHERE request_id=${id} AND property_id IS NULL`);
+      await tx.execute(sql`UPDATE media_assets SET property_id=${input.propertyId} WHERE request_id=${id} AND property_id IS NULL`);
+      if (request.legacy_type === "quote") await tx.execute(sql`UPDATE quotes SET property_id=${input.propertyId} WHERE id=${Number(request.legacy_id)} AND property_id IS NULL`);
+      if (request.legacy_type === "appointment") await tx.execute(sql`UPDATE appointments SET property_id=${input.propertyId} WHERE id=${Number(request.legacy_id)} AND property_id IS NULL`);
+      await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility) VALUES (${request.contact_id},${input.propertyId},${id},'request',${String(id)},'property_assigned','Property confirmed for Request','admin','internal')`);
+      return (result as any).rows?.[0];
+    });
+    res.json(updated);
   });
 
   app.post("/api/admin/os/requests/:id/estimates", requireAdmin, async (req, res) => {

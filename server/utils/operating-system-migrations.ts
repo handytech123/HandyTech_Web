@@ -362,6 +362,49 @@ const migrations: Migration[] = [
       CREATE UNIQUE INDEX IF NOT EXISTS project_gallery_source_media_uidx ON project_gallery(source_media_id) WHERE source_media_id IS NOT NULL;
     `,
   },
+  {
+    version: "20260917_007_work_address_properties",
+    description: "Promote explicit legacy quote and appointment service addresses into Contact Properties",
+    statement: `
+      INSERT INTO properties(street,city,state,zip,normalized_address,label)
+      SELECT MIN(street),MIN(city),MIN(state),MIN(zip),normalized_address,'Service property'
+      FROM (
+        SELECT NULLIF(TRIM(street),'') street,NULLIF(TRIM(city),'') city,NULLIF(TRIM(state),'') state,NULLIF(TRIM(zip),'') zip,
+          LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(street),TRIM(city),TRIM(state),TRIM(zip)),'\\s+',' ','g')) normalized_address
+        FROM quotes WHERE customer_id IS NOT NULL AND COALESCE(TRIM(street),'')<>''
+        UNION ALL
+        SELECT NULLIF(TRIM(street),''),NULLIF(TRIM(city),''),NULLIF(TRIM(state),''),NULLIF(TRIM(zip),''),
+          LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(street),TRIM(city),TRIM(state),TRIM(zip)),'\\s+',' ','g'))
+        FROM appointments WHERE customer_id IS NOT NULL AND COALESCE(TRIM(street),'')<>''
+      ) source_addresses
+      GROUP BY normalized_address
+      ON CONFLICT (normalized_address) WHERE normalized_address IS NOT NULL AND normalized_address<>'' DO NOTHING;
+
+      UPDATE quotes q SET property_id=p.id FROM properties p
+      WHERE q.property_id IS NULL AND q.customer_id IS NOT NULL AND COALESCE(TRIM(q.street),'')<>''
+        AND p.normalized_address=LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(q.street),TRIM(q.city),TRIM(q.state),TRIM(q.zip)),'\\s+',' ','g'));
+      UPDATE appointments a SET property_id=p.id FROM properties p
+      WHERE a.property_id IS NULL AND a.customer_id IS NOT NULL AND COALESCE(TRIM(a.street),'')<>''
+        AND p.normalized_address=LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(a.street),TRIM(a.city),TRIM(a.state),TRIM(a.zip)),'\\s+',' ','g'));
+
+      INSERT INTO contact_properties(contact_id,property_id,relationship,is_primary)
+      SELECT customer_id,property_id,'service_contact',false FROM quotes WHERE customer_id IS NOT NULL AND property_id IS NOT NULL
+      UNION
+      SELECT customer_id,property_id,'service_contact',false FROM appointments WHERE customer_id IS NOT NULL AND property_id IS NOT NULL
+      ON CONFLICT (contact_id,property_id,relationship) DO NOTHING;
+
+      UPDATE requests r SET property_id=q.property_id FROM quotes q
+      WHERE r.property_id IS NULL AND r.legacy_type='quote' AND r.legacy_id=q.id::text AND q.property_id IS NOT NULL;
+      UPDATE requests r SET property_id=a.property_id FROM appointments a
+      WHERE r.property_id IS NULL AND r.legacy_type='appointment' AND r.legacy_id=a.id::text AND a.property_id IS NOT NULL;
+      UPDATE jobs j SET property_id=q.property_id FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id
+      WHERE j.property_id IS NULL AND j.quote_proposal_id=qp.id AND q.property_id IS NOT NULL;
+      UPDATE activity_events e SET property_id=r.property_id FROM requests r
+      WHERE e.property_id IS NULL AND e.request_id=r.id AND r.property_id IS NOT NULL;
+      UPDATE media_assets m SET property_id=r.property_id FROM requests r
+      WHERE m.property_id IS NULL AND m.request_id=r.id AND r.property_id IS NOT NULL;
+    `,
+  },
 ];
 
 export async function runOperatingSystemMigrations(): Promise<void> {
