@@ -409,6 +409,20 @@ export default function RequestsManager({
                   ))}
                 </div>
               </section>
+              {(workspace.estimates.length > 0 || workspace.proposals.length > 0) && <section>
+                <h3 className="mb-2 font-semibold">Estimate & proposal history</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {workspace.estimates.map((estimate) => <div key={`estimate-${estimate.id}`} className="rounded-lg border p-3 text-sm"><div className="flex justify-between"><strong>Internal estimate v{estimate.version}</strong><Badge variant="outline">{label(estimate.status)}</Badge></div><p className="mt-2">Labor: {Number(estimate.estimated_labor_hours || 0)} hours</p><p>Estimated direct cost: {Number(estimate.estimated_direct_cost || 0).toLocaleString("en-US",{style:"currency",currency:"USD"})}</p><p>Owner-selected price: {estimate.owner_selected_price == null ? "Not set" : Number(estimate.owner_selected_price).toLocaleString("en-US",{style:"currency",currency:"USD"})}</p></div>)}
+                  {workspace.proposals.map((proposal) => <div key={`proposal-${proposal.id}`} className="rounded-lg border p-3 text-sm"><div className="flex justify-between"><strong>{proposal.quote_number}</strong><Badge>{label(proposal.status)}</Badge></div><p className="mt-2 text-lg font-semibold">{Number(proposal.total || 0).toLocaleString("en-US",{style:"currency",currency:"USD"})}</p><p className="text-muted-foreground">Sent {proposal.sent_at ? new Date(proposal.sent_at).toLocaleString() : "not yet"}</p></div>)}
+                </div>
+              </section>}
+              <section>
+                <h3 className="mb-2 font-semibold">Files & photos</h3>
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                  {workspace.media.map((asset) => <a key={asset.id} href={asset.url} target="_blank" rel="noreferrer" className="overflow-hidden rounded-lg border"><img src={asset.url} alt={asset.caption || asset.stage || "Request media"} className="aspect-square w-full object-cover"/><div className="p-2 text-xs"><Badge variant="outline">{label(asset.stage)}</Badge>{asset.caption && <p className="mt-1">{asset.caption}</p>}</div></a>)}
+                  {!workspace.media.length && <p className="col-span-full rounded-lg bg-slate-50 p-4 text-sm text-muted-foreground">No files or photos are attached to this Request.</p>}
+                </div>
+              </section>
               <section>
                 <h3 className="mb-2 font-semibold">Scheduled visits & history</h3>
                 <div className="space-y-2">

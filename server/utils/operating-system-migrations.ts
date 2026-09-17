@@ -405,6 +405,100 @@ const migrations: Migration[] = [
       WHERE m.property_id IS NULL AND m.request_id=r.id AND r.property_id IS NOT NULL;
     `,
   },
+  {
+    version: "20260917_008_relationship_parity",
+    description: "Complete deterministic Contact, Request, Job, invoice, Property, activity, and media relationships",
+    statement: `
+      INSERT INTO customers(first_name,last_name,email,phone,company,street,city,state,zip,created_at)
+      SELECT DISTINCT ON (LOWER(TRIM(email))) first_name,last_name,email,phone,company,street,city,state,zip,created_at
+      FROM (
+        SELECT first_name,last_name,email,phone,company,street,city,state,zip,created_at,1 priority FROM quotes WHERE customer_id IS NULL
+        UNION ALL
+        SELECT first_name,last_name,email,phone,NULL,NULL,NULL,NULL,NULL,created_at,2 FROM consultations WHERE customer_id IS NULL
+        UNION ALL
+        SELECT SPLIT_PART(customer_name,' ',1),COALESCE(NULLIF(SUBSTRING(customer_name FROM POSITION(' ' IN customer_name)+1),''),'Unknown'),email,phone,NULL,NULL,city,state,zip,created_at,3 FROM referral_leads WHERE customer_id IS NULL
+      ) source
+      WHERE COALESCE(TRIM(email),'')<>''
+        AND NOT EXISTS(SELECT 1 FROM customers c WHERE LOWER(TRIM(c.email))=LOWER(TRIM(source.email)))
+      ORDER BY LOWER(TRIM(email)),priority,created_at;
+
+      UPDATE quotes q SET customer_id=c.id FROM customers c
+      WHERE q.customer_id IS NULL AND LOWER(TRIM(q.email))=LOWER(TRIM(c.email));
+      UPDATE consultations x SET customer_id=c.id FROM customers c
+      WHERE x.customer_id IS NULL AND LOWER(TRIM(x.email))=LOWER(TRIM(c.email));
+      UPDATE referral_leads l SET customer_id=c.id FROM customers c
+      WHERE l.customer_id IS NULL AND COALESCE(TRIM(l.email),'')<>'' AND LOWER(TRIM(l.email))=LOWER(TRIM(c.email));
+
+      UPDATE requests r SET contact_id=q.customer_id FROM quotes q
+      WHERE r.contact_id IS NULL AND r.legacy_type='quote' AND r.legacy_id=q.id::text AND q.customer_id IS NOT NULL;
+      UPDATE requests r SET contact_id=x.customer_id FROM consultations x
+      WHERE r.contact_id IS NULL AND r.legacy_type='consultation' AND r.legacy_id=x.id::text AND x.customer_id IS NOT NULL;
+      UPDATE requests r SET contact_id=l.customer_id FROM referral_leads l
+      WHERE r.contact_id IS NULL AND r.legacy_type='referral_lead' AND r.legacy_id=l.id::text AND l.customer_id IS NOT NULL;
+
+      INSERT INTO contact_properties(contact_id,property_id,relationship,is_primary)
+      SELECT customer_id,property_id,'service_contact',false FROM quotes WHERE customer_id IS NOT NULL AND property_id IS NOT NULL
+      UNION
+      SELECT customer_id,property_id,'service_contact',false FROM appointments WHERE customer_id IS NOT NULL AND property_id IS NOT NULL
+      ON CONFLICT (contact_id,property_id,relationship) DO NOTHING;
+
+      UPDATE jobs j SET request_id=q.request_id FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id
+      WHERE j.request_id IS NULL AND j.quote_proposal_id=qp.id AND q.request_id IS NOT NULL;
+      UPDATE invoices i SET request_id=q.request_id FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id
+      WHERE i.request_id IS NULL AND i.quote_proposal_id=qp.id AND q.request_id IS NOT NULL;
+      UPDATE invoices i SET request_id=j.request_id FROM jobs j
+      WHERE i.request_id IS NULL AND i.job_id=j.id AND j.request_id IS NOT NULL;
+
+      UPDATE activity_events e SET contact_id=r.contact_id,property_id=COALESCE(e.property_id,r.property_id)
+      FROM requests r WHERE e.request_id=r.id AND (e.contact_id IS NULL OR (e.property_id IS NULL AND r.property_id IS NOT NULL));
+      UPDATE media_assets m SET contact_id=r.contact_id,property_id=COALESCE(m.property_id,r.property_id)
+      FROM requests r WHERE m.request_id=r.id AND (m.contact_id IS NULL OR (m.property_id IS NULL AND r.property_id IS NOT NULL));
+    `,
+  },
+  {
+    version: "20260917_009_contact_reconciliation",
+    description: "Account for Contacts deterministically created from orphaned legacy intake identities",
+    statement: `
+      INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
+      SELECT '20260917_002_operating_system_backfill','customers',c.id::text,'customers',c.id::text,'automatically_matched','identity_preserved',1
+      FROM customers c
+      ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,
+        classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
+    `,
+  },
+  {
+    version: "20260917_010_history_reconciliation",
+    description: "Extend no-loss accounting to reviews and communication history",
+    statement: `
+      INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
+      SELECT '20260917_002_operating_system_backfill','reviews',r.id::text,
+        CASE WHEN r.job_id IS NOT NULL THEN 'jobs' ELSE 'reviews' END,
+        CASE WHEN r.job_id IS NOT NULL THEN r.job_id::text ELSE r.id::text END,
+        CASE WHEN r.job_id IS NOT NULL THEN 'automatically_matched' WHEN candidate.job_count>0 THEN 'needs_review' ELSE 'unmatched_historical' END,
+        CASE WHEN r.job_id IS NOT NULL THEN 'explicit_job_foreign_key' WHEN candidate.job_count=1 THEN 'single_contact_job_candidate_requires_review' WHEN candidate.job_count>1 THEN 'multiple_contact_job_candidates' ELSE 'no_safe_job_match' END,
+        CASE WHEN r.job_id IS NOT NULL THEN 1 WHEN candidate.job_count=1 THEN 0.75 ELSE 0 END
+      FROM reviews r LEFT JOIN LATERAL (SELECT COUNT(*)::int job_count FROM jobs j WHERE j.customer_id=r.customer_id) candidate ON true
+      ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,
+        classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
+
+      INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
+      SELECT '20260917_002_operating_system_backfill','chat_conversations',c.id,'chat_conversations',c.id,
+        CASE WHEN c.customer_id IS NOT NULL THEN 'automatically_matched' ELSE 'unmatched_historical' END,
+        CASE WHEN c.customer_id IS NOT NULL THEN 'explicit_contact_foreign_key' ELSE 'anonymous_conversation_preserved' END,
+        CASE WHEN c.customer_id IS NOT NULL THEN 1 ELSE 0 END FROM chat_conversations c
+      ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,
+        classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
+
+      INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
+      SELECT '20260917_002_operating_system_backfill','chat_messages',m.id::text,'chat_messages',m.id::text,
+        CASE WHEN c.customer_id IS NOT NULL THEN 'automatically_matched' ELSE 'unmatched_historical' END,
+        CASE WHEN c.customer_id IS NOT NULL THEN 'conversation_has_contact' ELSE 'anonymous_conversation_preserved' END,
+        CASE WHEN c.customer_id IS NOT NULL THEN 1 ELSE 0 END
+      FROM chat_messages m JOIN chat_conversations c ON c.id=m.conversation_id
+      ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,
+        classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
+    `,
+  },
 ];
 
 export async function runOperatingSystemMigrations(): Promise<void> {

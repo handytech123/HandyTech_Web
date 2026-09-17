@@ -63,6 +63,7 @@ import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
 import { appointmentShortDateLabel, appointmentStart, appointmentTimeLabel, centralAppointmentInstant, legacyCalendarDate } from "./utils/appointment-time";
 import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, mirrorReferralAsRequest } from "./services/operating-system";
 import { buildMigrationReconciliation, inventoryLegacySources } from "./utils/migration-reconciliation";
+import { buildRelationshipParity } from "./utils/relationship-parity";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -5188,6 +5189,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(await buildMigrationReconciliation(version));
   });
 
+  app.get("/api/admin/os/parity", requireAdmin, async (_req, res) => {
+    res.json(await buildRelationshipParity());
+  });
+
   app.get("/api/admin/os/matches", requireAdmin, async (req, res) => {
     if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") return res.json([]);
     const classification = z.enum(["automatically_matched", "needs_review", "unmatched_historical"]).optional().parse(req.query.classification);
@@ -5351,15 +5356,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const contactResult = await db.execute(sql`SELECT * FROM customers WHERE id=${id}`);
     const contact = (contactResult as any).rows?.[0];
     if (!contact) return res.status(404).json({ message: "Contact not found" });
-    const [propertiesResult,requestsResult,jobsResult,invoicesResult,activityResult] = await Promise.all([
+    const [propertiesResult,requestsResult,jobsResult,invoicesResult,activityResult,appointmentsResult,reviewsResult] = await Promise.all([
       db.execute(sql`SELECT p.*,cp.relationship,cp.is_primary FROM contact_properties cp JOIN properties p ON p.id=cp.property_id WHERE cp.contact_id=${id} ORDER BY cp.is_primary DESC,p.id`),
       db.execute(sql`SELECT * FROM requests WHERE contact_id=${id} ORDER BY received_at DESC`),
       db.execute(sql`SELECT * FROM jobs WHERE customer_id=${id} ORDER BY updated_at DESC`),
       db.execute(sql`SELECT * FROM invoices WHERE customer_id=${id} ORDER BY issue_date DESC`),
       db.execute(sql`SELECT * FROM activity_events WHERE contact_id=${id} ORDER BY occurred_at DESC LIMIT 200`),
+      db.execute(sql`SELECT * FROM appointments WHERE customer_id=${id} ORDER BY start_timestamptz DESC NULLS LAST,appointment_date DESC`),
+      db.execute(sql`SELECT * FROM reviews WHERE customer_id=${id} ORDER BY created_at DESC`),
     ]);
     const rows = (value: any) => value.rows || value;
-    res.json({ contact, properties: rows(propertiesResult), requests: rows(requestsResult), jobs: rows(jobsResult), invoices: rows(invoicesResult), activity: rows(activityResult) });
+    res.json({ contact, properties: rows(propertiesResult), requests: rows(requestsResult), jobs: rows(jobsResult), invoices: rows(invoicesResult), activity: rows(activityResult), appointments: rows(appointmentsResult), reviews: rows(reviewsResult) });
   });
 
   app.get("/api/admin/os/properties/:id", requireAdmin, async (req, res) => {
@@ -5367,15 +5374,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const propertyResult = await db.execute(sql`SELECT * FROM properties WHERE id=${id}`);
     const property = (propertyResult as any).rows?.[0];
     if (!property) return res.status(404).json({ message: "Property not found" });
-    const [contactsResult,requestsResult,jobsResult,mediaResult,activityResult] = await Promise.all([
+    const [contactsResult,requestsResult,jobsResult,mediaResult,activityResult,appointmentsResult] = await Promise.all([
       db.execute(sql`SELECT c.*,cp.relationship,cp.is_primary FROM contact_properties cp JOIN customers c ON c.id=cp.contact_id WHERE cp.property_id=${id}`),
       db.execute(sql`SELECT * FROM requests WHERE property_id=${id} ORDER BY received_at DESC`),
       db.execute(sql`SELECT * FROM jobs WHERE property_id=${id} ORDER BY updated_at DESC`),
       db.execute(sql`SELECT * FROM media_assets WHERE property_id=${id} ORDER BY created_at DESC`),
       db.execute(sql`SELECT * FROM activity_events WHERE property_id=${id} ORDER BY occurred_at DESC LIMIT 200`),
+      db.execute(sql`SELECT * FROM appointments WHERE property_id=${id} ORDER BY start_timestamptz DESC NULLS LAST,appointment_date DESC`),
     ]);
     const rows = (value: any) => value.rows || value;
-    res.json({ property, contacts: rows(contactsResult), requests: rows(requestsResult), jobs: rows(jobsResult), media: rows(mediaResult), activity: rows(activityResult) });
+    res.json({ property, contacts: rows(contactsResult), requests: rows(requestsResult), jobs: rows(jobsResult), media: rows(mediaResult), activity: rows(activityResult), appointments: rows(appointmentsResult) });
   });
 
   app.get("/api/admin/os/scheduling/capacity", requireAdmin, async (req, res) => {

@@ -23,6 +23,7 @@ Architecture source: `HANDYTECH_OPERATING_SYSTEM_ARCHITECTURE.md`
 | Conservative AI/automation | Prepared actions are audited and owner-reviewed; consequential actions are not silently executed. |
 | Final owner navigation | Primary navigation is `Today | Requests | Jobs | Contacts | Money | Business`; retired owner destinations resolve into these lifecycle areas. |
 | Legacy workflow retirement | Complete. Legacy Quotes, Consultations, Appointments, Invoices, and Customers are no longer owner destinations; internal navigation resolves to Requests, Schedule, Money, and Contacts. Historical storage and public token routes remain read-compatible for rollback and audit safety. |
+| Relationship parity gate | Complete. `db:parity` and Business → Data Migration now verify deterministic Contact, Property, Request, Job, schedule, Proposal, invoice/payment, media, review, gallery, and communication relationships independently from row-count reconciliation. |
 
 ## Data migration controls
 
