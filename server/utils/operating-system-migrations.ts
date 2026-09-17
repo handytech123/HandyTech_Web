@@ -286,6 +286,12 @@ const migrations: Migration[] = [
       SELECT '20260917_002_operating_system_backfill','jobs',j.id::text,'jobs',j.id::text,'automatically_matched','identity_preserved',1 FROM jobs j
       ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
       INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
+      SELECT '20260917_002_operating_system_backfill','referral_leads',l.id::text,'requests',l.request_id::text,
+        CASE WHEN l.request_id IS NOT NULL THEN 'automatically_matched' ELSE 'unmatched_historical' END,
+        CASE WHEN l.request_id IS NOT NULL THEN 'deterministic_legacy_origin' ELSE 'no_safe_match' END,
+        CASE WHEN l.request_id IS NOT NULL THEN 1 ELSE 0 END FROM referral_leads l
+      ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
+      INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
       SELECT '20260917_002_operating_system_backfill','invoices',i.id::text,
         CASE WHEN i.job_id IS NOT NULL THEN 'jobs' WHEN candidate.job_count=1 THEN 'jobs' ELSE 'invoices' END,
         CASE WHEN i.job_id IS NOT NULL THEN i.job_id::text WHEN candidate.job_count=1 THEN candidate.only_job_id::text ELSE i.id::text END,
@@ -333,6 +339,27 @@ const migrations: Migration[] = [
       ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS included_work TEXT;
       ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS excluded_work TEXT;
       ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS proposal_terms TEXT;
+    `,
+  },
+  {
+    version: "20260917_005_referral_reconciliation",
+    description: "Account for referral leads in the no-loss migration ledger even when earlier backfill versions already ran",
+    statement: `
+      INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
+      SELECT '20260917_002_operating_system_backfill','referral_leads',l.id::text,'requests',l.request_id::text,
+        CASE WHEN l.request_id IS NOT NULL THEN 'automatically_matched' ELSE 'unmatched_historical' END,
+        CASE WHEN l.request_id IS NOT NULL THEN 'deterministic_legacy_origin' ELSE 'no_safe_match' END,
+        CASE WHEN l.request_id IS NOT NULL THEN 1 ELSE 0 END FROM referral_leads l
+      ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,
+        classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
+    `,
+  },
+  {
+    version: "20260917_006_gallery_destination",
+    description: "Link published Gallery entries back to authoritative Job media",
+    statement: `
+      ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS source_media_id INTEGER REFERENCES media_assets(id) ON DELETE SET NULL;
+      CREATE UNIQUE INDEX IF NOT EXISTS project_gallery_source_media_uidx ON project_gallery(source_media_id) WHERE source_media_id IS NOT NULL;
     `,
   },
 ];

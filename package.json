@@ -12,6 +12,7 @@
     "test:home-depot": "tsx server/utils/home-depot-leads.test.ts",
     "test:operating-system": "tsx server/services/operating-system.test.ts",
     "test:operating-system-migrations": "tsx server/utils/operating-system-migrations.test.ts",
+    "test:architecture": "tsx server/utils/architecture-compliance.test.ts",
     "db:reconcile": "tsx server/utils/migration-reconciliation.ts",
     "db:push": "drizzle-kit push"
   },

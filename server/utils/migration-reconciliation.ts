@@ -3,7 +3,7 @@ import { db, pool } from "../db";
 
 export const LEGACY_SOURCE_TABLES = [
   "customers", "quotes", "consultations", "appointments", "quote_proposals", "jobs",
-  "job_expenses", "change_orders", "invoices", "invoice_payments", "project_gallery",
+  "referral_leads", "job_expenses", "change_orders", "invoices", "invoice_payments", "project_gallery",
 ] as const;
 
 export type SourceReconciliation = {

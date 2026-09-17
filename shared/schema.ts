@@ -349,6 +349,37 @@ export const automationActions = pgTable("automation_actions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const migrationRuns = pgTable("migration_runs", {
+  id: serial("id").primaryKey(),
+  migrationVersion: text("migration_version").notNull(),
+  mode: text("mode").notNull().default("apply"),
+  status: text("status").notNull().default("running"),
+  sourceCounts: jsonb("source_counts").$type<Record<string,number>>().notNull().default({}),
+  dispositionCounts: jsonb("disposition_counts").$type<Record<string,number>>().notNull().default({}),
+  lostDeletedCount: integer("lost_deleted_count").notNull().default(0),
+  startedAt: timestamp("started_at",{withTimezone:true}).defaultNow().notNull(),
+  completedAt: timestamp("completed_at",{withTimezone:true}),
+  notes: text("notes"),
+});
+
+export const legacyRecordMatches = pgTable("legacy_record_matches", {
+  id: serial("id").primaryKey(),
+  migrationVersion: text("migration_version").notNull(),
+  sourceTable: text("source_table").notNull(),
+  sourceId: text("source_id").notNull(),
+  targetTable: text("target_table"),
+  targetId: text("target_id"),
+  classification: text("classification").notNull(),
+  matchRule: text("match_rule").notNull(),
+  confidence: numeric("confidence",{precision:5,scale:4}),
+  reviewStatus: text("review_status").notNull().default("unreviewed"),
+  reviewedBy: text("reviewed_by"),
+  reviewedAt: timestamp("reviewed_at",{withTimezone:true}),
+  notes: text("notes"),
+  createdAt: timestamp("created_at",{withTimezone:true}).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at",{withTimezone:true}).defaultNow().notNull(),
+});
+
 export const approvedScopes = pgTable("approved_scopes", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),

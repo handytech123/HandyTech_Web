@@ -61,7 +61,7 @@ import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
 import { seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
 import { appointmentShortDateLabel, appointmentStart, appointmentTimeLabel, centralAppointmentInstant, legacyCalendarDate } from "./utils/appointment-time";
-import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest } from "./services/operating-system";
+import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, mirrorReferralAsRequest } from "./services/operating-system";
 import { buildMigrationReconciliation, inventoryLegacySources } from "./utils/migration-reconciliation";
 
 function formatServiceAddress(data: {
@@ -5098,6 +5098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastSyncedAt: new Date(),
       };
       const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
+      await mirrorReferralAsRequest(row).catch(error=>console.error("Request compatibility mirror failed for referral:",error));
       if (rating.recommendation === "strong_match") {
         void notificationService.notifyAdmin(
           "HandyTech - Strong Home Depot Lead",
@@ -5118,6 +5119,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rating = scoreHomeDepotLead(parsed);
       const values = { ...parsed, email: parsed.email || null, portalUrl: parsed.portalUrl || null, score: rating.score, scoreReasons: rating.reasons, updatedAt: new Date(), lastSyncedAt: new Date() };
       const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
+      await mirrorReferralAsRequest(row).catch(error=>console.error("Request compatibility mirror failed for referral:",error));
       res.status(201).json(row);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "The lead is missing required information", errors: error.errors });
@@ -5146,6 +5148,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       customer = await storage.createCustomer({ firstName: names[0], lastName: names.slice(1).join(" ") || "Customer", email: lead.email, phone: lead.phone || "Not provided", street: "Not provided", city: lead.city || "Not provided", state: lead.state || "MO", zip: lead.zip || "Not provided" });
     }
     const [updated] = await db.update(referralLeads).set({ customerId: customer.id, updatedAt: new Date() }).where(eq(referralLeads.id, id)).returning();
+    await mirrorReferralAsRequest(updated).catch(error=>console.error("Referral Request contact link failed:",error));
     res.json({ lead: updated, customer });
   });
 
@@ -5483,6 +5486,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(result);
   });
 
+  app.post("/api/admin/operations/jobs/:id/labor/start",requireAdmin,async(req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({workerName:z.string().trim().min(1).max(160)}).parse(req.body);const open=await db.execute(sql`SELECT id FROM work_logs WHERE job_id=${jobId} AND entry_type='labor' AND worker_name=${input.workerName} AND started_at IS NOT NULL AND ended_at IS NULL LIMIT 1`);if((open as any).rows?.length)return res.status(409).json({message:"This worker already has an active session on the Job"});const created=await db.transaction(async tx=>{const inserted=await tx.execute(sql`INSERT INTO work_logs(job_id,worker_name,entry_type,note,started_at) VALUES (${jobId},${input.workerName},'labor','Work session',NOW()) RETURNING *`);const row=(inserted as any).rows?.[0];await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'work_log',${String(row.id)},'work_started',${`${input.workerName} started work`},'field','internal',${JSON.stringify({workerName:input.workerName})}::jsonb)`);return row;});res.status(201).json(created);});
+  app.post("/api/admin/operations/jobs/:jobId/labor/:logId/finish",requireAdmin,async(req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.jobId),logId=z.coerce.number().int().positive().parse(req.params.logId);const result=await db.transaction(async tx=>{const updated=await tx.execute(sql`UPDATE work_logs SET ended_at=NOW(),labor_hours=ROUND((EXTRACT(EPOCH FROM(NOW()-started_at))/3600)::numeric,2) WHERE id=${logId} AND job_id=${jobId} AND entry_type='labor' AND started_at IS NOT NULL AND ended_at IS NULL RETURNING *`);const row=(updated as any).rows?.[0];if(!row)return null;await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'work_log',${String(logId)},'work_paused',${`${row.worker_name||"Worker"} finished this work session`},'field','internal',${JSON.stringify({workerName:row.worker_name,laborHours:row.labor_hours})}::jsonb)`);return row;});if(!result)return res.status(409).json({message:"Labor session is already finished or unavailable"});res.json(result);});
+
   app.post("/api/admin/operations/jobs/:id/invoices", requireAdmin, async (req, res) => {
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
     const jobId=z.coerce.number().int().positive().parse(req.params.id);
@@ -5510,6 +5516,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/operations/jobs/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["site_visit","before","progress","change_order","completion","document","other"]).default("progress"),caption:z.string().trim().max(500).optional(),publishable:z.coerce.boolean().default(false)}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const result=await db.transaction(async tx=>{const saved=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(job_id,entity_type,entity_id,media_type,stage,url,caption,publishable) VALUES (${jobId},'job',${String(jobId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null},${input.publishable}) RETURNING *`);saved.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'job',${String(jobId)},'media_added',${`${processed.length} ${input.stage} photo(s) added`},'field','internal',${JSON.stringify({stage:input.stage,count:processed.length})}::jsonb)`);return saved;});res.status(201).json(result);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.errors});throw error;}});
+
+  app.post("/api/admin/operations/jobs/:jobId/media/:mediaId/publish",requireAdmin,async(req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.jobId);const mediaId=z.coerce.number().int().positive().parse(req.params.mediaId);const input=z.object({title:z.string().trim().min(2).max(200),description:z.string().trim().min(2).max(2000),category:z.string().trim().min(2).max(80).default("general"),featured:z.boolean().default(false)}).parse(req.body);const result=await db.execute(sql`SELECT m.*,j.property_id,j.address FROM media_assets m JOIN jobs j ON j.id=m.job_id WHERE m.id=${mediaId} AND m.job_id=${jobId}`);const media=(result as any).rows?.[0];if(!media)return res.status(404).json({message:"Job media not found"});if(media.stage!=="completion")return res.status(409).json({message:"Only completion media can be offered for public Gallery publishing"});const published=await db.transaction(async tx=>{await tx.execute(sql`UPDATE media_assets SET publishable=true WHERE id=${mediaId}`);const inserted=await tx.execute(sql`INSERT INTO project_gallery(title,description,category,image_url,completion_date,location,featured,job_id,property_id,source_media_id) VALUES (${input.title},${input.description},${input.category},${media.url},NOW(),${media.address||null},${input.featured},${jobId},${media.property_id||null},${mediaId}) ON CONFLICT(source_media_id) WHERE source_media_id IS NOT NULL DO UPDATE SET title=EXCLUDED.title,description=EXCLUDED.description,category=EXCLUDED.category,featured=EXCLUDED.featured RETURNING *`);await tx.execute(sql`INSERT INTO activity_events(job_id,property_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},${media.property_id||null},'media',${String(mediaId)},'gallery_published','Completion media published to Gallery','website','shared',${JSON.stringify({title:input.title})}::jsonb)`);return (inserted as any).rows?.[0];});res.status(201).json(published);});
 
   app.post("/api/admin/operations/jobs/:id/closeout/initialize", requireAdmin, async (req, res) => {
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
@@ -5570,7 +5578,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
     try {
       const input = z.object({
-        category: z.enum(["materials", "labor", "fuel", "fees", "other"]),
+        category: z.enum(["materials", "labor", "fuel", "equipment", "rental", "disposal", "fees", "subcontractor", "other"]),
         description: z.string().trim().min(2).max(500),
         amount: z.coerce.number().positive(),
         vendor: z.string().trim().max(200).optional(),

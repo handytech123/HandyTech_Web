@@ -20,7 +20,7 @@ type ExpenseRow = { id:number; jobId:number; category:string; description:string
 type Summary = { billed:number; collected:number; outstanding:number; expenses:number; grossProfit:number; activeJobs:number; completedJobs:number };
 type ActionCenter = { newConsultations:number; quoteRequests:number; quotesWaiting:number; invoicesDue:number; todayAppointments:number; reviewsNeeded:number };
 const statuses = ["lead","quoted","approved","scheduled","in_progress","completed","invoiced","paid","closed"];
-const categories = ["materials","labor","fuel","fees","other"];
+const categories = ["materials","labor","fuel","equipment","rental","disposal","fees","subcontractor","other"];
 const money = (n:number|string) => Number(n || 0).toLocaleString("en-US", { style:"currency", currency:"USD" });
 
 export default function BusinessOperationsManager({ customers, onNavigate, showCommandCenter=true }:{ customers:Customer[]; onNavigate?:(tab:string)=>void; showCommandCenter?:boolean }) {

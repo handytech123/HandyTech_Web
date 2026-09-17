@@ -120,6 +120,11 @@ export async function mirrorAppointmentAsScheduleItem(appointment: Appointment):
   });
 }
 
+export async function mirrorReferralAsRequest(lead:{id:number;customerId?:number|null;customerName:string;email?:string|null;phone?:string|null;provider:string;service:string;customerNotes?:string|null;status:string;createdAt:Date}):Promise<number|null>{
+  if(!operatingSystemEnabled())return null;
+  return db.transaction(async tx=>{const existing=await tx.execute(sql`SELECT request_id FROM referral_leads WHERE id=${lead.id}`);const existingId=Number((existing as any).rows?.[0]?.request_id||0);if(existingId){if(lead.customerId)await tx.execute(sql`UPDATE requests SET contact_id=COALESCE(contact_id,${lead.customerId}),updated_at=NOW() WHERE id=${existingId}`);return existingId;}const names=lead.customerName.trim().split(/\s+/);const contact=lead.customerId?{id:lead.customerId}:await ensureContact(tx,{email:lead.email,phone:lead.phone,firstName:names[0],lastName:names.slice(1).join(" ")});const requestNumber=await nextRequestIdentity(tx,"R",lead.id);const inserted=await tx.execute(sql`INSERT INTO requests(request_number,contact_id,source,source_detail,legacy_type,legacy_id,title,customer_description,status,service_classification,received_at) VALUES (${requestNumber},${contact?.id||null},'referral',${lead.provider},'referral_lead',${String(lead.id)},${lead.service},${lead.customerNotes||""},${lead.status==="new"?"new":"reviewing"},${lead.service},${lead.createdAt}) ON CONFLICT(legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL DO UPDATE SET contact_id=COALESCE(requests.contact_id,EXCLUDED.contact_id),updated_at=NOW() RETURNING id`);const requestId=Number((inserted as any).rows?.[0]?.id);await tx.execute(sql`UPDATE referral_leads SET request_id=${requestId} WHERE id=${lead.id}`);await recordMatch(tx,"referral_leads",lead.id,"requests",requestId,"automatically_matched","deterministic_legacy_origin",1);return requestId;});
+}
+
 export async function ensureAcceptedProposalJob(quote: Quote, proposal: QuoteProposal): Promise<number | null> {
   if (!operatingSystemEnabled()) return null;
   return db.transaction(async (tx) => {
