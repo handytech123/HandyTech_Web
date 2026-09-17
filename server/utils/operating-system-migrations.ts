@@ -324,6 +324,17 @@ const migrations: Migration[] = [
       CREATE INDEX IF NOT EXISTS jobs_closeout_status_idx ON jobs(closeout_status,status,updated_at DESC);
     `,
   },
+  {
+    version: "20260917_004_request_proposals",
+    description: "Add explicit customer-facing proposal terms while preserving legacy proposal IDs and links",
+    statement: `
+      ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS deposit_required NUMERIC(12,2) NOT NULL DEFAULT 0;
+      ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS approximate_duration TEXT;
+      ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS included_work TEXT;
+      ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS excluded_work TEXT;
+      ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS proposal_terms TEXT;
+    `,
+  },
 ];
 
 export async function runOperatingSystemMigrations(): Promise<void> {
