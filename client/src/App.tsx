@@ -24,6 +24,7 @@ const PrivacyPolicy = lazy(() => import("@/pages/privacy-policy"));
 const Terms = lazy(() => import("@/pages/terms"));
 const QuoteProposalPage = lazy(() => import("@/pages/quote-proposal"));
 const InvoicePage = lazy(() => import("@/pages/invoice"));
+const ChangeOrderPage = lazy(() => import("@/pages/change-order"));
 const ServicesPage = lazy(() => import("@/pages/services"));
 const ServiceDetailPage = lazy(() => import("@/pages/service-detail"));
 const ProjectDetailPage = lazy(() => import("@/pages/project-detail"));
@@ -70,6 +71,7 @@ function Router() {
       <Route path="/reschedule/:token" component={ReschedulePage} />
       <Route path="/quote/:token" component={QuoteProposalPage} />
       <Route path="/invoice/:token" component={InvoicePage} />
+      <Route path="/change-order/:token" component={ChangeOrderPage} />
       <Route path="/privacy-policy" component={PrivacyPolicy} />
       <Route path="/terms" component={Terms} />
       <Route component={NotFound} />

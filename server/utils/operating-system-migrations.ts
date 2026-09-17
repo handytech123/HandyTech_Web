@@ -137,6 +137,21 @@ const migrations: Migration[] = [
         outcome TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS automation_actions_status_idx ON automation_actions(status,created_at DESC);
+      CREATE TABLE IF NOT EXISTS workers (
+        id SERIAL PRIMARY KEY, name TEXT NOT NULL, email TEXT, internal_hourly_cost NUMERIC(12,2),
+        weekly_capacity_hours NUMERIC(8,2) NOT NULL DEFAULT 40, is_active BOOLEAN NOT NULL DEFAULT true,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE TABLE IF NOT EXISTS schedule_assignments (
+        id SERIAL PRIMARY KEY, appointment_id INTEGER NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
+        worker_id INTEGER NOT NULL REFERENCES workers(id) ON DELETE CASCADE, allocated_hours NUMERIC(8,2),
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), UNIQUE(appointment_id,worker_id)
+      );
+      CREATE TABLE IF NOT EXISTS business_expenses (
+        id SERIAL PRIMARY KEY, category TEXT NOT NULL DEFAULT 'overhead', description TEXT NOT NULL,
+        amount NUMERIC(12,2) NOT NULL, vendor TEXT, expense_date DATE NOT NULL DEFAULT CURRENT_DATE,
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
     `,
   },
   {
@@ -271,7 +286,13 @@ const migrations: Migration[] = [
       SELECT '20260917_002_operating_system_backfill','jobs',j.id::text,'jobs',j.id::text,'automatically_matched','identity_preserved',1 FROM jobs j
       ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
       INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
-      SELECT '20260917_002_operating_system_backfill','invoices',i.id::text,'invoices',i.id::text,'automatically_matched','identity_preserved',1 FROM invoices i
+      SELECT '20260917_002_operating_system_backfill','invoices',i.id::text,
+        CASE WHEN i.job_id IS NOT NULL THEN 'jobs' WHEN candidate.job_count=1 THEN 'jobs' ELSE 'invoices' END,
+        CASE WHEN i.job_id IS NOT NULL THEN i.job_id::text WHEN candidate.job_count=1 THEN candidate.only_job_id::text ELSE i.id::text END,
+        CASE WHEN i.job_id IS NOT NULL THEN 'automatically_matched' WHEN candidate.job_count>0 THEN 'needs_review' ELSE 'unmatched_historical' END,
+        CASE WHEN i.job_id IS NOT NULL THEN 'explicit_job_foreign_key' WHEN candidate.job_count=1 THEN 'single_contact_job_candidate_requires_review' WHEN candidate.job_count>1 THEN 'multiple_contact_job_candidates' ELSE 'no_safe_job_match' END,
+        CASE WHEN i.job_id IS NOT NULL THEN 1 WHEN candidate.job_count=1 THEN 0.75 ELSE 0 END
+      FROM invoices i LEFT JOIN LATERAL (SELECT COUNT(*)::int job_count,MIN(j.id) only_job_id FROM jobs j WHERE j.customer_id=i.customer_id) candidate ON true
       ON CONFLICT (migration_version,source_table,source_id) DO UPDATE SET target_table=EXCLUDED.target_table,target_id=EXCLUDED.target_id,classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
       INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
       SELECT '20260917_002_operating_system_backfill','invoice_payments',p.id::text,'invoice_payments',p.id::text,'automatically_matched','identity_preserved',1 FROM invoice_payments p

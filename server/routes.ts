@@ -5314,6 +5314,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({ property, contacts: rows(contactsResult), requests: rows(requestsResult), jobs: rows(jobsResult), media: rows(mediaResult), activity: rows(activityResult) });
   });
 
+  app.get("/api/admin/os/scheduling/capacity", requireAdmin, async (req, res) => {
+    const dateValue=z.string().regex(/^\d{4}-\d{2}-\d{2}$/); const from=dateValue.parse(req.query.from||new Date().toISOString().slice(0,10)); const to=dateValue.parse(req.query.to||new Date(Date.now()+14*86400000).toISOString().slice(0,10));
+    const result=await db.execute(sql`
+      WITH days AS (SELECT generate_series(${from}::date,${to}::date,'1 day')::date day),
+      resource AS (SELECT GREATEST(COUNT(*) FILTER(WHERE is_active),1)::numeric workers,COALESCE(SUM(weekly_capacity_hours) FILTER(WHERE is_active),40)/5 available_per_weekday FROM workers),
+      demand AS (SELECT (start_timestamptz AT TIME ZONE 'America/Chicago')::date day,
+        SUM(COALESCE(estimated_crew_hours,EXTRACT(EPOCH FROM(end_timestamptz-start_timestamptz))/3600,0)) demand_hours
+        FROM appointments WHERE status IN('scheduled','confirmed','in-progress') AND start_timestamptz IS NOT NULL AND start_timestamptz>=${from}::date AND start_timestamptz<(${to}::date+1) GROUP BY 1)
+      SELECT d.day,CASE WHEN EXTRACT(ISODOW FROM d.day)<=5 THEN r.available_per_weekday ELSE 0 END available_hours,
+        COALESCE(dm.demand_hours,0) sold_hours,CASE WHEN EXTRACT(ISODOW FROM d.day)<=5 THEN r.available_per_weekday ELSE 0 END-COALESCE(dm.demand_hours,0) remaining_hours
+      FROM days d CROSS JOIN resource r LEFT JOIN demand dm ON dm.day=d.day ORDER BY d.day
+    `);
+    res.json((result as any).rows||result);
+  });
+
   app.get("/api/admin/operations/jobs", requireAdmin, async (_req, res) => {
     const result = await db.execute(sql.raw(`
       SELECT j.*, c.first_name, c.last_name, c.email, c.phone,
@@ -5350,6 +5365,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const projectResult = await db.execute(sql.raw(`SELECT j.*, row_to_json(c) customer FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.id=${id}`));
     const project = (projectResult as any).rows?.[0];
     if (!project) return res.status(404).json({ message: "Project not found" });
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") {
+      const customerId=Number(project.customer_id);const email=String(project.customer?.email||"").replace(/'/g,"''");
+      const [quoteResult,appointmentResult,invoiceResult,expenseResult,changeResult,reviewResult,galleryResult]=await Promise.all([
+        db.execute(sql.raw(`SELECT q.*,qp.id proposal_id,qp.quote_number,qp.status proposal_status,qp.total,qp.sent_at,qp.viewed_at,qp.responded_at FROM quotes q LEFT JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.job_id=${id} OR LOWER(q.email)=LOWER('${email}') ORDER BY q.created_at DESC`)),
+        db.execute(sql.raw(`SELECT * FROM appointments WHERE job_id=${id} OR customer_id=${customerId} ORDER BY start_timestamptz DESC NULLS LAST,id DESC`)),
+        db.execute(sql.raw(`SELECT * FROM invoices WHERE job_id=${id} OR customer_id=${customerId} ORDER BY issue_date DESC`)),
+        db.execute(sql.raw(`SELECT * FROM job_expenses WHERE job_id=${id} ORDER BY expense_date DESC`)),db.execute(sql.raw(`SELECT * FROM change_orders WHERE job_id=${id} ORDER BY created_at DESC`)),db.execute(sql.raw(`SELECT * FROM reviews WHERE job_id=${id} OR customer_id=${customerId} ORDER BY created_at DESC`)),db.execute(sql.raw(`SELECT * FROM project_gallery WHERE job_id=${id} ORDER BY created_at DESC`))]);
+      const rows=(value:any)=>value.rows||value;const projectInvoices=rows(invoiceResult);const projectExpenses=rows(expenseResult);const changes=rows(changeResult);const billed=projectInvoices.reduce((s:number,x:any)=>s+Number(x.total||0),0);const collected=projectInvoices.reduce((s:number,x:any)=>s+Number(x.amount_paid||0),0);const costs=projectExpenses.reduce((s:number,x:any)=>s+Number(x.amount||0),0);const approvedChanges=changes.filter((x:any)=>x.status==='accepted').reduce((s:number,x:any)=>s+Number(x.amount||0),0);const originalContract=Number(rows(quoteResult)[0]?.total||0);return res.json({project,quotes:rows(quoteResult),appointments:rows(appointmentResult),invoices:projectInvoices,expenses:projectExpenses,changeOrders:changes,reviews:rows(reviewResult),gallery:rows(galleryResult),approvedScopes:[],workLogs:[],closeoutItems:[],activity:[],media:[],financials:{originalContract,approvedChanges,currentContract:originalContract+approvedChanges,estimatedCosts:0,actualCosts:costs,billed,collected,outstandingReceivables:Math.max(0,billed-collected),unbilledContract:Math.max(0,originalContract+approvedChanges-billed),projectedGrossProfit:originalContract+approvedChanges-costs,billedGrossProfit:billed-costs}});
+    }
     const [quoteResult, appointmentResult, invoiceResult, expenseResult, changeResult, reviewResult, galleryResult, scopeResult, workResult, closeoutResult, activityResult, mediaResult] = await Promise.all([
       db.execute(sql.raw(`SELECT q.*, qp.id proposal_id, qp.quote_number, qp.status proposal_status, qp.total, qp.sent_at, qp.viewed_at, qp.responded_at FROM quotes q LEFT JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.job_id=${id} OR qp.id=${Number(project.quote_proposal_id || 0)} ORDER BY q.created_at DESC`)),
       db.execute(sql.raw(`SELECT * FROM appointments WHERE job_id=${id} ORDER BY start_timestamptz DESC NULLS LAST, id DESC`)),
@@ -5377,6 +5401,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.post("/api/admin/operations/jobs/:id/work-logs", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
     const jobId = z.coerce.number().int().positive().parse(req.params.id);
     const input = z.object({ entryType: z.enum(["field_note","measurement","task","problem","labor"]), note: z.string().trim().max(10000).optional(), workerName: z.string().trim().max(160).optional(), startedAt: z.coerce.date().optional(), endedAt: z.coerce.date().optional(), laborHours: z.number().nonnegative().optional(), internalLaborCost: z.number().nonnegative().optional() }).parse(req.body);
     const result = await db.transaction(async (tx) => {
@@ -5388,7 +5413,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(result);
   });
 
+  app.post("/api/admin/operations/jobs/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["site_visit","before","progress","change_order","completion","document","other"]).default("progress"),caption:z.string().trim().max(500).optional(),publishable:z.coerce.boolean().default(false)}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const result=await db.transaction(async tx=>{const saved=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(job_id,entity_type,entity_id,media_type,stage,url,caption,publishable) VALUES (${jobId},'job',${String(jobId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null},${input.publishable}) RETURNING *`);saved.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'job',${String(jobId)},'media_added',${`${processed.length} ${input.stage} photo(s) added`},'field','internal',${JSON.stringify({stage:input.stage,count:processed.length})}::jsonb)`);return saved;});res.status(201).json(result);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.errors});throw error;}});
+
   app.post("/api/admin/operations/jobs/:id/closeout/initialize", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
     const jobId = z.coerce.number().int().positive().parse(req.params.id);
     const items = [["scope_complete","Approved scope completed"],["changes_resolved","Change Orders resolved"],["labor_entered","Labor entered"],["expenses_entered","Expenses entered"],["completion_photos","Completion photos captured"],["final_invoice","Final invoice created"],["balance_resolved","Customer balance resolved"],["documents_stored","Relevant documents stored"],["review_ready","Review request ready"]];
     await db.transaction(async (tx) => {
@@ -5399,6 +5427,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/admin/operations/jobs/:jobId/closeout/:itemId", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
     const jobId = z.coerce.number().int().positive().parse(req.params.jobId); const itemId = z.coerce.number().int().positive().parse(req.params.itemId);
     const input = z.object({ completed:z.boolean(),notes:z.string().max(2000).optional() }).parse(req.body);
     const result = await db.execute(sql`UPDATE job_closeout_items SET completed=${input.completed},completed_at=${input.completed ? new Date() : null},notes=${input.notes || null} WHERE id=${itemId} AND job_id=${jobId} RETURNING *`);
@@ -5484,10 +5513,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/admin/operations/change-orders/:id", requireAdmin, async (req, res) => {
     const input = z.object({ status: z.enum(["draft", "sent", "accepted", "declined"]) }).parse(req.body);
-    const [order] = await db.update(changeOrders).set({ status: input.status, sentAt: input.status === "sent" ? new Date() : undefined, respondedAt: ["accepted", "declined"].includes(input.status) ? new Date() : undefined }).where(eq(changeOrders.id, Number(req.params.id))).returning();
+    const id=Number(req.params.id);const[current]=await db.select().from(changeOrders).where(eq(changeOrders.id,id));if(!current)return res.status(404).json({message:"Change order not found"});
+    if(["accepted","declined"].includes(current.status)&&input.status!==current.status)return res.status(409).json({message:"A final customer decision is immutable. Create a new Change Order for another revision."});
+    let approvalToken:string|undefined;let tokenHash=current.tokenHash;
+    if(input.status==="sent"&&!tokenHash){approvalToken=crypto.randomBytes(32).toString("hex");tokenHash=crypto.createHash("sha256").update(approvalToken).digest("hex");}
+    const [order] = await db.update(changeOrders).set({ status: input.status,tokenHash, sentAt: input.status === "sent" ? new Date() : undefined }).where(eq(changeOrders.id,id)).returning();
     if (!order) return res.status(404).json({ message: "Change order not found" });
-    res.json(order);
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true")await db.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${order.jobId},'change_order',${String(order.id)},${`change_order_${input.status}`},${`Change Order ${input.status}`},'portal','shared',${JSON.stringify({amount:order.amount})}::jsonb)`);
+    res.json({...order,approvalUrl:approvalToken?`${process.env.BASE_URL||"https://handytech-solutions.com"}/change-order/${approvalToken}`:undefined});
   });
+
+  app.get("/api/change-orders/:token",rlSensitive,async(req,res)=>{try{const token=z.string().regex(/^[a-f0-9]{64}$/).parse(req.params.token);const hash=crypto.createHash("sha256").update(token).digest("hex");const result=await db.execute(sql`SELECT co.id,co.description,co.amount,co.status,co.sent_at,co.responded_at,co.signer_name,j.job_number,j.title,c.first_name,c.last_name FROM change_orders co JOIN jobs j ON j.id=co.job_id JOIN customers c ON c.id=j.customer_id WHERE co.token_hash=${hash}`);const row=(result as any).rows?.[0];if(!row)return res.status(404).json({message:"Change Order not found"});res.setHeader("Cache-Control","no-store");res.json(row);}catch{return res.status(404).json({message:"Change Order not found"});}});
+  app.post("/api/change-orders/:token/respond",rlSensitive,async(req,res)=>{try{const token=z.string().regex(/^[a-f0-9]{64}$/).parse(req.params.token);const input=z.object({decision:z.enum(["accepted","declined"]),signerName:z.string().trim().min(2).max(120),acceptedTerms:z.boolean()}).parse(req.body);if(input.decision==="accepted"&&!input.acceptedTerms)return res.status(400).json({message:"Accept the Change Order terms before approving."});const hash=crypto.createHash("sha256").update(token).digest("hex");const result=await db.execute(sql`UPDATE change_orders SET status=${input.decision},responded_at=NOW(),signer_name=${input.signerName} WHERE token_hash=${hash} AND status='sent' RETURNING *`);const order=(result as any).rows?.[0];if(!order)return res.status(409).json({message:"This Change Order was already answered or is unavailable."});if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true")await db.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${order.job_id},'change_order',${String(order.id)},${`change_order_${input.decision}`},${`Change Order ${input.decision} by customer`},'portal','shared',${JSON.stringify({amount:order.amount,signerName:input.signerName})}::jsonb)`);res.json({status:input.decision,message:"Your decision has been recorded."});}catch(error){if(error instanceof z.ZodError)return res.status(400).json({message:"Check your response and try again."});throw error;}});
 
   app.get("/api/admin/customers/:id/activity", requireAdmin, async (req, res) => {
     const customerId = Number(req.params.id);
@@ -5510,16 +5547,23 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/admin/operations/summary", requireAdmin, async (_req, res) => {
-    const [invoiceResult, expenseResult, jobResult, contractResult] = await Promise.all([
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true"){
+      const[invoiceResult,expenseResult,jobResult]=await Promise.all([db.execute(sql.raw(`SELECT COALESCE(SUM(total),0) billed,COALESCE(SUM(amount_paid),0) collected,COALESCE(SUM(total-amount_paid) FILTER(WHERE status NOT IN('void','paid')),0) outstanding FROM invoices`)),db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) expenses FROM job_expenses`)),db.execute(sql.raw(`SELECT COUNT(*) FILTER(WHERE status NOT IN('paid','closed')) active,COUNT(*) FILTER(WHERE status='completed') completed FROM jobs`))]);const m=(invoiceResult as any).rows?.[0]||{},e=(expenseResult as any).rows?.[0]||{},j=(jobResult as any).rows?.[0]||{};const billed=Number(m.billed||0),collected=Number(m.collected||0),costs=Number(e.expenses||0);return res.json({contractValue:billed,billedRevenue:billed,cashCollected:collected,outstandingReceivables:Number(m.outstanding||0),directJobCosts:costs,grossProfit:billed-costs,businessOverhead:0,operatingProfit:billed-costs,billed,collected,outstanding:Number(m.outstanding||0),expenses:costs,activeJobs:Number(j.active||0),completedJobs:Number(j.completed||0)});
+    }
+    const [invoiceResult, expenseResult, jobResult, contractResult, overheadResult] = await Promise.all([
       db.execute(sql.raw(`SELECT COALESCE(SUM(total) FILTER (WHERE status<>'void'),0) billed, COALESCE(SUM(amount_paid) FILTER (WHERE status<>'void'),0) collected, COALESCE(SUM(GREATEST(total-amount_paid,0)) FILTER (WHERE status NOT IN ('void','paid')),0) outstanding FROM invoices`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) expenses FROM job_expenses`)),
       db.execute(sql.raw(`SELECT COUNT(*) FILTER (WHERE status NOT IN ('paid','closed')) active, COUNT(*) FILTER (WHERE status='completed') completed FROM jobs`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(j.original_contract_value),0)+COALESCE((SELECT SUM(amount) FROM change_orders WHERE status='accepted'),0) contract_value FROM jobs j`)),
+      db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) overhead FROM business_expenses`)),
     ]);
-    const moneyRow = (invoiceResult as any).rows?.[0] || {}; const expenseRow = (expenseResult as any).rows?.[0] || {}; const jobRow = (jobResult as any).rows?.[0] || {}; const contractRow=(contractResult as any).rows?.[0]||{};
-    const billedRevenue=Number(moneyRow.billed||0); const cashCollected=Number(moneyRow.collected||0); const directJobCosts=Number(expenseRow.expenses||0); const businessOverhead=0;
+    const moneyRow = (invoiceResult as any).rows?.[0] || {}; const expenseRow = (expenseResult as any).rows?.[0] || {}; const jobRow = (jobResult as any).rows?.[0] || {}; const contractRow=(contractResult as any).rows?.[0]||{}; const overheadRow=(overheadResult as any).rows?.[0]||{};
+    const billedRevenue=Number(moneyRow.billed||0); const cashCollected=Number(moneyRow.collected||0); const directJobCosts=Number(expenseRow.expenses||0); const businessOverhead=Number(overheadRow.overhead||0);
     res.json({ contractValue:Number(contractRow.contract_value||0),billedRevenue,cashCollected,outstandingReceivables:Number(moneyRow.outstanding||0),directJobCosts,grossProfit:billedRevenue-directJobCosts,businessOverhead,operatingProfit:billedRevenue-directJobCosts-businessOverhead,billed:billedRevenue,collected:cashCollected,outstanding:Number(moneyRow.outstanding||0),expenses:directJobCosts,activeJobs:Number(jobRow.active||0),completedJobs:Number(jobRow.completed||0) });
   });
+
+  app.get("/api/admin/os/business-expenses",requireAdmin,async(_req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.json([]);const result=await db.execute(sql.raw("SELECT * FROM business_expenses ORDER BY expense_date DESC,id DESC"));res.json((result as any).rows||result);});
+  app.post("/api/admin/os/business-expenses",requireAdmin,async(req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const input=z.object({category:z.string().trim().min(1).max(80).default("overhead"),description:z.string().trim().min(2).max(500),amount:z.number().positive(),vendor:z.string().trim().max(200).optional(),expenseDate:z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional()}).parse(req.body);const result=await db.execute(sql`INSERT INTO business_expenses(category,description,amount,vendor,expense_date) VALUES (${input.category},${input.description},${String(input.amount)},${input.vendor||null},${input.expenseDate||new Date().toISOString().slice(0,10)}) RETURNING *`);res.status(201).json((result as any).rows?.[0]);});
 
   app.get("/api/admin/operations/accounting.csv", requireAdmin, async (_req, res) => {
     const result = await db.execute(sql.raw(`SELECT j.job_number, j.title, j.status, c.first_name, c.last_name, c.email,

@@ -284,8 +284,6 @@ export const jobs = pgTable("jobs", {
   quoteProposalId: integer("quote_proposal_id").references(() => quoteProposals.id, { onDelete: "set null" }),
   invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
   appointmentId: integer("appointment_id"),
-  requestId: integer("request_id").references(() => requests.id, { onDelete: "set null" }),
-  propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
   jobNumber: varchar("job_number", { length: 32 }).notNull().unique(),
   title: text("title").notNull(),
   description: text("description"),
@@ -293,9 +291,6 @@ export const jobs = pgTable("jobs", {
   status: text("status").notNull().default("lead"), // lead, quoted, approved, scheduled, in_progress, completed, invoiced, paid, closed
   scheduledStart: timestamp("scheduled_start", { withTimezone: true }),
   scheduledEnd: timestamp("scheduled_end", { withTimezone: true }),
-  originalContractValue: numeric("original_contract_value", { precision: 12, scale: 2 }).notNull().default("0"),
-  estimatedDirectCost: numeric("estimated_direct_cost", { precision: 12, scale: 2 }).notNull().default("0"),
-  closeoutStatus: text("closeout_status").notNull().default("not_started"),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
@@ -421,6 +416,34 @@ export const jobCloseoutItems = pgTable("job_closeout_items", {
   completed: boolean("completed").notNull().default(false),
   completedAt: timestamp("completed_at", { withTimezone: true }),
   notes: text("notes"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const workers = pgTable("workers", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  email: text("email"),
+  internalHourlyCost: numeric("internal_hourly_cost", { precision: 12, scale: 2 }),
+  weeklyCapacityHours: numeric("weekly_capacity_hours", { precision: 8, scale: 2 }).notNull().default("40"),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const scheduleAssignments = pgTable("schedule_assignments", {
+  id: serial("id").primaryKey(),
+  appointmentId: integer("appointment_id").references(() => appointments.id, { onDelete: "cascade" }).notNull(),
+  workerId: integer("worker_id").references(() => workers.id, { onDelete: "cascade" }).notNull(),
+  allocatedHours: numeric("allocated_hours", { precision: 8, scale: 2 }),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const businessExpenses = pgTable("business_expenses", {
+  id: serial("id").primaryKey(),
+  category: text("category").notNull().default("overhead"),
+  description: text("description").notNull(),
+  amount: numeric("amount", { precision: 12, scale: 2 }).notNull(),
+  vendor: text("vendor"),
+  expenseDate: date("expense_date").notNull().defaultNow(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 

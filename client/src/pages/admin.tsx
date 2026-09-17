@@ -37,6 +37,8 @@ import BusinessOperationsManager from "@/components/business-operations-manager"
 import MarketingDashboard from "@/components/marketing-dashboard";
 import HomeDepotLeadsManager from "@/components/home-depot-leads-manager";
 import RequestsManager from "@/components/requests-manager";
+import ContactsManager from "@/components/contacts-manager";
+import MoneyOverview from "@/components/money-overview";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -3027,11 +3029,11 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="contacts">
-            <CustomersTab customers={customers} onCreateQuote={(customer) => { setNewQuoteCustomerSearch(`${customer.firstName} ${customer.lastName}`); setNewQuoteCustomerId(String(customer.id)); setNewQuoteService(""); setNewQuoteNotes(""); setActiveTab("quotes"); setNewQuoteDialogOpen(true); }} onScheduleAppointment={(customer) => { setCustomerAppointmentPrefill(customer); setActiveTab("appointments"); }} />
+            <ContactsManager customers={customers} onNewRequest={()=>setActiveTab("requests")} />
           </TabsContent>
 
           <TabsContent value="money">
-            <AdminInvoiceManager customers={customers} />
+            <div className="space-y-6"><MoneyOverview /><AdminInvoiceManager customers={customers} /></div>
           </TabsContent>
 
           <TabsContent value="business">
