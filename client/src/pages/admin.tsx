@@ -2764,7 +2764,17 @@ function AuthenticatedDashboard() {
   const [deleteQuoteId, setDeleteQuoteId] = useState<number | null>(null);
   const [quoteAppointmentPrefill, setQuoteAppointmentPrefill] = useState<Quote | null>(null);
   const [customerAppointmentPrefill, setCustomerAppointmentPrefill] = useState<Customer | null>(null);
-  const [activeTab, setActiveTab] = useState("today");
+  const [activeTab, setActiveTabState] = useState("today");
+  const setActiveTab = (requestedTab: string) => {
+    const retiredDestinations: Record<string, string> = {
+      quotes: "requests",
+      consultations: "requests",
+      appointments: "calendar",
+      invoices: "money",
+      customers: "contacts",
+    };
+    setActiveTabState(retiredDestinations[requestedTab] || requestedTab);
+  };
 
 
   const { data: quotes = [] } = useQuery<Quote[]>({
@@ -2970,7 +2980,7 @@ function AuthenticatedDashboard() {
         <div className="grid grid-cols-3 gap-2 mb-5 sm:gap-6 sm:mb-8">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
-              <CardTitle className="text-xs font-medium sm:text-sm">Customers</CardTitle>
+              <CardTitle className="text-xs font-medium sm:text-sm">Contacts</CardTitle>
               <Users className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
@@ -2990,7 +3000,7 @@ function AuthenticatedDashboard() {
 
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 p-3 pb-1 sm:p-6 sm:pb-2">
-              <CardTitle className="text-xs font-medium sm:text-sm">Quotes</CardTitle>
+              <CardTitle className="text-xs font-medium sm:text-sm">Requests</CardTitle>
               <Clock className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent className="p-3 pt-0 sm:p-6 sm:pt-0">
@@ -3006,7 +3016,7 @@ function AuthenticatedDashboard() {
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="automation-review">AI & Automation Review</SelectItem><SelectItem value="migration">Data Migration</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Legacy Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Legacy Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+                <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="automation-review">AI & Automation Review</SelectItem><SelectItem value="migration">Data Migration</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Schedule</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -3056,7 +3066,7 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="home-depot">
-            <HomeDepotLeadsManager onOpenQuotes={() => setActiveTab("quotes")} />
+            <HomeDepotLeadsManager onOpenQuotes={() => setActiveTab("requests")} />
           </TabsContent>
 
           <TabsContent value="calendar">
@@ -3088,6 +3098,16 @@ function AuthenticatedDashboard() {
                 setDetailsDialogOpen(true);
               }} 
             />
+            <div className="mt-6">
+              <AppointmentsTab
+                appointments={appointments}
+                updateAppointmentStatusMutation={updateAppointmentStatusMutation}
+                quotePrefill={null}
+                customerPrefill={null}
+                onQuotePrefillConsumed={() => undefined}
+                onCustomerPrefillConsumed={() => undefined}
+              />
+            </div>
           </TabsContent>
 
           <TabsContent value="blocked-dates">

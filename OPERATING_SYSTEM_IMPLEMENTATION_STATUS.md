@@ -21,7 +21,8 @@ Architecture source: `HANDYTECH_OPERATING_SYSTEM_ARCHITECTURE.md`
 | Contextual media | Media originates on Request/Job records. Completion media may be deliberately published to Gallery with a retained source-media link. |
 | Project-centric customer portal | Customers see projects, next schedule, documents, invoices, paid/balance amounts, shared activity, and contextual project messaging. |
 | Conservative AI/automation | Prepared actions are audited and owner-reviewed; consequential actions are not silently executed. |
-| Final owner navigation | Primary navigation is `Today | Requests | Jobs | Contacts | Money | Business`; compatibility destinations remain reachable during migration. |
+| Final owner navigation | Primary navigation is `Today | Requests | Jobs | Contacts | Money | Business`; retired owner destinations resolve into these lifecycle areas. |
+| Legacy workflow retirement | Complete. Legacy Quotes, Consultations, Appointments, Invoices, and Customers are no longer owner destinations; internal navigation resolves to Requests, Schedule, Money, and Contacts. Historical storage and public token routes remain read-compatible for rollback and audit safety. |
 
 ## Data migration controls
 

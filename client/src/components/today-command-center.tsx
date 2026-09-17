@@ -9,7 +9,7 @@ type Today={enabled:boolean;generatedAt?:string;items:Item[]};
 type Capacity={day:string;available_hours:number|string;sold_hours:number|string;remaining_hours:number|string};
 const icons:Record<string,any>={schedule:CalendarDays,request:ClipboardList,proposal:FileSignature,message:MessageSquare,invoice:Receipt,closeout:Wrench};
 const labels:Record<string,string>={schedule:"Today's schedule",request:"Requests needing action",proposal:"Proposals awaiting action",message:"Messages needing reply",invoice:"Invoices due",closeout:"Jobs ready for closeout"};
-const targets:Record<string,string>={schedule:"appointments",request:"requests",proposal:"quotes",message:"live-chat",invoice:"money",closeout:"jobs"};
+const targets:Record<string,string>={schedule:"calendar",request:"requests",proposal:"requests",message:"live-chat",invoice:"money",closeout:"jobs"};
 const fetchJson=async<T,>(url:string):Promise<T>=>{const r=await fetch(url,{credentials:"include"});if(!r.ok)throw new Error("Today could not be loaded");return r.json();};
 export default function TodayCommandCenter({onNavigate}:{onNavigate:(tab:string)=>void}){
   const{data,isLoading}=useQuery<Today>({queryKey:["/api/admin/os/today"],queryFn:()=>fetchJson("/api/admin/os/today")});
