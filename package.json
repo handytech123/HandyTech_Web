@@ -14,6 +14,7 @@
     "test:operating-system-migrations": "tsx server/utils/operating-system-migrations.test.ts",
     "test:architecture": "tsx server/utils/architecture-compliance.test.ts",
     "db:reconcile": "tsx server/utils/migration-reconciliation.ts",
+    "db:migrate:operating-system": "tsx server/utils/migrate-operating-system.ts",
     "db:push": "drizzle-kit push"
   },
   "dependencies": {
