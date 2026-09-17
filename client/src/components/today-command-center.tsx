@@ -12,7 +12,7 @@ const labels:Record<string,string>={schedule:"Today's schedule",request:"Request
 const targets:Record<string,string>={schedule:"calendar",request:"requests",proposal:"requests",message:"live-chat",invoice:"money",closeout:"jobs"};
 const fetchJson=async<T,>(url:string):Promise<T>=>{const r=await fetch(url,{credentials:"include"});if(!r.ok)throw new Error("Today could not be loaded");return r.json();};
 export default function TodayCommandCenter({onNavigate}:{onNavigate:(tab:string)=>void}){
-  const{data,isLoading}=useQuery<Today>({queryKey:["/api/admin/os/today"],queryFn:()=>fetchJson("/api/admin/os/today")});
+  const{data,isLoading}=useQuery<Today>({queryKey:["/api/admin/os/today"],queryFn:()=>fetchJson("/api/admin/os/today"),refetchOnMount:"always",refetchOnWindowFocus:true,refetchInterval:30000});
   const{data:capacity=[]}=useQuery<Capacity[]>({queryKey:["/api/admin/os/scheduling/capacity"],enabled:data?.enabled===true,queryFn:()=>fetchJson("/api/admin/os/scheduling/capacity")});
   if(isLoading)return <Card><CardContent className="p-12 text-center text-muted-foreground">Loading what needs attention...</CardContent></Card>;
   if(!data?.enabled)return <Card className="border-amber-300"><CardHeader><CardTitle>Today at HandyTech</CardTitle><CardDescription>The lifecycle command center becomes active with the additive operating-system migration. Existing operational screens remain available below.</CardDescription></CardHeader></Card>;

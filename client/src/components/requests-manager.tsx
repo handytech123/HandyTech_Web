@@ -121,6 +121,7 @@ export default function RequestsManager({
   });
   const refresh = () => {
     qc.invalidateQueries({ queryKey: ["/api/admin/os/requests"] });
+    qc.invalidateQueries({ queryKey: ["/api/admin/os/today"] });
     if (selected)
       qc.invalidateQueries({ queryKey: ["request-workspace", selected] });
   };
