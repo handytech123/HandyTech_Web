@@ -410,6 +410,28 @@ export default function RequestsManager({
                 </div>
               </section>
               <section>
+                <h3 className="mb-2 font-semibold">Scheduled visits & history</h3>
+                <div className="space-y-2">
+                  {workspace.appointments.map((appointment) => {
+                    const start = appointment.start_timestamptz
+                      ? new Date(appointment.start_timestamptz).toLocaleString()
+                      : [appointment.appointment_date, appointment.appointment_time]
+                          .filter(Boolean)
+                          .join(" at ");
+                    return (
+                      <div key={appointment.id} className="flex flex-col justify-between gap-2 rounded-lg border p-3 sm:flex-row sm:items-center">
+                        <div>
+                          <strong className="text-sm">{appointment.service_type || "Site visit"}</strong>
+                          <p className="text-sm text-muted-foreground">{start || "Date not recorded"}</p>
+                        </div>
+                        <Badge variant="outline">{label(appointment.status)}</Badge>
+                      </div>
+                    );
+                  })}
+                  {!workspace.appointments.length && <p className="rounded-lg bg-slate-50 p-4 text-sm text-muted-foreground">No scheduled or historical visits are attached to this Request.</p>}
+                </div>
+              </section>
+              <section>
                 <h3 className="mb-2 font-semibold">History</h3>
                 <div className="space-y-2">
                   {workspace.activity.map((event) => (
