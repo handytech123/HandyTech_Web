@@ -39,6 +39,7 @@ import HomeDepotLeadsManager from "@/components/home-depot-leads-manager";
 import RequestsManager from "@/components/requests-manager";
 import ContactsManager from "@/components/contacts-manager";
 import MoneyOverview from "@/components/money-overview";
+import MigrationControlCenter from "@/components/migration-control-center";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
 import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
@@ -3003,7 +3004,7 @@ function AuthenticatedDashboard() {
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Legacy Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Legacy Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+                <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="migration">Data Migration</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Calendar</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="appointments">Appointments</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="quotes">Legacy Quotes</SelectItem><SelectItem value="consultations">Consultations</SelectItem><SelectItem value="invoices">Invoices</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="customers">Legacy Customers</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -3037,7 +3038,11 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="business">
-            <Card><CardHeader><CardTitle>Business</CardTitle><CardDescription>Configuration, publishing, growth, automation, and integrations.</CardDescription></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[["Schedule & Calendar","calendar"],["Availability","availability-rules"],["Blocked Time","blocked-dates"],["Services","services"],["Website & Gallery","gallery"],["Reviews","reviews"],["Marketing","marketing"],["Communications","live-chat"],["Referral Integrations","home-depot"]].map(([label,tab])=><Button key={tab} variant="outline" className="h-14 justify-start" onClick={()=>setActiveTab(tab)}>{label}</Button>)}</CardContent></Card>
+            <Card><CardHeader><CardTitle>Business</CardTitle><CardDescription>Configuration, publishing, growth, automation, integrations, and migration safeguards.</CardDescription></CardHeader><CardContent className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">{[["Schedule & Calendar","calendar"],["Availability","availability-rules"],["Blocked Time","blocked-dates"],["Services","services"],["Website & Gallery","gallery"],["Reviews","reviews"],["Marketing","marketing"],["Communications","live-chat"],["Referral Integrations","home-depot"],["Data Migration","migration"]].map(([label,tab])=><Button key={tab} variant="outline" className="h-14 justify-start" onClick={()=>setActiveTab(tab)}>{label}</Button>)}</CardContent></Card>
+          </TabsContent>
+
+          <TabsContent value="migration">
+            <MigrationControlCenter />
           </TabsContent>
 
           <TabsContent value="marketing">

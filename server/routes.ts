@@ -5181,6 +5181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/admin/os/matches", requireAdmin, async (req, res) => {
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") return res.json([]);
     const classification = z.enum(["automatically_matched", "needs_review", "unmatched_historical"]).optional().parse(req.query.classification);
     const result = classification
       ? await db.execute(sql`SELECT * FROM legacy_record_matches WHERE classification=${classification} ORDER BY source_table,source_id LIMIT 1000`)
@@ -5189,12 +5190,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/admin/os/automation-actions", requireAdmin, async (req, res) => {
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") return res.json([]);
     const status = typeof req.query.status === "string" ? req.query.status : "prepared";
     const result = await db.execute(sql`SELECT * FROM automation_actions WHERE status=${status} ORDER BY created_at DESC LIMIT 500`);
     res.json((result as any).rows || result);
   });
 
   app.patch("/api/admin/os/automation-actions/:id", requireAdmin, async (req, res) => {
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") return res.status(409).json({message:"Operating-system migrations are not activated"});
     const id=z.coerce.number().int().positive().parse(req.params.id);
     const input=z.object({decision:z.enum(["approved","rejected"])}).parse(req.body);
     const result=await db.execute(sql`UPDATE automation_actions SET status=${input.decision},approved_by='admin',approved_at=NOW(),updated_at=NOW() WHERE id=${id} AND status='prepared' RETURNING *`);
@@ -5202,8 +5205,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.patch("/api/admin/os/matches/:id", requireAdmin, async (req, res) => {
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") return res.status(409).json({message:"Operating-system migrations are not activated"});
     const id = z.coerce.number().int().positive().parse(req.params.id);
-    const input = z.object({ targetTable: z.string().trim().min(1).max(80), targetId: z.string().trim().min(1).max(80), notes: z.string().trim().max(2000).optional() }).parse(req.body);
+    const targetTables = ["customers","properties","requests","jobs","quote_proposals","invoices","invoice_payments","job_expenses","change_orders","project_gallery","appointments"] as const;
+    const input = z.object({ targetTable: z.enum(targetTables), targetId: z.coerce.number().int().positive(), notes: z.string().trim().max(2000).optional() }).parse(req.body);
+    const target = await db.execute(sql.raw(`SELECT id FROM ${input.targetTable} WHERE id=${input.targetId} LIMIT 1`));
+    if (!(target as any).rows?.length) return res.status(400).json({message:"The reviewed target record does not exist"});
     const result = await db.execute(sql`UPDATE legacy_record_matches SET target_table=${input.targetTable},target_id=${input.targetId},classification='automatically_matched',match_rule='manual_review',confidence=1,review_status='resolved',reviewed_by='admin',reviewed_at=NOW(),notes=${input.notes || null},updated_at=NOW() WHERE id=${id} RETURNING *`);
     const row = (result as any).rows?.[0];
     if (!row) return res.status(404).json({ message: "Migration match not found" });
