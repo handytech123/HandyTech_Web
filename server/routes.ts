@@ -3721,6 +3721,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pdfBuffer = await generateInvoicePdfBuffer(row.customer, updated, payments);
       const invoiceUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/invoice/${rawToken}`;
       await getEmailService().sendInvoice({ invoiceNumber: updated.invoiceNumber, customerName: `${row.customer.firstName} ${row.customer.lastName}`, customerEmail: row.customer.email, total: updated.total, balanceDue: Math.max(0, updated.total - updated.amountPaid), dueDate: updated.dueDate, invoiceUrl, pdfBuffer });
+      if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&updated.jobId)await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata) VALUES (${updated.customerId},${updated.jobId},'invoice',${String(updated.id)},'invoice_sent',${`Invoice ${updated.invoiceNumber} sent`},'email','outbound','shared',${JSON.stringify({total:updated.total,balanceDue:Math.max(0,updated.total-updated.amountPaid)})}::jsonb)`);
       res.json({ message: "Invoice sent", invoiceNumber: updated.invoiceNumber });
     } catch (error) { console.error("Send invoice error:", error); res.status(500).json({ message: "Invoice email could not be sent" }); }
   });
@@ -3731,7 +3732,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)); if (!invoice) return res.status(404).json({ message: "Invoice not found" }); if (invoice.status === "void") return res.status(409).json({ message: "A void invoice cannot receive payments" });
       const balance = Math.max(0, invoice.total - invoice.amountPaid); if (input.amount > balance + 0.005) return res.status(400).json({ message: `Payment exceeds the remaining balance of $${balance.toFixed(2)}` });
       const [payment] = await db.insert(invoicePayments).values({ invoiceId: id, ...input }).returning(); const amountPaid = invoice.amountPaid + input.amount; const paid = amountPaid >= invoice.total - 0.005;
-      await db.update(invoices).set({ amountPaid, status: paid ? "paid" : "partial", paidAt: paid ? input.paidAt || new Date() : null, updatedAt: new Date() }).where(eq(invoices.id, id)); res.status(201).json(payment);
+      await db.update(invoices).set({ amountPaid, status: paid ? "paid" : "partial", paidAt: paid ? input.paidAt || new Date() : null, updatedAt: new Date() }).where(eq(invoices.id, id));
+      if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&invoice.jobId)await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata,occurred_at) VALUES (${invoice.customerId},${invoice.jobId},'payment',${String(payment.id)},'payment_recorded',${`Payment recorded for ${invoice.invoiceNumber}`},'financial','inbound','shared',${JSON.stringify({amount:input.amount,method:input.method,paidInFull:paid})}::jsonb,${input.paidAt||new Date()})`);
+      res.status(201).json(payment);
     } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the payment details", errors: error.errors }); res.status(500).json({ message: "Payment could not be recorded" }); }
   });
 
@@ -5322,6 +5325,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   app.get("/api/admin/os/scheduling/capacity", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.json([]);
     const dateValue=z.string().regex(/^\d{4}-\d{2}-\d{2}$/); const from=dateValue.parse(req.query.from||new Date().toISOString().slice(0,10)); const to=dateValue.parse(req.query.to||new Date(Date.now()+14*86400000).toISOString().slice(0,10));
     const result=await db.execute(sql`
       WITH days AS (SELECT generate_series(${from}::date,${to}::date,'1 day')::date day),
@@ -5334,6 +5338,35 @@ export async function registerRoutes(app: Express): Promise<Server> {
       FROM days d CROSS JOIN resource r LEFT JOIN demand dm ON dm.day=d.day ORDER BY d.day
     `);
     res.json((result as any).rows||result);
+  });
+
+  app.get("/api/admin/os/today", requireAdmin, async (_req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.json({enabled:false,items:[]});
+    const [scheduleResult,requestResult,proposalResult,messageResult,invoiceResult,closeoutResult]=await Promise.all([
+      db.execute(sql.raw(`SELECT 'schedule' kind,a.id,a.schedule_kind subtype,COALESCE(j.job_number,r.request_number) identity,
+        COALESCE(j.title,r.title,a.service_type) title,a.start_timestamptz due_at,a.job_id,a.request_id,c.first_name,c.last_name
+        FROM appointments a LEFT JOIN jobs j ON j.id=a.job_id LEFT JOIN requests r ON r.id=a.request_id
+        LEFT JOIN customers c ON c.id=COALESCE(j.customer_id,r.contact_id,a.customer_id)
+        WHERE a.status NOT IN('cancelled','completed') AND (a.start_timestamptz AT TIME ZONE 'America/Chicago')::date=(NOW() AT TIME ZONE 'America/Chicago')::date
+        ORDER BY a.start_timestamptz`)),
+      db.execute(sql.raw(`SELECT 'request' kind,r.id,'new_request' subtype,r.request_number identity,r.title,r.received_at due_at,NULL::int job_id,r.id request_id,c.first_name,c.last_name
+        FROM requests r LEFT JOIN customers c ON c.id=r.contact_id WHERE r.status IN('new','reviewing','needs_information','needs_site_visit','ready_to_estimate','proposal_ready')
+        ORDER BY CASE r.status WHEN 'new' THEN 1 WHEN 'needs_information' THEN 2 ELSE 3 END,r.received_at LIMIT 50`)),
+      db.execute(sql.raw(`SELECT 'proposal' kind,qp.id,qp.status subtype,qp.quote_number identity,COALESCE(r.title,q.service_needed,'Proposal') title,
+        COALESCE(qp.responded_at,qp.sent_at) due_at,q.job_id,r.id request_id,c.first_name,c.last_name
+        FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id LEFT JOIN requests r ON r.id=q.request_id LEFT JOIN customers c ON c.id=q.customer_id
+        WHERE qp.status IN('sent','viewed','changes_requested') ORDER BY qp.sent_at LIMIT 50`)),
+      db.execute(sql.raw(`SELECT 'message' kind,e.id,e.channel subtype,COALESCE(r.request_number,j.job_number) identity,e.summary title,e.occurred_at due_at,e.job_id,e.request_id,c.first_name,c.last_name
+        FROM activity_events e LEFT JOIN requests r ON r.id=e.request_id LEFT JOIN jobs j ON j.id=e.job_id LEFT JOIN customers c ON c.id=e.contact_id
+        WHERE e.direction='inbound' AND e.event_type IN('message_received','customer_message','reply_received')
+          AND COALESCE((e.metadata->>'handled')::boolean,false)=false ORDER BY e.occurred_at LIMIT 50`)),
+      db.execute(sql.raw(`SELECT 'invoice' kind,i.id,i.status subtype,i.invoice_number identity,'Payment due' title,i.due_date due_at,i.job_id,i.request_id,c.first_name,c.last_name
+        FROM invoices i JOIN customers c ON c.id=i.customer_id WHERE i.status IN('sent','viewed','partial','overdue') AND i.amount_paid<i.total ORDER BY i.due_date LIMIT 50`)),
+      db.execute(sql.raw(`SELECT 'closeout' kind,j.id,j.closeout_status subtype,j.job_number identity,j.title,j.updated_at due_at,j.id job_id,j.request_id,c.first_name,c.last_name
+        FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.status='completed' OR j.closeout_status='in_progress' ORDER BY j.updated_at LIMIT 50`)),
+    ]);
+    const rows=(value:any)=>value.rows||value;
+    res.json({enabled:true,generatedAt:new Date().toISOString(),items:[...rows(scheduleResult),...rows(requestResult),...rows(proposalResult),...rows(messageResult),...rows(invoiceResult),...rows(closeoutResult)]});
   });
 
   app.get("/api/admin/operations/jobs", requireAdmin, async (_req, res) => {
@@ -5420,6 +5453,32 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json(result);
   });
 
+  app.post("/api/admin/operations/jobs/:id/invoices", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
+    const jobId=z.coerce.number().int().positive().parse(req.params.id);
+    const input=z.object({description:z.string().trim().min(2).max(240),amount:z.coerce.number().positive().max(1000000),dueDate:z.coerce.date(),depositRequired:z.coerce.number().min(0).max(1000000).default(0),notes:z.string().trim().max(4000).optional()}).parse(req.body);
+    const jobResult=await db.execute(sql`SELECT id,customer_id,quote_proposal_id,job_number,title FROM jobs WHERE id=${jobId}`);
+    const job=(jobResult as any).rows?.[0];if(!job)return res.status(404).json({message:"Job not found"});
+    const [totalsResult,contractResult]=await Promise.all([db.execute(sql`SELECT COALESCE(SUM(total),0) billed FROM invoices WHERE job_id=${jobId} AND status<>'void'`),db.execute(sql`SELECT COALESCE(j.original_contract_value,0)+COALESCE((SELECT SUM(amount) FROM change_orders WHERE job_id=j.id AND status='accepted'),0) contract_value FROM jobs j WHERE j.id=${jobId}`)]);
+    const billed=Number((totalsResult as any).rows?.[0]?.billed||0);const contract=Number((contractResult as any).rows?.[0]?.contract_value||0);
+    if(contract>0&&billed+input.amount>contract+0.005)return res.status(400).json({message:`Invoice exceeds the remaining contract value of $${Math.max(0,contract-billed).toFixed(2)}`});
+    const sequence=`${Date.now().toString().slice(-7)}${crypto.randomInt(10,99)}`;
+    const created=await db.transaction(async tx=>{const [invoice]=await tx.insert(invoices).values({customerId:Number(job.customer_id),jobId,quoteProposalId:job.quote_proposal_id||null,invoiceNumber:`INV-${new Date().getFullYear()}-${sequence}`,tokenHash:crypto.randomBytes(32).toString("hex"),lineItems:[{description:input.description,quantity:1,rate:input.amount}],discount:0,taxRate:0,subtotal:input.amount,tax:0,total:input.amount,amountPaid:0,depositRequired:input.depositRequired,dueDate:input.dueDate,notes:input.notes||`Invoice for ${job.job_number} · ${job.title}`,terms:"Payment is due by the date shown above.",status:"draft"}).returning();await tx.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${Number(job.customer_id)},${jobId},'invoice',${String(invoice.id)},'invoice_drafted',${`Invoice ${invoice.invoiceNumber} drafted`},'financial','shared',${JSON.stringify({total:input.amount,dueDate:input.dueDate.toISOString()})}::jsonb)`);return invoice;});
+    res.status(201).json(created);
+  });
+
+  app.post("/api/admin/operations/jobs/:id/schedule", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
+    const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({start:z.coerce.date(),durationHours:z.coerce.number().positive().max(24),kind:z.enum(["work_block","work_visit","final_walkthrough"]).default("work_block"),crewHours:z.coerce.number().positive().max(1000).optional(),notes:z.string().trim().max(2000).optional()}).parse(req.body);
+    if(input.start.getTime()<=Date.now())return res.status(400).json({message:"Schedule work in the future"});
+    const jobResult=await db.execute(sql`SELECT j.*,row_to_json(c) customer FROM jobs j JOIN customers c ON c.id=j.customer_id WHERE j.id=${jobId}`);const job=(jobResult as any).rows?.[0];if(!job)return res.status(404).json({message:"Job not found"});
+    const end=new Date(input.start.getTime()+input.durationHours*3600000);const centralParts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(input.start);const part=(type:string)=>centralParts.find(x=>x.type===type)?.value||"";const dateText=`${part("year")}-${part("month")}-${part("day")}`;const timeText=`${part("hour")==="24"?"00":part("hour")}:${part("minute")}`;
+    const appointment=await storage.createAppointment({customerId:Number(job.customer_id),firstName:job.customer.first_name,lastName:job.customer.last_name,email:job.customer.email,phone:job.customer.phone||null,bookingType:"service",serviceType:`${job.job_number} · ${job.title}`,appointmentDate:legacyCalendarDate(dateText),appointmentTime:timeText,startTimestamptz:input.start,endTimestamptz:end,address:job.address||null,street:job.address||"Not provided",city:"Not provided",state:"MO",zip:"Not provided",rescheduleToken:crypto.randomBytes(24).toString("hex"),rescheduleExpires:new Date(Date.now()+30*86400000),sequence:0,smsConsent:false,smsConsentAt:null,smsConsentSource:null,smsDisclosureVersion:null,smsConsentIp:null,smsConsentUserAgent:null,notes:input.notes||null,status:"scheduled",source:"manual"});
+    await db.transaction(async tx=>{await tx.execute(sql`UPDATE appointments SET job_id=${jobId},request_id=${job.request_id||null},property_id=${job.property_id||null},schedule_kind=${input.kind},estimated_crew_hours=${input.crewHours!=null?String(input.crewHours):String(input.durationHours)} WHERE id=${appointment.id}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata,occurred_at) VALUES (${Number(job.customer_id)},${job.property_id||null},${job.request_id||null},${jobId},'appointment',${String(appointment.id)},'scheduled',${`${input.kind.replaceAll("_"," ")} scheduled`},'schedule','shared',${JSON.stringify({start:input.start.toISOString(),end:end.toISOString(),crewHours:input.crewHours||input.durationHours})}::jsonb,${input.start})`);});
+    try{const event=await createEvent({summary:`WORK · ${job.job_number} · ${job.title}`,description:input.notes||undefined,location:job.address||undefined,start:input.start,end,attendees:[job.customer.email],appointmentId:appointment.id});if(event.id)await storage.updateAppointmentGoogleEventId(appointment.id,event.id);}catch(error){console.error("Job work block Google Calendar sync failed:",error);}
+    res.status(201).json({...appointment,jobId,scheduleKind:input.kind,estimatedCrewHours:input.crewHours||input.durationHours});
+  });
+
   app.post("/api/admin/operations/jobs/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["site_visit","before","progress","change_order","completion","document","other"]).default("progress"),caption:z.string().trim().max(500).optional(),publishable:z.coerce.boolean().default(false)}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const result=await db.transaction(async tx=>{const saved=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(job_id,entity_type,entity_id,media_type,stage,url,caption,publishable) VALUES (${jobId},'job',${String(jobId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null},${input.publishable}) RETURNING *`);saved.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'job',${String(jobId)},'media_added',${`${processed.length} ${input.stage} photo(s) added`},'field','internal',${JSON.stringify({stage:input.stage,count:processed.length})}::jsonb)`);return saved;});res.status(201).json(result);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.errors});throw error;}});
 
   app.post("/api/admin/operations/jobs/:id/closeout/initialize", requireAdmin, async (req, res) => {
@@ -5439,6 +5498,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const input = z.object({ completed:z.boolean(),notes:z.string().max(2000).optional() }).parse(req.body);
     const result = await db.execute(sql`UPDATE job_closeout_items SET completed=${input.completed},completed_at=${input.completed ? new Date() : null},notes=${input.notes || null} WHERE id=${itemId} AND job_id=${jobId} RETURNING *`);
     const row=(result as any).rows?.[0]; if(!row)return res.status(404).json({message:"Closeout item not found"}); res.json(row);
+  });
+
+  app.post("/api/admin/operations/jobs/:id/closeout/complete",requireAdmin,async(req,res)=>{
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
+    const jobId=z.coerce.number().int().positive().parse(req.params.id);
+    const result=await db.execute(sql`SELECT j.id,j.customer_id,COUNT(ci.*)::int item_count,COUNT(ci.*) FILTER(WHERE ci.completed)::int completed_count,COALESCE((SELECT SUM(GREATEST(i.total-i.amount_paid,0)) FROM invoices i WHERE i.job_id=j.id AND i.status<>'void'),0) balance FROM jobs j LEFT JOIN job_closeout_items ci ON ci.job_id=j.id WHERE j.id=${jobId} GROUP BY j.id`);const job=(result as any).rows?.[0];if(!job)return res.status(404).json({message:"Job not found"});
+    if(Number(job.item_count)<1||Number(job.completed_count)!==Number(job.item_count))return res.status(409).json({message:"Complete every closeout checklist item first"});
+    if(Number(job.balance)>0.005)return res.status(409).json({message:`Resolve the outstanding customer balance of $${Number(job.balance).toFixed(2)} before closing the Job`});
+    await db.transaction(async tx=>{await tx.execute(sql`UPDATE jobs SET status='closed',closeout_status='complete',closed_at=NOW(),updated_at=NOW() WHERE id=${jobId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility) VALUES (${Number(job.customer_id)},${jobId},'job',${String(jobId)},'job_closed','Job closeout completed','operations','shared')`);});
+    res.json({success:true,status:"closed"});
   });
 
   app.post("/api/admin/operations/jobs", requireAdmin, async (req, res) => {

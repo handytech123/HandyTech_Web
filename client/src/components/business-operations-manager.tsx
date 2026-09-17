@@ -23,7 +23,7 @@ const statuses = ["lead","quoted","approved","scheduled","in_progress","complete
 const categories = ["materials","labor","fuel","fees","other"];
 const money = (n:number|string) => Number(n || 0).toLocaleString("en-US", { style:"currency", currency:"USD" });
 
-export default function BusinessOperationsManager({ customers, onNavigate }:{ customers:Customer[]; onNavigate?:(tab:string)=>void }) {
+export default function BusinessOperationsManager({ customers, onNavigate, showCommandCenter=true }:{ customers:Customer[]; onNavigate?:(tab:string)=>void; showCommandCenter?:boolean }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [workspaceJobId,setWorkspaceJobId]=useState<number|null>(null);
@@ -33,7 +33,7 @@ export default function BusinessOperationsManager({ customers, onNavigate }:{ cu
   const [changeJob,setChangeJob]=useState<JobRow|null>(null); const [changeDescription,setChangeDescription]=useState(""); const [changeAmount,setChangeAmount]=useState("");
   const { data:jobs=[] }=useQuery<JobRow[]>({queryKey:["/api/admin/operations/jobs"]});
   const { data:summary }=useQuery<Summary>({queryKey:["/api/admin/operations/summary"]});
-  const { data:actions }=useQuery<ActionCenter>({queryKey:["/api/admin/operations/action-center"]});
+  const { data:actions }=useQuery<ActionCenter>({queryKey:["/api/admin/operations/action-center"],enabled:showCommandCenter});
   const { data:expenses=[],isLoading:expensesLoading }=useQuery<ExpenseRow[]>({queryKey:["job-expenses",pnlJob?.id],enabled:!!pnlJob,queryFn:async()=>{const response=await fetch(`/api/admin/operations/jobs/${pnlJob!.id}/expenses`,{credentials:"include"});if(!response.ok)throw new Error("Expenses could not be loaded");return response.json();}});
   useEffect(()=>{if(!receiptFile){setReceiptPreview("");return;}const url=URL.createObjectURL(receiptFile);setReceiptPreview(url);return()=>URL.revokeObjectURL(url);},[receiptFile]);
   useEffect(()=>{if(expenseCategory==="labor"&&Number(laborHours)>0&&Number(hourlyRate)>0)setExpenseAmount((Number(laborHours)*Number(hourlyRate)).toFixed(2));},[expenseCategory,laborHours,hourlyRate]);
@@ -48,7 +48,7 @@ export default function BusinessOperationsManager({ customers, onNavigate }:{ cu
   const selectedCustomer=useMemo(()=>customers.find(c=>String(c.id)===customerId),[customers,customerId]);
   const pnlCosts=expenses.reduce((sum,item)=>sum+Number(item.amount),0); const pnlRevenue=Number(pnlJob?.invoice_total||0); const pnlProfit=pnlRevenue-pnlCosts;
   return <div className="space-y-5">
-    <Card className="border-slate-800 bg-slate-950 text-white"><CardHeader><CardTitle>Today at HandyTech</CardTitle><CardDescription className="text-slate-300">Start with what needs attention. These buttons take you directly to the work.</CardDescription></CardHeader><CardContent className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">{[["New consultations",actions?.newConsultations,"consultations"],["Quote requests",actions?.quoteRequests,"quotes"],["Awaiting response",actions?.quotesWaiting,"quotes"],["Invoices due",actions?.invoicesDue,"invoices"],["Today appointments",actions?.todayAppointments,"appointments"],["Reviews needed",actions?.reviewsNeeded,"reviews"]].map(([label,value,tab])=><button key={String(label)} onClick={()=>onNavigate?.(String(tab))} className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-left transition hover:border-blue-400 hover:bg-slate-800"><span className="block text-2xl font-bold">{Number(value||0)}</span><span className="text-xs text-slate-300">{label}</span></button>)}</CardContent></Card>
+    {showCommandCenter&&<Card className="border-slate-800 bg-slate-950 text-white"><CardHeader><CardTitle>Today at HandyTech</CardTitle><CardDescription className="text-slate-300">Start with what needs attention. These buttons take you directly to the work.</CardDescription></CardHeader><CardContent className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">{[["New consultations",actions?.newConsultations,"consultations"],["Quote requests",actions?.quoteRequests,"quotes"],["Awaiting response",actions?.quotesWaiting,"quotes"],["Invoices due",actions?.invoicesDue,"invoices"],["Today appointments",actions?.todayAppointments,"appointments"],["Reviews needed",actions?.reviewsNeeded,"reviews"]].map(([label,value,tab])=><button key={String(label)} onClick={()=>onNavigate?.(String(tab))} className="rounded-lg border border-slate-700 bg-slate-900 p-3 text-left transition hover:border-blue-400 hover:bg-slate-800"><span className="block text-2xl font-bold">{Number(value||0)}</span><span className="text-xs text-slate-300">{label}</span></button>)}</CardContent></Card>}
     <div className="grid grid-cols-2 gap-3 lg:grid-cols-6">
       {[["Billed",summary?.billed],["Collected",summary?.collected],["Outstanding",summary?.outstanding],["Expenses",summary?.expenses],["Gross profit",summary?.grossProfit]].map(([label,value])=><Card key={String(label)}><CardContent className="p-4"><p className="text-xs text-muted-foreground">{label}</p><p className="mt-1 text-lg font-bold">{money(Number(value||0))}</p></CardContent></Card>)}
       <Card><CardContent className="p-4"><p className="text-xs text-muted-foreground">Active jobs</p><p className="mt-1 text-lg font-bold">{summary?.activeJobs||0}</p></CardContent></Card>

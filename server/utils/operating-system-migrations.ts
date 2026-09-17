@@ -316,6 +316,14 @@ const migrations: Migration[] = [
       ON CONFLICT (entity_type,entity_id,url) DO NOTHING;
     `,
   },
+  {
+    version: "20260917_003_operational_workflows",
+    description: "Add immutable Job closeout timestamp used by the guided closeout workflow",
+    statement: `
+      ALTER TABLE jobs ADD COLUMN IF NOT EXISTS closed_at TIMESTAMPTZ;
+      CREATE INDEX IF NOT EXISTS jobs_closeout_status_idx ON jobs(closeout_status,status,updated_at DESC);
+    `,
+  },
 ];
 
 export async function runOperatingSystemMigrations(): Promise<void> {
