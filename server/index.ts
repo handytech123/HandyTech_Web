@@ -3,6 +3,7 @@ import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import { setupSecurity, rlPublic, useCSRF, useSession, sanitizeInput } from "./security";
 import { reminderScheduler } from "./reminder-scheduler";
+import { referralMailScheduler } from "./referral-mail-scheduler";
 import { seedEssentialData } from "./utils/seed-data";
 import { runProductionMigration } from "./utils/migrate-production";
 import { validateDatabaseConnection } from "./utils/database-validation";
@@ -438,5 +439,7 @@ If the customer requests Lou, a person, a human, or an agent, respond briefly th
     // Start the appointment reminder scheduler
     reminderScheduler.start();
     log('✓ Appointment reminder scheduler started');
+    referralMailScheduler.start();
+    log('✓ Home Depot mailbox automation initialized');
   });
 })();

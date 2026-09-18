@@ -65,6 +65,7 @@ import { appointmentShortDateLabel, appointmentStart, appointmentTimeLabel, cent
 import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, mirrorReferralAsRequest } from "./services/operating-system";
 import { buildMigrationReconciliation, inventoryLegacySources } from "./utils/migration-reconciliation";
 import { buildRelationshipParity } from "./utils/relationship-parity";
+import { referralMailScheduler } from "./referral-mail-scheduler";
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -5062,6 +5063,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
         ? "The secure PC connector is configured in observation mode. It can import visible leads but cannot spend points or message customers automatically."
         : "The lead workspace is ready. Add a secure connector key on the server, then load the HandyTech Home Depot extension on the main PC.",
     });
+  });
+
+  app.get("/api/admin/referral-automation", requireAdmin, async (_req, res) => {
+    const [rules, events] = await Promise.all([
+      db.execute(sql.raw("SELECT * FROM referral_automation_rules ORDER BY enabled DESC,name,id")),
+      db.execute(sql.raw("SELECT * FROM inbound_mail_events ORDER BY received_at DESC LIMIT 100")),
+    ]);
+    res.json({ rules: (rules as any).rows || rules, events: (events as any).rows || events, mailboxEnabled: process.env.HOME_DEPOT_MAIL_AUTOMATION_ENABLED !== "false" });
+  });
+
+  const referralRuleInput = z.object({
+    name: z.string().trim().min(2).max(120),
+    servicePattern: z.string().trim().min(1).max(300).refine((value) => { try { new RegExp(value, "i"); return true; } catch { return false; } }, "Service pattern must be a valid regular expression"),
+    enabled: z.boolean().default(false), responseMode: z.enum(["draft", "trusted"]).default("draft"),
+    responseTemplate: z.string().trim().min(10).max(4000), minimumScore: z.coerce.number().int().min(0).max(100).default(75),
+    maxLeadCostPoints: z.coerce.number().int().min(0).max(100000).nullable().optional(),
+    allowedZipPrefixes: z.array(z.string().trim().regex(/^\d{1,5}$/)).max(100).default([]),
+    excludedTerms: z.array(z.string().trim().min(2).max(100)).max(100).default([]),
+  });
+  app.post("/api/admin/referral-automation/rules", requireAdmin, async (req, res) => {
+    const input = referralRuleInput.parse(req.body);
+    const result = await db.execute(sql`INSERT INTO referral_automation_rules(name,service_pattern,enabled,response_mode,response_template,minimum_score,max_lead_cost_points,allowed_zip_prefixes,excluded_terms) VALUES (${input.name},${input.servicePattern},${input.enabled},${input.responseMode},${input.responseTemplate},${input.minimumScore},${input.maxLeadCostPoints ?? null},${input.allowedZipPrefixes},${input.excludedTerms}) RETURNING *`);
+    res.status(201).json((result as any).rows?.[0]);
+  });
+  app.patch("/api/admin/referral-automation/rules/:id", requireAdmin, async (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id); const input = referralRuleInput.parse(req.body);
+    const result = await db.execute(sql`UPDATE referral_automation_rules SET name=${input.name},service_pattern=${input.servicePattern},enabled=${input.enabled},response_mode=${input.responseMode},response_template=${input.responseTemplate},minimum_score=${input.minimumScore},max_lead_cost_points=${input.maxLeadCostPoints ?? null},allowed_zip_prefixes=${input.allowedZipPrefixes},excluded_terms=${input.excludedTerms},updated_at=NOW() WHERE id=${id} RETURNING *`);
+    const row = (result as any).rows?.[0]; if (!row) return res.status(404).json({ message: "Automation rule not found" }); res.json(row);
+  });
+  app.post("/api/admin/referral-automation/poll", requireAdmin, async (_req, res) => {
+    void referralMailScheduler.poll();
+    res.status(202).json({ message: "Mailbox check started. Imported mail will appear shortly." });
   });
 
   app.get("/api/admin/referral-leads/connector-setup", requireAdmin, (_req, res) => {

@@ -607,6 +607,20 @@ export class EmailService {
     }
   }
 
+  async sendReferralAutomationResponse(data: { recipient: string; subject: string; body: string; messageId?: string | null }): Promise<void> {
+    if (!this.isConfigured) throw new Error("Email service is not configured");
+    const subject = data.subject.replace(/[\r\n]+/g, " ").trim().slice(0, 200);
+    const message = {
+      from: `"${this.businessName}" <${this.fromEmail}>`, to: data.recipient, replyTo: this.fromEmail, subject, text: data.body,
+      headers: { "X-HandyTech-Message-Type": "trusted-referral-response", ...(data.messageId ? { "In-Reply-To": data.messageId, References: data.messageId } : {}) },
+    };
+    const compiler = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "windows" });
+    const compiled = await compiler.sendMail(message);
+    const rawMessage = Buffer.isBuffer(compiled.message) ? compiled.message : Buffer.from(String(compiled.message));
+    await this.transporter.sendMail({ envelope: { from: this.fromEmail, to: [data.recipient] }, raw: rawMessage });
+    await this.archiveInSentFolder(rawMessage).catch((error) => console.error("Referral response sent but IMAP Sent archiving failed:", error));
+  }
+
   async sendInvoice(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; balanceDue: number; dueDate: Date; invoiceUrl: string; pdfBuffer: Buffer }): Promise<void> {
     if (!this.isConfigured) throw new Error("Email service is not configured");
     const clean = (value: string) => value.replace(/[&<>'"]/g, "");

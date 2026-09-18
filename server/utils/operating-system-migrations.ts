@@ -499,6 +499,35 @@ const migrations: Migration[] = [
         classification=EXCLUDED.classification,match_rule=EXCLUDED.match_rule,confidence=EXCLUDED.confidence,updated_at=NOW();
     `,
   },
+  {
+    version: "20260918_011_referral_mail_automation",
+    description: "Audited IONOS intake and explicitly trusted Home Depot referral-response rules",
+    statement: `
+      CREATE TABLE IF NOT EXISTS referral_automation_rules (
+        id SERIAL PRIMARY KEY, name TEXT NOT NULL, service_pattern TEXT NOT NULL,
+        enabled BOOLEAN NOT NULL DEFAULT false, response_mode TEXT NOT NULL DEFAULT 'draft',
+        response_template TEXT NOT NULL, minimum_score INTEGER NOT NULL DEFAULT 75,
+        max_lead_cost_points INTEGER, allowed_zip_prefixes TEXT[], excluded_terms TEXT[],
+        created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(), updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        CONSTRAINT referral_automation_rules_mode_check CHECK (response_mode IN ('draft','trusted')),
+        CONSTRAINT referral_automation_rules_score_check CHECK (minimum_score BETWEEN 0 AND 100)
+      );
+      CREATE INDEX IF NOT EXISTS referral_automation_rules_enabled_idx ON referral_automation_rules(enabled,updated_at DESC);
+
+      CREATE TABLE IF NOT EXISTS inbound_mail_events (
+        id SERIAL PRIMARY KEY, message_id TEXT NOT NULL UNIQUE, provider TEXT NOT NULL DEFAULT 'ionos',
+        sender TEXT NOT NULL, reply_to TEXT, subject TEXT NOT NULL, received_at TIMESTAMPTZ NOT NULL,
+        raw_excerpt TEXT, parsed_payload JSONB, status TEXT NOT NULL DEFAULT 'received',
+        referral_lead_id INTEGER REFERENCES referral_leads(id) ON DELETE SET NULL,
+        request_id INTEGER REFERENCES requests(id) ON DELETE SET NULL,
+        automation_action_id INTEGER REFERENCES automation_actions(id) ON DELETE SET NULL,
+        processed_at TIMESTAMPTZ, error TEXT, created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+        updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS inbound_mail_events_status_idx ON inbound_mail_events(status,received_at DESC);
+      CREATE INDEX IF NOT EXISTS inbound_mail_events_lead_idx ON inbound_mail_events(referral_lead_id);
+    `,
+  },
 ];
 
 export async function runOperatingSystemMigrations(): Promise<void> {

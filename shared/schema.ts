@@ -350,6 +350,41 @@ export const automationActions = pgTable("automation_actions", {
   updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
+export const referralAutomationRules = pgTable("referral_automation_rules", {
+  id: serial("id").primaryKey(),
+  name: text("name").notNull(),
+  servicePattern: text("service_pattern").notNull(),
+  enabled: boolean("enabled").notNull().default(false),
+  responseMode: text("response_mode").notNull().default("draft"),
+  responseTemplate: text("response_template").notNull(),
+  minimumScore: integer("minimum_score").notNull().default(75),
+  maxLeadCostPoints: integer("max_lead_cost_points"),
+  allowedZipPrefixes: text("allowed_zip_prefixes").array(),
+  excludedTerms: text("excluded_terms").array(),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const inboundMailEvents = pgTable("inbound_mail_events", {
+  id: serial("id").primaryKey(),
+  messageId: text("message_id").notNull().unique(),
+  provider: text("provider").notNull().default("ionos"),
+  sender: text("sender").notNull(),
+  replyTo: text("reply_to"),
+  subject: text("subject").notNull(),
+  receivedAt: timestamp("received_at", { withTimezone: true }).notNull(),
+  rawExcerpt: text("raw_excerpt"),
+  parsedPayload: jsonb("parsed_payload").$type<Record<string, unknown>>(),
+  status: text("status").notNull().default("received"),
+  referralLeadId: integer("referral_lead_id").references(() => referralLeads.id, { onDelete: "set null" }),
+  requestId: integer("request_id"),
+  automationActionId: integer("automation_action_id").references(() => automationActions.id, { onDelete: "set null" }),
+  processedAt: timestamp("processed_at", { withTimezone: true }),
+  error: text("error"),
+  createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
+});
+
 export const migrationRuns = pgTable("migration_runs", {
   id: serial("id").primaryKey(),
   migrationVersion: text("migration_version").notNull(),

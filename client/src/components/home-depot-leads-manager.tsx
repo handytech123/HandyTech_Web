@@ -10,6 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import type { ReferralLead } from "@shared/schema";
+import ReferralAutomationSettings from "@/components/referral-automation-settings";
 
 const emptyLead = { externalJobId: "", customerName: "", service: "", city: "", state: "MO", zip: "", customerTimeframe: "Project planning", customerNotes: "", leadCostPoints: 40, portalUrl: "" };
 
@@ -43,6 +44,7 @@ export default function HomeDepotLeadsManager({ onOpenRequest }: { onOpenRequest
   const linkContact = useMutation({ mutationFn: async (id: number) => (await apiRequest(`/api/admin/referral-leads/${id}/create-customer`, "POST", {})).json(), onSuccess: () => { refresh(); queryClient.invalidateQueries({ queryKey: ["/api/admin/os/requests"] }); toast({ title: "Contact linked", description: "The existing Request now carries the customer identity." }); }, onError: (error: Error) => toast({ title: "Contact not linked", description: error.message, variant: "destructive" }) });
 
   return <div className="space-y-4">
+    <ReferralAutomationSettings />
     <Card>
       <CardHeader>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
