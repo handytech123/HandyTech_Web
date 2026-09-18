@@ -5265,7 +5265,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const id=z.coerce.number().int().positive().parse(req.params.id);
     const input=z.object({decision:z.enum(["approved","rejected"])}).parse(req.body);
     const result=await db.execute(sql`UPDATE automation_actions SET status=${input.decision},approved_by='admin',approved_at=NOW(),updated_at=NOW() WHERE id=${id} AND status='prepared' RETURNING *`);
-    const row=(result as any).rows?.[0]; if(!row)return res.status(409).json({message:"Automation action is not awaiting approval"}); res.json(row);
+    let row=(result as any).rows?.[0]; if(!row)return res.status(409).json({message:"Automation action is not awaiting approval"});
+    if(input.decision==="approved"&&row.action_type==="respond_to_referral"){
+      const payload=z.object({recipient:z.string().email(),subject:z.string().min(1).max(200),body:z.string().min(1).max(4000),messageId:z.string().nullable().optional()}).parse(row.proposed_payload);
+      try{
+        await getEmailService().sendReferralAutomationResponse(payload);
+        const executed=await db.execute(sql`UPDATE automation_actions SET status='executed',executed_at=NOW(),outcome='sent',updated_at=NOW() WHERE id=${id} RETURNING *`);
+        row=(executed as any).rows?.[0]||row;
+        await db.execute(sql`UPDATE inbound_mail_events SET status='responded',updated_at=NOW() WHERE automation_action_id=${id}`);
+      }catch(error){
+        await db.execute(sql`UPDATE automation_actions SET status='failed',executed_at=NOW(),outcome=${error instanceof Error?error.message.slice(0,1000):"send_failed"},updated_at=NOW() WHERE id=${id}`);
+        throw error;
+      }
+    }
+    res.json(row);
   });
 
   app.patch("/api/admin/os/matches/:id", requireAdmin, async (req, res) => {
