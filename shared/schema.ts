@@ -117,6 +117,7 @@ export const referralLeads = pgTable("referral_leads", {
   scoreReasons: text("score_reasons").array(),
   customerId: integer("customer_id").references(() => customers.id, { onDelete: "set null" }),
   quoteId: integer("quote_id").references(() => quotes.id, { onDelete: "set null" }),
+  requestId: integer("request_id"),
   claimedAt: timestamp("claimed_at", { withTimezone: true }),
   lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),

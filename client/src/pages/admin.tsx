@@ -2765,6 +2765,7 @@ function AuthenticatedDashboard() {
   const [quoteAppointmentPrefill, setQuoteAppointmentPrefill] = useState<Quote | null>(null);
   const [customerAppointmentPrefill, setCustomerAppointmentPrefill] = useState<Customer | null>(null);
   const [activeTab, setActiveTabState] = useState("today");
+  const [requestToOpen, setRequestToOpen] = useState<number | null>(null);
   const setActiveTab = (requestedTab: string) => {
     const retiredDestinations: Record<string, string> = {
       quotes: "requests",
@@ -3034,7 +3035,7 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="requests">
-            <RequestsManager customers={customers} onLegacyNavigate={setActiveTab} />
+            <RequestsManager customers={customers} onLegacyNavigate={setActiveTab} openRequestId={requestToOpen} />
           </TabsContent>
 
           <TabsContent value="jobs">
@@ -3066,7 +3067,7 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="home-depot">
-            <HomeDepotLeadsManager onOpenQuotes={() => setActiveTab("requests")} />
+            <HomeDepotLeadsManager onOpenRequest={(requestId) => { setRequestToOpen(requestId); setActiveTab("requests"); }} />
           </TabsContent>
 
           <TabsContent value="calendar">

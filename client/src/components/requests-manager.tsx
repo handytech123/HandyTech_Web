@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, CircleAlert, MapPin, Plus, UserRound } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -86,6 +86,7 @@ const label = (value: string) =>
 export default function RequestsManager({
   customers,
   onLegacyNavigate,
+  openRequestId,
 }: {
   customers: Array<{
     id: number;
@@ -94,10 +95,14 @@ export default function RequestsManager({
     email: string;
   }>;
   onLegacyNavigate?: (tab: string) => void;
+  openRequestId?: number | null;
 }) {
   const qc = useQueryClient();
   const { toast } = useToast();
   const [selected, setSelected] = useState<number | null>(null);
+  useEffect(() => {
+    if (openRequestId) setSelected(openRequestId);
+  }, [openRequestId]);
   const [newOpen, setNewOpen] = useState(false);
   const [contactId, setContactId] = useState("");
   const [title, setTitle] = useState("");

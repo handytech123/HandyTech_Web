@@ -18,6 +18,13 @@
     const email = text.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i)?.[0] || null;
     const phone = text.match(/(?:\+?1[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/)?.[0] || null;
     const points = Number(match(/Lead cost\s*-?\s*(\d+)\s*points/i)) || null;
+    const responseDueText = match(/(?:Respond|Response)\s+(?:by|due)\s+(.+?)(?:Customer Photos|Customer notes|Lead cost|$)/i);
+    const parsedResponseDue = responseDueText ? new Date(responseDueText) : null;
+    const photoUrls = [...document.querySelectorAll("img")]
+      .map((image) => image.currentSrc || image.src)
+      .filter((url) => /^https:\/\//i.test(url) && !/logo|icon|avatar|sprite/i.test(url))
+      .filter((url, index, urls) => urls.indexOf(url) === index)
+      .slice(0, 20);
     return {
       externalJobId: match(/Job ID\s*([A-Za-z0-9-]+)/i) || pathId(),
       customerName,
@@ -29,7 +36,9 @@
       zip: zip || null,
       customerTimeframe: match(/Customer Timeframe\s+(.+?)(?:Received|Customer Photos|Customer notes|$)/i) || null,
       customerNotes: match(/Customer notes\s+(.+?)(?:Lead cost|Request Review|$)/i) || null,
+      photoUrls,
       leadCostPoints: points,
+      responseDueAt: parsedResponseDue && !Number.isNaN(parsedResponseDue.getTime()) ? parsedResponseDue.toISOString() : null,
       portalUrl: location.href,
     };
   }
@@ -53,7 +62,8 @@
       const response = await fetch(`${saved.handyTechSite || "https://handytech-solutions.com"}/api/connectors/home-depot/leads`, { method: "POST", headers: { "content-type": "application/json", "x-home-depot-connector-key": saved.connectorKey }, body: JSON.stringify(lead) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.message || `Import failed (${response.status})`);
-      status.textContent = `Imported: ${result.recommendation.replace("_", " ")} (${result.lead.score}% fit).`;
+      const requestMessage = result.lead.requestId ? ` Request #${result.lead.requestId} is ready in HandyTech.` : "";
+      status.textContent = `Imported: ${result.recommendation.replace("_", " ")} (${result.lead.score}% fit).${requestMessage}`;
     } catch (error) {
       status.textContent = error.message;
     } finally {

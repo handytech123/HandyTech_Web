@@ -55,6 +55,7 @@ import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMedia
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
+import AdmZip from "adm-zip";
 import sharp from "sharp";
 import { generateQuotePdfBuffer } from "./utils/quote-pdf";
 import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
@@ -5067,7 +5068,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const connectorKey = homeDepotConnectorKey();
     if (!connectorKey) return res.status(503).json({ message: "The server security key is unavailable. Check JWT_SECRET." });
     res.setHeader("Cache-Control", "no-store");
-    res.json({ connectorKey, siteUrl: SITE_URL, installFolder: "tools/home-depot-connector", mode: "observation" });
+    res.json({ connectorKey, siteUrl: SITE_URL, downloadUrl: "/api/admin/referral-leads/connector-download", mode: "observation" });
+  });
+
+  app.get("/api/admin/referral-leads/connector-download", requireAdmin, async (_req, res) => {
+    try {
+      const connectorDirectory = path.resolve(process.cwd(), "tools", "home-depot-connector");
+      const files = ["manifest.json", "content.js", "options.html", "options.js", "README.md"];
+      const zip = new AdmZip();
+      for (const file of files) {
+        zip.addFile(`handytech-home-depot-connector/${file}`, await fs.readFile(path.join(connectorDirectory, file)));
+      }
+      res.setHeader("Cache-Control", "no-store");
+      res.setHeader("Content-Disposition", 'attachment; filename="handytech-home-depot-connector.zip"');
+      res.type("application/zip").send(zip.toBuffer());
+    } catch (error) {
+      console.error("Home Depot connector package failed:", error);
+      res.status(500).json({ message: "The connector package could not be prepared." });
+    }
   });
 
   const requireHomeDepotConnector = (req: any, res: any, next: any) => {
@@ -5099,14 +5117,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastSyncedAt: new Date(),
       };
       const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
-      await mirrorReferralAsRequest(row).catch(error=>console.error("Request compatibility mirror failed for referral:",error));
+      const requestId = await mirrorReferralAsRequest(row).catch(error=>{console.error("Request compatibility mirror failed for referral:",error);return null;});
       if (rating.recommendation === "strong_match") {
         void notificationService.notifyAdmin(
           "HandyTech - Strong Home Depot Lead",
           `${parsed.customerName}: ${parsed.service} in ${[parsed.city, parsed.state, parsed.zip].filter(Boolean).join(" ")} (${rating.score}% fit). Review this lead in the HandyTech admin before spending points.`,
         ).catch((error) => console.error("Home Depot lead alert failed:", error));
       }
-      res.status(201).json({ lead: row, recommendation: rating.recommendation, blockers: rating.blockers });
+      res.status(201).json({ lead: { ...row, requestId }, recommendation: rating.recommendation, blockers: rating.blockers });
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.errors });
       console.error("Home Depot connector ingest failed:", error);

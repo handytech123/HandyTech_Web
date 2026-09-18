@@ -12,6 +12,9 @@ document.querySelector("#save").addEventListener("click", async () => {
   const connectorKey = key.value.trim();
   status.textContent = "Testing connection...";
   try {
+    const parsedSite = new URL(handyTechSite);
+    if (parsedSite.protocol !== "https:") throw new Error("Use the secure https:// HandyTech website address.");
+    if (connectorKey.length < 32) throw new Error("Paste the complete connector key from HandyTech.");
     const response = await fetch(`${handyTechSite}/api/connectors/home-depot/status`, { headers: { "x-home-depot-connector-key": connectorKey } });
     if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || `Connection failed (${response.status})`);
     await chrome.storage.local.set({ handyTechSite, connectorKey });
