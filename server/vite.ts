@@ -63,7 +63,10 @@ export async function setupVite(app: Express, server: Server) {
         `src="/src/main.tsx?v=${nanoid()}"`,
       );
       const page = await vite.transformIndexHtml(url, template);
-      res.status(200).set({ "Content-Type": "text/html" }).end(page);
+      res.status(200).set({
+        "Content-Type": "text/html",
+        "Cache-Control": "no-store, max-age=0",
+      }).end(page);
     } catch (e) {
       vite.ssrFixStacktrace(e as Error);
       next(e);
@@ -80,7 +83,19 @@ export function serveStatic(app: Express) {
     );
   }
 
-  app.use(express.static(distPath, { index: false }));
+  app.use(express.static(distPath, {
+    index: false,
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith(".html")) {
+        res.setHeader("Cache-Control", "no-store, max-age=0");
+        return;
+      }
+
+      if (filePath.includes(`${path.sep}assets${path.sep}`)) {
+        res.setHeader("Cache-Control", "public, max-age=31536000, immutable");
+      }
+    },
+  }));
 
   // fall through to index.html if the file doesn't exist
   app.use("*", async (req, res, next) => {
@@ -168,7 +183,11 @@ export function serveStatic(app: Express) {
       const seoBlock = `<!--SEO_START--><title>${escapeHtml(title)}</title><meta name="description" content="${escapeHtml(description)}" /><link rel="canonical" href="${escapeHtml(canonical)}" /><meta name="robots" content="${robots}" /><meta property="og:title" content="${escapeHtml(title)}" /><meta property="og:description" content="${escapeHtml(description)}" /><meta property="og:type" content="website" /><meta property="og:url" content="${escapeHtml(canonical)}" />${image ? `<meta property="og:image" content="${escapeHtml(image)}" />` : ""}<meta name="twitter:card" content="summary_large_image" />${schema ? `<script type="application/ld+json">${safeJson(schema)}</script>` : ""}<!--SEO_END-->`;
       const template = await fs.promises.readFile(path.resolve(distPath, "index.html"), "utf8");
       const page = template.replace(/<!--SEO_START-->[\s\S]*?<!--SEO_END-->/, seoBlock);
-      res.status(status).type("html").send(page);
+      res
+        .status(status)
+        .set("Cache-Control", "no-store, max-age=0")
+        .type("html")
+        .send(page);
     } catch (error) {
       next(error);
     }
