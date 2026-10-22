@@ -256,7 +256,9 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
       : { ...item, [field]: undefined }));
   };
 
-  const ready = items.length > 0 && items.every((item) => item.description.trim() && item.quantity > 0 && item.rate >= 0) && totals.total > 0;
+  const pricingSplitComplete = projectLaborAmount + projectMaterialAmount > 0
+    && Math.abs(projectLaborAmount + projectMaterialAmount - totals.subtotal) <= 0.01;
+  const ready = items.length > 0 && items.every((item) => item.description.trim() && item.quantity > 0 && item.rate >= 0) && totals.total > 0 && pricingSplitComplete;
   const isRevision = (quote.revisionNumber || 0) > 0;
   const isRevisionDraft = (isRevision && savedProposal?.status === "draft") || correctionMode;
   const beginCorrection = () => {
@@ -444,7 +446,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
               </div>}
 
               <div className="ml-auto w-full max-w-md space-y-1 text-sm">
-                {previewLaborAmount + previewMaterialAmount > 0 && <div className="mb-3 space-y-2 rounded-lg border bg-slate-50 p-4"><div className="flex justify-between font-semibold"><span>Labor — fixed for listed scope</span><span>${previewLaborAmount.toFixed(2)}</span></div><div className="flex justify-between"><span>Estimated materials allowance</span><span>${previewMaterialAmount.toFixed(2)}</span></div><p className="border-t pt-2 text-xs leading-5 text-slate-600">Labor remains fixed for the work listed in this quote. Material pricing is estimated and may vary with actual purchase cost, availability, or customer selections. HandyTech will obtain approval before any material change increases the quoted total.</p></div>}
+                <div className={`mb-3 space-y-2 rounded-lg border p-4 ${previewLaborAmount + previewMaterialAmount > 0 ? "bg-slate-50" : "border-amber-300 bg-amber-50"}`}><div className="flex justify-between font-semibold"><span>Labor — fixed for listed scope</span><span>{previewLaborAmount + previewMaterialAmount > 0 ? `$${previewLaborAmount.toFixed(2)}` : "Not entered"}</span></div><div className="flex justify-between"><span>Estimated materials allowance</span><span>{previewLaborAmount + previewMaterialAmount > 0 ? `$${previewMaterialAmount.toFixed(2)}` : "Not entered"}</span></div><p className="border-t pt-2 text-xs leading-5 text-slate-600">Labor remains fixed for the work listed in this quote. Material pricing is estimated and may vary with actual purchase cost, availability, or customer selections. HandyTech will obtain approval before any material change increases the quoted total.</p>{previewLaborAmount + previewMaterialAmount <= 0 && <p className="text-xs font-semibold text-amber-900">This draft predates the pricing split or was started manually. Return to Edit and enter the whole-project labor and materials amounts before sending.</p>}</div>
                 <div className="flex justify-between"><span>{pricingPresentation === "fixed_project" ? "Fixed project price" : "Subtotal"}</span><span>${(viewingSaved && savedProposal ? savedProposal.subtotal : totals.subtotal).toFixed(2)}</span></div>
                 {(viewingSaved && savedProposal ? savedProposal.discount : discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-${(viewingSaved && savedProposal ? savedProposal.discount : discount).toFixed(2)}</span></div>}
                 {(viewingSaved && savedProposal ? savedProposal.tax : totals.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>${(viewingSaved && savedProposal ? savedProposal.tax : totals.tax).toFixed(2)}</span></div>}
