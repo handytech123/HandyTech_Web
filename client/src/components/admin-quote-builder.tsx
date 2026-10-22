@@ -247,6 +247,9 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
 
   const projectLaborAmount = items.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0);
   const projectMaterialAmount = items.reduce((sum, item) => sum + Math.max(0, item.estimatedMaterialAmount || 0), 0);
+  const previewLineItems = viewingSaved && savedProposal ? savedProposal.lineItems : items;
+  const previewLaborAmount = previewLineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0);
+  const previewMaterialAmount = previewLineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedMaterialAmount || 0), 0);
   const updateProjectAllocation = (field: "estimatedLaborAmount" | "estimatedMaterialAmount", value: string) => {
     setItems((current) => current.map((item, index) => index === 0
       ? { ...item, [field]: Math.max(0, Number(value)) }
@@ -440,7 +443,8 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
                 {(viewingSaved && savedProposal ? savedProposal.lineItems : items).map((item, index) => <div key={index} className="grid min-w-[600px] grid-cols-[1fr_70px_100px_110px] gap-2 border-t px-4 py-3 text-sm"><span className="font-medium text-slate-900">{item.description}</span><span className="text-right text-slate-600">{item.quantity}</span><span className="text-right text-slate-600">${item.rate.toFixed(2)}</span><span className="text-right font-semibold">${(item.quantity * item.rate).toFixed(2)}</span></div>)}
               </div>}
 
-              <div className="ml-auto w-full max-w-sm space-y-1 text-sm">
+              <div className="ml-auto w-full max-w-md space-y-1 text-sm">
+                {previewLaborAmount + previewMaterialAmount > 0 && <div className="mb-3 space-y-2 rounded-lg border bg-slate-50 p-4"><div className="flex justify-between font-semibold"><span>Labor — fixed for listed scope</span><span>${previewLaborAmount.toFixed(2)}</span></div><div className="flex justify-between"><span>Estimated materials allowance</span><span>${previewMaterialAmount.toFixed(2)}</span></div><p className="border-t pt-2 text-xs leading-5 text-slate-600">Labor remains fixed for the work listed in this quote. Material pricing is estimated and may vary with actual purchase cost, availability, or customer selections. HandyTech will obtain approval before any material change increases the quoted total.</p></div>}
                 <div className="flex justify-between"><span>{pricingPresentation === "fixed_project" ? "Fixed project price" : "Subtotal"}</span><span>${(viewingSaved && savedProposal ? savedProposal.subtotal : totals.subtotal).toFixed(2)}</span></div>
                 {(viewingSaved && savedProposal ? savedProposal.discount : discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-${(viewingSaved && savedProposal ? savedProposal.discount : discount).toFixed(2)}</span></div>}
                 {(viewingSaved && savedProposal ? savedProposal.tax : totals.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>${(viewingSaved && savedProposal ? savedProposal.tax : totals.tax).toFixed(2)}</span></div>}

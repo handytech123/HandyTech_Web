@@ -26,6 +26,9 @@ export async function generateQuotePdfBuffer(quote: Quote, proposal: QuotePropos
   const right = 564;
   const quoteContent = parseQuoteSections(proposal.notes || "");
   const fixedProjectPrice = quoteContent.sections["PRICING PRESENTATION"] === "fixed_project";
+  const laborAmount = proposal.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0);
+  const materialAmount = proposal.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedMaterialAmount || 0), 0);
+  const hasPricingSplit = laborAmount + materialAmount > 0;
 
   doc.rect(0, 0, 612, 116).fill(slate);
   doc.rect(0, 0, 612, 7).fill(blue);
@@ -87,12 +90,22 @@ export async function generateQuotePdfBuffer(quote: Quote, proposal: QuotePropos
       .text(label, totalX, y, { width: 100 }).text(value, 456, y, { width: 98, align: "right" });
     y += strong ? 23 : 17;
   };
+  if (hasPricingSplit) {
+    totalRow("Labor - fixed scope", money(laborAmount));
+    totalRow("Materials estimate", money(materialAmount));
+  }
   totalRow(fixedProjectPrice ? "Fixed project price" : "Subtotal", money(proposal.subtotal));
   if (proposal.discount) totalRow("Discount", `-${money(proposal.discount)}`);
   if (proposal.tax) totalRow(`Tax (${proposal.taxRate}%)`, money(proposal.tax));
   doc.strokeColor(blue).lineWidth(2).moveTo(totalX, y).lineTo(right, y).stroke(); y += 9;
   totalRow("TOTAL INVESTMENT", money(proposal.total), true);
   totalRow("50% DEPOSIT REQUIRED", money(proposal.depositRequired || proposal.total * 0.5), true);
+  if (hasPricingSplit) {
+    const pricingNotice = "Labor is fixed for the listed scope. Materials are estimated and may vary with actual purchase cost, availability, or customer selections. Approval is required before a material change increases the quoted total.";
+    if (y > 645) { doc.addPage(); y = 54; }
+    doc.fillColor(muted).font("Helvetica").fontSize(8).text(pricingNotice, totalX - 90, y, { width: right - totalX + 90, lineGap: 2 });
+    y = doc.y + 12;
+  }
 
   const closingNotes = quoteContent.structured
     ? [quoteContent.sections["PAYMENT TERMS"] ? `Payment terms: ${quoteContent.sections["PAYMENT TERMS"]}` : "", quoteContent.sections["WORKMANSHIP"] ? `Workmanship: ${quoteContent.sections["WORKMANSHIP"]}` : "", quoteContent.sections["ADDITIONAL NOTES"] || ""].filter(Boolean).join("\n\n")

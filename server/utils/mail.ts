@@ -499,7 +499,7 @@ export class EmailService {
     customerName: string;
     customerEmail: string;
     serviceAddress: string;
-    lineItems: Array<{ description: string; quantity: number; rate: number }>;
+    lineItems: Array<{ description: string; quantity: number; rate: number; estimatedLaborAmount?: number; estimatedMaterialAmount?: number }>;
     discount: number;
     taxRate: number;
     subtotal: number;
@@ -517,6 +517,14 @@ export class EmailService {
     const money = (value: number) => value.toLocaleString("en-US", { style: "currency", currency: "USD" });
     const expires = new Date();
     expires.setDate(expires.getDate() + data.validDays);
+    const laborAmount = data.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0);
+    const materialAmount = data.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedMaterialAmount || 0), 0);
+    const pricingSplitText = laborAmount + materialAmount > 0
+      ? `Labor (fixed for listed scope): ${money(laborAmount)}\nEstimated materials allowance: ${money(materialAmount)}\nMaterials may vary with actual cost, availability, or customer selections; approval is required before a change increases the total.`
+      : "";
+    const pricingSplitHtml = laborAmount + materialAmount > 0
+      ? `<div style="margin:18px 0;padding:16px;background:#f8fafc;border:1px solid #cbd5e1;border-radius:7px"><p style="margin:0 0 8px"><strong>Labor — fixed for listed scope:</strong> ${money(laborAmount)}</p><p style="margin:0 0 8px"><strong>Estimated materials allowance:</strong> ${money(materialAmount)}</p><p style="margin:0;font-size:12px;line-height:18px;color:#475569">Materials may vary with actual purchase cost, availability, or customer selections. HandyTech will obtain approval before any material change increases the quoted total.</p></div>`
+      : "";
     const rows = data.lineItems.map((item) => `
       <tr>
         <td style="padding:12px;border-bottom:1px solid #e5e7eb">${escapeHtml(item.description)}</td>
@@ -535,6 +543,7 @@ export class EmailService {
         "",
         `Your HandyTech Solutions quote ${data.quoteNumber} is ready.`,
         `Total: ${money(data.total)}`,
+        pricingSplitText,
         `Valid through: ${expires.toLocaleDateString("en-US")}`,
         "",
         "Use this secure link to review the quote, approve and sign it, request changes, or decline:",
@@ -548,6 +557,7 @@ export class EmailService {
           <div style="padding:28px;border:1px solid #e5e7eb;border-top:0">
             <div style="display:flex;justify-content:space-between;gap:20px"><div><strong>Prepared for</strong><br>${escapeHtml(data.customerName)}${data.serviceAddress ? `<br>${escapeHtml(data.serviceAddress)}` : ""}</div><div style="text-align:right"><strong>${escapeHtml(data.quoteNumber)}</strong><br>Valid through ${expires.toLocaleDateString("en-US")}</div></div>
             <div style="background:#eff6ff;border-left:4px solid #2769BE;padding:18px;margin:28px 0"><p style="margin:0 0 8px"><strong>Quote:</strong> ${escapeHtml(data.quoteNumber)}</p><p style="margin:0 0 8px"><strong>Total:</strong> ${money(data.total)}</p><p style="margin:0"><strong>Valid through:</strong> ${expires.toLocaleDateString("en-US")}</p></div>
+            ${pricingSplitHtml}
             <p>The complete project scope, itemized pricing, terms, and downloadable PDF are available on your secure quote page.</p>
             <table role="presentation" width="100%" cellspacing="0" cellpadding="0" border="0" style="margin:28px 0"><tr><td align="center"><table role="presentation" cellspacing="0" cellpadding="0" border="0"><tr><td bgcolor="#2769BE" style="border-radius:7px"><a href="${escapeHtml(data.proposalUrl)}" style="display:block;border:1px solid #2769BE;border-radius:7px;background:#2769BE;color:#ffffff;font-family:Arial,sans-serif;font-size:17px;font-weight:bold;line-height:22px;padding:15px 28px;text-align:center;text-decoration:none">Open Quote &amp; Respond</a></td></tr></table></td></tr></table>
             <p style="margin-top:24px">Open the secure quote page to approve and sign, request changes, or decline. You may also reply to this email or call ${escapeHtml(this.businessPhone)}.</p>
