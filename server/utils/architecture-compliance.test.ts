@@ -9,7 +9,9 @@ for(const legacyRoute of ["/api/quotes","/api/consultations","/api/appointments"
 for(const nav of [">Today<",">Requests<",">Jobs<",">Contacts<",">Money<",">Business<"]){assert.ok(admin.includes(nav),`Owner navigation missing: ${nav}`);}
 for(const [retired,target] of [["quotes","requests"],["consultations","requests"],["appointments","calendar"],["invoices","money"],["customers","contacts"]]){assert.ok(admin.includes(`${retired}: "${target}"`),`Retired ${retired} destination does not resolve to ${target}`);}
 for(const retiredOption of ['value="quotes">Legacy Quotes','value="consultations">Consultations','value="appointments">Appointments','value="invoices">Invoices','value="customers">Legacy Customers']){assert.ok(!admin.includes(`<SelectItem ${retiredOption}`),`Retired owner navigation remains exposed: ${retiredOption}`);}
-for(const action of ["Internal note","Ask customer","Site visit","Internal estimate","Customer proposal"]){assert.ok(requestUi.includes(action),`Request-local action missing: ${action}`);}
+for(const action of ["Internal note","Ask customer","Site visit","Internal estimate"]){assert.ok(requestUi.includes(action),`Request-local action missing: ${action}`);}
+assert.ok(requestsManager.includes("AdminQuoteBuilder"),"Requests do not expose the professional quote builder");
+assert.ok(!requestUi.includes("Customer proposal"),"Obsolete duplicate customer proposal workflow is still exposed");
 assert.ok(requestsManager.includes("Scheduled visits & history"),"Request Workspace does not expose complete visit history");
 for(const area of [">Overview<",">Scope<",">Work<",">Schedule<",">Money<","Files & Photos",">Closeout<"]){assert.ok(jobUi.includes(area),`Job Workspace area missing: ${area}`);}
 for(const portalArea of ["Your Projects","Message HandyTech","Balance due","Next scheduled visit"]){assert.ok(portal.includes(portalArea),`Project portal behavior missing: ${portalArea}`);}

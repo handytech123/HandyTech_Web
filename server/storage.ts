@@ -224,6 +224,12 @@ export class MemStorage {
       city: "Springfield",
       state: "IL",
       zip: "62701",
+      contactType: "individual",
+      relationshipState: "customer",
+      normalizedEmail: "david.wilson@techstart.com",
+      normalizedPhone: "5551234567",
+      isActive: true,
+      updatedAt: new Date("2024-01-15"),
       createdAt: new Date("2024-01-15"),
       lastEmailSent: null,
     };
@@ -240,6 +246,12 @@ export class MemStorage {
       city: "Chicago",
       state: "IL",
       zip: "60601",
+      contactType: "individual",
+      relationshipState: "customer",
+      normalizedEmail: "lisa@creativeagency.com",
+      normalizedPhone: "5559876543",
+      isActive: true,
+      updatedAt: new Date("2024-02-10"),
       createdAt: new Date("2024-02-10"),
       lastEmailSent: null,
     };
@@ -546,6 +558,12 @@ export class MemStorage {
       id: this.currentCustomerId++,
       phone: insertCustomer.phone || null,
       company: insertCustomer.company || null,
+      contactType: insertCustomer.contactType || "individual",
+      relationshipState: insertCustomer.relationshipState || "prospective",
+      normalizedEmail: insertCustomer.normalizedEmail || insertCustomer.email.trim().toLowerCase(),
+      normalizedPhone: insertCustomer.normalizedPhone || String(insertCustomer.phone || "").replace(/\D/g, ""),
+      isActive: insertCustomer.isActive ?? true,
+      updatedAt: insertCustomer.updatedAt || new Date(),
       createdAt: new Date(),
       lastEmailSent: null,
     };
@@ -749,6 +767,13 @@ export class MemStorage {
       leadCampaign: insertQuote.leadCampaign || null,
       landingPage: insertQuote.landingPage || null,
       referrer: insertQuote.referrer || null,
+      customerId: insertQuote.customerId ?? null,
+      propertyId: insertQuote.propertyId ?? null,
+      requestId: insertQuote.requestId ?? null,
+      jobId: insertQuote.jobId ?? null,
+      revisionRootQuoteId: insertQuote.revisionRootQuoteId ?? null,
+      revisionOfQuoteId: insertQuote.revisionOfQuoteId ?? null,
+      revisionNumber: insertQuote.revisionNumber ?? 0,
       status: "pending",
       createdAt: new Date(),
     };
@@ -776,7 +801,7 @@ export class MemStorage {
   }
 
   async createConsultation(input: InsertConsultation): Promise<Consultation> {
-    const consultation: Consultation = { ...input, message: input.message ?? null, leadSource: input.leadSource || null, leadMedium: input.leadMedium || null, leadCampaign: input.leadCampaign || null, landingPage: input.landingPage || null, referrer: input.referrer || null, id: this.currentConsultationId++, status: "new", createdAt: new Date() };
+    const consultation: Consultation = { ...input, message: input.message ?? null, street: input.street ?? null, city: input.city ?? null, state: input.state ?? null, zip: input.zip ?? null, preferredContact: input.preferredContact ?? null, smsConsent: input.smsConsent ?? false, propertyType: input.propertyType ?? null, timeframe: input.timeframe ?? null, isAuthorized: input.isAuthorized ?? false, budgetRange: input.budgetRange ?? null, bestContactTime: input.bestContactTime ?? null, photoUrls: input.photoUrls ?? null, leadSource: input.leadSource || null, leadMedium: input.leadMedium || null, leadCampaign: input.leadCampaign || null, landingPage: input.landingPage || null, referrer: input.referrer || null, id: this.currentConsultationId++, status: "new", createdAt: new Date() };
     this.consultations.set(consultation.id, consultation);
     return consultation;
   }
@@ -804,6 +829,7 @@ export class MemStorage {
       subtotal: proposal.subtotal,
       tax: proposal.tax ?? 0,
       total: proposal.total,
+      depositRequired: proposal.depositRequired ?? Math.round(proposal.total * 50) / 100,
       notes: proposal.notes ?? null,
       validUntil: proposal.validUntil,
       status: proposal.status ?? "sent",

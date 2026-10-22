@@ -15,9 +15,9 @@ document.querySelector("#save").addEventListener("click", async () => {
     const parsedSite = new URL(handyTechSite);
     if (parsedSite.protocol !== "https:") throw new Error("Use the secure https:// HandyTech website address.");
     if (connectorKey.length < 32) throw new Error("Paste the complete connector key from HandyTech.");
-    const response = await fetch(`${handyTechSite}/api/connectors/home-depot/status`, { headers: { "x-home-depot-connector-key": connectorKey } });
-    if (!response.ok) throw new Error((await response.json().catch(() => ({}))).message || `Connection failed (${response.status})`);
     await chrome.storage.local.set({ handyTechSite, connectorKey });
+    const reply = await chrome.runtime.sendMessage({ type: "handytech-request", path: "/api/connectors/home-depot/status" });
+    if (!reply?.ok) throw new Error(reply?.error || "Connection test failed.");
     status.textContent = "Connected. Open a Pro Referral lead and use the HandyTech panel.";
   } catch (error) {
     status.textContent = error.message;

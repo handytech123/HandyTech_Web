@@ -19,6 +19,12 @@ export const customers = pgTable("customers", {
   city: text("city"),
   state: text("state"),
   zip: text("zip"),
+  contactType: text("contact_type").notNull().default("individual"),
+  relationshipState: text("relationship_state").notNull().default("prospective"),
+  normalizedEmail: text("normalized_email"),
+  normalizedPhone: text("normalized_phone"),
+  isActive: boolean("is_active").notNull().default(true),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).defaultNow().notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   lastEmailSent: timestamp("last_email_sent"),
 });
@@ -74,6 +80,13 @@ export const quotes = pgTable("quotes", {
   leadCampaign: text("lead_campaign"),
   landingPage: text("landing_page"),
   referrer: text("referrer"),
+  customerId: integer("customer_id"),
+  propertyId: integer("property_id"),
+  requestId: integer("request_id"),
+  jobId: integer("job_id"),
+  revisionRootQuoteId: integer("revision_root_quote_id"),
+  revisionOfQuoteId: integer("revision_of_quote_id"),
+  revisionNumber: integer("revision_number").notNull().default(0),
   status: text("status").notNull().default("pending"), // 'pending', 'contacted', 'converted', 'declined'
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
@@ -84,6 +97,18 @@ export const consultations = pgTable("consultations", {
   lastName: text("last_name").notNull(),
   email: text("email").notNull(),
   phone: text("phone").notNull(),
+  street: text("street"),
+  city: text("city"),
+  state: text("state"),
+  zip: text("zip"),
+  preferredContact: text("preferred_contact"),
+  smsConsent: boolean("sms_consent").notNull().default(false),
+  propertyType: text("property_type"),
+  timeframe: text("timeframe"),
+  isAuthorized: boolean("is_authorized").notNull().default(false),
+  budgetRange: text("budget_range"),
+  bestContactTime: text("best_contact_time"),
+  photoUrls: text("photo_urls").array(),
   topic: text("topic").notNull(),
   message: text("message"),
   leadSource: text("lead_source"),
@@ -156,6 +181,7 @@ export const requests = pgTable("requests", {
   propertyId: integer("property_id").references(() => properties.id, { onDelete: "set null" }),
   source: text("source").notNull().default("manual"),
   sourceDetail: text("source_detail"),
+  requestKind: text("request_kind").notNull().default("job_request"),
   legacyType: text("legacy_type"),
   legacyId: text("legacy_id"),
   title: text("title"),
@@ -163,6 +189,7 @@ export const requests = pgTable("requests", {
   status: text("status").notNull().default("new"),
   nextAction: text("next_action"),
   serviceClassification: text("service_classification"),
+  intakeDetails: jsonb("intake_details").$type<Record<string, unknown>>().notNull().default({}),
   receivedAt: timestamp("received_at", { withTimezone: true }).defaultNow().notNull(),
   closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
@@ -210,7 +237,16 @@ export const estimateItems = pgTable("estimate_items", {
   createdAt: timestamp("created_at", { withTimezone: true }).defaultNow().notNull(),
 });
 
-export type QuoteLineItem = { description: string; quantity: number; rate: number; details?: string; estimatedHours?: string; materials?: string };
+export type QuoteLineItem = {
+  description: string;
+  quantity: number;
+  rate: number;
+  details?: string;
+  estimatedHours?: string;
+  materials?: string;
+  estimatedLaborAmount?: number;
+  estimatedMaterialAmount?: number;
+};
 
 export const quoteProposals = pgTable("quote_proposals", {
   id: serial("id").primaryKey(),
@@ -223,6 +259,7 @@ export const quoteProposals = pgTable("quote_proposals", {
   subtotal: real("subtotal").notNull(),
   tax: real("tax").notNull().default(0),
   total: real("total").notNull(),
+  depositRequired: real("deposit_required").notNull().default(0),
   notes: text("notes"),
   validUntil: timestamp("valid_until", { withTimezone: true }).notNull(),
   status: text("status").notNull().default("sent"), // sent, viewed, accepted, changes_requested, declined
@@ -313,6 +350,7 @@ export const jobExpenses = pgTable("job_expenses", {
 export const changeOrders = pgTable("change_orders", {
   id: serial("id").primaryKey(),
   jobId: integer("job_id").references(() => jobs.id, { onDelete: "cascade" }).notNull(),
+  invoiceId: integer("invoice_id").references(() => invoices.id, { onDelete: "set null" }),
   description: text("description").notNull(),
   amount: real("amount").notNull().default(0),
   status: text("status").notNull().default("draft"), // draft, sent, accepted, declined
@@ -579,6 +617,28 @@ export const projectGallery = pgTable("project_gallery", {
   createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const PROJECT_CATEGORY_OPTIONS = [
+  { value: "drywall", label: "Drywall & Wall Repair" },
+  { value: "painting", label: "Interior & Exterior Painting" },
+  { value: "bathroom", label: "Bathroom Updates" },
+  { value: "plumbing", label: "Plumbing Fixtures" },
+  { value: "electrical", label: "Lighting & Electrical Fixtures" },
+  { value: "carpentry", label: "Carpentry, Trim & Shelving" },
+  { value: "doors", label: "Doors, Locks & Hardware" },
+  { value: "assembly", label: "Furniture & Equipment Assembly" },
+  { value: "mounting", label: "TV, Art & Equipment Mounting" },
+  { value: "outdoor", label: "Decks & Outdoor Work" },
+  { value: "accessibility", label: "Safety & Accessibility" },
+  { value: "smart-home", label: "Smart Home" },
+  { value: "security", label: "Security Cameras" },
+  { value: "networking", label: "Wi-Fi & Network Cabling" },
+  { value: "tech", label: "Technology (General)" },
+  { value: "appliances", label: "Appliance Installation" },
+  { value: "general", label: "General Handyman Project" },
+] as const;
+
+export const PROJECT_CATEGORY_VALUES = PROJECT_CATEGORY_OPTIONS.map((option) => option.value) as [string, ...string[]];
+
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
   username: true,
@@ -697,6 +757,18 @@ export const insertConsultationSchema = createInsertSchema(consultations).omit({
   lastName: z.string().trim().min(1).max(100),
   email: z.string().trim().email().max(254),
   phone: z.string().trim().min(7).max(30),
+  street: z.string().trim().min(1, "Street address is required").max(240),
+  city: z.string().trim().min(1, "City is required").max(120),
+  state: z.string().trim().min(2, "State is required").max(30),
+  zip: z.string().trim().min(5, "ZIP code is required").max(12),
+  preferredContact: z.enum(["call", "text", "email"]),
+  smsConsent: z.boolean().default(false),
+  propertyType: z.enum(["home", "rental", "business", "other"]),
+  timeframe: z.enum(["urgent", "two_weeks", "one_month", "flexible"]),
+  isAuthorized: z.literal(true, { errorMap: () => ({ message: "Confirm you are authorized to request this work" }) }),
+  budgetRange: z.string().trim().max(100).optional().nullable(),
+  bestContactTime: z.string().trim().max(200).optional().nullable(),
+  photoUrls: z.array(z.string()).max(10).optional().default([]),
   topic: z.string().trim().min(2).max(200),
   message: z.string().trim().max(3000).optional().nullable(),
 });
@@ -740,9 +812,7 @@ export const updateProjectGallerySchema = createInsertSchema(projectGallery)
   .extend({
     title: z.string().min(1, "Title is required").optional(),
     description: z.string().min(1, "Description is required").optional(),
-    category: z.enum(['plumbing', 'electrical', 'carpentry', 'tech', 'general'], {
-      errorMap: () => ({ message: "Category must be one of: plumbing, electrical, carpentry, tech, general" })
-    }).optional(),
+    category: z.enum(PROJECT_CATEGORY_VALUES).optional(),
     completionDate: z.coerce.date().optional(),
     imageUrls: z.array(z.string()).optional(),
     beforeImageUrls: z.array(z.string()).optional(),

@@ -126,7 +126,7 @@ export class EmailService {
     }
 
     try {
-      this.transporter = nodemailer.createTransport({
+      const smtpTransporter = nodemailer.createTransport({
         host: smtpHost,
         port: smtpPort,
         secure: smtpPort === 465, // true for 465 (SMTPS), false for other ports (STARTTLS)
@@ -139,6 +139,33 @@ export class EmailService {
         greetingTimeout: 30000, // 30 seconds
         socketTimeout: 60000 // 60 seconds
       });
+      const originalSendMail = smtpTransporter.sendMail.bind(smtpTransporter);
+      const compiler = nodemailer.createTransport({ streamTransport: true, buffer: true, newline: "windows" });
+      (smtpTransporter as any).sendMail = async (mailOptions: any) => {
+        let rawMessage: Buffer;
+        let envelope = mailOptions.envelope;
+        if (mailOptions.raw) {
+          rawMessage = Buffer.isBuffer(mailOptions.raw) ? mailOptions.raw : Buffer.from(mailOptions.raw);
+        } else {
+          const compiled = await compiler.sendMail(mailOptions);
+          envelope = envelope || compiled.envelope;
+          if (Buffer.isBuffer(compiled.message)) rawMessage = compiled.message;
+          else if (typeof compiled.message === "string") rawMessage = Buffer.from(compiled.message);
+          else {
+            const chunks: Buffer[] = [];
+            for await (const chunk of compiled.message) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+            rawMessage = Buffer.concat(chunks);
+          }
+        }
+        const result = await originalSendMail({ envelope, raw: rawMessage });
+        try {
+          await this.archiveInSentFolder(rawMessage);
+        } catch (error) {
+          console.error("Email was delivered but its exact copy could not be saved to the IONOS Sent folder:", error);
+        }
+        return result;
+      };
+      this.transporter = smtpTransporter;
 
       this.isConfigured = true;
       console.log('Email service initialized successfully with secure SMTP');
@@ -600,11 +627,6 @@ export class EmailService {
       envelope: { from: this.fromEmail, to: [data.customerEmail, this.fromEmail] },
       raw: rawMessage,
     });
-    try {
-      await this.archiveInSentFolder(rawMessage);
-    } catch (error) {
-      console.error("Follow-up was delivered but could not be archived in IMAP Sent folder:", error);
-    }
   }
 
   async sendReferralAutomationResponse(data: { recipient: string; subject: string; body: string; messageId?: string | null }): Promise<void> {
@@ -618,7 +640,6 @@ export class EmailService {
     const compiled = await compiler.sendMail(message);
     const rawMessage = Buffer.isBuffer(compiled.message) ? compiled.message : Buffer.from(String(compiled.message));
     await this.transporter.sendMail({ envelope: { from: this.fromEmail, to: [data.recipient] }, raw: rawMessage });
-    await this.archiveInSentFolder(rawMessage).catch((error) => console.error("Referral response sent but IMAP Sent archiving failed:", error));
   }
 
   async sendInvoice(data: { invoiceNumber: string; customerName: string; customerEmail: string; total: number; balanceDue: number; dueDate: Date; invoiceUrl: string; pdfBuffer: Buffer }): Promise<void> {

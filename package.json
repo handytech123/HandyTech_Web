@@ -13,6 +13,7 @@
     "test:operating-system": "tsx server/services/operating-system.test.ts",
     "test:operating-system-migrations": "tsx server/utils/operating-system-migrations.test.ts",
     "test:architecture": "tsx server/utils/architecture-compliance.test.ts",
+    "test:pricing": "tsx server/utils/pricing-guardrails.test.ts",
     "db:reconcile": "tsx server/utils/migration-reconciliation.ts",
     "db:parity": "tsx server/utils/relationship-parity-report.ts",
     "db:migrate:operating-system": "tsx server/utils/migrate-operating-system.ts",

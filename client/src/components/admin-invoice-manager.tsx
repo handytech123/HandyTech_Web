@@ -2,16 +2,17 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Camera,
+  BriefcaseBusiness,
   Download,
   Eye,
   FileText,
   Images,
+  Pencil,
   Plus,
   Receipt,
   Send,
   Star,
   Trash2,
-  WalletCards,
 } from "lucide-react";
 import type { Customer, Invoice, InvoicePayment } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
@@ -44,6 +45,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import InvoiceEditorDialog, { type EditableInvoice } from "@/components/invoice-editor-dialog";
 
 type InvoiceRow = { invoice: Invoice; customer: Customer | null };
 type DraftItem = { description: string; quantity: number; rate: number };
@@ -57,6 +59,7 @@ type QuoteChoice = {
   subtotal: number;
   tax: number;
   total: number;
+  depositRequired: number;
   notes: string | null;
   status: string;
   sentAt: string;
@@ -78,8 +81,10 @@ const statusStyle: Record<string, string> = {
 
 export default function AdminInvoiceManager({
   customers,
+  onOpenJob,
 }: {
   customers: Customer[];
+  onOpenJob?: (jobId: number) => void;
 }) {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -98,13 +103,10 @@ export default function AdminInvoiceManager({
     return date.toISOString().slice(0, 10);
   });
   const [notes, setNotes] = useState("");
-  const [terms, setTerms] = useState("Payment is due by the date shown above.");
+  const [terms, setTerms] = useState("A 50% deposit is required to reserve the project. The remaining balance is due upon completion unless otherwise agreed in writing.");
   const [depositRequired, setDepositRequired] = useState(0);
   const [paymentUrl, setPaymentUrl] = useState("");
-  const [paymentInvoice, setPaymentInvoice] = useState<InvoiceRow | null>(null);
-  const [paymentAmount, setPaymentAmount] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("check");
-  const [paymentReference, setPaymentReference] = useState("");
+  const [editInvoice, setEditInvoice] = useState<EditableInvoice | null>(null);
   const [projectInvoice, setProjectInvoice] = useState<InvoiceRow | null>(null);
   const [projectTitle, setProjectTitle] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
@@ -145,8 +147,12 @@ export default function AdminInvoiceManager({
     setDepositRequired(0);
     setPaymentUrl("");
   };
-  const refresh = () =>
+  const refresh = () => {
     queryClient.invalidateQueries({ queryKey: ["/api/admin/invoices"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/operations/jobs"] });
+    queryClient.invalidateQueries({ queryKey: ["/api/admin/operations/summary"] });
+    queryClient.invalidateQueries({ queryKey: ["project-workspace"] });
+  };
   const create = useMutation({
     mutationFn: async () =>
       (
@@ -156,7 +162,7 @@ export default function AdminInvoiceManager({
           lineItems: items,
           discount,
           taxRate,
-          depositRequired,
+          depositRequired: depositRequired || Math.round(total * 50) / 100,
           paymentUrl,
           dueDate: new Date(`${dueDate}T12:00:00`).toISOString(),
           notes,
@@ -196,33 +202,6 @@ export default function AdminInvoiceManager({
         variant: "destructive",
       }),
   });
-  const recordPayment = useMutation({
-    mutationFn: async () =>
-      (
-        await apiRequest(
-          `/api/admin/invoices/${paymentInvoice!.invoice.id}/payments`,
-          "POST",
-          {
-            amount: Number(paymentAmount),
-            method: paymentMethod,
-            reference: paymentReference,
-          },
-        )
-      ).json(),
-    onSuccess: () => {
-      refresh();
-      setPaymentInvoice(null);
-      setPaymentAmount("");
-      setPaymentReference("");
-      toast({ title: "Payment recorded" });
-    },
-    onError: (error: Error) =>
-      toast({
-        title: "Payment not recorded",
-        description: error.message,
-        variant: "destructive",
-      }),
-  });
   const sendReceipt = useMutation({
     mutationFn: async (id: number) =>
       (
@@ -258,17 +237,22 @@ export default function AdminInvoiceManager({
     mutationFn: async (row: InvoiceRow) => {
       if (!row.customer) throw new Error("This invoice does not have a customer profile.");
       const serviceType = row.invoice.lineItems[0]?.description || "HandyTech service";
-      return apiRequest("/api/admin/review-requests/send-manual", "POST", {
+      const response = await apiRequest("/api/admin/review-requests/send-manual", "POST", {
         customerName: `${row.customer.firstName} ${row.customer.lastName}`,
         customerEmail: row.customer.email,
         serviceType: serviceType.slice(0, 160),
         personalMessage: `Thank you for choosing HandyTech Solutions for ${serviceType}.`,
       });
+      return response.json() as Promise<{ emailSent: boolean; smsSent: boolean; smsSkippedReason?: string | null }>;
     },
-    onSuccess: (_data, row) =>
+    onSuccess: (data, row) =>
       toast({
         title: "Review request sent",
-        description: `The review link was emailed to ${row.customer?.firstName}.`,
+        description: data.emailSent && data.smsSent
+          ? `The review link was emailed and texted to ${row.customer?.firstName}.`
+          : data.smsSent
+            ? `The review link was texted to ${row.customer?.firstName}.`
+            : `The review link was emailed to ${row.customer?.firstName}. Text not sent: ${data.smsSkippedReason || "no SMS consent or phone number"}.`,
       }),
     onError: (error: Error) =>
       toast({ title: "Review request not sent", description: error.message, variant: "destructive" }),
@@ -372,6 +356,7 @@ export default function AdminInvoiceManager({
     setItems(quote.lineItems.map((item) => ({ ...item })));
     setDiscount(quote.discount);
     setTaxRate(quote.taxRate);
+    setDepositRequired(Number(quote.depositRequired || quote.total * 0.5));
     setNotes(
       quote.notes ||
         `Invoice for ${quote.serviceNeeded}${quote.serviceAddress ? ` at ${quote.serviceAddress}` : ""}.`,
@@ -389,7 +374,7 @@ export default function AdminInvoiceManager({
         <div>
           <CardTitle>Invoices</CardTitle>
           <CardDescription>
-            Create, preview, deliver, and track customer invoices and payments.
+            Company-wide invoice and payment history. Record payments inside the associated Job so the Job, invoice, P&amp;L, and Money totals stay synchronized.
           </CardDescription>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
@@ -660,8 +645,8 @@ export default function AdminInvoiceManager({
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div>
-                  <Label>Deposit requested</Label>
-                  <Input type="number" min="0" max={total} step="0.01" value={depositRequired} onChange={(event) => setDepositRequired(Number(event.target.value))} placeholder="0.00" />
+                  <Label>50% deposit requested</Label>
+                  <Input type="number" min="0" max={total} step="0.01" value={depositRequired || Math.round(total * 50) / 100} onChange={(event) => setDepositRequired(Number(event.target.value))} placeholder="0.00" />
                 </div>
                 <div>
                   <Label>Secure online payment link (optional)</Label>
@@ -735,6 +720,31 @@ export default function AdminInvoiceManager({
                         Preview
                       </a>
                     </Button>
+                    {row.invoice.status !== "void" && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setEditInvoice({
+                          id: row.invoice.id,
+                          invoiceNumber: row.invoice.invoiceNumber,
+                          customerId: row.invoice.customerId,
+                          quoteProposalId: row.invoice.quoteProposalId,
+                          status: row.invoice.status,
+                          amountPaid: Number(row.invoice.amountPaid || 0),
+                          lineItems: row.invoice.lineItems.map((item) => ({ ...item })),
+                          discount: Number(row.invoice.discount || 0),
+                          taxRate: Number(row.invoice.taxRate || 0),
+                          depositRequired: Number(row.invoice.depositRequired || 0),
+                          paymentUrl: row.invoice.paymentUrl || "",
+                          dueDate: row.invoice.dueDate,
+                          notes: row.invoice.notes || "",
+                          terms: row.invoice.terms || "",
+                        })}
+                      >
+                        <Pencil className="mr-1 h-4 w-4" />
+                        Edit
+                      </Button>
+                    )}
                     {!["paid", "void"].includes(row.invoice.status) && (
                       <Button
                         size="sm"
@@ -745,18 +755,18 @@ export default function AdminInvoiceManager({
                         {row.invoice.sentAt ? "Resend" : "Send"}
                       </Button>
                     )}
-                    {balance > 0 && row.invoice.status !== "void" && (
+                    {row.invoice.jobId && onOpenJob && (
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setPaymentInvoice(row);
-                          setPaymentAmount(balance.toFixed(2));
-                        }}
+                        onClick={() => onOpenJob(row.invoice.jobId!)}
                       >
-                        <WalletCards className="mr-1 h-4 w-4" />
-                        Record payment
+                        <BriefcaseBusiness className="mr-1 h-4 w-4" />
+                        {balance > 0 && row.invoice.status !== "void" ? "Open Job to Record Payment" : "Open Job"}
                       </Button>
+                    )}
+                    {!row.invoice.jobId && balance > 0 && row.invoice.status !== "void" && (
+                      <Badge variant="outline">No Job linked</Badge>
                     )}
                     {row.invoice.amountPaid > 0 && row.invoice.status !== "void" && (
                       <Button
@@ -813,63 +823,6 @@ export default function AdminInvoiceManager({
           )}
         </div>
       </CardContent>
-      <Dialog
-        open={!!paymentInvoice}
-        onOpenChange={(value) => !value && setPaymentInvoice(null)}
-      >
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Record Payment</DialogTitle>
-            <DialogDescription>
-              Record a payment already received outside the website.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label>Amount</Label>
-              <Input
-                type="number"
-                min="0.01"
-                step="0.01"
-                value={paymentAmount}
-                onChange={(event) => setPaymentAmount(event.target.value)}
-              />
-            </div>
-            <div>
-              <Label>Method</Label>
-              <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="cash">Cash</SelectItem>
-                  <SelectItem value="check">Check</SelectItem>
-                  <SelectItem value="card">
-                    Card (processed elsewhere)
-                  </SelectItem>
-                  <SelectItem value="bank_transfer">Bank transfer</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label>Reference (optional)</Label>
-              <Input
-                value={paymentReference}
-                onChange={(event) => setPaymentReference(event.target.value)}
-                placeholder="Check number or transaction reference"
-              />
-            </div>
-            <Button
-              className="w-full"
-              disabled={!Number(paymentAmount) || recordPayment.isPending}
-              onClick={() => recordPayment.mutate()}
-            >
-              {recordPayment.isPending ? "Recording…" : "Record Payment"}
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
       <Dialog open={!!projectInvoice} onOpenChange={(value) => !value && setProjectInvoice(null)}>
         <DialogContent className="max-h-[96dvh] w-[calc(100vw-1rem)] max-w-2xl overflow-y-auto p-4 sm:max-h-[90vh] sm:p-6">
           <DialogHeader>
@@ -953,6 +906,11 @@ export default function AdminInvoiceManager({
           </div>
         </DialogContent>
       </Dialog>
+      <InvoiceEditorDialog
+        invoice={editInvoice}
+        onClose={() => setEditInvoice(null)}
+        onSaved={refresh}
+      />
     </Card>
   );
 }

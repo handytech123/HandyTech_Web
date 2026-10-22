@@ -5,11 +5,14 @@
   const bodyText = () => clean(document.body.innerText);
   const match = (pattern) => bodyText().match(pattern)?.[1]?.trim() || "";
   const pathId = () => location.pathname.split("/").filter(Boolean).at(-1) || "";
+  const provided = (value) => /^(?:not provided|none|n\/a)$/i.test(clean(value)) ? "" : clean(value);
 
   function extractLead() {
     const text = bodyText();
     const headings = [...document.querySelectorAll("h1,h2,h3")].map((node) => clean(node.textContent)).filter(Boolean);
-    const customerName = headings.find((heading) => !/job details|my notes|appointment|home depot/i.test(heading)) || match(/(?:NEW|POTENTIAL)\s+([A-Z][A-Za-z' -]+?)\s+(?:Received|Job status)/i);
+    const rawCustomerName = match(/([A-Z][A-Za-z' -]{1,100}?)\s+Received\s+(?:Yesterday|Today|(?:\d+\s*)?(?:minutes?|hours?|days?|mins?|hrs?|[mhd])\s+ago).*?Job status/i)
+      || headings.find((heading) => !/job details|my notes|appointment|home depot|get ready|next job|request review|message\b/i.test(heading));
+    const customerName = clean(rawCustomerName).replace(/^(?:(?:selected show number|ready to hire|reached out(?: email or msg)?|contact info was incorrect|new|potential|hired|complete|archive)\s*)+/i, "");
     const service = match(/Service\s+(.+?)(?:Customer Timeframe|Customer notes|Lead cost|$)/i);
     const location = match(/Location\s+(.+?)(?:Service|Customer Timeframe|Customer notes|$)/i);
     const zip = location.match(/\b\d{5}(?:-\d{4})?\b/)?.[0] || "";
@@ -35,7 +38,7 @@
       state: state || null,
       zip: zip || null,
       customerTimeframe: match(/Customer Timeframe\s+(.+?)(?:Received|Customer Photos|Customer notes|$)/i) || null,
-      customerNotes: match(/Customer notes\s+(.+?)(?:Lead cost|Request Review|$)/i) || null,
+      customerNotes: provided(match(/Customer notes\s+(.+?)(?:Customer Photos|Lead cost|Request Review|$)/i)) || null,
       photoUrls,
       leadCostPoints: points,
       responseDueAt: parsedResponseDue && !Number.isNaN(parsedResponseDue.getTime()) ? parsedResponseDue.toISOString() : null,
@@ -57,11 +60,9 @@
     try {
       const lead = extractLead();
       if (!lead.externalJobId || !lead.customerName || !lead.service) throw new Error("This page does not show enough lead information yet. Open the individual lead details and try again.");
-      const saved = await chrome.storage.local.get(["handyTechSite", "connectorKey"]);
-      if (!saved.connectorKey) throw new Error("Open this extension's Options page and connect it to HandyTech first.");
-      const response = await fetch(`${saved.handyTechSite || "https://handytech-solutions.com"}/api/connectors/home-depot/leads`, { method: "POST", headers: { "content-type": "application/json", "x-home-depot-connector-key": saved.connectorKey }, body: JSON.stringify(lead) });
-      const result = await response.json().catch(() => ({}));
-      if (!response.ok) throw new Error(result.message || `Import failed (${response.status})`);
+      const reply = await chrome.runtime.sendMessage({ type: "handytech-request", path: "/api/connectors/home-depot/leads", method: "POST", body: lead });
+      if (!reply?.ok) throw new Error(reply?.error || "The connector could not import this lead.");
+      const result = reply.data;
       const requestMessage = result.lead.requestId ? ` Request #${result.lead.requestId} is ready in HandyTech.` : "";
       status.textContent = `Imported: ${result.recommendation.replace("_", " ")} (${result.lead.score}% fit).${requestMessage}`;
     } catch (error) {

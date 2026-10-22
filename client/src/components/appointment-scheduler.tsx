@@ -12,7 +12,7 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network, ClipboardList } from "lucide-react";
+import { Clock, CheckCircle, CalendarDays, AlertCircle, User, Mail, Phone, Wrench, Loader2, ArrowRight, Tag, Shield, Network, ClipboardList, ImagePlus, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -25,6 +25,7 @@ import { fromZonedTime, toZonedTime } from "date-fns-tz";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import { trackEvent } from "@/lib/analytics";
 import { getAttribution } from "@/lib/attribution";
+import { createCsrfHeaders } from "@/lib/csrf";
 
 // Service interface — matches actual API/DB fields
 interface Service {
@@ -132,6 +133,18 @@ interface AvailableSlot {
 export default function AppointmentScheduler() {
   const { data: activeAvailabilityRules = [] } = useQuery<Array<{ weekday: number; active?: boolean }>>({
     queryKey: ["/api/availability-rules/active"],
+    queryFn: async () => {
+      const response = await fetch("/api/availability-rules/active", {
+        credentials: "include",
+        cache: "no-store",
+      });
+      if (!response.ok) throw new Error("Failed to load current working days");
+      return response.json();
+    },
+    // Availability is changed by the owner at runtime. Never keep the global
+    // QueryClient's Infinity-stale cached copy when this scheduler is reopened.
+    staleTime: 0,
+    refetchOnMount: "always",
   });
   const activeWeekdays = new Set(activeAvailabilityRules.map((rule) => rule.weekday));
   const [bookingType, setBookingType] = useState<"consultation" | "service" | undefined>(undefined);
@@ -141,6 +154,13 @@ export default function AppointmentScheduler() {
   const [selectedCategory, setSelectedCategory] = useState<CategoryKey | undefined>(undefined);
   const [currentStep, setCurrentStep] = useState<"contact" | "date" | "time">("contact");
   const [isSubmitted, setIsSubmitted] = useState(false);
+  const [preferredContact, setPreferredContact] = useState<"call" | "text" | "email">("call");
+  const [propertyType, setPropertyType] = useState<"home" | "rental" | "business" | "other">("home");
+  const [timeframe, setTimeframe] = useState<"urgent" | "two_weeks" | "one_month" | "flexible">("flexible");
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [budgetRange, setBudgetRange] = useState("");
+  const [bestContactTime, setBestContactTime] = useState("");
+  const [consultationPhotos, setConsultationPhotos] = useState<File[]>([]);
   const { toast } = useToast();
 
   // Fetch services from API
@@ -324,15 +344,31 @@ export default function AppointmentScheduler() {
       const values = form.getValues();
       if (!selectedService) throw new Error("Please choose the type of project you want evaluated.");
 
-      const response = await apiRequest("/api/consultations", "POST", {
+      const consultation = {
         firstName: values.firstName,
         lastName: values.lastName,
         email: values.email,
         phone: values.phone,
+        street: values.street,
+        city: values.city,
+        state: values.state,
+        zip: values.zip,
         topic: selectedService.name,
         message: values.notes || null,
+        preferredContact,
+        smsConsent: values.smsConsent,
+        propertyType,
+        timeframe,
+        isAuthorized,
+        budgetRange: budgetRange || null,
+        bestContactTime: bestContactTime || null,
         ...getAttribution(),
-      });
+      };
+      const body = new FormData();
+      body.append("consultation", JSON.stringify(consultation));
+      consultationPhotos.forEach((photo) => body.append("photos", photo));
+      const headers = await createCsrfHeaders();
+      const response = await fetch("/api/consultations", { method: "POST", headers, body, credentials: "include" });
       const result = await response.json().catch(() => ({ message: "Consultation request failed" }));
       if (!response.ok) throw new Error(result.message || "Consultation request failed");
       return result;
@@ -340,6 +376,7 @@ export default function AppointmentScheduler() {
     onSuccess: () => {
       trackEvent("consultation_requested", { request_source: "website" });
       setIsSubmitted(true);
+      setConsultationPhotos([]);
       toast({
         title: "Consultation Request Received!",
         description: "We will contact you to discuss your project. No appointment or quote has been created yet.",
@@ -661,7 +698,7 @@ export default function AppointmentScheduler() {
                         )}
                       />
 
-                      {bookingType === "service" && <>
+                      {bookingType === "service" && (
                       <FormField
                         control={form.control}
                         name="smsConsent"
@@ -688,6 +725,7 @@ export default function AppointmentScheduler() {
                           </FormItem>
                         )}
                       />
+                      )}
 
                       {/* Address Fields */}
                       <FormField
@@ -771,7 +809,6 @@ export default function AppointmentScheduler() {
                           )}
                         />
                       </div>
-                      </>}
 
                       <FormItem>
                         <FormLabel>{bookingType === "consultation" ? "What would you like us to evaluate?" : "Select Service"}</FormLabel>
@@ -797,6 +834,45 @@ export default function AppointmentScheduler() {
                         </Select>
                       </FormItem>
 
+                      {bookingType === "consultation" && (
+                        <div className="space-y-4 rounded-xl border bg-slate-50 p-4">
+                          <div className="grid gap-4 md:grid-cols-2">
+                            <div>
+                              <Label>Preferred contact method</Label>
+                              <Select value={preferredContact} onValueChange={(value: "call" | "text" | "email") => setPreferredContact(value)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="call">Phone call</SelectItem><SelectItem value="text">Text message</SelectItem><SelectItem value="email">Email</SelectItem></SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Property type</Label>
+                              <Select value={propertyType} onValueChange={(value: "home" | "rental" | "business" | "other") => setPropertyType(value)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="home">Home</SelectItem><SelectItem value="rental">Rental property</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="other">Other</SelectItem></SelectContent>
+                              </Select>
+                            </div>
+                            <div>
+                              <Label>Desired timeframe</Label>
+                              <Select value={timeframe} onValueChange={(value: "urgent" | "two_weeks" | "one_month" | "flexible") => setTimeframe(value)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
+                                <SelectContent><SelectItem value="urgent">Urgent</SelectItem><SelectItem value="two_weeks">Within two weeks</SelectItem><SelectItem value="one_month">Within one month</SelectItem><SelectItem value="flexible">Flexible</SelectItem></SelectContent>
+                              </Select>
+                            </div>
+                            <div><Label>Approximate budget (optional)</Label><Input value={budgetRange} onChange={(event) => setBudgetRange(event.target.value)} placeholder="Example: $1,000–$2,500" /></div>
+                            <div className="md:col-span-2"><Label>Best time to contact you (optional)</Label><Input value={bestContactTime} onChange={(event) => setBestContactTime(event.target.value)} placeholder="Example: Weekdays after 4 PM" /></div>
+                          </div>
+                          {preferredContact === "text" && (
+                            <FormField control={form.control} name="smsConsent" render={({ field }) => <FormItem className="flex items-start gap-3 rounded-lg border bg-white p-3"><FormControl><Checkbox checked={field.value} onCheckedChange={(checked) => field.onChange(checked === true)} /></FormControl><div><FormLabel className="text-sm font-normal">I agree to receive consultation and service-related text messages from HandyTech Solutions. Message and data rates may apply. Reply STOP to opt out.</FormLabel><FormMessage /></div></FormItem>} />
+                          )}
+                          <label className="flex items-start gap-3 rounded-lg border bg-white p-3 text-sm"><Checkbox checked={isAuthorized} onCheckedChange={(checked) => setIsAuthorized(checked === true)} /><span>I own this property or am authorized to request and approve work at this address.</span></label>
+                          <div>
+                            <Label>Helpful project photos (optional, up to 10)</Label>
+                            <label className="mt-1 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed bg-white p-4 text-sm font-medium"><ImagePlus className="h-4 w-4" />Choose camera, photo library, or files<input className="hidden" type="file" accept="image/jpeg,image/png,image/webp" multiple onChange={(event) => { const incoming = Array.from(event.target.files || []); setConsultationPhotos((current) => [...current, ...incoming].slice(0, 10)); event.target.value = ""; }} /></label>
+                            {!!consultationPhotos.length && <div className="mt-2 space-y-1">{consultationPhotos.map((photo, index) => <div key={`${photo.name}-${index}`} className="flex items-center justify-between rounded border bg-white px-3 py-2 text-xs"><span className="truncate">{photo.name}</span><Button type="button" size="icon" variant="ghost" onClick={() => setConsultationPhotos((current) => current.filter((_, itemIndex) => itemIndex !== index))}><X className="h-3.5 w-3.5" /></Button></div>)}</div>}
+                          </div>
+                        </div>
+                      )}
+
                       <FormField
                         control={form.control}
                         name="notes"
@@ -818,15 +894,13 @@ export default function AppointmentScheduler() {
 
                       <Button
                         onClick={async () => {
-                          const requiredFields = bookingType === "consultation"
-                            ? (["firstName", "lastName", "email", "phone", "serviceId"] as const)
-                            : (["firstName", "lastName", "email", "phone", "street", "city", "state", "zip", "serviceId"] as const);
+                          const requiredFields = ["firstName", "lastName", "email", "phone", "street", "city", "state", "zip", "serviceId"] as const;
                           const valid = await form.trigger(requiredFields);
                           if (!valid || !selectedService) return;
                           if (bookingType === "consultation") consultationRequestMutation.mutate();
                           else setCurrentStep("date");
                         }}
-                        disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !form.watch("phone") || (bookingType === "service" && (!form.watch("street") || !form.watch("city") || !form.watch("state") || !form.watch("zip"))) || !selectedService || consultationRequestMutation.isPending}
+                        disabled={!form.watch("firstName") || !form.watch("lastName") || !form.watch("email") || !form.watch("phone") || !form.watch("street") || !form.watch("city") || !form.watch("state") || !form.watch("zip") || !selectedService || (bookingType === "consultation" && (!isAuthorized || (preferredContact === "text" && !form.watch("smsConsent")))) || consultationRequestMutation.isPending}
                         className="w-full bg-brand-primary hover:bg-brand-primary-dark"
                         data-testid={bookingType === "consultation" ? "button-submit-consultation" : "button-proceed-to-date"}
                       >
@@ -919,7 +993,7 @@ export default function AppointmentScheduler() {
                     <Alert>
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription>
-                        No available times for this date. Please try a weekday (Monday-Friday) between now and next month. If you continue to see this message, please contact us directly.
+                        This is a working day, but no time remains that can fit the selected service. The day may already be fully booked, or the service may be longer than the remaining availability. Please choose another enabled date or contact us directly.
                       </AlertDescription>
                     </Alert>
                   ) : (

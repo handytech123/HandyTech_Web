@@ -47,6 +47,18 @@ async function ensureProperty(tx: any, contactId: number | null, input: { street
   return propertyId || null;
 }
 
+export async function syncCustomerProperty(contactId: number, input: { street?: string | null; city?: string | null; state?: string | null; zip?: string | null }) {
+  if (!operatingSystemEnabled() || !String(input.street || "").trim()) return null;
+  return db.transaction(async (tx) => {
+    const propertyId = await ensureProperty(tx, contactId, input);
+    if (propertyId) {
+      await tx.execute(sql`UPDATE contact_properties SET is_primary=false WHERE contact_id=${contactId}`);
+      await tx.execute(sql`UPDATE contact_properties SET is_primary=true WHERE contact_id=${contactId} AND property_id=${propertyId}`);
+    }
+    return propertyId;
+  });
+}
+
 async function recordMatch(tx: any, sourceTable: string, sourceId: number, targetTable: string | null, targetId: number | null, classification: string, rule: string, confidence: number) {
   await tx.execute(sql`
     INSERT INTO legacy_record_matches(migration_version,source_table,source_id,target_table,target_id,classification,match_rule,confidence)
@@ -66,8 +78,8 @@ export async function mirrorQuoteAsRequest(quote: Quote): Promise<number | null>
     const propertyId = await ensureProperty(tx, contact?.id || null, quote);
     const requestNumber = await nextRequestIdentity(tx, "Q", quote.id);
     const inserted = await tx.execute(sql`
-      INSERT INTO requests(request_number,contact_id,property_id,source,source_detail,legacy_type,legacy_id,title,customer_description,status,service_classification,received_at)
-      VALUES (${requestNumber},${contact?.id || null},${propertyId},${quote.leadSource || "website"},${quote.leadMedium || null},'quote',${String(quote.id)},${quote.serviceNeeded},${quote.message || ""},'new',${quote.serviceNeeded},${quote.createdAt})
+      INSERT INTO requests(request_number,contact_id,property_id,source,source_detail,request_kind,legacy_type,legacy_id,title,customer_description,status,service_classification,received_at)
+      VALUES (${requestNumber},${contact?.id || null},${propertyId},${quote.leadSource || "website"},${quote.leadMedium || null},'job_request','quote',${String(quote.id)},${quote.serviceNeeded},${quote.message || ""},'new',${quote.serviceNeeded},${quote.createdAt})
       ON CONFLICT (legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL DO UPDATE SET updated_at=NOW() RETURNING id
     `);
     const requestId = Number((inserted as any).rows?.[0]?.id);
@@ -82,11 +94,13 @@ export async function mirrorConsultationAsRequest(consultation: Consultation): P
   if (!operatingSystemEnabled()) return null;
   return db.transaction(async (tx) => {
     const contact = await ensureContact(tx, consultation);
+    const propertyId = await ensureProperty(tx, contact?.id || null, consultation);
     const requestNumber = await nextRequestIdentity(tx, "C", consultation.id);
     const inserted = await tx.execute(sql`
-      INSERT INTO requests(request_number,contact_id,source,source_detail,legacy_type,legacy_id,title,customer_description,status,received_at)
-      VALUES (${requestNumber},${contact?.id || null},${consultation.leadSource || "website"},'consultation','consultation',${String(consultation.id)},${consultation.topic},${consultation.message || ""},'new',${consultation.createdAt})
-      ON CONFLICT (legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL DO UPDATE SET updated_at=NOW() RETURNING id
+      INSERT INTO requests(request_number,contact_id,property_id,source,source_detail,request_kind,legacy_type,legacy_id,title,customer_description,status,intake_details,received_at)
+      VALUES (${requestNumber},${contact?.id || null},${propertyId},${consultation.leadSource || "website"},'consultation','consultation','consultation',${String(consultation.id)},${consultation.topic},${consultation.message || ""},'new',${JSON.stringify({ preferredContact: consultation.preferredContact, smsConsent: consultation.smsConsent, propertyType: consultation.propertyType, timeframe: consultation.timeframe, isAuthorized: consultation.isAuthorized, budgetRange: consultation.budgetRange, bestContactTime: consultation.bestContactTime })}::jsonb,${consultation.createdAt})
+      ON CONFLICT (legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL
+      DO UPDATE SET contact_id=COALESCE(requests.contact_id,EXCLUDED.contact_id),property_id=COALESCE(requests.property_id,EXCLUDED.property_id),updated_at=NOW() RETURNING id
     `);
     const requestId = Number((inserted as any).rows?.[0]?.id);
     await tx.execute(sql`UPDATE consultations SET customer_id=${contact?.id || null},request_id=${requestId} WHERE id=${consultation.id}`);
@@ -104,17 +118,20 @@ export async function mirrorAppointmentAsScheduleItem(appointment: Appointment):
       await recordMatch(tx, "appointments", appointment.id, "jobs", Number(row.job_id), "automatically_matched", "explicit_job_foreign_key", 1);
       return Number(row.job_id);
     }
-    if (row?.request_id) return Number(row.request_id);
     const contact = await ensureContact(tx, appointment);
     const propertyId = await ensureProperty(tx, contact?.id || appointment.customerId || null, appointment);
-    const requestNumber = await nextRequestIdentity(tx, "A", appointment.id);
-    const inserted = await tx.execute(sql`
-      INSERT INTO requests(request_number,contact_id,property_id,source,source_detail,legacy_type,legacy_id,title,customer_description,status,received_at)
-      VALUES (${requestNumber},${contact?.id || appointment.customerId || null},${propertyId},${appointment.source || "manual"},'appointment','appointment',${String(appointment.id)},${appointment.serviceType},${appointment.notes || ""},'approved',${appointment.createdAt})
-      ON CONFLICT (legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL DO UPDATE SET updated_at=NOW() RETURNING id
-    `);
-    const requestId = Number((inserted as any).rows?.[0]?.id);
+    let requestId = Number(row?.request_id || 0);
+    if (!requestId) {
+      const requestNumber = await nextRequestIdentity(tx, "A", appointment.id);
+      const inserted = await tx.execute(sql`
+        INSERT INTO requests(request_number,contact_id,property_id,source,source_detail,request_kind,legacy_type,legacy_id,title,customer_description,status,next_action,received_at)
+        VALUES (${requestNumber},${contact?.id || appointment.customerId || null},${propertyId},${appointment.source || "manual"},'appointment',${appointment.bookingType === "consultation" ? "consultation" : "service_request"},'appointment',${String(appointment.id)},${appointment.serviceType},${appointment.notes || ""},'new',${appointment.bookingType === "consultation" ? "Review consultation" : "Accept request and create Job"},${appointment.createdAt})
+        ON CONFLICT (legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL DO UPDATE SET updated_at=NOW() RETURNING id
+      `);
+      requestId = Number((inserted as any).rows?.[0]?.id);
+    }
     await tx.execute(sql`UPDATE appointments SET property_id=${propertyId},request_id=${requestId},schedule_kind=${appointment.bookingType === "consultation" ? "site_visit" : "appointment"} WHERE id=${appointment.id}`);
+
     await recordMatch(tx, "appointments", appointment.id, "requests", requestId, "automatically_matched", "deterministic_legacy_origin", 1);
     return requestId;
   });
@@ -130,6 +147,7 @@ export async function mirrorReferralAsRequest(lead: { id: number; customerId?: n
     const existing = await tx.execute(sql`SELECT request_id FROM referral_leads WHERE id=${lead.id}`);
     const existingId = Number((existing as any).rows?.[0]?.request_id || 0);
     if (existingId) {
+      await tx.execute(sql`UPDATE requests SET title=${lead.service},customer_description=${lead.customerNotes || ""},service_classification=${lead.service},updated_at=NOW() WHERE id=${existingId}`);
       if (contact?.id) {
         await tx.execute(sql`UPDATE referral_leads SET customer_id=COALESCE(customer_id,${contact.id}),updated_at=NOW() WHERE id=${lead.id}`);
         await tx.execute(sql`UPDATE requests SET contact_id=COALESCE(contact_id,${contact.id}),updated_at=NOW() WHERE id=${existingId}`);
@@ -138,8 +156,8 @@ export async function mirrorReferralAsRequest(lead: { id: number; customerId?: n
     }
     const requestNumber = await nextRequestIdentity(tx, "R", lead.id);
     const inserted = await tx.execute(sql`
-      INSERT INTO requests(request_number,contact_id,source,source_detail,legacy_type,legacy_id,title,customer_description,status,service_classification,received_at)
-      VALUES (${requestNumber},${contact?.id || null},'referral',${lead.provider},'referral_lead',${String(lead.id)},${lead.service},${lead.customerNotes || ""},${lead.status === "new" ? "new" : "reviewing"},${lead.service},${lead.createdAt})
+      INSERT INTO requests(request_number,contact_id,source,source_detail,request_kind,legacy_type,legacy_id,title,customer_description,status,service_classification,received_at)
+      VALUES (${requestNumber},${contact?.id || null},'referral',${lead.provider},'job_request','referral_lead',${String(lead.id)},${lead.service},${lead.customerNotes || ""},${lead.status === "new" ? "new" : "reviewing"},${lead.service},${lead.createdAt})
       ON CONFLICT(legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL
       DO UPDATE SET contact_id=COALESCE(requests.contact_id,EXCLUDED.contact_id),updated_at=NOW() RETURNING id
     `);
@@ -154,10 +172,14 @@ export async function ensureAcceptedProposalJob(quote: Quote, proposal: QuotePro
   if (!operatingSystemEnabled()) return null;
   return db.transaction(async (tx) => {
     await tx.execute(sql`SELECT pg_advisory_xact_lock(${9000000 + proposal.id})`);
-    const linked = await tx.execute(sql`SELECT id FROM jobs WHERE quote_proposal_id=${proposal.id} ORDER BY id LIMIT 1`);
-    let jobId = Number((linked as any).rows?.[0]?.id || 0);
     const q = await tx.execute(sql`SELECT request_id,customer_id,property_id FROM quotes WHERE id=${quote.id}`);
     const link = (q as any).rows?.[0] || {};
+    const linked = await tx.execute(sql`SELECT id FROM jobs WHERE quote_proposal_id=${proposal.id} OR (request_id=${link.request_id || null} AND quote_proposal_id IS NULL) ORDER BY CASE WHEN quote_proposal_id=${proposal.id} THEN 0 ELSE 1 END,id LIMIT 1`);
+    let jobId = Number((linked as any).rows?.[0]?.id || 0);
+    if (jobId) {
+      await tx.execute(sql`UPDATE jobs SET quote_proposal_id=${proposal.id},original_contract_value=${String(proposal.total)},updated_at=NOW() WHERE id=${jobId} AND quote_proposal_id IS NULL`);
+      await tx.execute(sql`UPDATE quotes SET job_id=${jobId} WHERE id=${quote.id}`);
+    }
     if (!jobId) {
       const contact = link.customer_id || (await ensureContact(tx, quote))?.id;
       if (!contact) throw new Error("Accepted proposal cannot create a Job until its Contact is resolved");
@@ -166,13 +188,15 @@ export async function ensureAcceptedProposalJob(quote: Quote, proposal: QuotePro
       const jobNumber = `JOB-${new Date().getFullYear()}-${String(jobId).padStart(5, "0")}`;
       await tx.execute(sql`INSERT INTO jobs(id,customer_id,quote_proposal_id,job_number,title,description,address,status,request_id,property_id,original_contract_value)
         VALUES (${jobId},${Number(contact)},${proposal.id},${jobNumber},${quote.serviceNeeded},${quote.message || null},${[quote.street, quote.city, [quote.state, quote.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ")},'approved',${link.request_id || null},${link.property_id || null},${String(proposal.total)})`);
+      await tx.execute(sql`UPDATE customers SET relationship_state='customer',updated_at=NOW() WHERE id=${Number(contact)} AND relationship_state<>'customer'`);
       await tx.execute(sql`UPDATE quotes SET job_id=${jobId} WHERE id=${quote.id}`);
     }
+    await tx.execute(sql`UPDATE invoices SET job_id=${jobId},updated_at=NOW() WHERE quote_proposal_id=${proposal.id} AND job_id IS NULL`);
     const snapshot = { quoteNumber: proposal.quoteNumber, lineItems: proposal.lineItems, discount: proposal.discount, taxRate: proposal.taxRate, subtotal: proposal.subtotal, tax: proposal.tax, total: proposal.total, notes: proposal.notes, validUntil: proposal.validUntil, signerName: proposal.signerName, signatureUrl: proposal.signatureUrl, acceptedTerms: proposal.acceptedTerms };
     await tx.execute(sql`INSERT INTO approved_scopes(job_id,request_id,proposal_id,proposal_snapshot,approved_price,approved_at,signer_name)
       VALUES (${jobId},${link.request_id || null},${proposal.id},${JSON.stringify(snapshot)}::jsonb,${String(proposal.total)},${proposal.respondedAt || new Date()},${proposal.signerName || null}) ON CONFLICT (proposal_id) DO NOTHING`);
     if (link.request_id) {
-      await tx.execute(sql`UPDATE requests SET status='approved',next_action='Schedule work',updated_at=NOW() WHERE id=${Number(link.request_id)}`);
+      await tx.execute(sql`UPDATE requests SET status='closed',next_action='Continue in Job',closed_at=COALESCE(closed_at,NOW()),updated_at=NOW() WHERE id=${Number(link.request_id)}`);
       await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata,occurred_at)
         VALUES (${Number(link.customer_id) || null},${Number(link.property_id) || null},${Number(link.request_id)},${jobId},'proposal',${String(proposal.id)},'proposal_approved','Proposal approved; Job created','portal','shared',${JSON.stringify({ quoteNumber: proposal.quoteNumber, total: proposal.total })}::jsonb,${proposal.respondedAt || new Date()})`);
     }

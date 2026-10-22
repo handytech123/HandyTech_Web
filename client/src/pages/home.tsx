@@ -15,9 +15,9 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background">
       <Helmet>
-        <title>HandyTech Solutions | Professional Handyman Services in Missouri</title>
-        <meta name="description" content="Expert handyman services in St. Louis, Florissant, and Hazelwood. Professional home repairs, smart home installations, plumbing, electrical work, and maintenance. Over a decade of trusted service." />
-        <link rel="canonical" href="https://handytech-solutions.com" />
+        <title>HandyTech Solutions LLC | Handyman Services in St. Louis, MO</title>
+        <meta name="description" content="Professional handyman services in St. Louis, Florissant, Hazelwood, Ferguson, and Bridgeton for repairs, painting, fixtures, mounting, and smart-home installation." />
+        <link rel="canonical" href="https://handytech-solutions.com/" />
         <meta property="og:title" content="HandyTech Solutions | Professional Handyman Services" />
         <meta property="og:description" content="Expert handyman services in Missouri. Professional home repairs and smart home installations." />
         <meta property="og:image" content="https://handytech-solutions.com/preview.jpg" />
@@ -29,35 +29,14 @@ export default function Home() {
           {`
           {
             "@context": "https://schema.org",
-            "@type": "LocalBusiness",
-            "name": "HandyTech Solutions",
+            "@type": "HomeAndConstructionBusiness",
+            "@id": "https://handytech-solutions.com/#business",
+            "name": "HandyTech Solutions LLC",
             "image": "https://handytech-solutions.com/logo.png",
             "url": "https://handytech-solutions.com",
             "telephone": "+1-314-325-4575",
             "priceRange": "$$",
-            "address": {
-              "@type": "PostalAddress",
-              "streetAddress": "Serving St. Louis Metro Area",
-              "addressLocality": "Hazelwood",
-              "addressRegion": "MO",
-              "postalCode": "63042",
-              "addressCountry": "US"
-            },
-            "geo": {
-              "@type": "GeoCoordinates",
-              "latitude": 38.7692,
-              "longitude": -90.3702
-            },
-            "openingHours": "Mo-Fr 08:00-18:00",
-            "serviceArea": {
-              "@type": "GeoCircle",
-              "geoMidpoint": {
-                "@type": "GeoCoordinates",
-                "latitude": 38.7692,
-                "longitude": -90.3702
-              },
-              "geoRadius": "50000"
-            },
+            "email": "contact@handytech-solutions.com",
             "areaServed": [
               "St. Louis, MO",
               "Florissant, MO", 

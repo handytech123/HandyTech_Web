@@ -6,7 +6,7 @@ import { type Server } from "http";
 import viteConfig from "../vite.config";
 import { nanoid } from "nanoid";
 import { storage } from "./storage";
-import { seoSlug, SITE_URL } from "@shared/seo";
+import { BUSINESS_EMAIL, BUSINESS_ID, BUSINESS_NAME, BUSINESS_PHONE, isIndexableProjectTitle, seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_SEO_CONTENT, resolveServiceSlug } from "@shared/service-content";
 import { SERVICE_AREA_BY_SLUG } from "@shared/service-area-content";
 
@@ -100,19 +100,34 @@ export function serveStatic(app: Express) {
       let image: string | undefined;
       let schema: unknown;
 
+      const businessSchema = {
+        "@type": "HomeAndConstructionBusiness",
+        "@id": BUSINESS_ID,
+        name: BUSINESS_NAME,
+        url: SITE_URL,
+        telephone: BUSINESS_PHONE,
+        email: BUSINESS_EMAIL,
+        image: `${SITE_URL}/preview.jpg`,
+        logo: `${SITE_URL}/logo.png`,
+        priceRange: "$$",
+        areaServed: ["St. Louis, MO", "Hazelwood, MO", "Florissant, MO", "Ferguson, MO", "Bridgeton, MO"],
+      };
+
       if (pathname === "/") {
-        schema = { "@context": "https://schema.org", "@type": "HomeAndConstructionBusiness", name: "HandyTech Solutions", url: SITE_URL, telephone: "+1-314-325-4575", email: "contact@handytech-solutions.com", areaServed: ["St. Louis, MO", "Hazelwood, MO", "Florissant, MO", "Ferguson, MO", "Bridgeton, MO"] };
+        image = `${SITE_URL}/preview.jpg`;
+        schema = { "@context": "https://schema.org", "@graph": [businessSchema, { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: BUSINESS_NAME, url: SITE_URL, publisher: { "@id": BUSINESS_ID } }] };
       } else if (pathname === "/services") {
         title = "Handyman Services in St. Louis, MO | HandyTech Solutions";
         description = "Explore HandyTech Solutions services for repairs, installations, painting, carpentry, plumbing fixtures, electrical fixtures, and smart-home technology in St. Louis.";
       } else if (pathname.startsWith("/services/")) {
         const slug = pathname.split("/")[2];
         const resolvedSlug = resolveServiceSlug(slug);
+        if (resolvedSlug !== slug) canonical = `${SITE_URL}/services/${resolvedSlug}`;
         const service = (await storage.getAllServices()).find((item) => item.isActive && seoSlug(item.name) === resolvedSlug);
-        if (service) {
+        if (service && resolvedSlug !== "other") {
           title = `${service.name} in St. Louis, MO | HandyTech Solutions`;
           description = SERVICE_SEO_CONTENT[resolvedSlug]?.metaDescription || (service.description || `Professional ${service.name.toLowerCase()} from HandyTech Solutions in the St. Louis area.`).slice(0, 160);
-          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Service", name: service.name, description: service.description, provider: { "@type": "LocalBusiness", name: "HandyTech Solutions", telephone: "+1-314-325-4575", url: SITE_URL }, areaServed: ["St. Louis, MO", "Hazelwood, MO", "Florissant, MO", "Ferguson, MO", "Bridgeton, MO"], url: canonical }, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Services", item: `${SITE_URL}/services` }, { "@type": "ListItem", position: 3, name: service.name, item: canonical }] }] };
+          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Service", "@id": `${canonical}#service`, name: service.name, description: service.description, provider: { "@id": BUSINESS_ID }, areaServed: businessSchema.areaServed, url: canonical }, businessSchema, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Services", item: `${SITE_URL}/services` }, { "@type": "ListItem", position: 3, name: service.name, item: canonical }] }] };
         } else {
           status = 404; robots = "noindex, follow"; title = "Service Not Found | HandyTech Solutions"; description = "The requested HandyTech service page could not be found.";
         }
@@ -128,21 +143,21 @@ export function serveStatic(app: Express) {
         if (area) {
           title = `${area.title} | HandyTech Solutions`;
           description = area.metaDescription;
-          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "HomeAndConstructionBusiness", name: "HandyTech Solutions", url: canonical, telephone: "+1-314-325-4575", email: "contact@handytech-solutions.com", areaServed: { "@type": "City", name: `${area.city}, Missouri` } }, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Service Areas", item: `${SITE_URL}/service-areas` }, { "@type": "ListItem", position: 3, name: area.city, item: canonical }] }] };
+          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "Service", "@id": `${canonical}#service-area`, name: `Handyman services in ${area.city}, Missouri`, description: area.introduction, provider: { "@id": BUSINESS_ID }, areaServed: { "@type": "City", name: `${area.city}, Missouri` }, url: canonical }, businessSchema, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Service Areas", item: `${SITE_URL}/service-areas` }, { "@type": "ListItem", position: 3, name: area.city, item: canonical }] }] };
         } else {
           status = 404; robots = "noindex, follow"; title = "Service Area Not Found | HandyTech Solutions"; description = "The requested HandyTech service-area page could not be found.";
         }
       } else if (pathname.startsWith("/projects/")) {
         const slug = pathname.split("/")[2];
         const project = (await storage.getAllProjectGalleryItems()).find((item) => seoSlug(item.title) === slug);
-        if (project) {
+        if (project && isIndexableProjectTitle(project.title)) {
           const location = project.location ? ` in ${project.location}` : " in the St. Louis area";
           title = `${project.title}${location} | HandyTech Solutions`;
           description = project.description.slice(0, 160);
           image = absoluteMedia(project.imageUrl);
           const projectImages = Array.from(new Set([project.imageUrl, project.beforeImageUrl, ...(project.imageUrls || []), ...(project.beforeImageUrls || [])].filter((value): value is string => Boolean(value)))).map((value) => absoluteMedia(value));
           const projectVideos = (project.videoUrls || []).map((value, index) => ({ "@type": "VideoObject", name: `${project.title} video ${index + 1}`, description: project.description, contentUrl: absoluteMedia(value), thumbnailUrl: projectImages[0], uploadDate: new Date(project.completionDate).toISOString() }));
-          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "CreativeWork", name: project.title, description: project.description, image: projectImages, video: projectVideos, dateCreated: new Date(project.completionDate).toISOString(), contentLocation: project.location ? { "@type": "Place", name: project.location } : undefined, creator: { "@type": "HomeAndConstructionBusiness", name: "HandyTech Solutions", telephone: "+1-314-325-4575", url: SITE_URL }, url: canonical }, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Projects", item: `${SITE_URL}/gallery` }, { "@type": "ListItem", position: 3, name: project.title, item: canonical }] }] };
+          schema = { "@context": "https://schema.org", "@graph": [{ "@type": "CreativeWork", name: project.title, description: project.description, image: projectImages, video: projectVideos, dateCreated: new Date(project.completionDate).toISOString(), contentLocation: project.location ? { "@type": "Place", name: project.location } : undefined, creator: { "@id": BUSINESS_ID }, url: canonical }, businessSchema, { "@type": "BreadcrumbList", itemListElement: [{ "@type": "ListItem", position: 1, name: "Home", item: SITE_URL }, { "@type": "ListItem", position: 2, name: "Projects", item: `${SITE_URL}/gallery` }, { "@type": "ListItem", position: 3, name: project.title, item: canonical }] }] };
         } else {
           status = 404; robots = "noindex, follow"; title = "Project Not Found | HandyTech Solutions"; description = "The requested HandyTech project page could not be found.";
         }

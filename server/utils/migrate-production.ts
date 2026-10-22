@@ -185,6 +185,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS receipt_url TEXT`,
       `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS labor_hours REAL`,
       `ALTER TABLE job_expenses ADD COLUMN IF NOT EXISTS hourly_rate REAL`,
+      `ALTER TABLE change_orders ADD COLUMN IF NOT EXISTS invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS booking_type TEXT NOT NULL DEFAULT 'service'`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_at TIMESTAMPTZ`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS sms_consent_source TEXT`,
@@ -214,6 +215,9 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS lead_campaign TEXT`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS landing_page TEXT`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS referrer TEXT`,
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision_root_quote_id INTEGER`,
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision_of_quote_id INTEGER`,
+      `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision_number INTEGER NOT NULL DEFAULT 0`,
       `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS lead_source TEXT`,
       `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS lead_medium TEXT`,
       `ALTER TABLE consultations ADD COLUMN IF NOT EXISTS lead_campaign TEXT`,
@@ -222,6 +226,7 @@ export async function runProductionMigration(): Promise<void> {
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS video_urls TEXT[]`,
       `ALTER TABLE project_gallery ADD COLUMN IF NOT EXISTS before_image_urls TEXT[]`,
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS deposit_required REAL NOT NULL DEFAULT 0`,
+      `ALTER TABLE quote_proposals ADD COLUMN IF NOT EXISTS deposit_required REAL NOT NULL DEFAULT 0`,
       `ALTER TABLE invoices ADD COLUMN IF NOT EXISTS payment_url TEXT`,
       `ALTER TABLE quotes ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
       `ALTER TABLE appointments ADD COLUMN IF NOT EXISTS job_id INTEGER REFERENCES jobs(id) ON DELETE SET NULL`,
@@ -249,19 +254,28 @@ export async function runProductionMigration(): Promise<void> {
     // Friendly availability checks happen in the application; this constraint is
     // the final guard against two simultaneous requests taking overlapping slots.
     try {
-      await db.execute(sql.raw(`
-        ALTER TABLE appointments
-        ADD CONSTRAINT appointments_no_live_overlap
-        EXCLUDE USING gist (
-          tstzrange(start_timestamptz, end_timestamptz, '[)') WITH &&
-        )
-        WHERE (
-          status IN ('scheduled', 'confirmed', 'in-progress')
-          AND start_timestamptz IS NOT NULL
-          AND end_timestamptz IS NOT NULL
-        )
+      const overlapConstraint = await db.execute(sql.raw(`
+        SELECT 1 FROM pg_constraint
+        WHERE conname='appointments_no_live_overlap'
+          AND conrelid='appointments'::regclass
       `));
-      console.log("  ✅ Appointment overlap protection enabled");
+      if ((overlapConstraint as any).rows?.length) {
+        console.log("  ✅ Appointment overlap protection already enabled");
+      } else {
+        await db.execute(sql.raw(`
+          ALTER TABLE appointments
+          ADD CONSTRAINT appointments_no_live_overlap
+          EXCLUDE USING gist (
+            tstzrange(start_timestamptz, end_timestamptz, '[)') WITH &&
+          )
+          WHERE (
+            status IN ('scheduled', 'confirmed', 'in-progress')
+            AND start_timestamptz IS NOT NULL
+            AND end_timestamptz IS NOT NULL
+          )
+        `));
+        console.log("  ✅ Appointment overlap protection enabled");
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       if (!msg.includes("already exists")) {

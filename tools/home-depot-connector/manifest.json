@@ -1,9 +1,12 @@
 {
   "manifest_version": 3,
   "name": "HandyTech Home Depot Connector",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "description": "Securely imports visible Pro Referral leads into HandyTech Solutions.",
   "permissions": ["storage", "activeTab"],
+  "background": {
+    "service_worker": "background.js"
+  },
   "host_permissions": [
     "https://proreferral.homedepot.com/*",
     "https://www.proreferral.com/*",

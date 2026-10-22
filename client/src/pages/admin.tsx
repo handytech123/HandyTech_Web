@@ -34,6 +34,7 @@ import AdminQuoteBuilder from "@/components/admin-quote-builder";
 import AddressAutocomplete from "@/components/address-autocomplete";
 import AdminInvoiceManager from "@/components/admin-invoice-manager";
 import BusinessOperationsManager from "@/components/business-operations-manager";
+import ProjectWorkspace from "@/components/project-workspace";
 import MarketingDashboard from "@/components/marketing-dashboard";
 import HomeDepotLeadsManager from "@/components/home-depot-leads-manager";
 import RequestsManager from "@/components/requests-manager";
@@ -44,7 +45,7 @@ import TodayCommandCenter from "@/components/today-command-center";
 import AutomationReviewCenter from "@/components/automation-review-center";
 import { useAdminAuth } from "@/hooks/useAdminAuth";
 import type { Quote, Consultation, Review, Customer, MaintenancePlan, Appointment, InsertCustomer, ProjectGallery, InsertProjectGallery } from "@shared/schema";
-import { insertCustomerSchema, insertProjectGallerySchema, updateProjectGallerySchema } from "@shared/schema";
+import { insertCustomerSchema, insertProjectGallerySchema, PROJECT_CATEGORY_OPTIONS, updateProjectGallerySchema } from "@shared/schema";
 import { format } from "date-fns";
 import { toZonedTime } from "date-fns-tz";
 import { io, Socket } from "socket.io-client";
@@ -1613,9 +1614,9 @@ function GalleryTab() {
   const [uploading, setUploading] = useState(false);
   const [optimizingImages, setOptimizingImages] = useState(false);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [beforeImagePreview, setBeforeImagePreview] = useState<string | null>(null);
+  const [beforeImagePreviews, setBeforeImagePreviews] = useState<string[]>([]);
   const [finishedImagePreviews, setFinishedImagePreviews] = useState<string[]>([]);
-  const [selectedImages, setSelectedImages] = useState<{ main: File | null; before: File | null; finished: File[] }>({ main: null, before: null, finished: [] });
+  const [selectedImages, setSelectedImages] = useState<{ main: File | null; before: File[]; finished: File[] }>({ main: null, before: [], finished: [] });
   const [editMainImage, setEditMainImage] = useState<File | null>(null);
   const [editBeforeImage, setEditBeforeImage] = useState<File | null>(null);
   const [editMainPreview, setEditMainPreview] = useState<string | null>(null);
@@ -1720,7 +1721,7 @@ function GalleryTab() {
     setOptimizingImages(true);
     try {
     if (type === 'finished') {
-      const remainingSlots = 10 - selectedImages.finished.length - (selectedImages.before ? 1 : 0) - (selectedImages.main ? 1 : 0);
+      const remainingSlots = 10 - selectedImages.finished.length - selectedImages.before.length - (selectedImages.main ? 1 : 0);
       const fileArray = Array.from(files).slice(0, Math.max(0, remainingSlots));
       if (files.length > remainingSlots) toast({ title: "Photo limit", description: "A project can contain up to 10 photos." });
       const validFiles: File[] = [];
@@ -1739,7 +1740,7 @@ function GalleryTab() {
       if (validFiles.length === 0) return;
       setFinishedImagePreviews(prev => [...prev, ...validFiles.map(file => URL.createObjectURL(file))]);
       setSelectedImages(prev => ({ ...prev, finished: [...prev.finished, ...validFiles] }));
-    } else {
+    } else if (type === 'main') {
       const file = files[0];
       const error = validateFile(file);
       if (error) {
@@ -1752,13 +1753,24 @@ function GalleryTab() {
       }
       const optimizedFile = await optimizeImageForUpload(file);
       const preview = URL.createObjectURL(optimizedFile);
-      if (type === 'main') {
-        setImagePreview(preview);
-        setSelectedImages(prev => ({ ...prev, main: optimizedFile }));
-      } else {
-        setBeforeImagePreview(preview);
-        setSelectedImages(prev => ({ ...prev, before: optimizedFile }));
+      setImagePreview(preview);
+      setSelectedImages(prev => ({ ...prev, main: optimizedFile }));
+    } else {
+      const remainingSlots = 10 - selectedImages.finished.length - selectedImages.before.length - (selectedImages.main ? 1 : 0);
+      const fileArray = Array.from(files).slice(0, Math.max(0, remainingSlots));
+      if (files.length > remainingSlots) toast({ title: "Photo limit", description: "A project can contain up to 10 photos." });
+      const validFiles: File[] = [];
+      for (const file of fileArray) {
+        const error = validateFile(file);
+        if (error) {
+          toast({ title: "Invalid File", description: `${file.name}: ${error}`, variant: "destructive" });
+          continue;
+        }
+        validFiles.push(await optimizeImageForUpload(file));
       }
+      if (!validFiles.length) return;
+      setBeforeImagePreviews(prev => [...prev, ...validFiles.map(file => URL.createObjectURL(file))]);
+      setSelectedImages(prev => ({ ...prev, before: [...prev.before, ...validFiles] }));
     }
     } finally {
       setOptimizingImages(false);
@@ -1772,6 +1784,11 @@ function GalleryTab() {
       ...prev, 
       finished: prev.finished.filter((_, i) => i !== index) 
     }));
+  };
+
+  const removeBeforeImage = (index: number) => {
+    setBeforeImagePreviews(prev => prev.filter((_, imageIndex) => imageIndex !== index));
+    setSelectedImages(prev => ({ ...prev, before: prev.before.filter((_, imageIndex) => imageIndex !== index) }));
   };
 
   // Upload mutation with XMLHttpRequest for real progress and CSRF protection
@@ -1814,7 +1831,13 @@ function GalleryTab() {
                 reject(new Error('Access denied. Please check your permissions.'));
               }
             } else {
-              reject(new Error(`Upload failed with status ${xhr.status}: ${xhr.responseText || 'Unknown error'}`));
+              try {
+                const error = JSON.parse(xhr.responseText || "{}");
+                const details = Array.isArray(error.details) ? ` ${error.details.join(" ")}` : "";
+                reject(new Error(`${error.message || "Upload failed."}${details}`));
+              } catch {
+                reject(new Error(`Upload failed with status ${xhr.status}. Please try again.`));
+              }
             }
           };
           
@@ -1853,9 +1876,9 @@ function GalleryTab() {
       // Reset all form states immediately
       uploadForm.reset();
       setImagePreview(null);
-      setBeforeImagePreview(null);
+      setBeforeImagePreviews([]);
       setFinishedImagePreviews([]);
-      setSelectedImages({ main: null, before: null, finished: [] });
+      setSelectedImages({ main: null, before: [], finished: [] });
       
       // Show success toast
       toast({
@@ -1954,14 +1977,15 @@ function GalleryTab() {
     // The server expects cover, optional before, then additional photos.
     const coverImage = selectedImages.main || selectedImages.finished[0];
     if (coverImage) formData.append('images', coverImage);
-    if (selectedImages.before) {
-      formData.append('images', selectedImages.before);
-    }
     const additionalImages = selectedImages.main ? selectedImages.finished : selectedImages.finished.slice(1);
     additionalImages.forEach(file => {
       formData.append('images', file);
     });
-    formData.append('hasBeforeImage', selectedImages.before ? 'true' : 'false');
+    selectedImages.before.forEach(file => formData.append('images', file));
+    const afterImageCount = 1 + additionalImages.length;
+    formData.append('afterImageCount', String(afterImageCount));
+    formData.append('beforeImageCount', String(selectedImages.before.length));
+    formData.append('hasBeforeImage', selectedImages.before.length ? 'true' : 'false');
     
     // Add metadata
     formData.append('title', data.title);
@@ -2089,28 +2113,39 @@ function GalleryTab() {
 
                       <div>
                         <label className="block text-sm font-medium mb-2">
-                          Before Image (Optional)
+                          Before Photos (Optional)
                         </label>
                         <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center">
                           <Input
                             type="file"
                             accept="image/jpeg,image/png,image/webp"
+                            multiple
                             onChange={(e) => handleFileSelect(e.target.files, 'before')}
                             className="hidden"
                             id="before-image-upload"
                             data-testid="input-before-image"
                           />
                           <label htmlFor="before-image-upload" className="cursor-pointer">
-                            {beforeImagePreview ? (
-                              <img src={beforeImagePreview} alt="Before Preview" className="max-w-full h-32 object-cover mx-auto rounded" />
-                            ) : (
-                              <div className="flex flex-col items-center">
-                                <Upload className="h-8 w-8 text-gray-400 mb-2" />
-                                <p className="text-sm text-gray-500">Click to upload before image</p>
-                              </div>
-                            )}
+                            <div className="flex flex-col items-center">
+                              <Upload className="h-8 w-8 text-gray-400 mb-2" />
+                              <p className="text-sm font-semibold text-gray-700">Choose before photos</p>
+                              <p className="mt-1 text-xs text-gray-500">Select several at once</p>
+                            </div>
                           </label>
                         </div>
+                        {beforeImagePreviews.length > 0 && (
+                          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
+                            {beforeImagePreviews.map((preview, index) => (
+                              <div key={preview} className="relative">
+                                <img src={preview} alt={`Before ${index + 1}`} className="h-24 w-full rounded border object-cover" />
+                                <button type="button" onClick={() => removeBeforeImage(index)} className="absolute right-1 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-slate-950/85 text-white shadow" aria-label={`Remove before photo ${index + 1}`}>
+                                  <X className="h-4 w-4" />
+                                </button>
+                                <span className="absolute bottom-1 left-1 rounded bg-slate-900 px-2 py-1 text-[10px] font-bold text-white">BEFORE</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -2172,7 +2207,7 @@ function GalleryTab() {
                           <FormItem>
                             <FormLabel>Title *</FormLabel>
                             <FormControl>
-                              <Input {...field} data-testid="input-title" placeholder="Project title" />
+                              <Input {...field} data-testid="input-title" placeholder="Example: Drywall Repair and Painting in Florissant" />
                             </FormControl>
                             <FormMessage />
                           </FormItem>
@@ -2190,13 +2225,7 @@ function GalleryTab() {
                                   <SelectValue placeholder="Select category" />
                                 </SelectTrigger>
                               </FormControl>
-                              <SelectContent>
-                                <SelectItem value="plumbing">Plumbing</SelectItem>
-                                <SelectItem value="electrical">Electrical</SelectItem>
-                                <SelectItem value="carpentry">Carpentry</SelectItem>
-                                <SelectItem value="tech">Tech Support</SelectItem>
-                                <SelectItem value="general">General</SelectItem>
-                              </SelectContent>
+                              <SelectContent>{PROJECT_CATEGORY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                             </Select>
                             <FormMessage />
                           </FormItem>
@@ -2351,11 +2380,7 @@ function GalleryTab() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="plumbing">Plumbing</SelectItem>
-                <SelectItem value="electrical">Electrical</SelectItem>
-                <SelectItem value="carpentry">Carpentry</SelectItem>
-                <SelectItem value="tech">Tech Support</SelectItem>
-                <SelectItem value="general">General</SelectItem>
+                {PROJECT_CATEGORY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}
               </SelectContent>
             </Select>
             
@@ -2613,13 +2638,7 @@ function GalleryTab() {
                             <SelectValue placeholder="Select category" />
                           </SelectTrigger>
                         </FormControl>
-                        <SelectContent>
-                          <SelectItem value="plumbing">Plumbing</SelectItem>
-                          <SelectItem value="electrical">Electrical</SelectItem>
-                          <SelectItem value="carpentry">Carpentry</SelectItem>
-                          <SelectItem value="tech">Tech Support</SelectItem>
-                          <SelectItem value="general">General</SelectItem>
-                        </SelectContent>
+                        <SelectContent>{PROJECT_CATEGORY_OPTIONS.map((option) => <SelectItem key={option.value} value={option.value}>{option.label}</SelectItem>)}</SelectContent>
                       </Select>
                       <FormMessage />
                     </FormItem>
@@ -2766,6 +2785,8 @@ function AuthenticatedDashboard() {
   const [customerAppointmentPrefill, setCustomerAppointmentPrefill] = useState<Customer | null>(null);
   const [activeTab, setActiveTabState] = useState("today");
   const [requestToOpen, setRequestToOpen] = useState<number | null>(null);
+  const [jobToOpen, setJobToOpen] = useState<number | null>(null);
+  const [newRequestContactId, setNewRequestContactId] = useState<number | null>(null);
   const setActiveTab = (requestedTab: string) => {
     const retiredDestinations: Record<string, string> = {
       quotes: "requests",
@@ -2839,13 +2860,13 @@ function AuthenticatedDashboard() {
   const sendReviewRequestsMutation = useMutation({
     mutationFn: async () => {
       const response = await apiRequest("/api/admin/review-requests/send", "POST", {});
-      return response.json() as Promise<{ sent: number; failed: number; remaining: number }>;
+      return response.json() as Promise<{ sent: number; emailsSent: number; textsSent: number; textsSkipped: number; failed: number; remaining: number }>;
     },
     onSuccess: (result) => {
       queryClient.invalidateQueries({ queryKey: ["/api/admin/review-requests/pending"] });
       toast({
         title: "Review requests sent",
-        description: `${result.sent} email${result.sent === 1 ? "" : "s"} delivered${result.failed ? `; ${result.failed} failed and can be retried` : ""}.`,
+        description: `${result.emailsSent} email${result.emailsSent === 1 ? "" : "s"} and ${result.textsSent} text${result.textsSent === 1 ? "" : "s"} delivered${result.textsSkipped ? `; ${result.textsSkipped} text${result.textsSkipped === 1 ? " was" : "s were"} skipped without a phone/consent` : ""}${result.failed ? `; ${result.failed} failed and can be retried` : ""}.`,
       });
     },
     onError: () => {
@@ -2863,12 +2884,12 @@ function AuthenticatedDashboard() {
       });
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (result) => {
       setManualReviewDialogOpen(false);
       setManualReviewName(""); setManualReviewEmail(""); setManualReviewService(""); setManualReviewMessage("");
       queryClient.invalidateQueries({ queryKey: ["/api/admin/review-requests/pending"] });
       queryClient.invalidateQueries({ queryKey: ["/api/customers"] });
-      toast({ title: "Review request sent", description: "The manual request was delivered and recorded." });
+      toast({ title: "Review request sent", description: result.emailSent && result.smsSent ? "The review link was delivered by email and text." : result.smsSent ? "The review link was delivered by text." : `The review link was delivered by email. Text not sent: ${result.smsSkippedReason || "no SMS consent or phone number"}.` });
     },
     onError: (error: any) => {
       toast({ title: "Review request not sent", description: error?.message || "Please check the details and retry.", variant: "destructive" });
@@ -3017,7 +3038,7 @@ function AuthenticatedDashboard() {
             <Select value={activeTab} onValueChange={setActiveTab}>
               <SelectTrigger className="h-11 w-full text-base font-semibold"><SelectValue /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="automation-review">AI & Automation Review</SelectItem><SelectItem value="migration">Data Migration</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Schedule</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
+            <SelectItem value="today">Today</SelectItem><SelectItem value="requests">Requests</SelectItem><SelectItem value="jobs">Jobs</SelectItem><SelectItem value="contacts">Contacts</SelectItem><SelectItem value="money">Money</SelectItem><SelectItem value="business">Business</SelectItem><SelectItem value="automation-review">AI & Automation Review</SelectItem><SelectItem value="migration">Data Migration</SelectItem><SelectItem value="home-depot">Home Depot Leads</SelectItem><SelectItem value="marketing">Marketing</SelectItem><SelectItem value="services">Services</SelectItem><SelectItem value="calendar">Schedule</SelectItem><SelectItem value="blocked-dates">Block Dates</SelectItem><SelectItem value="availability-rules">Availability</SelectItem><SelectItem value="gallery">Gallery</SelectItem><SelectItem value="reviews">Reviews</SelectItem><SelectItem value="live-chat">Live Chat</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -3035,7 +3056,7 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="requests">
-            <RequestsManager customers={customers} onLegacyNavigate={setActiveTab} openRequestId={requestToOpen} />
+            <RequestsManager customers={customers} onLegacyNavigate={setActiveTab} onOpenJob={setJobToOpen} openRequestId={requestToOpen} initialContactId={newRequestContactId} />
           </TabsContent>
 
           <TabsContent value="jobs">
@@ -3043,11 +3064,11 @@ function AuthenticatedDashboard() {
           </TabsContent>
 
           <TabsContent value="contacts">
-            <ContactsManager customers={customers} onNewRequest={()=>setActiveTab("requests")} />
+            <ContactsManager customers={customers} onNewRequest={(contactId)=>{setNewRequestContactId(contactId||null);setActiveTab("requests");}} />
           </TabsContent>
 
           <TabsContent value="money">
-            <div className="space-y-6"><MoneyOverview /><AdminInvoiceManager customers={customers} /></div>
+            <div className="space-y-6"><MoneyOverview /><AdminInvoiceManager customers={customers} onOpenJob={setJobToOpen} /></div>
           </TabsContent>
 
           <TabsContent value="business">
@@ -3252,15 +3273,15 @@ function AuthenticatedDashboard() {
                     </AlertDialogTrigger>
                     <AlertDialogContent>
                       <AlertDialogHeader>
-                        <AlertDialogTitle>Send review request emails?</AlertDialogTitle>
+                        <AlertDialogTitle>Send review requests?</AlertDialogTitle>
                         <AlertDialogDescription>
-                          This will email {pendingReviewRequests?.count || 0} completed customer{pendingReviewRequests?.count === 1 ? "" : "s"} who has not submitted a review and has not already received a request. Successful sends will not be repeated.
+                          This will email {pendingReviewRequests?.count || 0} completed customer{pendingReviewRequests?.count === 1 ? "" : "s"} and also text customers who have a phone number and recorded SMS consent. Each successful channel is recorded and will not be repeated.
                         </AlertDialogDescription>
                       </AlertDialogHeader>
                       <AlertDialogFooter>
                         <AlertDialogCancel>Cancel</AlertDialogCancel>
                         <AlertDialogAction onClick={() => sendReviewRequestsMutation.mutate()}>
-                          Send Emails
+                          Send Email + Eligible Texts
                         </AlertDialogAction>
                       </AlertDialogFooter>
                     </AlertDialogContent>
@@ -3408,6 +3429,7 @@ function AuthenticatedDashboard() {
         open={rescheduleDialogOpen}
         onOpenChange={setRescheduleDialogOpen}
       />
+      <ProjectWorkspace jobId={jobToOpen} onClose={()=>setJobToOpen(null)} onNavigate={(tab)=>{setJobToOpen(null);setActiveTab(tab);}} closeLabel="Back to Request" />
     </div>
   );
 }

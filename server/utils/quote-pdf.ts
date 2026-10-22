@@ -92,6 +92,7 @@ export async function generateQuotePdfBuffer(quote: Quote, proposal: QuotePropos
   if (proposal.tax) totalRow(`Tax (${proposal.taxRate}%)`, money(proposal.tax));
   doc.strokeColor(blue).lineWidth(2).moveTo(totalX, y).lineTo(right, y).stroke(); y += 9;
   totalRow("TOTAL INVESTMENT", money(proposal.total), true);
+  totalRow("50% DEPOSIT REQUIRED", money(proposal.depositRequired || proposal.total * 0.5), true);
 
   const closingNotes = quoteContent.structured
     ? [quoteContent.sections["PAYMENT TERMS"] ? `Payment terms: ${quoteContent.sections["PAYMENT TERMS"]}` : "", quoteContent.sections["WORKMANSHIP"] ? `Workmanship: ${quoteContent.sections["WORKMANSHIP"]}` : "", quoteContent.sections["ADDITIONAL NOTES"] || ""].filter(Boolean).join("\n\n")

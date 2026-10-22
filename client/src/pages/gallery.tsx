@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Skeleton } from "@/components/ui/skeleton";
 import { ChevronLeft, ChevronRight, X, MapPin, Calendar, ImageIcon, Home, PlayCircle } from "lucide-react";
 import { format } from "date-fns";
-import type { ProjectGallery } from "@shared/schema";
+import { PROJECT_CATEGORY_OPTIONS, type ProjectGallery } from "@shared/schema";
 import { seoSlug } from "@shared/seo";
 
 interface GalleryResponse {
@@ -22,11 +22,7 @@ interface GalleryResponse {
 
 const CATEGORIES = [
   { value: "all", label: "All", color: "bg-gray-500" },
-  { value: "plumbing", label: "Plumbing", color: "bg-blue-500" },
-  { value: "electrical", label: "Electrical", color: "bg-yellow-500" },
-  { value: "carpentry", label: "Carpentry", color: "bg-amber-600" },
-  { value: "tech", label: "Tech", color: "bg-green-500" },
-  { value: "general", label: "General", color: "bg-purple-500" }
+  ...PROJECT_CATEGORY_OPTIONS.map((option) => ({ ...option, color: "bg-brand-primary" })),
 ];
 
 const ITEMS_PER_PAGE = 12;

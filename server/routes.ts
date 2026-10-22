@@ -10,6 +10,7 @@ import {
   insertEmailCampaignSchema,
   insertAppointmentSchema,
   insertProjectGallerySchema,
+  PROJECT_CATEGORY_VALUES,
   updateProjectGallerySchema,
   insertBlockedTimeSchema,
   insertAvailabilityRuleSchema,
@@ -25,6 +26,7 @@ import {
   type InsertCustomer,
   type InsertMaintenancePlan,
   type Appointment,
+  type Customer,
   invoices,
   invoicePayments,
   customers,
@@ -42,6 +44,7 @@ import { db } from "./db";
 import { eq, desc, and, sql } from "drizzle-orm";
 import { z } from "zod";
 import OpenAI from "openai";
+import multer from "multer";
 import { notificationService } from './utils/notification-service';
 import { EmailService } from "./utils/mail";
 import crypto from "crypto";
@@ -51,7 +54,7 @@ import { fromZonedTime } from "date-fns-tz";
 import { ADMIN_CREDENTIALS } from "./utils/auth";
 import { requireAdmin, requireCustomer, setCustomerSession, clearCustomerSession, rlAuth, rlSensitive } from "./security";
 import { createEvent, updateEvent, deleteEvent } from "./utils/google.js";
-import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMediaUpload, handleOptionalQuoteMediaUpload, cleanupUploadedFiles, type ProcessedImage } from "./utils/upload";
+import { handleImageUpload, handleOptionalImageUpload, handleOptionalReviewMediaUpload, handleOptionalQuoteMediaUpload, cleanupUploadedFiles, processUploadedImage, UPLOAD_CONFIG, type ProcessedImage } from "./utils/upload";
 import { smsService } from "./utils/sms-service";
 import fs from "fs/promises";
 import path from "path";
@@ -59,13 +62,32 @@ import AdmZip from "adm-zip";
 import sharp from "sharp";
 import { generateQuotePdfBuffer } from "./utils/quote-pdf";
 import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
-import { seoSlug, SITE_URL } from "@shared/seo";
+import { isIndexableProjectTitle, seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
 import { appointmentShortDateLabel, appointmentStart, appointmentTimeLabel, centralAppointmentInstant, legacyCalendarDate } from "./utils/appointment-time";
-import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, mirrorReferralAsRequest } from "./services/operating-system";
+import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, mirrorReferralAsRequest, syncCustomerProperty } from "./services/operating-system";
 import { buildMigrationReconciliation, inventoryLegacySources } from "./utils/migration-reconciliation";
 import { buildRelationshipParity } from "./utils/relationship-parity";
+import { calculatePricingGuardrails } from "./utils/pricing-guardrails";
 import { referralMailScheduler } from "./referral-mail-scheduler";
+
+const receiptUpload = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: 10 * 1024 * 1024, files: 1 },
+  fileFilter: (_req, file, callback) => {
+    const allowed = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
+    if (allowed.includes(file.mimetype)) callback(null, true);
+    else callback(new Error("Receipt must be a PDF, JPG, PNG, or WebP file"));
+  },
+});
+
+async function validateReceiptUpload(file: Express.Multer.File): Promise<void> {
+  if (file.mimetype === "application/pdf") {
+    if (file.buffer.length < 5 || file.buffer.subarray(0, 5).toString("ascii") !== "%PDF-") throw new Error("The selected file is not a valid PDF receipt");
+    return;
+  }
+  await sharp(file.buffer).metadata();
+}
 
 function formatServiceAddress(data: {
   street?: string | null;
@@ -127,6 +149,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [services, projects] = await Promise.all([storage.getAllServices(), storage.getAllProjectGalleryItems()]);
       const absoluteMedia = (value: string) => value.startsWith("http") ? value : `${SITE_URL}${value.startsWith("/") ? "" : "/"}${value}`;
       type SitemapEntry = { loc: string; priority: string; changefreq: string; lastmod?: string; images?: string[]; videos?: Array<{ url: string; thumbnail: string; title: string; description: string }> };
+      const seenProjectSlugs = new Set<string>();
+      const indexableProjects = projects.filter((project) => {
+        if (!isIndexableProjectTitle(project.title)) return false;
+        const slug = seoSlug(project.title);
+        if (seenProjectSlugs.has(slug)) return false;
+        seenProjectSlugs.add(slug);
+        return true;
+      });
       const entries: SitemapEntry[] = [
         { loc: `${SITE_URL}/`, priority: "1.0", changefreq: "weekly" },
         { loc: `${SITE_URL}/services`, priority: "0.9", changefreq: "weekly" },
@@ -134,8 +164,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         { loc: `${SITE_URL}/service-areas`, priority: "0.8", changefreq: "monthly" },
         { loc: `${SITE_URL}/privacy-policy`, priority: "0.2", changefreq: "yearly" },
         { loc: `${SITE_URL}/terms`, priority: "0.2", changefreq: "yearly" },
-        ...services.filter((service) => service.isActive).map((service) => ({ loc: `${SITE_URL}/services/${seoSlug(service.name)}`, priority: "0.8", changefreq: "monthly" })),
-        ...projects.map((project) => {
+        ...services.filter((service) => service.isActive && seoSlug(service.name) !== "other").map((service) => ({ loc: `${SITE_URL}/services/${seoSlug(service.name)}`, priority: "0.8", changefreq: "monthly" })),
+        ...indexableProjects.map((project) => {
           const images = Array.from(new Set([project.imageUrl, project.beforeImageUrl, ...(project.imageUrls || []), ...(project.beforeImageUrls || [])].filter((value): value is string => Boolean(value)))).map(absoluteMedia);
           const thumbnail = images[0];
           return {
@@ -1429,6 +1459,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         status: status || "scheduled",
         source: "manual",
       });
+      if (bookingType === "service") {
+        await db.execute(sql`UPDATE customers SET relationship_state='customer',updated_at=NOW() WHERE id=${customer.id} AND relationship_state<>'customer'`);
+      }
       await mirrorAppointmentAsScheduleItem(appointment).catch((error) => console.error("Schedule compatibility mirror failed for admin appointment:", error));
 
       // Admin-created appointments should reach Google Calendar immediately,
@@ -1527,6 +1560,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       const customer = await storage.createCustomer(customerData);
+      await syncCustomerProperty(customer.id, customerData);
       res.status(201).json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {
@@ -1564,6 +1598,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       // Update the customer
       await storage.updateCustomer(id, customerData);
+      await syncCustomerProperty(id, customerData);
       
       // Return updated customer data
       const updatedCustomer = await storage.getCustomer(id);
@@ -2013,6 +2048,87 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   };
 
+  const parseReviewDelivery = (content: string) => {
+    try {
+      const parsed = JSON.parse(content || "{}");
+      if (!parsed?.delivery) return { emailSent: true, smsSent: false };
+      return {
+        emailSent: parsed?.delivery?.emailSent === true,
+        smsSent: parsed?.delivery?.smsSent === true,
+      };
+    } catch {
+      return { emailSent: true, smsSent: false };
+    }
+  };
+
+  const sendReviewRequestByAvailableChannels = async ({
+    customer,
+    customerName,
+    serviceType,
+    personalMessage = "",
+  }: {
+    customer: Customer;
+    customerName: string;
+    serviceType: string;
+    personalMessage?: string;
+  }) => {
+    const campaigns = await storage.getEmailCampaignsByCustomer(customer.id);
+    const existing = campaigns.find((campaign) => campaign.campaignType === "review_request");
+    const previous = existing ? parseReviewDelivery(existing.content) : { emailSent: false, smsSent: false };
+    const consentResult = await db.execute(sql`
+      SELECT EXISTS(
+        SELECT 1 FROM appointments a WHERE a.customer_id=${customer.id} AND a.sms_consent=true
+        UNION ALL
+        SELECT 1 FROM requests r WHERE r.contact_id=${customer.id} AND r.intake_details->>'smsConsent'='true'
+      ) consent
+    `);
+    const smsConsent = Boolean((consentResult as any).rows?.[0]?.consent);
+    const phone = String(customer.phone || "").trim();
+    let emailSent = previous.emailSent;
+    let smsSent = previous.smsSent;
+    let emailAttempted = false;
+    let smsAttempted = false;
+
+    if (!emailSent) {
+      emailAttempted = true;
+      emailSent = await getEmailService().sendFollowUpEmail({
+        customerName,
+        customerEmail: customer.email,
+        appointmentDate: "",
+        appointmentTime: "",
+        serviceType,
+        personalMessage,
+      });
+    }
+    if (!smsSent && phone && smsConsent) {
+      smsAttempted = true;
+      const reviewUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/leave-review`;
+      const firstName = customerName.trim().split(/\s+/)[0] || "there";
+      smsSent = await smsService.sendCustomerMessage(
+        phone,
+        `Hi ${firstName}, thank you for choosing HandyTech Solutions for ${serviceType}. Would you share a review? ${reviewUrl} Reply STOP to unsubscribe.`,
+      );
+    }
+
+    const smsSkippedReason = smsSent ? null : !phone ? "No customer phone number" : !smsConsent ? "SMS consent is not recorded" : "Text delivery was not confirmed";
+    const content = JSON.stringify({
+      serviceType,
+      personalMessage,
+      delivery: { emailSent, smsSent, emailAttempted, smsAttempted, smsSkippedReason, updatedAt: new Date().toISOString() },
+    });
+    if (existing) {
+      await db.execute(sql`UPDATE email_campaigns SET content=${content} WHERE id=${existing.id}`);
+    } else if (emailSent || smsSent) {
+      await storage.createEmailCampaign({
+        customerId: customer.id,
+        subject: "How Was Your HandyTech Service?",
+        content,
+        campaignType: "review_request",
+      });
+    }
+    return { emailSent, smsSent, emailAttempted, smsAttempted, smsSkippedReason, alreadyComplete: previous.emailSent && previous.smsSent };
+  };
+
   const getGooglePlacesKey = () => process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_PLACES_API_KEY;
 
   app.get("/api/places/autocomplete", async (req, res) => {
@@ -2088,26 +2204,30 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const pending = await getPendingReviewRequests();
       let sent = 0;
+      let emailsSent = 0;
+      let textsSent = 0;
+      let textsSkipped = 0;
       const failed: number[] = [];
 
       for (const { appointment, customer } of pending.slice(0, 50)) {
-        const delivered = await getEmailService().sendFollowUpEmail({
+        const delivery = await sendReviewRequestByAvailableChannels({
+          customer,
           customerName: `${customer.firstName} ${customer.lastName}`,
-          customerEmail: customer.email,
-          appointmentDate: appointmentStart(appointment).toISOString(),
-          appointmentTime: appointmentTimeLabel(appointment),
           serviceType: appointment.serviceType,
-          description: appointment.notes || undefined,
+          personalMessage: appointment.notes || "",
         });
-        if (delivered) {
+        if (delivery.emailSent || delivery.smsSent) {
           await storage.markFollowUpSent(appointment.id);
           sent += 1;
+          if (delivery.emailAttempted && delivery.emailSent) emailsSent += 1;
+          if (delivery.smsAttempted && delivery.smsSent) textsSent += 1;
+          if (!delivery.smsSent) textsSkipped += 1;
         } else {
           failed.push(customer.id);
         }
       }
 
-      res.json({ sent, failed: failed.length, remaining: Math.max(0, pending.length - sent) });
+      res.json({ sent, emailsSent, textsSent, textsSkipped, failed: failed.length, remaining: Math.max(0, pending.length - sent) });
     } catch (error) {
       console.error('Review request batch failed:', error);
       res.status(500).json({ message: 'Failed to send review requests' });
@@ -2133,34 +2253,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
-      const [existingReviews, campaigns] = await Promise.all([
-        storage.getReviewsByCustomer(customer.id),
-        storage.getEmailCampaignsByCustomer(customer.id),
-      ]);
+      const existingReviews = await storage.getReviewsByCustomer(customer.id);
       if (existingReviews.length > 0) {
         return res.status(409).json({ message: 'This customer has already submitted a review.' });
       }
-      if (campaigns.some((campaign) => campaign.campaignType === 'review_request')) {
-        return res.status(409).json({ message: 'A review request has already been sent to this customer.' });
-      }
-
-      const delivered = await getEmailService().sendFollowUpEmail({
+      const delivery = await sendReviewRequestByAvailableChannels({
+        customer,
         customerName: input.customerName,
-        customerEmail: input.customerEmail,
-        appointmentDate: '',
-        appointmentTime: '',
         serviceType: input.serviceType,
         personalMessage: input.personalMessage,
       });
-      if (!delivered) return res.status(502).json({ message: 'The email provider did not accept the review request.' });
-
-      await storage.createEmailCampaign({
-        customerId: customer.id,
-        subject: 'How Was Your HandyTech Service?',
-        content: JSON.stringify({ serviceType: input.serviceType, personalMessage: input.personalMessage }),
-        campaignType: 'review_request',
-      });
-      res.json({ success: true, customerId: customer.id });
+      if (!delivery.emailSent && !delivery.smsSent) return res.status(502).json({ message: 'Neither the email nor text provider accepted the review request.' });
+      res.json({ success: true, customerId: customer.id, ...delivery });
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: 'Please check the customer and service details.', errors: error.errors });
       console.error('Manual review request failed:', error);
@@ -2367,18 +2471,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/consultations", async (req: Request, res: Response) => {
+  app.post("/api/consultations", handleOptionalImageUpload("photos", 10), async (req: Request, res: Response) => {
+    const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
     try {
-      const data = insertConsultationSchema.parse(req.body);
+      const rawConsultation = typeof req.body.consultation === "string" ? JSON.parse(req.body.consultation) : req.body;
+      const data = insertConsultationSchema.parse({ ...rawConsultation, photoUrls: processedImages.map((image) => image.sizes.large.url) });
       const consultation = await storage.createConsultation(data);
 
       const existingCustomer = await storage.getCustomerByEmail(data.email);
       if (!existingCustomer) {
-        await storage.createCustomer({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone, company: "", street: "", city: "", state: "", zip: "" });
+        await storage.createCustomer({ firstName: data.firstName, lastName: data.lastName, email: data.email, phone: data.phone, company: "", street: data.street, city: data.city, state: data.state, zip: data.zip });
       } else {
-        await fillMissingCustomerProfile(existingCustomer, { phone: data.phone });
+        await fillMissingCustomerProfile(existingCustomer, { phone: data.phone, street: data.street, city: data.city, state: data.state, zip: data.zip });
       }
-      await mirrorConsultationAsRequest(consultation).catch((error) => console.error("Request compatibility mirror failed for consultation:", error));
+      const requestId = await mirrorConsultationAsRequest(consultation).catch((error) => { console.error("Request compatibility mirror failed for consultation:", error); return null; });
+      if (requestId && processedImages.length) {
+        const requestResult = await db.execute(sql`SELECT contact_id,property_id FROM requests WHERE id=${requestId}`);
+        const request = (requestResult as any).rows?.[0];
+        for (const image of processedImages) {
+          await db.execute(sql`INSERT INTO media_assets(contact_id,property_id,request_id,entity_type,entity_id,media_type,stage,url,caption)
+            VALUES (${request?.contact_id || null},${request?.property_id || null},${requestId},'request',${String(requestId)},'photo','customer_intake',${image.sizes.large.url},'Customer consultation photo')`);
+        }
+      }
 
       try {
         await getEmailService().sendConsultationNotification({
@@ -2395,6 +2509,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       res.status(201).json(consultation);
     } catch (error) {
+      if (processedImages.length) await cleanupUploadedFiles(processedImages);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check your consultation request.", errors: error.errors });
       console.error("Consultation request failed:", error);
       res.status(500).json({ message: "Failed to submit consultation request." });
@@ -3332,6 +3447,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/quotes/:id/pricing-guardrails", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
+      const quote = await storage.getQuote(id);
+      if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const input = z.object({
+        proposedPrice: z.coerce.number().min(0).max(10000000),
+        ownerHours: z.coerce.number().min(0).max(10000),
+        helperHours: z.coerce.number().min(0).max(10000).default(0),
+        suppliedMaterialsCost: z.coerce.number().min(0).max(10000000).default(0),
+        distanceMiles: z.coerce.number().min(0).max(1000).default(0),
+        includeContingency: z.boolean().default(false),
+      }).parse(req.body);
+      const analysis = calculatePricingGuardrails({ serviceName: quote.serviceNeeded || "General handyman project", ...input });
+      const servicePattern = `%${String(quote.serviceNeeded || "").trim()}%`;
+      const historyResult = await db.execute(sql`
+        SELECT
+          COUNT(DISTINCT qp.id) FILTER (WHERE qp.status IN ('accepted','viewed','sent','changes_requested'))::int AS quoted_count,
+          COUNT(DISTINCT qp.id) FILTER (WHERE qp.status='accepted')::int AS accepted_count,
+          COUNT(DISTINCT j.id) FILTER (WHERE j.status IN ('paid','closed'))::int AS completed_paid_count,
+          AVG(qp.total) FILTER (WHERE qp.status='accepted') AS accepted_average
+        FROM quotes q
+        LEFT JOIN quote_proposals qp ON qp.quote_id=q.id
+        LEFT JOIN jobs j ON j.quote_proposal_id=qp.id
+        WHERE q.service_needed ILIKE ${servicePattern}
+      `);
+      const row = (historyResult as any).rows?.[0] || {};
+      const completedPaid = Number(row.completed_paid_count || 0);
+      const accepted = Number(row.accepted_count || 0);
+      const quoted = Number(row.quoted_count || 0);
+      const confidence = completedPaid >= 5 ? "high" : completedPaid >= 2 || accepted >= 3 ? "medium" : "low";
+      res.json({ ...analysis, history: { quoted, accepted, completedPaid, acceptedAverage: row.accepted_average == null ? null : Number(row.accepted_average), confidence, note: completedPaid > 0 ? "Completed paid jobs inform cost confidence; accepted quotes inform customer acceptance separately." : "Public references and your configured costs are being used until completed paid jobs build a stronger local history." } });
+    } catch (error) {
+      console.error("Pricing guardrail error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the hours, materials, distance, and proposed price.", errors: error.errors });
+      res.status(500).json({ message: "The pricing guardrails could not be calculated. Your quote was not changed." });
+    }
+  });
+
   app.post("/api/admin/quotes/:id/ai-draft", requireAdmin, async (req, res) => {
     const aiQuoteDraftSchema = z.object({
       roughNotes: z.string().trim().min(3).max(30000),
@@ -3343,6 +3498,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: z.string().trim().max(800).optional(),
         estimatedHours: z.string().trim().max(100).optional(),
         materials: z.string().trim().max(500).optional(),
+        estimatedLaborAmount: z.coerce.number().min(0).max(1000000).optional(),
+        estimatedMaterialAmount: z.coerce.number().min(0).max(1000000).optional(),
       })).max(50).default([]),
       currentNotes: z.string().trim().max(4000).default(""),
       targetSubtotal: z.coerce.number().positive().max(10000000).optional(),
@@ -3359,7 +3516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
       const response = await client.responses.create({
         model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
-        instructions: `You write clear, professional fixed-project home-repair quotes for HandyTech Solutions. The contractorNotes field is the sole authority for scope. Convert only that supplied scope into customer-facing project phases and clearer wording. Never merge, revive, infer, or carry over work from the original customer request, current quote, prior line items, typical project practices, or your general knowledge. If contractorNotes do not expressly include an item, it must not appear as included work, a project phase, a material, or a promised result. You may estimate a cautious labor-effort range for expressly listed work, but that estimate may not create additional tasks. Use 2-3 phases for a small repair, 4-6 for a normal multi-step project, and 6-10 only for a full remodel expressly described in contractorNotes. Never split one listed task into repetitive phases merely to increase detail. Each phase needs a short title, useful details limited to the listed work, a cautious estimated labor-hours range, and only material categories expressly named or unavoidably required by that listed task. Never represent estimated hours as time-and-material billing or a promised completion time. Do not put dollar amounts in the project summary, phase details, included-work list, estimated-hours field, or materials field; customer-facing dollars belong only in pricing totals. Also produce a project summary, a specific included-work list, a cautious exclusions/assumptions list, and an estimated duration. When duration, labor effort, or materials are not supported, explicitly say they must be confirmed instead of inventing them. Determine the quote subtotal from an explicit dollar total or explicit item prices in contractorNotes. If contractorSubtotalOverride is present, it takes priority. Never invent a total when no pricing is supplied; return null for detectedSubtotal instead. Assign each phase a relative allocation weight based on explicit relative/item pricing first, then apparent labor and complexity of only the authorized work. The server converts weights into internal dollar allocations totaling the approved subtotal. Do not add work, measurements, materials, warranties, permits, dates, or promises unsupported by contractorNotes. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
+        instructions: `You write clear, professional fixed-project home-repair quotes for HandyTech Solutions. The contractorNotes field is the sole authority for scope. Convert only that supplied scope into customer-facing project phases and clearer wording. Never merge, revive, infer, or carry over work from the original customer request, current quote, prior line items, typical project practices, or your general knowledge. If contractorNotes do not expressly include an item, it must not appear as included work, a project phase, a material, or a promised result. You may estimate a cautious labor-effort range for expressly listed work, but that estimate may not create additional tasks. Use 2-3 phases for a small repair, 4-6 for a normal multi-step project, and 6-10 only for a full remodel expressly described in contractorNotes. Never split one listed task into repetitive phases merely to increase detail. Each phase needs a short title, useful details limited to the listed work, a cautious estimated labor-hours range, only material categories expressly named or unavoidably required by that listed task, and one relative allocationWeight for distributing the fixed project price among phases. Never represent estimated hours as time-and-material billing or a promised completion time. Do not put dollar amounts in the project summary, phase details, included-work list, estimated-hours field, or materials field; customer-facing dollars belong only in pricing totals. Also produce a project summary, a specific included-work list, a cautious exclusions/assumptions list, and an estimated duration. When duration, labor effort, or materials are not supported, explicitly say they must be confirmed instead of inventing them. Determine the quote subtotal from an explicit dollar total or explicit item prices in contractorNotes. If contractorSubtotalOverride is present, it takes priority. Never invent a total when no pricing is supplied; return null for detectedSubtotal instead. Separately estimate one laborAllocationWeight and one materialAllocationWeight for the entire project—not for individual phases. Labor includes the time, skill, setup, cleanup, and execution authorized by the notes. Materials include only contractor-supplied materials expressly named or unavoidably required for the authorized work. Use zero material weight when the customer supplies all materials or none are required. Pay close attention to phrases identifying who supplies each material. Never hide material cost inside labor or labor cost inside materials. The server normalizes the two project-level weights into approximate labor and material dollar portions totaling the approved fixed price. These are internal planning allocations, not individually removable customer prices or actual receipt costs. Do not add work, measurements, materials, warranties, permits, dates, or promises unsupported by contractorNotes. Preserve provided facts. Use plain English. Distinguish included work from exclusions or assumptions. Return ${input.detailLevel} wording.`,
         input: JSON.stringify({
           contractorNotes: input.roughNotes,
           administrativeContext: {
@@ -3401,8 +3558,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
                 exclusions: { type: "array", maxItems: 10, items: { type: "string", minLength: 1, maxLength: 240 } },
                 estimatedDuration: { type: "string", minLength: 1, maxLength: 160 },
                 detectedSubtotal: { anyOf: [{ type: "number", exclusiveMinimum: 0, maximum: 10000000 }, { type: "null" }] },
+                laborAllocationWeight: { type: "number", minimum: 0, maximum: 1000000 },
+                materialAllocationWeight: { type: "number", minimum: 0, maximum: 1000000 },
               },
-              required: ["lineItems", "scopeNotes", "projectSummary", "includedWork", "exclusions", "estimatedDuration", "detectedSubtotal"],
+              required: ["lineItems", "scopeNotes", "projectSummary", "includedWork", "exclusions", "estimatedDuration", "detectedSubtotal", "laborAllocationWeight", "materialAllocationWeight"],
             },
           },
         },
@@ -3424,20 +3583,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
         exclusions: z.array(z.string().trim().min(1).max(240)).max(10),
         estimatedDuration: z.string().trim().min(1).max(160),
         detectedSubtotal: z.number().positive().max(10000000).nullable(),
+        laborAllocationWeight: z.number().min(0).max(1000000),
+        materialAllocationWeight: z.number().min(0).max(1000000),
       }).parse(JSON.parse(response.output_text));
       const usedSubtotal = input.targetSubtotal ?? draft.detectedSubtotal;
       if (!usedSubtotal) return res.status(400).json({ message: "No quote price was found. Add a dollar total to the message or enter a subtotal override." });
-      const totalWeight = draft.lineItems.reduce((sum, item) => sum + item.allocationWeight, 0);
       const targetCents = Math.round(usedSubtotal * 100);
+      const phaseWeight = draft.lineItems.reduce((sum, item) => sum + item.allocationWeight, 0);
       const allocations = draft.lineItems.map((item, index) => {
-        const exactCents = targetCents * item.allocationWeight / totalWeight;
+        const exactCents = targetCents * item.allocationWeight / phaseWeight;
         return { index, cents: Math.floor(exactCents), fraction: exactCents - Math.floor(exactCents) };
       });
       let remainingCents = targetCents - allocations.reduce((sum, allocation) => sum + allocation.cents, 0);
       [...allocations].sort((a, b) => b.fraction - a.fraction).forEach((allocation) => {
         if (remainingCents > 0) { allocations[allocation.index].cents += 1; remainingCents -= 1; }
       });
-      const lineItems = draft.lineItems.map((item, index) => ({ description: item.description, details: item.details, estimatedHours: item.estimatedHours, materials: item.materials, quantity: 1, rate: allocations[index].cents / 100 }));
+      const projectWeight = draft.laborAllocationWeight + draft.materialAllocationWeight;
+      if (projectWeight <= 0) return res.status(502).json({ message: "The AI assistant did not separate the project's labor and materials. Please try again." });
+      const materialCents = Math.round(targetCents * draft.materialAllocationWeight / projectWeight);
+      const laborCents = targetCents - materialCents;
+      const lineItems = draft.lineItems.map((item, index) => ({
+        description: item.description,
+        details: item.details,
+        estimatedHours: item.estimatedHours,
+        materials: item.materials,
+        ...(index === 0 ? { estimatedLaborAmount: laborCents / 100, estimatedMaterialAmount: materialCents / 100 } : {}),
+        quantity: 1,
+        rate: allocations[index].cents / 100,
+      }));
       const preparedDraft = { lineItems, scopeNotes: draft.scopeNotes, projectSummary: draft.projectSummary, includedWork: draft.includedWork, exclusions: draft.exclusions, estimatedDuration: draft.estimatedDuration, usedSubtotal };
       await auditPreparedAutomation("proposal_draft", "quote", id, preparedDraft, "high");
       res.json(preparedDraft);
@@ -3451,6 +3624,108 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.post("/api/admin/quotes/:id/ai-corrections", requireAdmin, async (req, res) => {
+    const lineSchema = z.object({ description: z.string().max(240), quantity: z.number().positive(), rate: z.number().nonnegative(), details: z.string().max(800).optional(), estimatedHours: z.string().max(100).optional(), materials: z.string().max(500).optional(), estimatedLaborAmount: z.number().nonnegative().nullable().optional().transform((value) => value ?? undefined), estimatedMaterialAmount: z.number().nonnegative().nullable().optional().transform((value) => value ?? undefined) });
+    const editableSchema = z.object({
+      lineItems: z.array(lineSchema).min(1).max(50), discount: z.number().nonnegative(), taxRate: z.number().min(0).max(30),
+      notes: z.string().max(4000), projectSummary: z.string().max(1200), includedWork: z.string().max(3000), exclusions: z.string().max(3000),
+      estimatedDuration: z.string().max(200), paymentTerms: z.string().max(1000), workmanship: z.string().max(1000), pricingPresentation: z.enum(["fixed_project", "itemized"]),
+    });
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      if (!await storage.getQuote(id)) return res.status(404).json({ message: "Quote not found" });
+      const input = z.object({ instruction: z.string().trim().min(3).max(3000), current: editableSchema }).parse(req.body);
+      const client = getOpenAI();
+      if (!client) return res.status(503).json({ message: "The AI correction assistant is not configured." });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        instructions: "You are a precision document editor. Apply only the explicitly requested correction to the supplied quote JSON. Preserve every other character, line item, price, quantity, scope item, exclusion, duration, term, and setting exactly. Never improve, summarize, reorganize, infer, add, or remove anything unless the instruction expressly requests it. Return the complete JSON document with the identical schema.",
+        input: JSON.stringify({ correctionInstruction: input.instruction, currentQuote: input.current }),
+        text: { format: { type: "json_schema", name: "corrected_quote", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: {
+            lineItems: { type: "array", minItems: 1, maxItems: 50, items: { type: "object", additionalProperties: false, properties: { description:{type:"string"},quantity:{type:"number",exclusiveMinimum:0},rate:{type:"number",minimum:0},details:{type:"string"},estimatedHours:{type:"string"},materials:{type:"string"},estimatedLaborAmount:{type:["number","null"],minimum:0},estimatedMaterialAmount:{type:["number","null"],minimum:0} }, required:["description","quantity","rate","details","estimatedHours","materials","estimatedLaborAmount","estimatedMaterialAmount"] } },
+            discount:{type:"number",minimum:0},taxRate:{type:"number",minimum:0,maximum:30},notes:{type:"string"},projectSummary:{type:"string"},includedWork:{type:"string"},exclusions:{type:"string"},estimatedDuration:{type:"string"},paymentTerms:{type:"string"},workmanship:{type:"string"},pricingPresentation:{type:"string",enum:["fixed_project","itemized"]},
+          }, required:["lineItems","discount","taxRate","notes","projectSummary","includedWork","exclusions","estimatedDuration","paymentTerms","workmanship","pricingPresentation"]
+        } } }, max_output_tokens: 5000,
+      });
+      if (!response.output_text) return res.status(502).json({ message: "No correction was returned." });
+      const corrected = editableSchema.parse(JSON.parse(response.output_text));
+      const changedFields = (Object.keys(input.current) as Array<keyof typeof input.current>).filter((key) => JSON.stringify(input.current[key]) !== JSON.stringify(corrected[key]));
+      if (!changedFields.length) return res.status(400).json({ message: "The requested correction did not produce a change." });
+      res.json({ corrected, changedFields });
+    } catch (error) {
+      console.error("AI quote correction error:", error);
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the correction request and quote details.", errors: error.errors });
+      res.status(500).json({ message: "The correction could not be prepared. The quote was not changed." });
+    }
+  });
+
+  app.post("/api/admin/quotes/:id/revisions", requireAdmin, async (req, res) => {
+    try {
+      const id = Number(req.params.id);
+      if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote" });
+      const sourceQuote = await storage.getQuote(id);
+      const sourceProposal = await storage.getQuoteProposalByQuoteId(id);
+      if (!sourceQuote || !sourceProposal) return res.status(404).json({ message: "The sent quote could not be found." });
+      if (sourceProposal.status === "draft") return res.status(409).json({ message: "This quote is already an editable draft." });
+
+      const rootId = sourceQuote.revisionRootQuoteId || sourceQuote.id;
+      const revisionResult = await db.execute(sql`
+        SELECT COALESCE(MAX(revision_number), 0)::int AS max_revision
+        FROM quotes
+        WHERE id = ${rootId} OR revision_root_quote_id = ${rootId}
+      `);
+      const revisionNumber = Number((revisionResult as any).rows?.[0]?.max_revision || 0) + 1;
+      const { id: _id, createdAt: _createdAt, status: _status, ...copy } = sourceQuote;
+      const contactResult = sourceQuote.customerId
+        ? await db.select().from(customers).where(eq(customers.id, sourceQuote.customerId))
+        : await db.select().from(customers).where(sql`LOWER(TRIM(${customers.email})) = LOWER(TRIM(${sourceQuote.email}))`);
+      const currentContact = contactResult[0];
+      const [revisionQuote] = await db.insert(quotes).values({
+        ...copy,
+        ...(currentContact ? {
+          customerId: currentContact.id,
+          firstName: currentContact.firstName,
+          lastName: currentContact.lastName,
+          email: currentContact.email,
+          phone: currentContact.phone,
+          company: currentContact.company,
+          street: currentContact.street,
+          city: currentContact.city,
+          state: currentContact.state,
+          zip: currentContact.zip,
+        } : {}),
+        revisionRootQuoteId: rootId,
+        revisionOfQuoteId: sourceQuote.id,
+        revisionNumber,
+        status: "pending",
+      }).returning();
+      const baseNumber = sourceProposal.quoteNumber.replace(/-R\d+$/i, "");
+      const quoteNumber = `${baseNumber}-R${revisionNumber}`;
+      const draftProposal = await storage.saveQuoteProposal({
+        quoteId: revisionQuote.id,
+        quoteNumber,
+        tokenHash: crypto.createHash("sha256").update(crypto.randomBytes(32).toString("hex")).digest("hex"),
+        lineItems: sourceProposal.lineItems,
+        discount: sourceProposal.discount,
+        taxRate: sourceProposal.taxRate,
+        subtotal: sourceProposal.subtotal,
+        tax: sourceProposal.tax,
+        total: sourceProposal.total,
+        depositRequired: sourceProposal.depositRequired || Math.round(sourceProposal.total * 50) / 100,
+        notes: sourceProposal.notes,
+        validUntil: sourceProposal.validUntil,
+        status: "draft",
+        sentAt: new Date(),
+      });
+      res.status(201).json({ quote: revisionQuote, proposal: draftProposal });
+    } catch (error) {
+      console.error("Create quote revision error:", error);
+      res.status(500).json({ message: "The quote revision could not be created. The original quote was not changed." });
+    }
+  });
+
   app.post("/api/admin/quotes/:id/send", requireAdmin, async (req, res) => {
     const preparedQuoteSchema = z.object({
       lineItems: z.array(z.object({
@@ -3460,6 +3735,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         details: z.string().trim().max(800).optional(),
         estimatedHours: z.string().trim().max(100).optional(),
         materials: z.string().trim().max(500).optional(),
+        estimatedLaborAmount: z.coerce.number().min(0).max(1000000).optional().nullable().transform((value) => value ?? undefined),
+        estimatedMaterialAmount: z.coerce.number().min(0).max(1000000).optional().nullable().transform((value) => value ?? undefined),
       })).min(1).max(50),
       discount: z.coerce.number().min(0).max(1000000).default(0),
       taxRate: z.coerce.number().min(0).max(30).default(0),
@@ -3472,6 +3749,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       paymentTerms: z.string().trim().max(1000).default("Payment is due according to the agreed project schedule."),
       workmanship: z.string().trim().max(1000).default("Work will be completed in a professional manner using appropriate methods and materials."),
       pricingPresentation: z.enum(["fixed_project", "itemized"]).default("fixed_project"),
+      depositRequired: z.coerce.number().min(0).max(1000000).optional(),
+      createRevision: z.boolean().default(false),
     });
 
     try {
@@ -3479,14 +3758,42 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!Number.isInteger(id)) return res.status(400).json({ message: "Invalid quote request" });
       const quote = await storage.getQuote(id);
       if (!quote) return res.status(404).json({ message: "Quote request not found" });
+      const existingProposal = await storage.getQuoteProposalByQuoteId(id);
       const prepared = preparedQuoteSchema.parse(req.body);
+      if (existingProposal && existingProposal.status !== "draft" && !prepared.createRevision) {
+        return res.status(409).json({ message: "This quote was already sent and is locked. Choose Correct Quote to prepare one replacement without changing the original." });
+      }
+      let deliveryQuote = quote;
+      let createdRevisionId: number | null = null;
+      let quoteNumber = existingProposal?.quoteNumber || `HT-${new Date().getFullYear()}-${String(quote.id).padStart(4, "0")}`;
+      if (prepared.createRevision) {
+        if (!existingProposal || existingProposal.status === "draft") return res.status(409).json({ message: "This quote is already an editable draft." });
+        const rootId = quote.revisionRootQuoteId || quote.id;
+        const revisionResult = await db.execute(sql`SELECT COALESCE(MAX(revision_number),0)::int max_revision FROM quotes WHERE id=${rootId} OR revision_root_quote_id=${rootId}`);
+        const revisionNumber = Number((revisionResult as any).rows?.[0]?.max_revision || 0) + 1;
+        const { id: _id, createdAt: _createdAt, status: _status, ...copy } = quote;
+        const contactRows = quote.customerId
+          ? await db.select().from(customers).where(eq(customers.id, quote.customerId))
+          : await db.select().from(customers).where(sql`LOWER(TRIM(${customers.email}))=LOWER(TRIM(${quote.email}))`);
+        const currentContact = contactRows[0];
+        const [created] = await db.insert(quotes).values({
+          ...copy,
+          ...(currentContact ? { customerId: currentContact.id, firstName: currentContact.firstName, lastName: currentContact.lastName, email: currentContact.email, phone: currentContact.phone, company: currentContact.company, street: currentContact.street, city: currentContact.city, state: currentContact.state, zip: currentContact.zip } : {}),
+          revisionRootQuoteId: rootId,
+          revisionOfQuoteId: quote.id,
+          revisionNumber,
+          status: "pending",
+        }).returning();
+        deliveryQuote = created;
+        createdRevisionId = created.id;
+        quoteNumber = `${existingProposal.quoteNumber.replace(/-R\d+$/i, "")}-R${revisionNumber}`;
+      }
       const subtotal = prepared.lineItems.reduce((sum, item) => sum + item.quantity * item.rate, 0);
       const discountedSubtotal = Math.max(0, subtotal - prepared.discount);
       const tax = discountedSubtotal * prepared.taxRate / 100;
       const total = discountedSubtotal + tax;
       if (total <= 0) return res.status(400).json({ message: "Quote total must be greater than zero" });
 
-      const quoteNumber = `HT-${new Date().getFullYear()}-${String(quote.id).padStart(4, "0")}`;
       const rawToken = crypto.randomBytes(32).toString("hex");
       const validUntil = new Date();
       validUntil.setDate(validUntil.getDate() + prepared.validDays);
@@ -3500,8 +3807,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `[WORKMANSHIP]\n${prepared.workmanship}`,
         prepared.notes ? `[ADDITIONAL NOTES]\n${prepared.notes}` : "",
       ].filter(Boolean).join("\n\n");
+      const depositRequired = Math.round(total * 50) / 100;
       const proposal = await storage.saveQuoteProposal({
-        quoteId: quote.id,
+        quoteId: deliveryQuote.id,
         quoteNumber,
         tokenHash: crypto.createHash("sha256").update(rawToken).digest("hex"),
         lineItems: prepared.lineItems,
@@ -3510,18 +3818,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal,
         tax,
         total,
+        depositRequired,
         notes: detailedNotes,
         validUntil,
-        status: "sent",
+        status: "draft",
         sentAt: new Date(),
       });
       const proposalUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/quote/${rawToken}`;
-      const pdfBuffer = await generateQuotePdfBuffer(quote, proposal);
+      try {
+      const pdfBuffer = await generateQuotePdfBuffer(deliveryQuote, proposal);
       await getEmailService().sendPreparedQuote({
         quoteNumber,
-        customerName: `${quote.firstName} ${quote.lastName}`,
-        customerEmail: quote.email,
-        serviceAddress: [quote.street, quote.city, quote.state, quote.zip].filter(Boolean).join(", "),
+        customerName: `${deliveryQuote.firstName} ${deliveryQuote.lastName}`,
+        customerEmail: deliveryQuote.email,
+        serviceAddress: [deliveryQuote.street, deliveryQuote.city, deliveryQuote.state, deliveryQuote.zip].filter(Boolean).join(", "),
         lineItems: prepared.lineItems,
         discount: prepared.discount,
         taxRate: prepared.taxRate,
@@ -3533,7 +3843,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         proposalUrl,
         pdfBuffer,
       });
-      await storage.updateQuoteStatus(id, "sent");
+      } catch (deliveryError) {
+        if (createdRevisionId) await storage.deleteQuote(createdRevisionId).catch(() => undefined);
+        throw deliveryError;
+      }
+      await storage.updateQuoteProposal(proposal.id, { status: "sent", sentAt: new Date() });
+      if (prepared.createRevision || deliveryQuote.revisionOfQuoteId) {
+        const priorProposal = prepared.createRevision ? existingProposal : await storage.getQuoteProposalByQuoteId(deliveryQuote.revisionOfQuoteId!);
+        if (priorProposal) {
+          await storage.updateQuoteProposal(priorProposal.id, { status: "superseded" });
+        }
+      }
+      await storage.updateQuoteStatus(deliveryQuote.id, "sent");
       res.json({ message: "Quote sent", quoteNumber, total });
     } catch (error) {
       console.error("Send prepared quote error:", error);
@@ -3556,6 +3877,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: proposal.subtotal,
         tax: proposal.tax,
         total: proposal.total,
+        depositRequired: proposal.depositRequired,
         notes: proposal.notes,
         validUntil: proposal.validUntil,
         status: proposal.status,
@@ -3650,6 +3972,33 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (!linkedQuote || !customer || linkedQuote.email.trim().toLowerCase() !== customer.email.trim().toLowerCase()) throw new Error("QUOTE_CUSTOMER_MISMATCH");
   };
 
+  // Older invoices could be created from a quote before the Job was created. Resolve
+  // that relationship from the accepted proposal/request so Money and the Job always
+  // operate on the same invoice instead of maintaining separate financial records.
+  const resolveInvoiceJobId = async (invoice: typeof invoices.$inferSelect) => {
+    if (invoice.jobId) return invoice.jobId;
+    const result = await db.execute(sql`
+      SELECT DISTINCT j.id
+      FROM invoices i
+      JOIN jobs j ON j.customer_id=i.customer_id
+      LEFT JOIN quote_proposals qp ON qp.id=i.quote_proposal_id
+      LEFT JOIN quotes q ON q.id=qp.quote_id
+      WHERE i.id=${invoice.id}
+        AND (
+          (i.quote_proposal_id IS NOT NULL AND j.quote_proposal_id=i.quote_proposal_id)
+          OR (i.request_id IS NOT NULL AND j.request_id=i.request_id)
+          OR (q.job_id IS NOT NULL AND j.id=q.job_id)
+          OR (q.request_id IS NOT NULL AND j.request_id=q.request_id)
+        )
+    `);
+    const candidates = (result as any).rows || [];
+    if (candidates.length !== 1) return null;
+    const jobId = Number(candidates[0].id);
+    await db.update(invoices).set({ jobId, updatedAt: new Date() }).where(eq(invoices.id, invoice.id));
+    await db.execute(sql`UPDATE jobs SET invoice_id=COALESCE(invoice_id,${invoice.id}),updated_at=NOW() WHERE id=${jobId}`);
+    return jobId;
+  };
+
   app.post("/api/admin/quotes/:id/convert-to-invoice", requireAdmin, async (req, res) => {
     try {
       const quoteId = Number(req.params.id);
@@ -3668,6 +4017,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sequence = `${Date.now().toString().slice(-7)}${crypto.randomInt(10, 99)}`;
       const [invoice] = await db.insert(invoices).values({
         customerId: customer.id,
+        jobId: row.quote.jobId || null,
         quoteProposalId: row.proposal.id,
         invoiceNumber: `INV-${new Date().getFullYear()}-${sequence}`,
         tokenHash: crypto.randomBytes(32).toString("hex"),
@@ -3678,11 +4028,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tax: row.proposal.tax,
         total: row.proposal.total,
         amountPaid: 0,
+        depositRequired: Number(row.proposal.depositRequired || Math.round(row.proposal.total * 50) / 100),
         notes: row.proposal.notes || `Invoice for ${row.quote.serviceNeeded}.`,
         terms: "Payment is due by the date shown above.",
         status: "draft",
         dueDate,
       }).returning();
+      if (row.quote.jobId) {
+        await db.execute(sql`UPDATE jobs SET invoice_id=COALESCE(invoice_id,${invoice.id}),quote_proposal_id=COALESCE(quote_proposal_id,${row.proposal.id}),original_contract_value=CASE WHEN original_contract_value=0 THEN ${String(row.proposal.total)} ELSE original_contract_value END,updated_at=NOW() WHERE id=${row.quote.jobId}`);
+      }
       res.status(201).json({ invoice, created: true });
     } catch (error) {
       console.error("Convert quote to invoice error:", error);
@@ -3709,9 +4063,22 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = Number(req.params.id); const input = invoiceInputSchema.parse(req.body); const totals = invoiceTotals(input);
       const [current] = await db.select().from(invoices).where(eq(invoices.id, id));
       if (!current) return res.status(404).json({ message: "Invoice not found" });
-      if (current.status !== "draft") return res.status(409).json({ message: "Only draft invoices can be edited" });
+      if (current.status === "void") return res.status(409).json({ message: "A void invoice cannot be edited" });
+      if (totals.total <= 0) return res.status(400).json({ message: "Invoice total must be greater than zero" });
+      if (totals.total + 0.005 < current.amountPaid) return res.status(409).json({ message: `The revised total cannot be lower than the $${current.amountPaid.toFixed(2)} already received` });
+      if (input.depositRequired > totals.total) return res.status(400).json({ message: "The requested deposit cannot exceed the invoice total" });
       await verifyInvoiceQuoteCustomer(input.customerId, input.quoteProposalId);
-      const [updated] = await db.update(invoices).set({ ...input, quoteProposalId: input.quoteProposalId || null, ...totals, updatedAt: new Date() }).where(eq(invoices.id, id)).returning(); res.json(updated);
+      const nextStatus = current.amountPaid >= totals.total - 0.005
+        ? "paid"
+        : current.amountPaid > 0
+          ? "partial"
+          : current.status;
+      const [updated] = await db.update(invoices).set({ ...input, quoteProposalId: input.quoteProposalId || null, ...totals, status: nextStatus, paidAt: nextStatus === "paid" ? current.paidAt || new Date() : null, updatedAt: new Date() }).where(eq(invoices.id, id)).returning();
+      if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS === "true" && updated.jobId) {
+        await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${updated.customerId},${updated.jobId},'invoice',${String(updated.id)},'invoice_edited',${`Invoice ${updated.invoiceNumber} edited`},'financial','shared',${JSON.stringify({previousTotal:current.total,total:updated.total,amountPaid:updated.amountPaid,status:updated.status,dueDate:updated.dueDate})}::jsonb)`);
+        await db.execute(sql`UPDATE jobs SET status=CASE WHEN status IN ('closed','cancelled') THEN status WHEN EXISTS (SELECT 1 FROM invoices WHERE job_id=${updated.jobId} AND status<>'void' AND amount_paid<total) THEN 'invoiced' WHEN EXISTS (SELECT 1 FROM invoices WHERE job_id=${updated.jobId} AND status<>'void') THEN 'paid' ELSE status END,updated_at=NOW() WHERE id=${updated.jobId}`);
+      }
+      res.json(updated);
     } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); res.status(500).json({ message: "Invoice could not be updated" }); }
   });
 
@@ -3726,7 +4093,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const pdfBuffer = await generateInvoicePdfBuffer(row.customer, updated, payments);
       const invoiceUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/invoice/${rawToken}`;
       await getEmailService().sendInvoice({ invoiceNumber: updated.invoiceNumber, customerName: `${row.customer.firstName} ${row.customer.lastName}`, customerEmail: row.customer.email, total: updated.total, balanceDue: Math.max(0, updated.total - updated.amountPaid), dueDate: updated.dueDate, invoiceUrl, pdfBuffer });
-      if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&updated.jobId)await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata) VALUES (${updated.customerId},${updated.jobId},'invoice',${String(updated.id)},'invoice_sent',${`Invoice ${updated.invoiceNumber} sent`},'email','outbound','shared',${JSON.stringify({total:updated.total,balanceDue:Math.max(0,updated.total-updated.amountPaid)})}::jsonb)`);
+      if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&updated.jobId){await db.execute(sql`UPDATE jobs SET invoice_id=COALESCE(invoice_id,${updated.id}),status=CASE WHEN status IN('paid','closed','cancelled') THEN status ELSE 'invoiced' END,updated_at=NOW() WHERE id=${updated.jobId}`);await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata) VALUES (${updated.customerId},${updated.jobId},'invoice',${String(updated.id)},'invoice_sent',${`Invoice ${updated.invoiceNumber} sent`},'email','outbound','shared',${JSON.stringify({total:updated.total,balanceDue:Math.max(0,updated.total-updated.amountPaid)})}::jsonb)`);}
       res.json({ message: "Invoice sent", invoiceNumber: updated.invoiceNumber });
     } catch (error) { console.error("Send invoice error:", error); res.status(500).json({ message: "Invoice email could not be sent" }); }
   });
@@ -3736,10 +4103,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = Number(req.params.id); const input = z.object({ amount: z.coerce.number().positive(), method: z.enum(["cash", "check", "card", "bank_transfer", "other"]), reference: z.string().trim().max(200).optional(), notes: z.string().trim().max(500).optional(), paidAt: z.coerce.date().optional() }).parse(req.body);
       const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)); if (!invoice) return res.status(404).json({ message: "Invoice not found" }); if (invoice.status === "void") return res.status(409).json({ message: "A void invoice cannot receive payments" });
       const balance = Math.max(0, invoice.total - invoice.amountPaid); if (input.amount > balance + 0.005) return res.status(400).json({ message: `Payment exceeds the remaining balance of $${balance.toFixed(2)}` });
+      const jobId = await resolveInvoiceJobId(invoice);
       const [payment] = await db.insert(invoicePayments).values({ invoiceId: id, ...input }).returning(); const amountPaid = invoice.amountPaid + input.amount; const paid = amountPaid >= invoice.total - 0.005;
       await db.update(invoices).set({ amountPaid, status: paid ? "paid" : "partial", paidAt: paid ? input.paidAt || new Date() : null, updatedAt: new Date() }).where(eq(invoices.id, id));
-      if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&invoice.jobId)await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata,occurred_at) VALUES (${invoice.customerId},${invoice.jobId},'payment',${String(payment.id)},'payment_recorded',${`Payment recorded for ${invoice.invoiceNumber}`},'financial','inbound','shared',${JSON.stringify({amount:input.amount,method:input.method,paidInFull:paid})}::jsonb,${input.paidAt||new Date()})`);
-      res.status(201).json(payment);
+      if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&jobId){await db.execute(sql`UPDATE jobs SET invoice_id=COALESCE(invoice_id,${invoice.id}),status=CASE WHEN status IN('closed','cancelled') THEN status WHEN ${paid} THEN 'paid' ELSE 'invoiced' END,updated_at=NOW() WHERE id=${jobId}`);await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata,occurred_at) VALUES (${invoice.customerId},${jobId},'payment',${String(payment.id)},'payment_recorded',${`Payment recorded for ${invoice.invoiceNumber}`},'financial','inbound','shared',${JSON.stringify({amount:input.amount,method:input.method,paidInFull:paid})}::jsonb,${input.paidAt||new Date()})`);}
+      res.status(201).json({ ...payment, jobId });
     } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the payment details", errors: error.errors }); res.status(500).json({ message: "Payment could not be recorded" }); }
   });
 
@@ -3776,6 +4144,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     proposal: {
       quoteNumber: proposal.quoteNumber, lineItems: proposal.lineItems, discount: proposal.discount,
       taxRate: proposal.taxRate, subtotal: proposal.subtotal, tax: proposal.tax, total: proposal.total,
+      depositRequired: proposal.depositRequired,
       notes: proposal.notes, validUntil: proposal.validUntil, status: proposal.status, sentAt: proposal.sentAt,
       viewedAt: proposal.viewedAt, respondedAt: proposal.respondedAt, signerName: proposal.signerName,
     },
@@ -3840,6 +4209,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!proposal) return res.status(404).json({ message: "This quote link is invalid or has been replaced." });
       const quote = await storage.getQuote(proposal.quoteId);
       if (!quote) return res.status(404).json({ message: "Quote not found." });
+      if (proposal.status === "superseded") return res.status(409).json({ message: "This quote was replaced by a newer revision. Please use the newest quote link or contact HandyTech Solutions at 314-325-4575." });
       if (["accepted", "declined"].includes(proposal.status)) return res.status(409).json({ message: "A final response has already been recorded for this quote." });
       if (data.decision === "accepted" && proposal.validUntil.getTime() < Date.now()) return res.status(410).json({ message: "This quote has expired. Please contact HandyTech for an updated quote." });
 
@@ -4114,6 +4484,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/availability-rules/active", async (req, res) => {
     try {
       const rules = await storage.getActiveAvailabilityRules();
+      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
       res.json(rules);
     } catch (error) {
       res.status(500).json({ message: "Failed to fetch active availability rules" });
@@ -4540,6 +4911,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           error: 'NO_IMAGES_UPLOADED',
           message: 'At least one image is required for gallery items'
+        });
+      }
+
+      const title = String(req.body.title || "").trim();
+      const description = String(req.body.description || "").trim();
+      const location = String(req.body.location || "").trim();
+      const category = String(req.body.category || "").trim();
+      const visibilityIssues = [
+        !isIndexableProjectTitle(title) || title.length < 12 ? "Use a descriptive project title instead of Other, Project, or Untitled." : null,
+        description.length < 80 ? "Describe the customer's need, the work completed, and the finished result (at least 80 characters)." : null,
+        !location ? "Add the city or service area, without the customer's street address." : null,
+        !PROJECT_CATEGORY_VALUES.includes(category) ? "Choose one of the available project categories." : null,
+      ].filter((issue): issue is string => Boolean(issue));
+      if (visibilityIssues.length) {
+        await cleanupUploadedFiles(processedImages).catch(() => undefined);
+        return res.status(400).json({
+          success: false,
+          error: "PROJECT_NOT_READY_FOR_PUBLISHING",
+          message: "Complete the project details before publishing.",
+          details: visibilityIssues,
         });
       }
 
@@ -5107,7 +5498,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/referral-leads/connector-download", requireAdmin, async (_req, res) => {
     try {
       const connectorDirectory = path.resolve(process.cwd(), "tools", "home-depot-connector");
-      const files = ["manifest.json", "content.js", "options.html", "options.js", "README.md"];
+      const files = ["manifest.json", "background.js", "content.js", "options.html", "options.js", "README.md"];
       const zip = new AdmZip();
       for (const file of files) {
         zip.addFile(`handytech-home-depot-connector/${file}`, await fs.readFile(path.join(connectorDirectory, file)));
@@ -5226,7 +5617,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     invoiceId: z.number().int().positive().nullable().optional(),
     appointmentId: z.number().int().positive().nullable().optional(),
   });
-  const jobStatuses = ["lead", "quoted", "approved", "scheduled", "in_progress", "completed", "invoiced", "paid", "closed"] as const;
+  const jobStatuses = ["lead", "quoted", "approved", "scheduled", "in_progress", "completed", "invoiced", "paid", "closed", "cancelled"] as const;
 
   // HandyTech Operating System: lifecycle-oriented APIs. These are additive;
   // legacy feature APIs remain available throughout the compatibility window.
@@ -5298,25 +5689,56 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const status = typeof req.query.status === "string" ? req.query.status : "";
     const result = status
       ? await db.execute(sql`SELECT r.*,c.first_name,c.last_name,c.company,c.email,c.phone,p.street,p.city,p.state,p.zip,
+          (SELECT qp.quote_number FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_number,
+          (SELECT qp.total FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_total,
           (SELECT COUNT(*)::int FROM activity_events e WHERE e.request_id=r.id) activity_count
           FROM requests r LEFT JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id
           WHERE r.status=${status} ORDER BY r.received_at DESC`)
       : await db.execute(sql.raw(`SELECT r.*,c.first_name,c.last_name,c.company,c.email,c.phone,p.street,p.city,p.state,p.zip,
+          (SELECT qp.quote_number FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_number,
+          (SELECT qp.total FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_total,
           (SELECT COUNT(*)::int FROM activity_events e WHERE e.request_id=r.id) activity_count
           FROM requests r LEFT JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id ORDER BY r.received_at DESC`));
     res.json((result as any).rows || result);
   });
 
   app.post("/api/admin/os/requests", requireAdmin, async (req, res) => {
-    const input = z.object({ contactId: z.number().int().positive(), propertyId: z.number().int().positive().nullable().optional(), title: z.string().trim().min(2).max(240), description: z.string().trim().min(2).max(10000), source: z.string().trim().min(2).max(80).default("manual") }).parse(req.body);
+    const personSchema = z.object({ firstName:z.string().trim().min(1).max(100),lastName:z.string().trim().min(1).max(100),email:z.string().trim().email().max(320),phone:z.string().trim().min(7).max(40),company:z.string().trim().max(200).optional(),street:z.string().trim().min(2).max(300),city:z.string().trim().min(2).max(120),state:z.string().trim().min(2).max(80),zip:z.string().trim().min(5).max(20) });
+    const input = z.object({ contactId: z.number().int().positive().nullable().optional(), newContact: personSchema.optional(), propertyId: z.number().int().positive().nullable().optional(), requestKind: z.enum(["consultation","job_request","service_request"]).default("job_request"), title: z.string().trim().min(2).max(240), description: z.string().trim().min(2).max(10000), source: z.string().trim().min(2).max(80).default("manual"), intakeDetails: z.object({ preferredContact: z.enum(["call","text","email"]).optional(), smsConsent: z.boolean().optional(), propertyType: z.enum(["home","rental","business","other"]).optional(), timeframe: z.enum(["urgent","two_weeks","one_month","flexible"]).optional(), isAuthorized: z.boolean().optional(), budgetRange: z.string().max(100).optional(), bestContactTime: z.string().max(200).optional() }).default({}) }).refine(v=>Boolean(v.contactId||v.newContact),{message:"Select an existing Contact or enter a new one"}).parse(req.body);
     const result = await db.transaction(async (tx) => {
+      let contactId=input.contactId||null;
+      let propertyId=input.propertyId||null;
+      if(input.newContact){
+        const normalizedEmail=input.newContact.email.toLowerCase();
+        const normalizedPhone=input.newContact.phone.replace(/\D/g,"");
+        const matches=await tx.execute(sql`SELECT id FROM customers WHERE LOWER(TRIM(email))=${normalizedEmail} OR REGEXP_REPLACE(COALESCE(phone,''),'[^0-9]','','g')=${normalizedPhone} ORDER BY id LIMIT 2`);
+        const matchRows=(matches as any).rows||matches;
+        if(matchRows.length>1)return Promise.reject(Object.assign(new Error("The email and phone match different Contacts. Review them before creating this Request."),{statusCode:409}));
+        if(matchRows.length===1){
+          contactId=Number(matchRows[0].id);
+          await tx.execute(sql`UPDATE customers SET first_name=${input.newContact.firstName},last_name=${input.newContact.lastName},email=${input.newContact.email},phone=${input.newContact.phone},company=COALESCE(${input.newContact.company||null},company),street=${input.newContact.street},city=${input.newContact.city},state=${input.newContact.state},zip=${input.newContact.zip},normalized_email=${normalizedEmail},normalized_phone=${normalizedPhone},updated_at=NOW() WHERE id=${contactId}`);
+        }else{
+          const createdContact=await tx.execute(sql`INSERT INTO customers(first_name,last_name,email,phone,company,street,city,state,zip,relationship_state,normalized_email,normalized_phone) VALUES (${input.newContact.firstName},${input.newContact.lastName},${input.newContact.email},${input.newContact.phone},${input.newContact.company||null},${input.newContact.street},${input.newContact.city},${input.newContact.state},${input.newContact.zip},'prospective',${normalizedEmail},${normalizedPhone}) RETURNING id`);
+          contactId=Number((createdContact as any).rows?.[0]?.id);
+        }
+        const normalizedAddress=[input.newContact.street,input.newContact.city,input.newContact.state,input.newContact.zip].join("|").toLowerCase().replace(/\s+/g," ");
+        const existingProperty=await tx.execute(sql`SELECT id FROM properties WHERE normalized_address=${normalizedAddress} ORDER BY id LIMIT 1`);
+        propertyId=Number((existingProperty as any).rows?.[0]?.id||0)||null;
+        if(!propertyId){const p=await tx.execute(sql`INSERT INTO properties(property_type,street,city,state,zip,normalized_address) VALUES (${input.intakeDetails.propertyType||null},${input.newContact.street},${input.newContact.city},${input.newContact.state},${input.newContact.zip},${normalizedAddress}) RETURNING id`);propertyId=Number((p as any).rows?.[0]?.id);}
+        await tx.execute(sql`INSERT INTO contact_properties(contact_id,property_id,relationship,is_primary) VALUES (${contactId},${propertyId},'owner',true) ON CONFLICT (contact_id,property_id,relationship) DO UPDATE SET is_primary=true`);
+      }
+      if(!contactId)throw new Error("A Contact is required");
       const seq = await tx.execute(sql.raw("SELECT nextval(pg_get_serial_sequence('requests','id'))::int id"));
       const id = Number((seq as any).rows?.[0]?.id);
       const requestNumber = `REQ-${new Date().getFullYear()}-${String(id).padStart(6, "0")}`;
-      const created = await tx.execute(sql`INSERT INTO requests(id,request_number,contact_id,property_id,source,title,customer_description,status,next_action)
-        VALUES (${id},${requestNumber},${input.contactId},${input.propertyId || null},${input.source},${input.title},${input.description},'new','Review request') RETURNING *`);
+      if (!propertyId) {
+        const primary = await tx.execute(sql`SELECT property_id FROM contact_properties WHERE contact_id=${contactId} ORDER BY is_primary DESC,id LIMIT 1`);
+        propertyId = Number((primary as any).rows?.[0]?.property_id || 0) || null;
+      }
+      const created = await tx.execute(sql`INSERT INTO requests(id,request_number,contact_id,property_id,source,request_kind,title,customer_description,status,next_action,intake_details)
+        VALUES (${id},${requestNumber},${contactId},${propertyId},${input.source},${input.requestKind},${input.title},${input.description},'new',${input.requestKind==='consultation'?'Call customer and schedule consultation':'Prepare customer quote'},${JSON.stringify(input.intakeDetails)}::jsonb) RETURNING *`);
       await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility)
-        VALUES (${input.contactId},${input.propertyId || null},${id},'request',${String(id)},'request_created','Request created by owner','admin','internal')`);
+        VALUES (${contactId},${propertyId},${id},'request',${String(id)},'request_created','Request created by owner','admin','internal')`);
       return (created as any).rows?.[0];
     });
     res.status(201).json(result);
@@ -5324,11 +5746,53 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/admin/os/requests/:id", requireAdmin, async (req, res) => {
     const id = z.coerce.number().int().positive().parse(req.params.id);
-    const input = z.object({ status: z.enum(["new","reviewing","needs_information","needs_site_visit","visit_scheduled","visit_complete","ready_to_estimate","proposal_ready","proposal_sent","awaiting_customer","approved","declined","closed"]), nextAction: z.string().trim().max(500).nullable().optional() }).parse(req.body);
-    const result = await db.execute(sql`UPDATE requests SET status=${input.status},next_action=${input.nextAction ?? null},closed_at=${["declined","closed"].includes(input.status) ? new Date() : null},updated_at=NOW() WHERE id=${id} RETURNING *`);
+    const input = z.object({ status: z.enum(["new","reviewing","needs_information","needs_site_visit","visit_scheduled","visit_complete","ready_to_estimate","proposal_ready","proposal_sent","awaiting_customer","approved","declined","duplicate","closed"]), nextAction: z.string().trim().max(500).nullable().optional() }).parse(req.body);
+    const result = await db.execute(sql`UPDATE requests SET status=${input.status},next_action=${input.nextAction ?? null},closed_at=${["declined","duplicate","closed"].includes(input.status) ? new Date() : null},updated_at=NOW() WHERE id=${id} RETURNING *`);
     const row = (result as any).rows?.[0];
     if (!row) return res.status(404).json({ message: "Request not found" });
     res.json(row);
+  });
+
+  app.post("/api/admin/os/requests/:id/convert-to-job-request", requireAdmin, async (req, res) => {
+    const id = z.coerce.number().int().positive().parse(req.params.id);
+    const result = await db.transaction(async (tx) => {
+      const updated = await tx.execute(sql`UPDATE requests SET request_kind='job_request',status='reviewing',next_action='Prepare customer quote',updated_at=NOW() WHERE id=${id} AND request_kind='consultation' RETURNING *`);
+      const row = (updated as any).rows?.[0];
+      if (!row) return null;
+      await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility) VALUES (${row.contact_id||null},${row.property_id||null},${id},'request',${String(id)},'consultation_converted','Consultation converted to a quote / job request','admin','internal')`);
+      return row;
+    });
+    if (!result) return res.status(409).json({ message: "Only a consultation Request can be converted" });
+    res.json(result);
+  });
+
+  app.post("/api/admin/os/requests/:id/create-job", requireAdmin, async (req, res) => {
+    const requestId = z.coerce.number().int().positive().parse(req.params.id);
+    const created = await db.transaction(async (tx) => {
+      await tx.execute(sql`SELECT pg_advisory_xact_lock(${9100000 + requestId})`);
+      const existing = await tx.execute(sql`SELECT * FROM jobs WHERE request_id=${requestId} ORDER BY id LIMIT 1`);
+      if ((existing as any).rows?.[0]) return (existing as any).rows[0];
+      const result = await tx.execute(sql`SELECT r.*,row_to_json(c) contact,row_to_json(p) property FROM requests r JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id WHERE r.id=${requestId}`);
+      const request = (result as any).rows?.[0];
+      if (!request) throw Object.assign(new Error("Resolve the customer before accepting this Request."), { statusCode: 409 });
+      if (request.request_kind === "consultation") throw Object.assign(new Error("Convert the consultation to a quote / job request before creating a Job."), { statusCode: 409 });
+      if (["declined","duplicate","closed"].includes(request.status)) throw Object.assign(new Error("A closed or declined Request cannot become a Job."), { statusCode: 409 });
+      const appointmentResult = await tx.execute(sql`SELECT * FROM appointments WHERE request_id=${requestId} AND status NOT IN('cancelled') ORDER BY start_timestamptz DESC NULLS LAST,id DESC LIMIT 1`);
+      const appointment = (appointmentResult as any).rows?.[0];
+      const idResult = await tx.execute(sql.raw("SELECT nextval(pg_get_serial_sequence('jobs','id'))::int AS id"));
+      const jobId = Number((idResult as any).rows?.[0]?.id);
+      const jobNumber = `JOB-${new Date().getFullYear()}-${String(jobId).padStart(5, "0")}`;
+      const address = request.property ? [request.property.street,request.property.city,[request.property.state,request.property.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ") : null;
+      const inserted = await tx.execute(sql`INSERT INTO jobs(id,customer_id,appointment_id,job_number,title,description,address,status,scheduled_start,scheduled_end,request_id,property_id,original_contract_value)
+        VALUES (${jobId},${Number(request.contact_id)},${appointment?.id||null},${jobNumber},${request.title},${request.customer_description||null},${address},${appointment?'scheduled':'lead'},${appointment?.start_timestamptz||null},${appointment?.end_timestamptz||null},${requestId},${request.property_id||null},0) RETURNING *`);
+      if (appointment) await tx.execute(sql`UPDATE appointments SET job_id=${jobId} WHERE id=${Number(appointment.id)}`);
+      await tx.execute(sql`UPDATE requests SET status='approved',next_action='Prepare and send quote',updated_at=NOW() WHERE id=${requestId}`);
+      await tx.execute(sql`UPDATE customers SET relationship_state='customer',updated_at=NOW() WHERE id=${Number(request.contact_id)}`);
+      await tx.execute(sql`UPDATE quotes SET job_id=${jobId} WHERE request_id=${requestId} AND job_id IS NULL`);
+      await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility) VALUES (${Number(request.contact_id)},${request.property_id||null},${requestId},${jobId},'job',${String(jobId)},'request_accepted','Request accepted; Job created','admin','shared')`);
+      return (inserted as any).rows[0];
+    });
+    res.status(201).json(created);
   });
 
   app.get("/api/admin/os/requests/:id", requireAdmin, async (req, res) => {
@@ -5341,12 +5805,82 @@ export async function registerRoutes(app: Express): Promise<Server> {
       db.execute(sql`SELECT e.*,COALESCE((SELECT json_agg(i ORDER BY i.id) FROM estimate_items i WHERE i.estimate_id=e.id),'[]'::json) items FROM estimates e WHERE e.request_id=${id} ORDER BY version DESC`),
       db.execute(sql`SELECT * FROM appointments WHERE request_id=${id} ORDER BY start_timestamptz DESC NULLS LAST`),
       db.execute(sql`SELECT * FROM media_assets WHERE request_id=${id} ORDER BY created_at DESC`),
-      db.execute(sql`SELECT qp.* FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id WHERE q.request_id=${id} ORDER BY qp.updated_at DESC`),
+      db.execute(sql`SELECT qp.*,q.id quote_id,q.service_needed,r.request_number FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id LEFT JOIN requests r ON r.id=q.request_id WHERE q.request_id=${id} OR q.id=${request.legacy_type === "quote" ? Number(request.legacy_id) || 0 : 0} ORDER BY qp.updated_at DESC`),
       db.execute(sql`SELECT * FROM jobs WHERE request_id=${id} ORDER BY created_at DESC`),
       db.execute(sql`SELECT p.*,cp.relationship,cp.is_primary FROM contact_properties cp JOIN properties p ON p.id=cp.property_id WHERE cp.contact_id=${request.contact_id} ORDER BY cp.is_primary DESC,p.street`),
     ]);
     const rows = (value: any) => value.rows || value;
     res.json({ request, activity: rows(activity), estimates: rows(estimatesResult), appointments: rows(appointmentsResult), media: rows(mediaResult), proposals: rows(proposalResult), jobs: rows(jobsResult), properties: rows(propertiesResult) });
+  });
+
+  app.post("/api/admin/os/requests/:id/proposals/:proposalId/create-job", requireAdmin, async (req, res) => {
+    const requestId = z.coerce.number().int().positive().parse(req.params.id);
+    const proposalId = z.coerce.number().int().positive().parse(req.params.proposalId);
+    const result = await db.execute(sql`
+      SELECT qp.id AS proposal_id, qp.quote_id, qp.status, q.request_id
+      FROM quote_proposals qp
+      JOIN quotes q ON q.id=qp.quote_id
+      WHERE qp.id=${proposalId} AND q.request_id=${requestId}
+      LIMIT 1
+    `);
+    const row = (result as any).rows?.[0];
+    if (!row) return res.status(404).json({ message: "That quote is not attached to this Request." });
+    if (row.status !== "accepted") return res.status(409).json({ message: "Only the customer-accepted quote can become a Job." });
+    const quote = await storage.getQuote(Number(row.quote_id));
+    const proposal = await storage.getQuoteProposalByQuoteId(Number(row.quote_id));
+    if (!quote || !proposal || proposal.id !== proposalId) return res.status(409).json({ message: "The accepted quote could not be verified. No Job was created." });
+    const jobId = await ensureAcceptedProposalJob(quote, proposal);
+    if (!jobId) return res.status(409).json({ message: "The Job workflow is not active. No Job was created." });
+    await db.execute(sql`UPDATE requests SET status='closed',next_action='Continue in Job',closed_at=COALESCE(closed_at,NOW()),updated_at=NOW() WHERE id=${requestId}`);
+    const jobResult = await db.execute(sql`SELECT * FROM jobs WHERE id=${jobId}`);
+    const job = (jobResult as any).rows?.[0];
+    if (!job) return res.status(500).json({ message: "The Job could not be loaded after conversion." });
+    res.status(201).json(job);
+  });
+
+  app.post("/api/admin/os/requests/:id/proposals/:proposalId/verbal-acceptance", requireAdmin, async (req, res) => {
+    const requestId = z.coerce.number().int().positive().parse(req.params.id);
+    const proposalId = z.coerce.number().int().positive().parse(req.params.proposalId);
+    const input = z.object({ note: z.string().trim().max(1000).optional() }).parse(req.body || {});
+    const verified = await db.transaction(async (tx) => {
+      const result = await tx.execute(sql`
+        SELECT qp.id AS proposal_id, qp.quote_id, qp.quote_number, qp.status, q.customer_id,
+          r.contact_id, r.property_id, c.first_name, c.last_name
+        FROM quote_proposals qp
+        JOIN quotes q ON q.id=qp.quote_id
+        JOIN requests r ON r.id=q.request_id
+        LEFT JOIN customers c ON c.id=r.contact_id
+        WHERE qp.id=${proposalId} AND r.id=${requestId}
+        LIMIT 1
+      `);
+      const row = (result as any).rows?.[0];
+      if (!row) throw Object.assign(new Error("That quote is not attached to this Request."), { statusCode: 404 });
+      if (!['sent','viewed'].includes(row.status)) throw Object.assign(new Error("Only a sent or viewed quote can be recorded as verbally accepted."), { statusCode: 409 });
+      const acceptedBy = [row.first_name, row.last_name].filter(Boolean).join(" ") || "Customer";
+      const acceptanceNote = input.note || `Verbal acceptance recorded by Lou for ${acceptedBy}. No electronic signature was collected.`;
+      const updated = await tx.execute(sql`
+        UPDATE quote_proposals
+        SET status='accepted', responded_at=NOW(), signer_name=${acceptedBy}, accepted_terms=false,
+          customer_message=${acceptanceNote}, decision_ip=NULL, decision_user_agent='admin-recorded-verbal-acceptance', updated_at=NOW()
+        WHERE id=${proposalId} AND status IN ('sent','viewed')
+        RETURNING quote_id
+      `);
+      if (!(updated as any).rows?.length) throw Object.assign(new Error("The quote status changed before verbal acceptance was recorded. Refresh and try again."), { statusCode: 409 });
+      await tx.execute(sql`UPDATE quotes SET status='converted' WHERE id=${Number(row.quote_id)}`);
+      await tx.execute(sql`
+        INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata)
+        VALUES (${row.contact_id||row.customer_id||null},${row.property_id||null},${requestId},'proposal',${String(proposalId)},'verbal_acceptance_recorded',${`${row.quote_number} verbally accepted; no electronic signature collected`},'admin','shared',${JSON.stringify({ acceptanceMethod: "verbal", acceptedBy, recordedBy: "Lou", note: acceptanceNote })}::jsonb)
+      `);
+      return { quoteId: Number(row.quote_id), acceptedBy };
+    });
+    const quote = await storage.getQuote(verified.quoteId);
+    const proposal = await storage.getQuoteProposalByQuoteId(verified.quoteId);
+    if (!quote || !proposal || proposal.id !== proposalId) return res.status(409).json({ message: "The accepted quote could not be reloaded. Acceptance was recorded, but the Job must be created from the Request." });
+    const jobId = await ensureAcceptedProposalJob(quote, proposal);
+    if (!jobId) return res.status(409).json({ message: "Verbal acceptance was recorded, but the Job workflow is not active." });
+    await db.execute(sql`UPDATE requests SET status='closed',next_action='Continue in Job',closed_at=COALESCE(closed_at,NOW()),updated_at=NOW() WHERE id=${requestId}`);
+    const jobResult = await db.execute(sql`SELECT * FROM jobs WHERE id=${jobId}`);
+    res.status(201).json({ job: (jobResult as any).rows?.[0], acceptanceMethod: "verbal", acceptedBy: verified.acceptedBy });
   });
 
   app.patch("/api/admin/os/requests/:id/property", requireAdmin, async (req, res) => {
@@ -5398,19 +5932,78 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/os/requests/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["customer_intake","site_visit","document","other"]).default("site_visit"),caption:z.string().trim().max(500).optional()}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const requestResult=await db.execute(sql`SELECT contact_id,property_id FROM requests WHERE id=${requestId}`);const request=(requestResult as any).rows?.[0];if(!request)return res.status(404).json({message:"Request not found"});const saved=await db.transaction(async tx=>{const rows=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(contact_id,property_id,request_id,entity_type,entity_id,media_type,stage,url,caption) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null}) RETURNING *`);rows.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},'media_added',${`${processed.length} ${input.stage.replaceAll("_"," ")} photo(s) added`},'admin','internal',${JSON.stringify({count:processed.length,stage:input.stage})}::jsonb)`);return rows;});res.status(201).json(saved);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.errors});throw error;}});
 
   app.post("/api/admin/os/requests/:id/site-visits",requireAdmin,async(req,res)=>{
-    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({start:z.coerce.date(),durationMinutes:z.coerce.number().int().min(15).max(480).default(60),notes:z.string().trim().max(2000).optional()}).parse(req.body);if(input.start.getTime()<=Date.now())return res.status(400).json({message:"Schedule the visit in the future"});
-    const rr=await db.execute(sql`SELECT r.*,row_to_json(c) contact,row_to_json(p) property FROM requests r JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id WHERE r.id=${requestId}`);const request=(rr as any).rows?.[0];if(!request)return res.status(404).json({message:"Request with a resolved Contact was not found"});const end=new Date(input.start.getTime()+input.durationMinutes*60000);const parts=new Intl.DateTimeFormat("en-US",{timeZone:"America/Chicago",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).formatToParts(input.start);const part=(type:string)=>parts.find(x=>x.type===type)?.value||"";const dateText=`${part("year")}-${part("month")}-${part("day")}`;const timeText=`${part("hour")==="24"?"00":part("hour")}:${part("minute")}`;const address=[request.property?.street,request.property?.city,[request.property?.state,request.property?.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
-    const appointment=await db.transaction(async tx=>{const [created]=await tx.insert(appointments).values({customerId:Number(request.contact_id),firstName:request.contact.first_name,lastName:request.contact.last_name,email:request.contact.email,phone:request.contact.phone||null,bookingType:"consultation",serviceType:`${request.request_number} · Site Visit`,appointmentDate:legacyCalendarDate(dateText),appointmentTime:timeText,startTimestamptz:input.start,endTimestamptz:end,address:address||null,street:request.property?.street||"Not provided",city:request.property?.city||"Not provided",state:request.property?.state||"MO",zip:request.property?.zip||"Not provided",rescheduleToken:crypto.randomBytes(24).toString("hex"),rescheduleExpires:new Date(Date.now()+30*86400000),sequence:0,smsConsent:false,notes:input.notes||null,status:"scheduled",source:"manual"}).returning();await tx.execute(sql`UPDATE appointments SET request_id=${requestId},property_id=${request.property_id||null},schedule_kind='site_visit',estimated_crew_hours=${String(input.durationMinutes/60)} WHERE id=${created.id}`);await tx.execute(sql`UPDATE requests SET status='visit_scheduled',next_action='Complete site visit',updated_at=NOW() WHERE id=${requestId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata,occurred_at) VALUES (${request.contact_id},${request.property_id||null},${requestId},'appointment',${String(created.id)},'scheduled','Site visit scheduled','schedule','shared',${JSON.stringify({start:input.start.toISOString(),end:end.toISOString()})}::jsonb,${input.start})`);return created;});
-    try{const event=await createEvent({summary:`SITE VISIT · ${request.request_number} · ${request.title||"Request"}`,description:input.notes||request.customer_description,location:address||undefined,start:input.start,end,attendees:[request.contact.email],appointmentId:appointment.id});if(event.id)await storage.updateAppointmentGoogleEventId(appointment.id,event.id);}catch(error){console.error("Request site visit Google Calendar sync failed:",error);}res.status(201).json(appointment);
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.coerce.number().int().min(15).max(480).default(60),overrideAvailability:z.boolean().default(false),notes:z.string().trim().max(2000).optional()}).parse(req.body);const start=fromZonedTime(`${input.date}T${input.time}:00`,"America/Chicago");if(Number.isNaN(start.getTime()))return res.status(400).json({message:"Choose a valid visit date and time"});if(start.getTime()<=Date.now())return res.status(400).json({message:"Schedule the visit in the future"});
+    const rr=await db.execute(sql`SELECT r.*,row_to_json(c) contact,row_to_json(p) property FROM requests r JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id WHERE r.id=${requestId}`);const request=(rr as any).rows?.[0];if(!request)return res.status(404).json({message:"Request with a resolved Contact was not found"});const end=new Date(start.getTime()+input.durationMinutes*60000);const dateText=input.date;const timeText=input.time;const address=[request.property?.street,request.property?.city,[request.property?.state,request.property?.zip].filter(Boolean).join(" ")].filter(Boolean).join(", ");
+    const nextDate=new Date(`${input.date}T12:00:00Z`);nextDate.setUTCDate(nextDate.getUTCDate()+1);const nextDateText=nextDate.toISOString().slice(0,10);
+    try{
+      if(input.overrideAvailability){
+        const conflictResult=await db.execute(sql`SELECT id FROM appointments WHERE status IN ('scheduled','confirmed','in-progress') AND start_timestamptz IS NOT NULL AND end_timestamptz IS NOT NULL AND start_timestamptz < ${end} AND end_timestamptz > ${start} LIMIT 1`);
+        if((conflictResult as any).rows?.length)return res.status(409).json({message:"Availability override cannot double-book an existing appointment. Choose a non-overlapping time."});
+      }else{
+        const openSlots=await getOpenSlots(storage,fromZonedTime(`${input.date}T00:00:00`,"America/Chicago"),fromZonedTime(`${nextDateText}T00:00:00`,"America/Chicago"),input.durationMinutes,15,APPOINTMENT_BUFFER_MINUTES);
+        if(!openSlots.some(slot=>new Date(slot).getTime()===start.getTime()))return res.status(409).json({message:"That time is unavailable because it overlaps another appointment or blocked time, or falls outside your working hours. Choose another time, or intentionally check Override availability."});
+      }
+    }catch(error){console.error("Request visit availability check failed:",error);return res.status(503).json({message:"The calendar could not safely verify this time. Nothing was scheduled; please try again."});}
+    const isConsultation=request.request_kind==='consultation';const appointmentLabel=isConsultation?'Consultation':'Site Visit';
+    let appointment;try{appointment=await db.transaction(async tx=>{const [created]=await tx.insert(appointments).values({customerId:Number(request.contact_id),firstName:request.contact.first_name,lastName:request.contact.last_name,email:request.contact.email,phone:request.contact.phone||null,bookingType:"consultation",serviceType:`${request.request_number} · ${appointmentLabel}`,appointmentDate:legacyCalendarDate(dateText),appointmentTime:timeText,startTimestamptz:start,endTimestamptz:end,address:address||null,street:request.property?.street||"Not provided",city:request.property?.city||"Not provided",state:request.property?.state||"MO",zip:request.property?.zip||"Not provided",rescheduleToken:crypto.randomBytes(24).toString("hex"),rescheduleExpires:new Date(Date.now()+30*86400000),sequence:0,smsConsent:request.intake_details?.smsConsent===true,notes:input.notes||null,status:"scheduled",source:"manual"}).returning();await tx.execute(sql`UPDATE appointments SET request_id=${requestId},property_id=${request.property_id||null},schedule_kind=${isConsultation?'consultation':'site_visit'},estimated_crew_hours=${String(input.durationMinutes/60)} WHERE id=${created.id}`);await tx.execute(sql`UPDATE requests SET status='visit_scheduled',next_action=${isConsultation?'Complete consultation':'Complete site visit'},updated_at=NOW() WHERE id=${requestId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata,occurred_at) VALUES (${request.contact_id},${request.property_id||null},${requestId},'appointment',${String(created.id)},'scheduled',${input.overrideAvailability?`${appointmentLabel} scheduled with availability override`:`${appointmentLabel} scheduled`},'schedule','shared',${JSON.stringify({start:start.toISOString(),end:end.toISOString(),availabilityOverridden:input.overrideAvailability})}::jsonb,${start})`);return created;});}catch(error){if((error as any)?.code==="23P01")return res.status(409).json({message:"That time was just taken by another appointment. Nothing was scheduled; choose another time."});throw error;}
+    try{const event=await createEvent({summary:`${isConsultation?'CONSULTATION':'SITE VISIT'} · ${request.request_number} · ${request.title||"Request"}`,description:input.notes||request.customer_description,location:address||undefined,start,end,attendees:[request.contact.email],appointmentId:appointment.id});if(event.id)await storage.updateAppointmentGoogleEventId(appointment.id,event.id);}catch(error){console.error("Request site visit Google Calendar sync failed:",error);}
+    let emailSent=false,smsSent=false;
+    try{emailSent=await getEmailService().sendAppointmentConfirmation(appointment,appointment.rescheduleToken||"");}catch(error){console.error("Request consultation confirmation email failed:",error);}
+    let smsSkippedReason:string|null=!appointment.phone?"customer has no phone number":!appointment.smsConsent?"SMS consent is not recorded":null;
+    if(appointment.smsConsent&&appointment.phone){try{smsSent=await smsService.sendAppointmentConfirmation(appointment.phone,appointmentShortDateLabel(appointment),appointmentTimeLabel(appointment));if(!smsSent)smsSkippedReason="text delivery was not confirmed";}catch(error){smsSkippedReason="text service failed";console.error("Request consultation confirmation text failed:",error);}}
+    const emailSkippedReason=emailSent?null:!appointment.email?"customer has no email address":"email delivery was not confirmed";
+    res.status(201).json({...appointment,emailSent,emailSkippedReason,smsSent,smsSkippedReason,availabilityOverridden:input.overrideAvailability});
   });
 
-  const requestProposalInput=z.object({scope:z.string().trim().min(2).max(5000),price:z.coerce.number().positive().max(10000000),depositRequired:z.coerce.number().min(0).max(10000000).default(0),approximateDuration:z.string().trim().min(1).max(200).default("To be scheduled after approval"),includedWork:z.string().trim().max(3000).default(""),excludedWork:z.string().trim().max(3000).default(""),terms:z.string().trim().max(2000).default("Payment is due according to the agreed project schedule."),validDays:z.coerce.number().int().min(1).max(90).default(14)});
+  const requestProposalInput=z.object({scope:z.string().trim().min(2).max(5000),price:z.coerce.number().positive().max(10000000),depositRequired:z.coerce.number().min(0).max(10000000).optional(),approximateDuration:z.string().trim().min(1).max(200).default("To be scheduled after approval"),includedWork:z.string().trim().max(3000).default(""),excludedWork:z.string().trim().max(3000).default(""),terms:z.string().trim().max(2000).default("A 50% deposit is required to reserve the project. The remaining balance is due upon completion unless otherwise agreed in writing."),validDays:z.coerce.number().int().min(1).max(90).default(14)});
+
+  app.post("/api/admin/os/requests/:id/quote-builder", requireAdmin, async (req, res) => {
+    if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS !== "true") return res.status(409).json({ message: "The Requests workspace is not active." });
+    const requestId = z.coerce.number().int().positive().parse(req.params.id);
+    const result = await db.execute(sql`SELECT r.*, row_to_json(c) contact, row_to_json(p) property
+      FROM requests r
+      LEFT JOIN customers c ON c.id=r.contact_id
+      LEFT JOIN properties p ON p.id=r.property_id
+      WHERE r.id=${requestId}`);
+    const request = (result as any).rows?.[0];
+    if (!request) return res.status(404).json({ message: "Request not found." });
+    if (!request.contact) return res.status(409).json({ message: "Assign a customer to this Request before building a quote." });
+    if (!request.contact.email) return res.status(409).json({ message: "Add the customer's email address before building a quote." });
+
+    const existing = await db.execute(sql`SELECT id FROM quotes WHERE request_id=${requestId} ORDER BY revision_number DESC, id DESC LIMIT 1`);
+    let quoteId = Number((existing as any).rows?.[0]?.id || 0);
+    if (!quoteId) {
+      const inserted = await db.execute(sql`INSERT INTO quotes(
+        first_name,last_name,email,phone,company,street,city,state,zip,service_needed,message,lead_source,status,customer_id,property_id,request_id
+      ) VALUES (
+        ${request.contact.first_name},${request.contact.last_name},${request.contact.email},${request.contact.phone||null},${request.contact.company||null},
+        ${request.property?.street||null},${request.property?.city||null},${request.property?.state||null},${request.property?.zip||null},
+        ${request.title||"Service request"},${request.customer_description||""},${request.source||"request"},'contacted',
+        ${request.contact_id},${request.property_id||null},${requestId}
+      ) RETURNING id`);
+      quoteId = Number((inserted as any).rows?.[0]?.id || 0);
+    } else {
+      const proposalState = await db.execute(sql`SELECT status FROM quote_proposals WHERE quote_id=${quoteId} LIMIT 1`);
+      const proposalStatus = (proposalState as any).rows?.[0]?.status;
+      if (!proposalStatus || proposalStatus === "draft") {
+        await db.execute(sql`UPDATE quotes SET
+          first_name=${request.contact.first_name},last_name=${request.contact.last_name},email=${request.contact.email},phone=${request.contact.phone||null},company=${request.contact.company||null},
+          street=${request.property?.street||request.contact.street||null},city=${request.property?.city||request.contact.city||null},state=${request.property?.state||request.contact.state||null},zip=${request.property?.zip||request.contact.zip||null},
+          customer_id=${request.contact_id},property_id=${request.property_id||null}
+          WHERE id=${quoteId}`);
+      }
+    }
+    const quote = quoteId ? await storage.getQuote(quoteId) : undefined;
+    if (!quote) return res.status(500).json({ message: "The professional quote record could not be prepared." });
+    res.json(quote);
+  });
+
   app.post("/api/admin/os/requests/:id/proposals",requireAdmin,async(req,res)=>{
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=requestProposalInput.parse(req.body);
     const rr=await db.execute(sql`SELECT r.*,row_to_json(c) contact,row_to_json(p) property FROM requests r JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id WHERE r.id=${requestId}`);const request=(rr as any).rows?.[0];if(!request)return res.status(404).json({message:"Request with a resolved Contact was not found"});const proposalState=await db.execute(sql`SELECT qp.status FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id WHERE q.request_id=${requestId} LIMIT 1`);const existingStatus=(proposalState as any).rows?.[0]?.status;if(existingStatus&&existingStatus!=="draft")return res.status(409).json({message:"The customer-facing Proposal is already sent or final and cannot be silently rewritten. Create a revision workflow instead."});
     const proposal=await db.transaction(async tx=>{let quoteResult=await tx.execute(sql`SELECT id FROM quotes WHERE request_id=${requestId} ORDER BY id LIMIT 1`);let quoteId=Number((quoteResult as any).rows?.[0]?.id||0);if(!quoteId){const inserted=await tx.execute(sql`INSERT INTO quotes(first_name,last_name,email,phone,company,street,city,state,zip,service_needed,message,lead_source,status,customer_id,property_id,request_id) VALUES (${request.contact.first_name},${request.contact.last_name},${request.contact.email},${request.contact.phone||null},${request.contact.company||null},${request.property?.street||null},${request.property?.city||null},${request.property?.state||null},${request.property?.zip||null},${request.title||"Service request"},${request.customer_description},${request.source},'contacted',${request.contact_id},${request.property_id||null},${requestId}) RETURNING id`);quoteId=Number((inserted as any).rows?.[0]?.id);}
-      const existing=await tx.execute(sql`SELECT id,status FROM quote_proposals WHERE quote_id=${quoteId}`);const current=(existing as any).rows?.[0];if(current&&current.status!=="draft")throw new Error("PROPOSAL_ALREADY_SENT");const validUntil=new Date(Date.now()+input.validDays*86400000);const quoteNumber=`HT-${new Date().getFullYear()}-${String(quoteId).padStart(4,"0")}`;const tokenHash=crypto.createHash("sha256").update(crypto.randomBytes(32).toString("hex")).digest("hex");const notes=[`[PROJECT SUMMARY]\n${input.scope}`,`[INCLUDED WORK]\n${input.includedWork||input.scope}`,input.excludedWork?`[EXCLUSIONS & ASSUMPTIONS]\n${input.excludedWork}`:"",`[ESTIMATED DURATION]\n${input.approximateDuration}`,`[PAYMENT TERMS]\n${input.terms}`].filter(Boolean).join("\n\n");
-      const saved=await tx.execute(sql`INSERT INTO quote_proposals(quote_id,quote_number,token_hash,line_items,discount,tax_rate,subtotal,tax,total,notes,valid_until,status,sent_at,deposit_required,approximate_duration,included_work,excluded_work,proposal_terms) VALUES (${quoteId},${quoteNumber},${tokenHash},${JSON.stringify([{description:request.title||"Approved project scope",quantity:1,rate:input.price,details:input.scope}])}::jsonb,0,0,${input.price},0,${input.price},${notes},${validUntil},'draft',NOW(),${input.depositRequired},${input.approximateDuration},${input.includedWork||input.scope},${input.excludedWork||null},${input.terms}) ON CONFLICT(quote_id) DO UPDATE SET line_items=EXCLUDED.line_items,subtotal=EXCLUDED.subtotal,total=EXCLUDED.total,notes=EXCLUDED.notes,valid_until=EXCLUDED.valid_until,deposit_required=EXCLUDED.deposit_required,approximate_duration=EXCLUDED.approximate_duration,included_work=EXCLUDED.included_work,excluded_work=EXCLUDED.excluded_work,proposal_terms=EXCLUDED.proposal_terms,updated_at=NOW() WHERE quote_proposals.status='draft' RETURNING *`);const row=(saved as any).rows?.[0];if(!row)throw new Error("PROPOSAL_ALREADY_SENT");await tx.execute(sql`UPDATE requests SET status='proposal_ready',next_action='Review and send proposal',updated_at=NOW() WHERE id=${requestId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${request.contact_id},${request.property_id||null},${requestId},'proposal',${String(row.id)},'proposal_drafted',${`Proposal ${row.quote_number} drafted`},'admin','internal',${JSON.stringify({price:input.price,depositRequired:input.depositRequired})}::jsonb)`);return row;});res.status(201).json(proposal);
+      const existing=await tx.execute(sql`SELECT id,status FROM quote_proposals WHERE quote_id=${quoteId}`);const current=(existing as any).rows?.[0];if(current&&current.status!=="draft")throw new Error("PROPOSAL_ALREADY_SENT");const validUntil=new Date(Date.now()+input.validDays*86400000);const quoteNumber=`HT-${new Date().getFullYear()}-${String(quoteId).padStart(4,"0")}`;const tokenHash=crypto.createHash("sha256").update(crypto.randomBytes(32).toString("hex")).digest("hex");const depositRequired=Math.round(input.price*50)/100;const terms=input.terms.includes("50%")?input.terms:`A 50% deposit (${depositRequired.toLocaleString("en-US",{style:"currency",currency:"USD"})}) is required to reserve the project. ${input.terms}`;const notes=[`[PROJECT SUMMARY]\n${input.scope}`,`[INCLUDED WORK]\n${input.includedWork||input.scope}`,input.excludedWork?`[EXCLUSIONS & ASSUMPTIONS]\n${input.excludedWork}`:"",`[ESTIMATED DURATION]\n${input.approximateDuration}`,`[PAYMENT TERMS]\n${terms}`].filter(Boolean).join("\n\n");
+      const saved=await tx.execute(sql`INSERT INTO quote_proposals(quote_id,quote_number,token_hash,line_items,discount,tax_rate,subtotal,tax,total,notes,valid_until,status,sent_at,deposit_required,approximate_duration,included_work,excluded_work,proposal_terms) VALUES (${quoteId},${quoteNumber},${tokenHash},${JSON.stringify([{description:request.title||"Approved project scope",quantity:1,rate:input.price,details:input.scope}])}::jsonb,0,0,${input.price},0,${input.price},${notes},${validUntil},'draft',NOW(),${depositRequired},${input.approximateDuration},${input.includedWork||input.scope},${input.excludedWork||null},${terms}) ON CONFLICT(quote_id) DO UPDATE SET line_items=EXCLUDED.line_items,subtotal=EXCLUDED.subtotal,total=EXCLUDED.total,notes=EXCLUDED.notes,valid_until=EXCLUDED.valid_until,deposit_required=EXCLUDED.deposit_required,approximate_duration=EXCLUDED.approximate_duration,included_work=EXCLUDED.included_work,excluded_work=EXCLUDED.excluded_work,proposal_terms=EXCLUDED.proposal_terms,updated_at=NOW() WHERE quote_proposals.status='draft' RETURNING *`);const row=(saved as any).rows?.[0];if(!row)throw new Error("PROPOSAL_ALREADY_SENT");await tx.execute(sql`UPDATE requests SET status='proposal_ready',next_action='Review and send proposal',updated_at=NOW() WHERE id=${requestId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${request.contact_id},${request.property_id||null},${requestId},'proposal',${String(row.id)},'proposal_drafted',${`Proposal ${row.quote_number} drafted`},'admin','internal',${JSON.stringify({price:input.price,depositRequired})}::jsonb)`);return row;});res.status(201).json(proposal);
   });
 
   app.post("/api/admin/os/requests/:requestId/proposals/:proposalId/send",requireAdmin,async(req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.requestId);const proposalId=z.coerce.number().int().positive().parse(req.params.proposalId);const result=await db.execute(sql`SELECT qp.*,row_to_json(q) quote,r.contact_id,r.property_id FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id JOIN requests r ON r.id=q.request_id WHERE qp.id=${proposalId} AND r.id=${requestId}`);const row=(result as any).rows?.[0];if(!row)return res.status(404).json({message:"Proposal not found"});if(row.status!=="draft")return res.status(409).json({message:"Only a draft proposal can be sent"});const rawToken=crypto.randomBytes(32).toString("hex");const tokenHash=crypto.createHash("sha256").update(rawToken).digest("hex");const updated=await db.transaction(async tx=>{const sent=await tx.execute(sql`UPDATE quote_proposals SET token_hash=${tokenHash},status='sent',sent_at=NOW(),updated_at=NOW() WHERE id=${proposalId} AND status='draft' RETURNING *`);await tx.execute(sql`UPDATE requests SET status='proposal_sent',next_action='Await customer response',updated_at=NOW() WHERE id=${requestId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata) VALUES (${row.contact_id},${row.property_id||null},${requestId},'proposal',${String(proposalId)},'proposal_sent',${`Proposal ${row.quote_number} sent`},'email','outbound','shared',${JSON.stringify({total:row.total})}::jsonb)`);return (sent as any).rows?.[0];});const quote=await storage.getQuote(Number(row.quote_id));if(!quote)throw new Error("Proposal quote compatibility record not found");const proposalUrl=`${process.env.BASE_URL||"https://handytech-solutions.com"}/quote/${rawToken}`;const pdfBuffer=await generateQuotePdfBuffer(quote,updated);await getEmailService().sendPreparedQuote({quoteNumber:updated.quoteNumber,customerName:`${quote.firstName} ${quote.lastName}`,customerEmail:quote.email,serviceAddress:[quote.street,quote.city,quote.state,quote.zip].filter(Boolean).join(", "),lineItems:updated.lineItems,discount:updated.discount,taxRate:updated.taxRate,subtotal:updated.subtotal,tax:updated.tax,total:updated.total,validDays:Math.max(1,Math.ceil((new Date(updated.validUntil).getTime()-Date.now())/86400000)),notes:updated.notes||"",proposalUrl,pdfBuffer});res.json({message:"Proposal sent",proposal:updated});});
@@ -5420,9 +6013,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const contactResult = await db.execute(sql`SELECT * FROM customers WHERE id=${id}`);
     const contact = (contactResult as any).rows?.[0];
     if (!contact) return res.status(404).json({ message: "Contact not found" });
-    const [propertiesResult,requestsResult,jobsResult,invoicesResult,activityResult,appointmentsResult,reviewsResult] = await Promise.all([
+    const [propertiesResult,requestsResult,proposalsResult,jobsResult,invoicesResult,activityResult,appointmentsResult,reviewsResult] = await Promise.all([
       db.execute(sql`SELECT p.*,cp.relationship,cp.is_primary FROM contact_properties cp JOIN properties p ON p.id=cp.property_id WHERE cp.contact_id=${id} ORDER BY cp.is_primary DESC,p.id`),
       db.execute(sql`SELECT * FROM requests WHERE contact_id=${id} ORDER BY received_at DESC`),
+      db.execute(sql`SELECT qp.*,q.id quote_id,q.service_needed,q.request_id,r.request_number FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id LEFT JOIN requests r ON r.id=q.request_id WHERE LOWER(TRIM(q.email))=LOWER(TRIM(${contact.email})) ORDER BY qp.sent_at DESC NULLS LAST,qp.updated_at DESC`),
       db.execute(sql`SELECT * FROM jobs WHERE customer_id=${id} ORDER BY updated_at DESC`),
       db.execute(sql`SELECT * FROM invoices WHERE customer_id=${id} ORDER BY issue_date DESC`),
       db.execute(sql`SELECT * FROM activity_events WHERE contact_id=${id} ORDER BY occurred_at DESC LIMIT 200`),
@@ -5430,7 +6024,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       db.execute(sql`SELECT * FROM reviews WHERE customer_id=${id} ORDER BY created_at DESC`),
     ]);
     const rows = (value: any) => value.rows || value;
-    res.json({ contact, properties: rows(propertiesResult), requests: rows(requestsResult), jobs: rows(jobsResult), invoices: rows(invoicesResult), activity: rows(activityResult), appointments: rows(appointmentsResult), reviews: rows(reviewsResult) });
+    res.json({ contact, properties: rows(propertiesResult), requests: rows(requestsResult), proposals: rows(proposalsResult), jobs: rows(jobsResult), invoices: rows(invoicesResult), activity: rows(activityResult), appointments: rows(appointmentsResult), reviews: rows(reviewsResult) });
   });
 
   app.get("/api/admin/os/properties/:id", requireAdmin, async (req, res) => {
@@ -5454,14 +6048,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.json([]);
     const dateValue=z.string().regex(/^\d{4}-\d{2}-\d{2}$/); const from=dateValue.parse(req.query.from||new Date().toISOString().slice(0,10)); const to=dateValue.parse(req.query.to||new Date(Date.now()+14*86400000).toISOString().slice(0,10));
     const result=await db.execute(sql`
-      WITH days AS (SELECT generate_series(${from}::date,${to}::date,'1 day')::date day),
+      WITH schedule_days AS (SELECT generate_series(${from}::date,${to}::date,'1 day'::interval)::date AS service_day),
       resource AS (SELECT GREATEST(COUNT(*) FILTER(WHERE is_active),1)::numeric workers,COALESCE(SUM(weekly_capacity_hours) FILTER(WHERE is_active),40)/5 available_per_weekday FROM workers),
-      demand AS (SELECT (start_timestamptz AT TIME ZONE 'America/Chicago')::date day,
+      demand AS (SELECT (start_timestamptz AT TIME ZONE 'America/Chicago')::date AS service_day,
         SUM(COALESCE(estimated_crew_hours,EXTRACT(EPOCH FROM(end_timestamptz-start_timestamptz))/3600,0)) demand_hours
         FROM appointments WHERE status IN('scheduled','confirmed','in-progress') AND start_timestamptz IS NOT NULL AND start_timestamptz>=${from}::date AND start_timestamptz<(${to}::date+1) GROUP BY 1)
-      SELECT d.day,CASE WHEN EXTRACT(ISODOW FROM d.day)<=5 THEN r.available_per_weekday ELSE 0 END available_hours,
-        COALESCE(dm.demand_hours,0) sold_hours,CASE WHEN EXTRACT(ISODOW FROM d.day)<=5 THEN r.available_per_weekday ELSE 0 END-COALESCE(dm.demand_hours,0) remaining_hours
-      FROM days d CROSS JOIN resource r LEFT JOIN demand dm ON dm.day=d.day ORDER BY d.day
+      SELECT d.service_day AS day,CASE WHEN EXTRACT(ISODOW FROM d.service_day)<=5 THEN r.available_per_weekday ELSE 0 END available_hours,
+        COALESCE(dm.demand_hours,0) sold_hours,CASE WHEN EXTRACT(ISODOW FROM d.service_day)<=5 THEN r.available_per_weekday ELSE 0 END-COALESCE(dm.demand_hours,0) remaining_hours
+      FROM schedule_days d CROSS JOIN resource r LEFT JOIN demand dm ON dm.service_day=d.service_day ORDER BY d.service_day
     `);
     res.json((result as any).rows||result);
   });
@@ -5498,14 +6092,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/operations/jobs", requireAdmin, async (_req, res) => {
     const result = await db.execute(sql.raw(`
       SELECT j.*, c.first_name, c.last_name, c.email, c.phone,
-        COALESCE(i.total, 0) AS invoice_total,
+        COALESCE(i.invoice_total, 0) AS invoice_total,
         COALESCE(i.amount_paid, 0) AS amount_paid,
         COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id), 0) AS expenses,
         COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id AND e.category = 'materials'), 0) AS material_cost,
         COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id = j.id AND e.category = 'labor'), 0) AS labor_cost,
         COALESCE((SELECT SUM(co.amount) FROM change_orders co WHERE co.job_id = j.id AND co.status = 'accepted'), 0) AS approved_changes
       FROM jobs j JOIN customers c ON c.id = j.customer_id
-      LEFT JOIN invoices i ON i.id = j.invoice_id
+      LEFT JOIN LATERAL (
+        SELECT COALESCE(SUM(ix.total) FILTER (WHERE ix.status <> 'void'),0) invoice_total,
+          COALESCE(SUM(ix.amount_paid) FILTER (WHERE ix.status <> 'void'),0) amount_paid
+        FROM invoices ix
+        WHERE ix.job_id=j.id OR (ix.job_id IS NULL AND ix.id=j.invoice_id)
+      ) i ON true
       ORDER BY CASE j.status WHEN 'in_progress' THEN 1 WHEN 'scheduled' THEN 2 WHEN 'approved' THEN 3 WHEN 'quoted' THEN 4 WHEN 'lead' THEN 5 ELSE 6 END, j.updated_at DESC
     `));
     res.json((result as any).rows || result);
@@ -5523,6 +6122,66 @@ export async function registerRoutes(app: Express): Promise<Server> {
     `));
     const row = (result as any).rows?.[0] || {};
     res.json({ newConsultations: Number(row.new_consultations || 0), quoteRequests: Number(row.quote_requests || 0), quotesWaiting: Number(row.quotes_waiting || 0), invoicesDue: Number(row.invoices_due || 0), todayAppointments: Number(row.today_appointments || 0), reviewsNeeded: Number(row.reviews_needed || 0) });
+  });
+
+  app.get("/api/admin/operations/pricing-intelligence", requireAdmin, async (_req, res) => {
+    const [funnelResult, jobsResult, servicesResult] = await Promise.all([
+      db.execute(sql.raw(`
+        SELECT
+          COUNT(*) FILTER (WHERE status IN ('sent','viewed','changes_requested','accepted','declined'))::int AS sent,
+          COUNT(*) FILTER (WHERE status='accepted')::int AS accepted,
+          COUNT(*) FILTER (WHERE status='declined')::int AS declined,
+          COUNT(*) FILTER (WHERE status='changes_requested')::int AS changes_requested,
+          AVG(total) FILTER (WHERE status='accepted') AS accepted_average,
+          AVG(total) FILTER (WHERE status='declined') AS declined_average
+        FROM quote_proposals
+      `)),
+      db.execute(sql.raw(`
+        WITH completed AS (
+          SELECT j.id, j.title, j.status, qp.total quoted_total,
+            COALESCE((SELECT SUM(i.amount_paid) FROM invoices i WHERE i.job_id=j.id AND i.status<>'void'),0) collected,
+            COALESCE((SELECT SUM(e.amount) FROM job_expenses e WHERE e.job_id=j.id),0) direct_cost,
+            COALESCE((SELECT SUM(w.labor_hours) FROM work_logs w WHERE w.job_id=j.id AND w.entry_type='labor'),0) work_log_hours,
+            COALESCE((SELECT SUM(e.labor_hours) FROM job_expenses e WHERE e.job_id=j.id AND e.category='labor'),0) expense_hours,
+            EXISTS(SELECT 1 FROM job_expenses e WHERE e.job_id=j.id) has_costs
+          FROM jobs j LEFT JOIN quote_proposals qp ON qp.id=j.quote_proposal_id
+          WHERE j.status IN ('completed','paid','closed')
+        )
+        SELECT COUNT(*)::int completed_jobs,
+          COUNT(*) FILTER (WHERE has_costs)::int jobs_with_costs,
+          COUNT(*) FILTER (WHERE GREATEST(work_log_hours,expense_hours)>0)::int jobs_with_hours,
+          COUNT(*) FILTER (WHERE collected>0)::int jobs_with_collected_revenue,
+          COALESCE(SUM(collected),0) collected,
+          COALESCE(SUM(direct_cost),0) direct_cost,
+          COALESCE(SUM(GREATEST(work_log_hours,expense_hours)),0) labor_hours,
+          CASE WHEN SUM(collected)>0 THEN ROUND(((SUM(collected)-SUM(direct_cost))/SUM(collected)*100)::numeric,1) ELSE NULL END gross_margin_percent
+        FROM completed
+      `)),
+      db.execute(sql.raw(`
+        SELECT COALESCE(NULLIF(TRIM(q.service_needed),''),'Uncategorized') service,
+          COUNT(qp.id)::int quoted,
+          COUNT(qp.id) FILTER (WHERE qp.status='accepted')::int accepted,
+          COUNT(qp.id) FILTER (WHERE qp.status='declined')::int declined,
+          AVG(qp.total) FILTER (WHERE qp.status='accepted') accepted_average
+        FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id
+        GROUP BY 1 ORDER BY COUNT(qp.id) DESC, 1 LIMIT 12
+      `)),
+    ]);
+    const funnel = (funnelResult as any).rows?.[0] || {};
+    const actuals = (jobsResult as any).rows?.[0] || {};
+    const sent = Number(funnel.sent || 0), accepted = Number(funnel.accepted || 0);
+    const completed = Number(actuals.completed_jobs || 0), withCosts = Number(actuals.jobs_with_costs || 0), withHours = Number(actuals.jobs_with_hours || 0), withRevenue = Number(actuals.jobs_with_collected_revenue || 0);
+    res.json({
+      funnel: { sent, accepted, declined: Number(funnel.declined || 0), changesRequested: Number(funnel.changes_requested || 0), acceptanceRate: sent ? Math.round(accepted / sent * 1000) / 10 : null, acceptedAverage: funnel.accepted_average == null ? null : Number(funnel.accepted_average), declinedAverage: funnel.declined_average == null ? null : Number(funnel.declined_average) },
+      actuals: { completed, withCosts, withHours, withRevenue, collected: Number(actuals.collected || 0), directCost: Number(actuals.direct_cost || 0), laborHours: Number(actuals.labor_hours || 0), grossMarginPercent: actuals.gross_margin_percent == null ? null : Number(actuals.gross_margin_percent), completeJobs: Math.min(withCosts, withHours, withRevenue) },
+      services: ((servicesResult as any).rows || []).map((row: any) => ({ service: row.service, quoted: Number(row.quoted || 0), accepted: Number(row.accepted || 0), declined: Number(row.declined || 0), acceptedAverage: row.accepted_average == null ? null : Number(row.accepted_average) })),
+      publicBenchmarks: { reviewedAt: "2026-09-17", reviewEveryMonths: 6, sources: [
+        { name: "U.S. Bureau of Labor Statistics", purpose: "Trade wage baseline", url: "https://www.bls.gov/ooh/Construction-and-Extraction/Drywall-and-ceiling-tile-installers-and-tapers.htm" },
+        { name: "St. Louis Open Data", purpose: "Permit and remodeling activity", url: "https://www.stlouis-mo.gov/data/datasets/dataset.cfm?id=1" },
+        { name: "Angi St. Louis", purpose: "Broad homeowner price ranges", url: "https://www.angi.com/articles/what-are-common-handyman-prices/mo/st-louis" },
+      ] },
+      guidance: completed < 5 ? "Keep recording hours, receipts, and payments. Public ranges remain secondary until at least five complete paid jobs are available." : "Your completed-job history is now the primary pricing evidence; public ranges remain a reasonableness check.",
+    });
   });
 
   app.get("/api/admin/operations/jobs/:id/workspace", requireAdmin, async (req, res) => {
@@ -5592,7 +6251,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const billed=Number((totalsResult as any).rows?.[0]?.billed||0);const contract=Number((contractResult as any).rows?.[0]?.contract_value||0);
     if(contract>0&&billed+input.amount>contract+0.005)return res.status(400).json({message:`Invoice exceeds the remaining contract value of $${Math.max(0,contract-billed).toFixed(2)}`});
     const sequence=`${Date.now().toString().slice(-7)}${crypto.randomInt(10,99)}`;
-    const created=await db.transaction(async tx=>{const [invoice]=await tx.insert(invoices).values({customerId:Number(job.customer_id),jobId,quoteProposalId:job.quote_proposal_id||null,invoiceNumber:`INV-${new Date().getFullYear()}-${sequence}`,tokenHash:crypto.randomBytes(32).toString("hex"),lineItems:[{description:input.description,quantity:1,rate:input.amount}],discount:0,taxRate:0,subtotal:input.amount,tax:0,total:input.amount,amountPaid:0,depositRequired:input.depositRequired,dueDate:input.dueDate,notes:input.notes||`Invoice for ${job.job_number} · ${job.title}`,terms:"Payment is due by the date shown above.",status:"draft"}).returning();await tx.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${Number(job.customer_id)},${jobId},'invoice',${String(invoice.id)},'invoice_drafted',${`Invoice ${invoice.invoiceNumber} drafted`},'financial','shared',${JSON.stringify({total:input.amount,dueDate:input.dueDate.toISOString()})}::jsonb)`);return invoice;});
+    const created=await db.transaction(async tx=>{const [invoice]=await tx.insert(invoices).values({customerId:Number(job.customer_id),jobId,quoteProposalId:job.quote_proposal_id||null,invoiceNumber:`INV-${new Date().getFullYear()}-${sequence}`,tokenHash:crypto.randomBytes(32).toString("hex"),lineItems:[{description:input.description,quantity:1,rate:input.amount}],discount:0,taxRate:0,subtotal:input.amount,tax:0,total:input.amount,amountPaid:0,depositRequired:input.depositRequired,dueDate:input.dueDate,notes:input.notes||`Invoice for ${job.job_number} · ${job.title}`,terms:"Payment is due by the date shown above.",status:"draft"}).returning();await tx.execute(sql`UPDATE jobs SET invoice_id=COALESCE(invoice_id,${invoice.id}),updated_at=NOW() WHERE id=${jobId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${Number(job.customer_id)},${jobId},'invoice',${String(invoice.id)},'invoice_drafted',${`Invoice ${invoice.invoiceNumber} drafted`},'financial','shared',${JSON.stringify({total:input.amount,dueDate:input.dueDate.toISOString()})}::jsonb)`);return invoice;});
     res.status(201).json(created);
   });
 
@@ -5634,10 +6293,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/admin/operations/jobs/:id/closeout/complete",requireAdmin,async(req,res)=>{
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
     const jobId=z.coerce.number().int().positive().parse(req.params.id);
-    const result=await db.execute(sql`SELECT j.id,j.customer_id,COUNT(ci.*)::int item_count,COUNT(ci.*) FILTER(WHERE ci.completed)::int completed_count,COALESCE((SELECT SUM(GREATEST(i.total-i.amount_paid,0)) FROM invoices i WHERE i.job_id=j.id AND i.status<>'void'),0) balance FROM jobs j LEFT JOIN job_closeout_items ci ON ci.job_id=j.id WHERE j.id=${jobId} GROUP BY j.id`);const job=(result as any).rows?.[0];if(!job)return res.status(404).json({message:"Job not found"});
+    const result=await db.execute(sql`SELECT j.id,j.customer_id,j.request_id,COUNT(ci.*)::int item_count,COUNT(ci.*) FILTER(WHERE ci.completed)::int completed_count,COALESCE((SELECT SUM(GREATEST(i.total-i.amount_paid,0)) FROM invoices i WHERE i.job_id=j.id AND i.status<>'void'),0) balance FROM jobs j LEFT JOIN job_closeout_items ci ON ci.job_id=j.id WHERE j.id=${jobId} GROUP BY j.id`);const job=(result as any).rows?.[0];if(!job)return res.status(404).json({message:"Job not found"});
     if(Number(job.item_count)<1||Number(job.completed_count)!==Number(job.item_count))return res.status(409).json({message:"Complete every closeout checklist item first"});
     if(Number(job.balance)>0.005)return res.status(409).json({message:`Resolve the outstanding customer balance of $${Number(job.balance).toFixed(2)} before closing the Job`});
-    await db.transaction(async tx=>{await tx.execute(sql`UPDATE jobs SET status='closed',closeout_status='complete',closed_at=NOW(),updated_at=NOW() WHERE id=${jobId}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility) VALUES (${Number(job.customer_id)},${jobId},'job',${String(jobId)},'job_closed','Job closeout completed','operations','shared')`);});
+    await db.transaction(async tx=>{await tx.execute(sql`UPDATE jobs SET status='closed',closeout_status='complete',closed_at=NOW(),updated_at=NOW() WHERE id=${jobId}`);if(job.request_id)await tx.execute(sql`UPDATE requests SET status='closed',next_action='Job completed',closed_at=COALESCE(closed_at,NOW()),updated_at=NOW() WHERE id=${Number(job.request_id)}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,request_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility) VALUES (${Number(job.customer_id)},${job.request_id ? Number(job.request_id) : null},${jobId},'job',${String(jobId)},'job_closed','Job closeout completed; linked Request resolved','operations','shared')`);});
     res.json({success:true,status:"closed"});
   });
 
@@ -5656,8 +6315,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.patch("/api/admin/operations/jobs/:id", requireAdmin, async (req, res) => {
     const id = Number(req.params.id);
     const input = z.object({ status: z.enum(jobStatuses) }).parse(req.body);
+    if(input.status==="invoiced"||input.status==="paid"){
+      const financial=await db.execute(sql`SELECT COUNT(*) FILTER(WHERE status<>'void')::int invoice_count,COALESCE(SUM(amount_paid) FILTER(WHERE status<>'void'),0) paid,COALESCE(SUM(total) FILTER(WHERE status<>'void'),0) total FROM invoices WHERE job_id=${id}`);const row=(financial as any).rows?.[0]||{};
+      if(Number(row.invoice_count)<1)return res.status(409).json({message:"Create and send a real invoice from the Job Money tab; the Job cannot be labeled invoiced without one."});
+      if(input.status==="paid"&&Number(row.paid)+0.005<Number(row.total))return res.status(409).json({message:"Record the customer payment against the invoice first; the Job becomes paid automatically when its balance reaches zero."});
+    }
+    if(input.status==="cancelled"){
+      const existing=await db.execute(sql`SELECT j.*,COALESCE((SELECT SUM(i.amount_paid) FROM invoices i WHERE i.job_id=j.id AND i.status<>'void'),0) amount_paid FROM jobs j WHERE j.id=${id}`);const current=(existing as any).rows?.[0];
+      if(!current)return res.status(404).json({message:"Job not found"});
+      if(Number(current.amount_paid)>0)return res.status(409).json({message:"This Job has a recorded payment and cannot be cancelled. Refund or correct the payment first, or close the Job instead."});
+      const job=await db.transaction(async tx=>{const updated=await tx.execute(sql`UPDATE jobs SET status='cancelled',updated_at=NOW() WHERE id=${id} RETURNING *`);await tx.execute(sql`UPDATE appointments SET status='cancelled' WHERE job_id=${id} AND status IN('scheduled','confirmed') AND start_timestamptz>NOW()`);if(current.request_id)await tx.execute(sql`UPDATE requests SET status='closed',next_action='Job cancelled',closed_at=COALESCE(closed_at,NOW()),updated_at=NOW() WHERE id=${Number(current.request_id)}`);await tx.execute(sql`INSERT INTO activity_events(contact_id,request_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${Number(current.customer_id)},${current.request_id ? Number(current.request_id) : null},${id},'job',${String(id)},'job_cancelled','Job cancelled — linked Request resolved','operations','internal',${JSON.stringify({previousStatus:current.status})}::jsonb)`);return (updated as any).rows?.[0];});
+      return res.json(job);
+    }
     const [job] = await db.update(jobs).set({ status: input.status, updatedAt: new Date() }).where(eq(jobs.id, id)).returning();
     if (!job) return res.status(404).json({ message: "Job not found" });
+    if(["completed","paid","closed"].includes(input.status))await db.execute(sql`UPDATE requests SET status='closed',next_action=${input.status === "completed" ? "Job completed" : input.status === "paid" ? "Job paid" : "Job closed"},closed_at=COALESCE(closed_at,NOW()),updated_at=NOW() WHERE id=(SELECT request_id FROM jobs WHERE id=${id})`);
     res.json(job);
   });
 
@@ -5666,12 +6338,61 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(rows);
   });
 
-  app.post("/api/admin/operations/jobs/:id/expenses", requireAdmin, handleOptionalImageUpload("receipt", 1), async (req: Request, res: Response) => {
+  app.post("/api/admin/operations/receipts/analyze", requireAdmin, receiptUpload.single("receipt"), async (req: Request, res: Response) => {
+    try {
+      const receipt = req.file;
+      if (!receipt) return res.status(400).json({ message: "Choose a receipt photo first." });
+      await validateReceiptUpload(receipt);
+      const client = getOpenAI();
+      if (!client) return res.status(503).json({ message: "Smart receipt reading is not configured yet." });
+      const response = await client.responses.create({
+        model: process.env.OPENAI_RECEIPT_MODEL || process.env.OPENAI_QUOTE_MODEL || process.env.OPENAI_CHAT_MODEL || "gpt-4o-mini",
+        instructions: "Read this contractor expense receipt or payment-provider fee statement. Extract only values visibly supported by the document. Use the final expense amount actually paid as total, not a subtotal or the customer payment amount. Use YYYY-MM-DD for purchaseDate. Create a short useful description of the purchased goods, service, or processing charge. Choose payment_fees for card, bank-transfer, Venmo, PayPal, Stripe, Square, or other payment-processing charges. Do not invent unreadable values. The owner will review every field before saving.",
+        input: [{ role: "user", content: [
+          { type: "input_text", text: "Extract the vendor, purchase date, final total, description, and bookkeeping category from this receipt." },
+          ...(receipt.mimetype === "application/pdf"
+            ? [{ type: "input_file" as const, filename: receipt.originalname || "receipt.pdf", file_data: `data:application/pdf;base64,${receipt.buffer.toString("base64")}` }]
+            : [{ type: "input_image" as const, image_url: `data:${receipt.mimetype};base64,${receipt.buffer.toString("base64")}`, detail: "high" as const }]),
+        ] }],
+        text: { format: { type: "json_schema", name: "handytech_receipt", strict: true, schema: {
+          type: "object", additionalProperties: false,
+          properties: {
+            vendor: { type: "string", maxLength: 200 },
+            purchaseDate: { type: "string", maxLength: 10 },
+            total: { type: ["number", "null"], minimum: 0 },
+            description: { type: "string", maxLength: 500 },
+            category: { type: "string", enum: ["materials", "labor", "fuel", "equipment", "rental", "disposal", "payment_fees", "fees", "subcontractor", "other"] },
+            confidence: { type: "string", enum: ["high", "medium", "low"] },
+          },
+          required: ["vendor", "purchaseDate", "total", "description", "category", "confidence"],
+        } } },
+        max_output_tokens: 600,
+      });
+      if (!response.output_text) return res.status(502).json({ message: "The receipt could not be read. Enter its details manually." });
+      const result = z.object({
+        vendor: z.string().trim().max(200),
+        purchaseDate: z.string().regex(/^$|^\d{4}-\d{2}-\d{2}$/),
+        total: z.number().nonnegative().nullable(),
+        description: z.string().trim().max(500),
+        category: z.enum(["materials", "labor", "fuel", "equipment", "rental", "disposal", "payment_fees", "fees", "subcontractor", "other"]),
+        confidence: z.enum(["high", "medium", "low"]),
+      }).parse(JSON.parse(response.output_text));
+      res.json(result);
+    } catch (error) {
+      console.error("Receipt analysis error:", error);
+      if ((error as any)?.status === 429 && (error as any)?.code === "credit_balance_exhausted") return res.status(503).json({ message: "OpenAI API billing needs credits before smart receipt reading can run." });
+      if (error instanceof z.ZodError) return res.status(502).json({ message: "The receipt was partly readable, but its extracted values were invalid. Enter the details manually." });
+      res.status(500).json({ message: "The receipt could not be read. Your photo was not saved; you can retry or enter the details manually." });
+    }
+  });
+
+  app.post("/api/admin/operations/jobs/:id/expenses", requireAdmin, receiptUpload.single("receipt"), async (req: Request, res: Response) => {
     const jobId = Number(req.params.id);
-    const processedImages = ((req as any).processedImages || []) as ProcessedImage[];
+    const processedImages: ProcessedImage[] = [];
+    let savedPdfPath: string | null = null;
     try {
       const input = z.object({
-        category: z.enum(["materials", "labor", "fuel", "equipment", "rental", "disposal", "fees", "subcontractor", "other"]),
+        category: z.enum(["materials", "labor", "fuel", "equipment", "rental", "disposal", "payment_fees", "fees", "subcontractor", "other"]),
         description: z.string().trim().min(2).max(500),
         amount: z.coerce.number().positive(),
         vendor: z.string().trim().max(200).optional(),
@@ -5679,7 +6400,26 @@ export async function registerRoutes(app: Express): Promise<Server> {
         hourlyRate: z.coerce.number().positive().optional(),
         expenseDate: z.string().optional(),
       }).parse(req.body);
-      const receiptUrl = processedImages[0]?.sizes.large.url;
+      let receiptUrl: string | undefined;
+      if (req.file) {
+        await validateReceiptUpload(req.file);
+        if (req.file.mimetype === "application/pdf") {
+          const folder = path.join("receipts", new Date().toISOString().slice(0, 7));
+          const directory = path.join(UPLOAD_CONFIG.uploadDir, folder);
+          await fs.mkdir(directory, { recursive: true });
+          const filename = `${crypto.randomUUID()}.pdf`;
+          const finalPath = path.join(directory, filename);
+          const temporaryPath = `${finalPath}.uploading`;
+          await fs.writeFile(temporaryPath, req.file.buffer, { flag: "wx" });
+          await fs.rename(temporaryPath, finalPath);
+          savedPdfPath = finalPath;
+          receiptUrl = `/uploads/${folder.replace(/\\/g, "/")}/${filename}`;
+        } else {
+          const image = await processUploadedImage(req.file.buffer, req.file.originalname, req.file.mimetype);
+          processedImages.push(image);
+          receiptUrl = image.sizes.large.url;
+        }
+      }
       const [expense] = await db.insert(jobExpenses).values({
         jobId,
         category: input.category,
@@ -5694,6 +6434,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(expense);
     } catch (error) {
       if (processedImages.length) await cleanupUploadedFiles(processedImages);
+      if (savedPdfPath) await fs.unlink(savedPdfPath).catch(() => undefined);
       if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the expense details", errors: error.errors });
       throw error;
     }
@@ -5730,6 +6471,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json({...order,approvalUrl:approvalToken?`${process.env.BASE_URL||"https://handytech-solutions.com"}/change-order/${approvalToken}`:undefined});
   });
 
+  app.post("/api/admin/operations/change-orders/:id/invoice", requireAdmin, async (req, res) => {
+    if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});
+    const changeOrderId=z.coerce.number().int().positive().parse(req.params.id);
+    const input=z.object({dueDate:z.coerce.date().optional()}).parse(req.body);
+    const result=await db.execute(sql`SELECT co.*,j.customer_id,j.quote_proposal_id,j.job_number,j.title FROM change_orders co JOIN jobs j ON j.id=co.job_id WHERE co.id=${changeOrderId}`);
+    const order=(result as any).rows?.[0];
+    if(!order)return res.status(404).json({message:"Change Order not found"});
+    if(order.status!=="accepted")return res.status(409).json({message:"Only a customer-approved Change Order can be invoiced"});
+    if(order.invoice_id){const existing=await db.execute(sql`SELECT * FROM invoices WHERE id=${Number(order.invoice_id)}`);return res.json({invoice:(existing as any).rows?.[0],created:false});}
+    if(Number(order.amount)<=0)return res.status(409).json({message:"Credits require adjustment of a draft invoice and cannot create a payment invoice"});
+    const dueDate=input.dueDate||new Date(Date.now()+14*86400000);
+    const sequence=`${Date.now().toString().slice(-7)}${crypto.randomInt(10,99)}`;
+    const created=await db.transaction(async tx=>{
+      const [invoice]=await tx.insert(invoices).values({customerId:Number(order.customer_id),jobId:Number(order.job_id),quoteProposalId:order.quote_proposal_id||null,invoiceNumber:`INV-${new Date().getFullYear()}-${sequence}`,tokenHash:crypto.randomBytes(32).toString("hex"),lineItems:[{description:`Approved Change Order: ${order.description}`,quantity:1,rate:Number(order.amount)}],discount:0,taxRate:0,subtotal:Number(order.amount),tax:0,total:Number(order.amount),amountPaid:0,depositRequired:0,dueDate,notes:`Supplemental invoice for approved Change Order on ${order.job_number} · ${order.title}`,terms:"Payment is due by the date shown above.",status:"draft"}).returning();
+      const linked=await tx.execute(sql`UPDATE change_orders SET invoice_id=${invoice.id} WHERE id=${changeOrderId} AND invoice_id IS NULL RETURNING id`);
+      if(!(linked as any).rows?.length)throw new Error("CHANGE_ORDER_ALREADY_INVOICED");
+      await tx.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${Number(order.customer_id)},${Number(order.job_id)},'invoice',${String(invoice.id)},'change_order_invoiced',${`Approved Change Order invoiced as ${invoice.invoiceNumber}`},'financial','shared',${JSON.stringify({changeOrderId,total:Number(order.amount)})}::jsonb)`);
+      return invoice;
+    });
+    res.status(201).json({invoice:created,created:true});
+  });
+
   app.get("/api/change-orders/:token",rlSensitive,async(req,res)=>{try{const token=z.string().regex(/^[a-f0-9]{64}$/).parse(req.params.token);const hash=crypto.createHash("sha256").update(token).digest("hex");const result=await db.execute(sql`SELECT co.id,co.description,co.amount,co.status,co.sent_at,co.responded_at,co.signer_name,j.job_number,j.title,c.first_name,c.last_name FROM change_orders co JOIN jobs j ON j.id=co.job_id JOIN customers c ON c.id=j.customer_id WHERE co.token_hash=${hash}`);const row=(result as any).rows?.[0];if(!row)return res.status(404).json({message:"Change Order not found"});res.setHeader("Cache-Control","no-store");res.json(row);}catch{return res.status(404).json({message:"Change Order not found"});}});
   app.post("/api/change-orders/:token/respond",rlSensitive,async(req,res)=>{try{const token=z.string().regex(/^[a-f0-9]{64}$/).parse(req.params.token);const input=z.object({decision:z.enum(["accepted","declined"]),signerName:z.string().trim().min(2).max(120),acceptedTerms:z.boolean()}).parse(req.body);if(input.decision==="accepted"&&!input.acceptedTerms)return res.status(400).json({message:"Accept the Change Order terms before approving."});const hash=crypto.createHash("sha256").update(token).digest("hex");const result=await db.execute(sql`UPDATE change_orders SET status=${input.decision},responded_at=NOW(),signer_name=${input.signerName} WHERE token_hash=${hash} AND status='sent' RETURNING *`);const order=(result as any).rows?.[0];if(!order)return res.status(409).json({message:"This Change Order was already answered or is unavailable."});if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true")await db.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${order.job_id},'change_order',${String(order.id)},${`change_order_${input.decision}`},${`Change Order ${input.decision} by customer`},'portal','shared',${JSON.stringify({amount:order.amount,signerName:input.signerName})}::jsonb)`);res.json({status:input.decision,message:"Your decision has been recorded."});}catch(error){if(error instanceof z.ZodError)return res.status(400).json({message:"Check your response and try again."});throw error;}});
 
@@ -5755,12 +6518,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/admin/operations/summary", requireAdmin, async (_req, res) => {
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true"){
-      const[invoiceResult,expenseResult,jobResult]=await Promise.all([db.execute(sql.raw(`SELECT COALESCE(SUM(total),0) billed,COALESCE(SUM(amount_paid),0) collected,COALESCE(SUM(total-amount_paid) FILTER(WHERE status NOT IN('void','paid')),0) outstanding FROM invoices`)),db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) expenses FROM job_expenses`)),db.execute(sql.raw(`SELECT COUNT(*) FILTER(WHERE status NOT IN('paid','closed')) active,COUNT(*) FILTER(WHERE status='completed') completed FROM jobs`))]);const m=(invoiceResult as any).rows?.[0]||{},e=(expenseResult as any).rows?.[0]||{},j=(jobResult as any).rows?.[0]||{};const billed=Number(m.billed||0),collected=Number(m.collected||0),costs=Number(e.expenses||0);return res.json({contractValue:billed,billedRevenue:billed,cashCollected:collected,outstandingReceivables:Number(m.outstanding||0),directJobCosts:costs,grossProfit:billed-costs,businessOverhead:0,operatingProfit:billed-costs,billed,collected,outstanding:Number(m.outstanding||0),expenses:costs,activeJobs:Number(j.active||0),completedJobs:Number(j.completed||0)});
+      const[invoiceResult,expenseResult,jobResult]=await Promise.all([db.execute(sql.raw(`SELECT COALESCE(SUM(total),0) billed,COALESCE(SUM(amount_paid),0) collected,COALESCE(SUM(total-amount_paid) FILTER(WHERE status NOT IN('void','paid')),0) outstanding FROM invoices`)),db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) expenses FROM job_expenses`)),db.execute(sql.raw(`SELECT COUNT(*) FILTER(WHERE status NOT IN('paid','closed','cancelled')) active,COUNT(*) FILTER(WHERE status='completed') completed FROM jobs`))]);const m=(invoiceResult as any).rows?.[0]||{},e=(expenseResult as any).rows?.[0]||{},j=(jobResult as any).rows?.[0]||{};const billed=Number(m.billed||0),collected=Number(m.collected||0),costs=Number(e.expenses||0);return res.json({contractValue:billed,billedRevenue:billed,cashCollected:collected,outstandingReceivables:Number(m.outstanding||0),directJobCosts:costs,grossProfit:billed-costs,businessOverhead:0,operatingProfit:billed-costs,billed,collected,outstanding:Number(m.outstanding||0),expenses:costs,activeJobs:Number(j.active||0),completedJobs:Number(j.completed||0)});
     }
     const [invoiceResult, expenseResult, jobResult, contractResult, overheadResult] = await Promise.all([
       db.execute(sql.raw(`SELECT COALESCE(SUM(total) FILTER (WHERE status<>'void'),0) billed, COALESCE(SUM(amount_paid) FILTER (WHERE status<>'void'),0) collected, COALESCE(SUM(GREATEST(total-amount_paid,0)) FILTER (WHERE status NOT IN ('void','paid')),0) outstanding FROM invoices`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) expenses FROM job_expenses`)),
-      db.execute(sql.raw(`SELECT COUNT(*) FILTER (WHERE status NOT IN ('paid','closed')) active, COUNT(*) FILTER (WHERE status='completed') completed FROM jobs`)),
+      db.execute(sql.raw(`SELECT COUNT(*) FILTER (WHERE status NOT IN ('paid','closed','cancelled')) active, COUNT(*) FILTER (WHERE status='completed') completed FROM jobs`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(j.original_contract_value),0)+COALESCE((SELECT SUM(amount) FROM change_orders WHERE status='accepted'),0) contract_value FROM jobs j`)),
       db.execute(sql.raw(`SELECT COALESCE(SUM(amount),0) overhead FROM business_expenses`)),
     ]);
@@ -5777,11 +6540,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       COALESCE(i.total,0) revenue, COALESCE(i.amount_paid,0) collected,
       COALESCE(SUM(e.amount) FILTER (WHERE e.category='materials'),0) materials,
       COALESCE(SUM(e.amount) FILTER (WHERE e.category='labor'),0) labor,
-      COALESCE(SUM(e.amount) FILTER (WHERE e.category NOT IN ('materials','labor')),0) other_costs,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.category='payment_fees'),0) payment_fees,
+      COALESCE(SUM(e.amount) FILTER (WHERE e.category NOT IN ('materials','labor','payment_fees')),0) other_costs,
       COALESCE(SUM(e.amount),0) total_costs, COALESCE(i.total,0)-COALESCE(SUM(e.amount),0) gross_profit
       FROM jobs j JOIN customers c ON c.id=j.customer_id LEFT JOIN invoices i ON i.id=j.invoice_id LEFT JOIN job_expenses e ON e.job_id=j.id
       GROUP BY j.id,c.id,i.id ORDER BY j.created_at DESC`));
-    const rows = (result as any).rows || []; const fields = ["job_number","title","status","first_name","last_name","email","revenue","collected","materials","labor","other_costs","total_costs","gross_profit"];
+    const rows = (result as any).rows || []; const fields = ["job_number","title","status","first_name","last_name","email","revenue","collected","materials","labor","payment_fees","other_costs","total_costs","gross_profit"];
     const csv = [fields.join(","), ...rows.map((row: any) => fields.map((field) => `"${String(row[field] ?? "").replace(/"/g, '""')}"`).join(","))].join("\n");
     res.setHeader("Content-Type", "text/csv; charset=utf-8"); res.setHeader("Content-Disposition", `attachment; filename="handytech-accounting-${new Date().toISOString().slice(0,10)}.csv"`); res.send(csv);
   });

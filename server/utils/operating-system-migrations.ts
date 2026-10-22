@@ -79,6 +79,9 @@ const migrations: Migration[] = [
       ALTER TABLE quotes ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
       ALTER TABLE quotes ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL;
       ALTER TABLE quotes ADD COLUMN IF NOT EXISTS request_id INTEGER REFERENCES requests(id) ON DELETE SET NULL;
+      ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision_root_quote_id INTEGER;
+      ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision_of_quote_id INTEGER;
+      ALTER TABLE quotes ADD COLUMN IF NOT EXISTS revision_number INTEGER NOT NULL DEFAULT 0;
       ALTER TABLE consultations ADD COLUMN IF NOT EXISTS customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL;
       ALTER TABLE consultations ADD COLUMN IF NOT EXISTS property_id INTEGER REFERENCES properties(id) ON DELETE SET NULL;
       ALTER TABLE consultations ADD COLUMN IF NOT EXISTS request_id INTEGER REFERENCES requests(id) ON DELETE SET NULL;
@@ -526,6 +529,180 @@ const migrations: Migration[] = [
       );
       CREATE INDEX IF NOT EXISTS inbound_mail_events_status_idx ON inbound_mail_events(status,received_at DESC);
       CREATE INDEX IF NOT EXISTS inbound_mail_events_lead_idx ON inbound_mail_events(referral_lead_id);
+    `,
+  },
+  {
+    version: "20260924_012_consultation_service_address",
+    description: "Capture consultation service addresses and preserve them through the customer, Property, and Request workflow",
+    statement: `
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS street TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS city TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS state TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS zip TEXT;
+    `,
+  },
+  {
+    version: "20260925_013_consultation_intake_workflow",
+    description: "Structured consultation qualification, optional intake photos, and shared Request intake details",
+    statement: `
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS preferred_contact TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS sms_consent BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS property_type TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS timeframe TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS is_authorized BOOLEAN NOT NULL DEFAULT false;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS budget_range TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS best_contact_time TEXT;
+      ALTER TABLE consultations ADD COLUMN IF NOT EXISTS photo_urls TEXT[];
+      ALTER TABLE requests ADD COLUMN IF NOT EXISTS intake_details JSONB NOT NULL DEFAULT '{}'::jsonb;
+      ALTER TABLE requests ADD COLUMN IF NOT EXISTS request_kind TEXT NOT NULL DEFAULT 'job_request';
+    `,
+  },
+  {
+    version: "20260925_014_request_kind_backfill",
+    description: "Classify preserved consultation, quote, referral, and appointment Requests without changing their history",
+    statement: `
+      UPDATE requests SET request_kind='consultation' WHERE legacy_type='consultation';
+      UPDATE requests SET request_kind='job_request' WHERE legacy_type IN ('quote','referral_lead');
+      UPDATE requests r SET request_kind=CASE WHEN a.booking_type='consultation' THEN 'consultation' ELSE 'service_request' END
+      FROM appointments a WHERE r.legacy_type='appointment' AND r.legacy_id=a.id::text;
+    `,
+  },
+  {
+    version: "20260925_015_deterministic_relationship_repairs",
+    description: "Repair provable Contact, Property, appointment timeline, and Job lifecycle relationships without guessing ambiguous history",
+    statement: `
+      INSERT INTO properties(street,city,state,zip,normalized_address)
+      SELECT NULLIF(TRIM(c.street),''),NULLIF(TRIM(c.city),''),NULLIF(TRIM(c.state),''),NULLIF(TRIM(c.zip),''),
+        LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(c.street),TRIM(c.city),TRIM(c.state),TRIM(c.zip)),'\\s+',' ','g'))
+      FROM customers c WHERE COALESCE(TRIM(c.street),'')<>''
+      ON CONFLICT (normalized_address) WHERE normalized_address IS NOT NULL AND normalized_address<>'' DO NOTHING;
+
+      INSERT INTO contact_properties(contact_id,property_id,relationship,is_primary)
+      SELECT c.id,p.id,'owner',NOT EXISTS(SELECT 1 FROM contact_properties existing WHERE existing.contact_id=c.id)
+      FROM customers c JOIN properties p ON p.normalized_address=LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(c.street),TRIM(c.city),TRIM(c.state),TRIM(c.zip)),'\\s+',' ','g'))
+      WHERE COALESCE(TRIM(c.street),'')<>''
+      ON CONFLICT (contact_id,property_id,relationship) DO NOTHING;
+
+      INSERT INTO properties(street,city,state,zip,normalized_address)
+      SELECT NULLIF(TRIM(a.street),''),NULLIF(TRIM(a.city),''),NULLIF(TRIM(a.state),''),NULLIF(TRIM(a.zip),''),
+        LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(a.street),TRIM(a.city),TRIM(a.state),TRIM(a.zip)),'\\s+',' ','g'))
+      FROM appointments a WHERE a.property_id IS NULL AND COALESCE(TRIM(a.street),'')<>''
+      ON CONFLICT (normalized_address) WHERE normalized_address IS NOT NULL AND normalized_address<>'' DO NOTHING;
+
+      UPDATE appointments a SET property_id=p.id FROM properties p
+      WHERE a.property_id IS NULL AND COALESCE(TRIM(a.street),'')<>''
+        AND p.normalized_address=LOWER(REGEXP_REPLACE(CONCAT_WS('|',TRIM(a.street),TRIM(a.city),TRIM(a.state),TRIM(a.zip)),'\\s+',' ','g'));
+      INSERT INTO contact_properties(contact_id,property_id,relationship,is_primary)
+      SELECT a.customer_id,a.property_id,'service_contact',false FROM appointments a
+      WHERE a.customer_id IS NOT NULL AND a.property_id IS NOT NULL
+      ON CONFLICT (contact_id,property_id,relationship) DO NOTHING;
+
+      INSERT INTO activity_events(contact_id,property_id,request_id,job_id,entity_type,entity_id,event_type,summary,channel,visibility,occurred_at)
+      SELECT a.customer_id,a.property_id,a.request_id,a.job_id,'appointment',a.id::text,'appointment_preserved',
+        'Historical appointment preserved in timeline','migration','shared',COALESCE(a.start_timestamptz,a.created_at)
+      FROM appointments a WHERE NOT EXISTS(SELECT 1 FROM activity_events e WHERE e.entity_type='appointment' AND e.entity_id=a.id::text);
+
+      UPDATE jobs j SET request_id=q.request_id,property_id=COALESCE(j.property_id,q.property_id)
+      FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id
+      WHERE j.quote_proposal_id=qp.id AND (j.request_id IS NULL OR j.property_id IS NULL);
+      UPDATE jobs j SET property_id=cp.property_id FROM contact_properties cp
+      WHERE j.property_id IS NULL AND cp.contact_id=j.customer_id AND cp.is_primary=true;
+      INSERT INTO requests(request_number,contact_id,property_id,source,source_detail,request_kind,legacy_type,legacy_id,title,customer_description,status,next_action,received_at)
+      SELECT 'REQ-JOB-'||j.id,j.customer_id,j.property_id,'historical','job_repair','service_request','job',j.id::text,j.title,COALESCE(j.description,''),'approved','Continue job workflow',j.created_at
+      FROM jobs j WHERE j.request_id IS NULL AND j.customer_id IS NOT NULL
+      ON CONFLICT (legacy_type,legacy_id) WHERE legacy_type IS NOT NULL AND legacy_id IS NOT NULL DO NOTHING;
+      UPDATE jobs j SET request_id=r.id FROM requests r WHERE j.request_id IS NULL AND r.legacy_type='job' AND r.legacy_id=j.id::text;
+    `,
+  },
+  {
+    version: "20260925_016_single_distinct_property_repair",
+    description: "Link Jobs and their Requests when a Contact has exactly one distinct Property despite duplicate historical relationship rows",
+    statement: `
+      WITH single_property AS (
+        SELECT contact_id,MIN(property_id) property_id
+        FROM contact_properties
+        GROUP BY contact_id
+        HAVING COUNT(DISTINCT property_id)=1
+      )
+      UPDATE jobs j SET property_id=sp.property_id
+      FROM single_property sp
+      WHERE j.property_id IS NULL AND sp.contact_id=j.customer_id;
+
+      UPDATE requests r SET property_id=j.property_id
+      FROM jobs j
+      WHERE r.id=j.request_id AND r.property_id IS NULL AND j.property_id IS NOT NULL;
+    `,
+  },
+  {
+    version: "20260925_017_change_order_invoicing",
+    description: "Link each approved Change Order to its supplemental invoice for auditable billing",
+    statement: `
+      ALTER TABLE change_orders
+      ADD COLUMN IF NOT EXISTS invoice_id INTEGER REFERENCES invoices(id) ON DELETE SET NULL;
+      CREATE INDEX IF NOT EXISTS change_orders_invoice_id_idx ON change_orders(invoice_id);
+    `,
+  },
+  {
+    version: "20261005_018_resolve_terminal_job_requests",
+    description: "Resolve historical Requests already converted through an accepted quote or terminal Job",
+    statement: `
+      UPDATE requests r
+      SET status='closed',
+        next_action=CASE WHEN j.status='cancelled' THEN 'Job cancelled' WHEN j.status IN ('completed','paid','closed') THEN 'Job completed' ELSE 'Continue in Job' END,
+        closed_at=COALESCE(r.closed_at,j.closed_at,j.updated_at,NOW()),
+        updated_at=NOW()
+      FROM jobs j
+      WHERE j.request_id=r.id
+        AND (
+          j.status IN ('completed','paid','closed','cancelled')
+          OR EXISTS (
+            SELECT 1
+            FROM quotes q
+            JOIN quote_proposals qp ON qp.quote_id=q.id
+            WHERE q.request_id=r.id AND qp.status='accepted'
+          )
+        )
+        AND r.status NOT IN ('closed','declined','duplicate');
+    `,
+  },
+  {
+    version: "20261006_019_link_historical_invoices_to_jobs",
+    description: "Link historical quote invoices to their single matching Job and synchronize payment status",
+    statement: `
+      WITH candidates AS (
+        SELECT i.id invoice_id,MIN(j.id) job_id,COUNT(DISTINCT j.id) match_count
+        FROM invoices i
+        LEFT JOIN quote_proposals qp ON qp.id=i.quote_proposal_id
+        LEFT JOIN quotes q ON q.id=qp.quote_id
+        JOIN jobs j ON j.customer_id=i.customer_id AND (
+          (i.quote_proposal_id IS NOT NULL AND j.quote_proposal_id=i.quote_proposal_id)
+          OR (i.request_id IS NOT NULL AND j.request_id=i.request_id)
+          OR (q.job_id IS NOT NULL AND j.id=q.job_id)
+          OR (q.request_id IS NOT NULL AND j.request_id=q.request_id)
+        )
+        WHERE i.job_id IS NULL
+        GROUP BY i.id
+      )
+      UPDATE invoices i SET job_id=c.job_id,updated_at=NOW()
+      FROM candidates c
+      WHERE i.id=c.invoice_id AND c.match_count=1;
+
+      UPDATE jobs j SET
+        invoice_id=COALESCE(j.invoice_id,linked.invoice_id),
+        status=CASE
+          WHEN j.status IN ('closed','cancelled') THEN j.status
+          WHEN linked.all_paid THEN 'paid'
+          ELSE 'invoiced'
+        END,
+        updated_at=NOW()
+      FROM (
+        SELECT job_id,MIN(id) invoice_id,
+          BOOL_AND(status='paid') FILTER (WHERE status<>'void') all_paid
+        FROM invoices
+        WHERE job_id IS NOT NULL
+        GROUP BY job_id
+      ) linked
+      WHERE j.id=linked.job_id;
     `,
   },
 ];
