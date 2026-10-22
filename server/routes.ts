@@ -69,6 +69,7 @@ import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsu
 import { buildMigrationReconciliation, inventoryLegacySources } from "./utils/migration-reconciliation";
 import { buildRelationshipParity } from "./utils/relationship-parity";
 import { calculatePricingGuardrails } from "./utils/pricing-guardrails";
+import { extractExplicitQuotePricing } from "./utils/quote-pricing-split";
 import { referralMailScheduler } from "./referral-mail-scheduler";
 
 const receiptUpload = multer({
@@ -3525,6 +3526,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
             state: quote.state,
           },
           contractorSubtotalOverride: input.targetSubtotal ?? null,
+          explicitlyLabeledPricing: extractExplicitQuotePricing(input.roughNotes),
         }),
         text: {
           format: {
@@ -3598,10 +3600,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       [...allocations].sort((a, b) => b.fraction - a.fraction).forEach((allocation) => {
         if (remainingCents > 0) { allocations[allocation.index].cents += 1; remainingCents -= 1; }
       });
+      const explicitPricing = extractExplicitQuotePricing(input.roughNotes);
+      const explicitLaborCents = explicitPricing.labor == null ? null : Math.round(explicitPricing.labor * 100);
+      const explicitMaterialCents = explicitPricing.materials == null ? null : Math.round(explicitPricing.materials * 100);
+      if (explicitLaborCents != null && explicitMaterialCents != null && explicitLaborCents + explicitMaterialCents !== targetCents) {
+        return res.status(400).json({ message: `The labeled labor (${explicitPricing.labor!.toLocaleString("en-US", { style: "currency", currency: "USD" })}) and materials (${explicitPricing.materials!.toLocaleString("en-US", { style: "currency", currency: "USD" })}) do not equal the ${usedSubtotal.toLocaleString("en-US", { style: "currency", currency: "USD" })} subtotal. Correct one of those numbers before generating the quote.` });
+      }
+      if (explicitLaborCents != null && explicitLaborCents > targetCents) return res.status(400).json({ message: "The labeled labor amount is greater than the project subtotal." });
+      if (explicitMaterialCents != null && explicitMaterialCents > targetCents) return res.status(400).json({ message: "The labeled materials amount is greater than the project subtotal." });
       const projectWeight = draft.laborAllocationWeight + draft.materialAllocationWeight;
-      if (projectWeight <= 0) return res.status(502).json({ message: "The AI assistant did not separate the project's labor and materials. Please try again." });
-      const materialCents = Math.round(targetCents * draft.materialAllocationWeight / projectWeight);
-      const laborCents = targetCents - materialCents;
+      if (explicitLaborCents == null && explicitMaterialCents == null && projectWeight <= 0) return res.status(502).json({ message: "The AI assistant did not separate the project's labor and materials. Please try again." });
+      const materialCents = explicitMaterialCents
+        ?? (explicitLaborCents != null ? targetCents - explicitLaborCents : Math.round(targetCents * draft.materialAllocationWeight / projectWeight));
+      const laborCents = explicitLaborCents ?? (targetCents - materialCents);
       const lineItems = draft.lineItems.map((item, index) => ({
         description: item.description,
         details: item.details,
