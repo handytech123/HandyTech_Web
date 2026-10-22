@@ -3729,7 +3729,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: sourceProposal.subtotal,
         tax: sourceProposal.tax,
         total: sourceProposal.total,
-        depositRequired: sourceProposal.depositRequired || laborBasedDeposit(sourceProposal.lineItems, sourceProposal.total),
+        depositRequired: laborBasedDeposit(sourceProposal.lineItems, sourceProposal.total),
         notes: sourceProposal.notes,
         validUntil: sourceProposal.validUntil,
         status: "draft",
@@ -3893,7 +3893,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: proposal.subtotal,
         tax: proposal.tax,
         total: proposal.total,
-        depositRequired: proposal.depositRequired,
+        depositRequired: laborBasedDeposit(proposal.lineItems, proposal.total),
         notes: proposal.notes,
         validUntil: proposal.validUntil,
         status: proposal.status,
@@ -3915,7 +3915,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const quote = await storage.getQuote(id);
       const proposal = await storage.getQuoteProposalByQuoteId(id);
       if (!quote || !proposal) return res.status(404).json({ message: "Generated quote not found" });
-      const buffer = await generateQuotePdfBuffer(quote, proposal);
+      const buffer = await generateQuotePdfBuffer(quote, {
+        ...proposal,
+        depositRequired: laborBasedDeposit(proposal.lineItems, proposal.total),
+      });
       res.setHeader("Content-Type", "application/pdf");
       res.setHeader("Content-Disposition", `inline; filename="${proposal.quoteNumber}.pdf"`);
       res.send(buffer);
@@ -4044,7 +4047,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tax: row.proposal.tax,
         total: row.proposal.total,
         amountPaid: 0,
-        depositRequired: Number(row.proposal.depositRequired || laborBasedDeposit(row.proposal.lineItems || [], Number(row.proposal.total))),
+        depositRequired: laborBasedDeposit(row.proposal.lineItems || [], Number(row.proposal.total)),
         notes: row.proposal.notes || `Invoice for ${row.quote.serviceNeeded}.`,
         terms: "Payment is due by the date shown above.",
         status: "draft",
@@ -4160,7 +4163,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     proposal: {
       quoteNumber: proposal.quoteNumber, lineItems: proposal.lineItems, discount: proposal.discount,
       taxRate: proposal.taxRate, subtotal: proposal.subtotal, tax: proposal.tax, total: proposal.total,
-      depositRequired: proposal.depositRequired,
+      depositRequired: laborBasedDeposit(proposal.lineItems || [], Number(proposal.total)),
       notes: proposal.notes, validUntil: proposal.validUntil, status: proposal.status, sentAt: proposal.sentAt,
       viewedAt: proposal.viewedAt, respondedAt: proposal.respondedAt, signerName: proposal.signerName,
     },
