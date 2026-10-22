@@ -1,15 +1,19 @@
-import { Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
+import { Award, Mail, MapPin, Phone, ShieldCheck } from "lucide-react";
 
 export default function ContactBanner() {
   return (
     <div className="bg-slate-950 text-slate-100">
-      <div className="mx-auto flex min-h-10 max-w-7xl items-center justify-between gap-4 px-4 py-2 text-xs sm:px-6 lg:px-8">
-        <div className="flex items-center gap-4">
+      <div className="mx-auto flex min-h-10 max-w-7xl flex-wrap items-center justify-center gap-x-4 gap-y-1 px-4 py-2 text-xs sm:justify-between sm:px-6 lg:px-8">
+        <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 sm:justify-start">
+          <span className="flex items-center gap-1.5 font-semibold text-amber-300">
+            <Award className="h-3.5 w-3.5" />
+            Best Handyman Award · 2025 &amp; 2026
+          </span>
           <span className="hidden items-center gap-1.5 sm:flex">
             <MapPin className="h-3.5 w-3.5 text-sky-400" />
             Serving the St. Louis metro area
           </span>
-          <span className="flex items-center gap-1.5">
+          <span className="hidden items-center gap-1.5 lg:flex">
             <ShieldCheck className="h-3.5 w-3.5 text-sky-400" />
             Family owned &amp; insured
           </span>

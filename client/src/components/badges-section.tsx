@@ -7,7 +7,7 @@ export default function BadgesSection() {
       <div className="mx-auto grid max-w-6xl items-center gap-6 px-4 sm:grid-cols-3 sm:px-6">
         <div className="flex items-center justify-center gap-3">
           <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-50"><Award className="h-6 w-6 text-amber-600" /></div>
-          <div><p className="font-bold text-slate-900">Best Handyman 2025</p><p className="text-sm text-slate-500">North County Chamber</p></div>
+          <div><p className="font-bold text-slate-900">Best Handyman 2025 &amp; 2026</p><p className="text-sm text-slate-500">North County Chamber</p></div>
         </div>
         <div className="flex flex-col items-center border-slate-200 sm:border-x">
           <p className="mb-2 text-[11px] font-bold uppercase tracking-[0.14em] text-slate-500">Pro Referral Provider</p>
