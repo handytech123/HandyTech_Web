@@ -124,6 +124,11 @@ function schedulingHoursFromEstimate(estimatedDuration?: string | null): number 
   return 6;
 }
 
+function laborBasedDeposit(lineItems: Array<{ estimatedLaborAmount?: number | null }>, fallbackTotal: number): number {
+  const labor = lineItems.reduce((sum, item) => sum + Math.max(0, Number(item.estimatedLaborAmount || 0)), 0);
+  return Math.round((labor > 0 ? labor : fallbackTotal) * 50) / 100;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/google5fb6625abfb841e9.html", (_req, res) => {
     res.type("text/plain").send("google-site-verification: google5fb6625abfb841e9.html");
@@ -3724,7 +3729,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         subtotal: sourceProposal.subtotal,
         tax: sourceProposal.tax,
         total: sourceProposal.total,
-        depositRequired: sourceProposal.depositRequired || Math.round(sourceProposal.total * 50) / 100,
+        depositRequired: sourceProposal.depositRequired || laborBasedDeposit(sourceProposal.lineItems, sourceProposal.total),
         notes: sourceProposal.notes,
         validUntil: sourceProposal.validUntil,
         status: "draft",
@@ -3818,7 +3823,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         `[WORKMANSHIP]\n${prepared.workmanship}`,
         prepared.notes ? `[ADDITIONAL NOTES]\n${prepared.notes}` : "",
       ].filter(Boolean).join("\n\n");
-      const depositRequired = Math.round(total * 50) / 100;
+      const depositRequired = laborBasedDeposit(prepared.lineItems, total);
       const proposal = await storage.saveQuoteProposal({
         quoteId: deliveryQuote.id,
         quoteNumber,
@@ -4039,7 +4044,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         tax: row.proposal.tax,
         total: row.proposal.total,
         amountPaid: 0,
-        depositRequired: Number(row.proposal.depositRequired || Math.round(row.proposal.total * 50) / 100),
+        depositRequired: Number(row.proposal.depositRequired || laborBasedDeposit(row.proposal.lineItems || [], Number(row.proposal.total))),
         notes: row.proposal.notes || `Invoice for ${row.quote.serviceNeeded}.`,
         terms: "Payment is due by the date shown above.",
         status: "draft",

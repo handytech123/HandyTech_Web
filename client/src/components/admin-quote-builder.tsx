@@ -25,6 +25,11 @@ type GuardrailAnalysis = {
   history: { quoted: number; accepted: number; completedPaid: number; acceptedAverage: number | null; confidence: "low" | "medium" | "high"; note: string };
 };
 
+const laborBasedDeposit = (lineItems: LineItem[], fallbackTotal: number) => {
+  const labor = lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0);
+  return Math.round((labor > 0 ? labor : fallbackTotal) * 50) / 100;
+};
+
 const proposalSection = (notes: string | undefined, heading: string) => {
   if (!notes) return "";
   const match = notes.match(new RegExp(`\\[${heading.replace(/[.*+?^${}()|[\\]\\]/g, "\\$&")}\\]\\n([\\s\\S]*?)(?=\\n\\n\\[[A-Z &]+\\]|$)`));
@@ -46,7 +51,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
   const [includedWork, setIncludedWork] = useState("");
   const [exclusions, setExclusions] = useState("Concealed damage or additional work discovered after work begins is not included unless approved in writing.");
   const [estimatedDuration, setEstimatedDuration] = useState("To be scheduled after approval");
-  const [paymentTerms, setPaymentTerms] = useState("A 50% deposit is required to reserve the project and begin scheduling or material purchasing. The remaining balance is due upon completion unless another written payment schedule is included in this proposal. Changes to the approved scope require written approval.");
+  const [paymentTerms, setPaymentTerms] = useState("A deposit equal to 50% of the fixed labor amount is required to reserve the project and begin scheduling. Estimated materials are not included in the deposit calculation. The remaining balance and actual approved material charges are due upon completion unless another written payment schedule is included in this proposal. Changes to the approved scope require written approval.");
   const [workmanship, setWorkmanship] = useState("Work will be completed in a professional manner using appropriate methods and materials.");
   const [pricingPresentation, setPricingPresentation] = useState<"fixed_project" | "itemized">("fixed_project");
   const [roughNotes, setRoughNotes] = useState([quote.serviceNeeded, quote.message].filter(Boolean).join("\n"));
@@ -131,7 +136,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
         paymentTerms,
         workmanship,
         pricingPresentation,
-        depositRequired: Math.round(totals.total * 50) / 100,
+        depositRequired: laborBasedDeposit(items, totals.total),
         createRevision: correctionMode,
       });
       return response.json();
@@ -383,7 +388,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
             <div className="flex justify-between"><span>Subtotal</span><span>${totals.subtotal.toFixed(2)}</span></div>
             {discount > 0 && <div className="flex justify-between"><span>Discount</span><span>-${discount.toFixed(2)}</span></div>}
             {totals.tax > 0 && <div className="flex justify-between"><span>Tax</span><span>${totals.tax.toFixed(2)}</span></div>}
-            <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total</span><span>${totals.total.toFixed(2)}</span></div><div className="flex justify-between rounded bg-blue-50 px-3 py-2 font-semibold text-blue-900"><span>50% deposit required</span><span>${(totals.total * 0.5).toFixed(2)}</span></div>
+            <div className="flex justify-between border-t pt-2 text-lg font-bold"><span>Total</span><span>${totals.total.toFixed(2)}</span></div><div className="flex justify-between rounded bg-blue-50 px-3 py-2 font-semibold text-blue-900"><span>Deposit: 50% of labor</span><span>${laborBasedDeposit(items, totals.total).toFixed(2)}</span></div>
           </div>
 
           {!isRevisionDraft && <div className="space-y-4 rounded-xl border-2 border-emerald-200 bg-emerald-50/50 p-4">
@@ -450,7 +455,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
                 <div className="flex justify-between"><span>{pricingPresentation === "fixed_project" ? "Fixed project price" : "Subtotal"}</span><span>${(viewingSaved && savedProposal ? savedProposal.subtotal : totals.subtotal).toFixed(2)}</span></div>
                 {(viewingSaved && savedProposal ? savedProposal.discount : discount) > 0 && <div className="flex justify-between"><span>Discount</span><span>-${(viewingSaved && savedProposal ? savedProposal.discount : discount).toFixed(2)}</span></div>}
                 {(viewingSaved && savedProposal ? savedProposal.tax : totals.tax) > 0 && <div className="flex justify-between"><span>Tax</span><span>${(viewingSaved && savedProposal ? savedProposal.tax : totals.tax).toFixed(2)}</span></div>}
-                <div className="flex justify-between border-t pt-2 text-xl font-bold"><span>Total investment</span><span>${(viewingSaved && savedProposal ? savedProposal.total : totals.total).toFixed(2)}</span></div><div className="mt-2 flex justify-between rounded bg-blue-50 px-3 py-2 font-semibold text-blue-900"><span>50% deposit due to reserve project</span><span>${(viewingSaved && savedProposal ? savedProposal.depositRequired : totals.total * 0.5).toFixed(2)}</span></div>
+                <div className="flex justify-between border-t pt-2 text-xl font-bold"><span>Total investment</span><span>${(viewingSaved && savedProposal ? savedProposal.total : totals.total).toFixed(2)}</span></div><div className="mt-2 flex justify-between rounded bg-blue-50 px-3 py-2 font-semibold text-blue-900"><span>Deposit: 50% of fixed labor</span><span>${(viewingSaved && savedProposal ? savedProposal.depositRequired || laborBasedDeposit(savedProposal.lineItems, savedProposal.total) : laborBasedDeposit(items, totals.total)).toFixed(2)}</span></div>
               </div>
 
               {(viewingSaved && savedProposal ? savedProposal.notes : notes) && <div className="rounded-lg bg-slate-50 p-4"><div className="text-xs font-bold uppercase tracking-wider text-slate-600">Scope and notes</div><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-slate-700">{viewingSaved && savedProposal ? savedProposal.notes : notes}</p></div>}
