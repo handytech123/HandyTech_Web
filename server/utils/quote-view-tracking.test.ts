@@ -15,6 +15,7 @@ const viewRoute = routes.slice(viewStart, pdfStart);
 assert.ok(!loadRoute.includes('status: "viewed"'), "Loading quote data must not record a customer view");
 assert.ok(viewRoute.includes('eq(quoteProposals.status, "sent")'), "View recording must atomically transition only a sent quote");
 assert.ok(viewRoute.includes("recordedView"), "View recording must suppress duplicate notifications");
+assert.ok(viewRoute.includes("alert accepted"), "Quote-view notification delivery must be auditable in production logs");
 assert.ok(page.includes("document.visibilityState"), "Customer page must verify that the quote is visible");
 assert.ok(page.includes("document.hasFocus()"), "Customer page must verify that the quote has focus");
 assert.ok(page.includes("}, 2500)"), "Customer page must remain visible before recording a view");

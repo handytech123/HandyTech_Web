@@ -4210,9 +4210,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const customerName = `${quote.firstName} ${quote.lastName}`.trim();
       const alertResults = await Promise.allSettled([
         getEmailService().sendQuoteViewedNotification({ quoteNumber: proposal.quoteNumber, customerName, customerEmail: quote.email, total: proposal.total }),
-        smsService.sendAdminAlert("Quote viewed", `${customerName} opened ${proposal.quoteNumber} (${proposal.total.toLocaleString("en-US", { style: "currency", currency: "USD" })}).`),
+        smsService.sendAdminAlert("Quote viewed", `${customerName} opened ${proposal.quoteNumber} (${proposal.total.toLocaleString("en-US", { style: "currency", currency: "USD" })}).`).then((sent) => {
+          if (!sent) throw new Error("Twilio did not accept the quote-view SMS alert");
+        }),
       ]);
-      alertResults.forEach((result) => { if (result.status === "rejected") console.error("Quote viewed alert failed:", result.reason); });
+      const channels = ["email", "sms"];
+      alertResults.forEach((result, index) => {
+        if (result.status === "rejected") console.error(`Quote viewed ${channels[index]} alert failed for ${proposal.quoteNumber}:`, result.reason);
+        else console.log(`Quote viewed ${channels[index]} alert accepted for ${proposal.quoteNumber}`);
+      });
       res.json({ recorded: true, status: "viewed", viewedAt });
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(404).json({ message: "This quote link is invalid." });
