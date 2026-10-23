@@ -181,7 +181,7 @@
     status.textContent = `Eligible ${result.lead.score}% match. Retrieving contact information for ${lead.leadCostPoints} points…`;
     const revealed = await revealContact(lead);
     const updated = await importLead(revealed);
-    const messaged = await sendFirstContact(revealed, updated.lead.id, saved);
+    const messaged = updated.alreadyContacted ? false : await sendFirstContact(revealed, updated.lead.id, saved);
     rememberProcessed(lead.externalJobId);
     status.textContent = messaged
       ? `Contact retrieved and first message sent to ${revealed.customerName}. Waiting in the Home Depot inbox.`

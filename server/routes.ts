@@ -5562,6 +5562,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  app.get("/api/admin/referral-leads/worker-download", requireAdmin, async (_req, res) => {
+    try {
+      const workerDirectory = path.resolve(process.cwd(), "tools", "home-depot-worker");
+      const files = (await fs.readdir(workerDirectory)).filter((file) => !["config.json", "node_modules", "data"].includes(file));
+      const zip = new AdmZip();
+      for (const file of files) {
+        const fullPath = path.join(workerDirectory, file);
+        if ((await fs.stat(fullPath)).isFile()) zip.addFile(`handytech-home-depot-worker/${file}`, await fs.readFile(fullPath));
+      }
+      const buffer = zip.toBuffer();
+      res.setHeader("Content-Type", "application/zip");
+      res.setHeader("Content-Disposition", 'attachment; filename="handytech-home-depot-worker.zip"');
+      res.setHeader("Content-Length", String(buffer.length));
+      res.send(buffer);
+    } catch (error) {
+      console.error("Home Depot worker package failed:", error);
+      res.status(500).json({ message: "The Windows worker package could not be prepared." });
+    }
+  });
+
+  app.get("/api/admin/referral-leads/worker-status", requireAdmin, async (_req, res) => {
+    const [latest] = await db.select().from(automationLog).where(eq(automationLog.automationType, "home_depot_worker")).orderBy(desc(automationLog.createdAt)).limit(1);
+    res.json({ latest: latest || null, online: Boolean(latest && Date.now() - latest.createdAt.getTime() < 20 * 60 * 1000) });
+  });
+
   const requireHomeDepotConnector = (req: any, res: any, next: any) => {
     if (!connectorKeyMatches(req.headers["x-home-depot-connector-key"])) {
       return res.status(401).json({ message: "The Home Depot connector key is missing or invalid." });
@@ -5571,6 +5596,24 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/connectors/home-depot/status", requireHomeDepotConnector, (_req, res) => {
     res.json({ connected: true, mode: "automatic_retrieval", spendingEnabled: true, automaticMessagingEnabled: true, serverTime: new Date().toISOString() });
+  });
+
+  app.post("/api/connectors/home-depot/worker-events", requireHomeDepotConnector, async (req, res) => {
+    try {
+      const event = z.object({ outcome: z.enum(["heartbeat", "attention", "error", "skipped"]), details: z.string().trim().min(2).max(2000), externalJobId: z.string().trim().max(100).nullable().optional() }).parse(req.body || {});
+      let entityId = 0;
+      if (event.externalJobId) {
+        const [lead] = await db.select({ id: referralLeads.id }).from(referralLeads).where(eq(referralLeads.externalJobId, event.externalJobId));
+        entityId = lead?.id || 0;
+      }
+      const [record] = await db.insert(automationLog).values({ automationType: "home_depot_worker", entityType: "referral_lead", entityId, outcome: event.outcome, details: event.details }).returning();
+      if (event.outcome === "attention") void notificationService.notifyAdmin("HandyTech Home Depot Worker Needs Attention", event.details).catch((error) => console.error("Home Depot worker attention alert failed:", error));
+      res.status(201).json(record);
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The worker event was incomplete.", errors: error.errors });
+      console.error("Home Depot worker event failed:", error);
+      res.status(500).json({ message: "The worker activity could not be recorded." });
+    }
   });
 
   app.post("/api/connectors/home-depot/leads", requireHomeDepotConnector, async (req, res) => {
@@ -5592,14 +5635,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
         updatedAt: new Date(),
         lastSyncedAt: new Date(),
       };
-      const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
+      let [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
+      const [existingContact] = await db.select({ id: automationLog.id }).from(automationLog).where(and(eq(automationLog.automationType, "home_depot_first_contact"), eq(automationLog.entityId, row.id))).limit(1);
+      if (existingContact && row.status !== "contacted") {
+        [row] = await db.update(referralLeads).set({ status: "contacted", updatedAt: new Date() }).where(eq(referralLeads.id, row.id)).returning();
+      }
       if (rating.recommendation === "strong_match") {
         void notificationService.notifyAdmin(
           "HandyTech - Strong Home Depot Lead",
           `${parsed.customerName}: ${parsed.service} in ${[parsed.city, parsed.state, parsed.zip].filter(Boolean).join(" ")} (${rating.score}% fit). The lead is in the Home Depot inbox for the next workflow step.`,
         ).catch((error) => console.error("Home Depot lead alert failed:", error));
       }
-      res.status(201).json({ lead: row, recommendation: rating.recommendation, blockers: rating.blockers, autoClaimEligible: rating.autoClaimEligible });
+      res.status(201).json({ lead: row, recommendation: rating.recommendation, blockers: rating.blockers, autoClaimEligible: rating.autoClaimEligible, alreadyContacted: Boolean(existingContact) });
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.errors });
       console.error("Home Depot connector ingest failed:", error);
@@ -5611,6 +5658,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     try {
       const id = z.coerce.number().int().positive().parse(req.params.id);
       const event = z.object({ channel: z.literal("home_depot_message"), message: z.string().trim().min(10).max(1200) }).parse(req.body || {});
+      const [existing] = await db.select({ id: automationLog.id }).from(automationLog).where(and(eq(automationLog.automationType, "home_depot_first_contact"), eq(automationLog.entityId, id))).limit(1);
+      if (existing) return res.status(409).json({ message: "First contact was already recorded for this lead." });
       const [lead] = await db.update(referralLeads).set({ status: "contacted", updatedAt: new Date() }).where(eq(referralLeads.id, id)).returning();
       if (!lead) return res.status(404).json({ message: "The Home Depot lead was not found." });
       await db.insert(automationLog).values({ automationType: "home_depot_first_contact", entityType: "referral_lead", entityId: id, outcome: "sent", details: `${event.channel}: ${event.message}` });

@@ -11,6 +11,7 @@
     "test:scheduling": "tsx server/utils/appointment-time.test.ts",
     "test:home-depot": "tsx server/utils/home-depot-leads.test.ts",
     "test:home-depot-connector": "node tools/home-depot-connector/connector.test.cjs",
+    "test:home-depot-worker": "node tools/home-depot-worker/worker.test.mjs",
     "test:operating-system": "tsx server/services/operating-system.test.ts",
     "test:operating-system-migrations": "tsx server/utils/operating-system-migrations.test.ts",
     "test:architecture": "tsx server/utils/architecture-compliance.test.ts",

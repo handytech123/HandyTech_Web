@@ -1,0 +1,10 @@
+{
+  "handyTechSite": "https://handytech-solutions.com",
+  "connectorKey": "PASTE_CONNECTOR_KEY_HERE",
+  "pollSeconds": 45,
+  "maximumPointsPerLead": 40,
+  "minimumFitScore": 75,
+  "approvedMessageCategories": ["painting", "toilet", "drywall", "door_lock"],
+  "automaticClaiming": true,
+  "automaticFirstContact": true
+}

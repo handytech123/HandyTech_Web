@@ -27,5 +27,6 @@ const connectorRoute = routesSource.slice(
   routesSource.indexOf('app.patch("/api/admin/referral-leads/:id"'),
 );
 assert.ok(connectorRoute.includes("autoClaimEligible"));
+assert.ok(connectorRoute.includes("alreadyContacted"));
 assert.ok(!connectorRoute.includes("mirrorReferralAsRequest"), "Home Depot retrieval must not create Requests");
 console.log("Home Depot lead tests passed");

@@ -1,0 +1,13 @@
+{
+  "name": "handytech-home-depot-worker",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node worker.mjs",
+    "test": "node worker.test.mjs"
+  },
+  "dependencies": {
+    "playwright-core": "^1.55.1"
+  }
+}
