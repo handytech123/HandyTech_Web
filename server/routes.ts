@@ -4176,23 +4176,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!proposal) return res.status(404).json({ message: "This quote link is invalid or has been replaced." });
       const quote = await storage.getQuote(proposal.quoteId);
       if (!quote) return res.status(404).json({ message: "Quote request not found." });
-      if (proposal.status === "sent") {
-        const viewedAt = new Date();
-        await storage.updateQuoteProposal(proposal.id, { status: "viewed", viewedAt });
-        proposal.status = "viewed"; proposal.viewedAt = viewedAt;
-        const customerName = `${quote.firstName} ${quote.lastName}`.trim();
-        const alertResults = await Promise.allSettled([
-          getEmailService().sendQuoteViewedNotification({ quoteNumber: proposal.quoteNumber, customerName, customerEmail: quote.email, total: proposal.total }),
-          smsService.sendAdminAlert("Quote viewed", `${customerName} opened ${proposal.quoteNumber} (${proposal.total.toLocaleString("en-US", { style: "currency", currency: "USD" })}).`),
-        ]);
-        alertResults.forEach((result) => { if (result.status === "rejected") console.error("Quote viewed alert failed:", result.reason); });
-      }
       res.setHeader("Cache-Control", "no-store");
       res.json(publicProposal(quote, proposal));
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(404).json({ message: "This quote link is invalid." });
       console.error("Get proposal error:", error);
       res.status(500).json({ message: "The quote could not be loaded." });
+    }
+  });
+
+  app.post("/api/quote-proposals/:token/view", rlSensitive, async (req, res) => {
+    try {
+      const token = proposalTokenSchema.parse(req.params.token);
+      const proposal = await storage.getQuoteProposalByToken(token);
+      if (!proposal) return res.status(404).json({ message: "This quote link is invalid or has been replaced." });
+      const quote = await storage.getQuote(proposal.quoteId);
+      if (!quote) return res.status(404).json({ message: "Quote request not found." });
+
+      if (proposal.status !== "sent") {
+        return res.json({ recorded: false, status: proposal.status, viewedAt: proposal.viewedAt });
+      }
+
+      const viewedAt = new Date();
+      const [recordedView] = await db
+        .update(quoteProposals)
+        .set({ status: "viewed", viewedAt, updatedAt: viewedAt })
+        .where(and(eq(quoteProposals.id, proposal.id), eq(quoteProposals.status, "sent")))
+        .returning({ id: quoteProposals.id });
+      if (!recordedView) {
+        const current = await storage.getQuoteProposalByQuoteId(proposal.quoteId);
+        return res.json({ recorded: false, status: current?.status || proposal.status, viewedAt: current?.viewedAt || proposal.viewedAt });
+      }
+      const customerName = `${quote.firstName} ${quote.lastName}`.trim();
+      const alertResults = await Promise.allSettled([
+        getEmailService().sendQuoteViewedNotification({ quoteNumber: proposal.quoteNumber, customerName, customerEmail: quote.email, total: proposal.total }),
+        smsService.sendAdminAlert("Quote viewed", `${customerName} opened ${proposal.quoteNumber} (${proposal.total.toLocaleString("en-US", { style: "currency", currency: "USD" })}).`),
+      ]);
+      alertResults.forEach((result) => { if (result.status === "rejected") console.error("Quote viewed alert failed:", result.reason); });
+      res.json({ recorded: true, status: "viewed", viewedAt });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(404).json({ message: "This quote link is invalid." });
+      console.error("Record proposal view error:", error);
+      res.status(500).json({ message: "The quote view could not be recorded." });
     }
   });
 

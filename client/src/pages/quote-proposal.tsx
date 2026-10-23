@@ -72,6 +72,7 @@ function SignaturePad({ onChange }: { onChange: (value: string | null) => void }
 
 export default function QuoteProposalPage() {
   const { token = "" } = useParams<{ token: string }>();
+  const viewRecorded = useRef(false);
   const [decision, setDecision] = useState<"accepted" | "changes_requested" | "declined" | null>(null);
   const [signerName, setSignerName] = useState("");
   const [signatureData, setSignatureData] = useState<string | null>(null);
@@ -79,7 +80,41 @@ export default function QuoteProposalPage() {
   const [message, setMessage] = useState("");
   const [finished, setFinished] = useState<string | null>(null);
   const query = useQuery<ProposalData>({ queryKey: ["/api/quote-proposals", token], queryFn: async () => { const response = await fetch(`/api/quote-proposals/${token}`, { credentials: "include" }); if (!response.ok) throw new Error((await response.json()).message || "Quote unavailable"); return response.json(); } });
-  useEffect(() => { if (query.data) trackEvent("quote_viewed", { quote_number: query.data.proposal.quoteNumber, value: query.data.proposal.total, currency: "USD" }); }, [query.data?.proposal.quoteNumber]);
+  useEffect(() => {
+    if (!query.data || query.data.proposal.status !== "sent" || viewRecorded.current) return;
+    let timer: number | undefined;
+    const confirmVisibleView = () => {
+      if (document.visibilityState !== "visible" || !document.hasFocus() || viewRecorded.current) return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(async () => {
+        if (document.visibilityState !== "visible" || !document.hasFocus() || viewRecorded.current) return;
+        viewRecorded.current = true;
+        try {
+          const response = await fetch(`/api/quote-proposals/${token}/view`, {
+            method: "POST",
+            credentials: "omit",
+            keepalive: true,
+          });
+          if (!response.ok) viewRecorded.current = false;
+          else trackEvent("quote_viewed", { quote_number: query.data.proposal.quoteNumber, value: query.data.proposal.total, currency: "USD" });
+        } catch {
+          viewRecorded.current = false;
+        }
+      }, 2500);
+    };
+    const cancelPendingView = () => {
+      if (document.visibilityState !== "visible") window.clearTimeout(timer);
+      else confirmVisibleView();
+    };
+    confirmVisibleView();
+    document.addEventListener("visibilitychange", cancelPendingView);
+    window.addEventListener("focus", confirmVisibleView);
+    return () => {
+      window.clearTimeout(timer);
+      document.removeEventListener("visibilitychange", cancelPendingView);
+      window.removeEventListener("focus", confirmVisibleView);
+    };
+  }, [query.data, token]);
   const responseMutation = useMutation({
     mutationFn: async () => {
       // This public action is authenticated by the unguessable token in the

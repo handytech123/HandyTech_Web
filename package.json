@@ -15,6 +15,7 @@
     "test:architecture": "tsx server/utils/architecture-compliance.test.ts",
     "test:pricing": "tsx server/utils/pricing-guardrails.test.ts",
     "test:quote-split": "tsx server/utils/quote-pricing-split.test.ts",
+    "test:quote-view": "tsx server/utils/quote-view-tracking.test.ts",
     "db:reconcile": "tsx server/utils/migration-reconciliation.ts",
     "db:parity": "tsx server/utils/relationship-parity-report.ts",
     "db:migrate:operating-system": "tsx server/utils/migrate-operating-system.ts",
