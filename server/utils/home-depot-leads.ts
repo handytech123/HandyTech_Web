@@ -43,7 +43,9 @@ export function scoreHomeDepotLead(input: HomeDepotLeadInput) {
   const strongFits = ["assembly", "mount", "painting", "drywall", "fixture", "faucet", "toilet", "door", "carpentry", "repair", "installation", "pressure wash", "deck"];
   const specialistWork = ["roof", "foundation", "major structural", "service panel", "gas line", "sewer main", "asbestos", "mold remediation"];
 
-  if (strongFits.some((term) => text.includes(term))) {
+  const coreServiceMatch = strongFits.some((term) => text.includes(term));
+  const specialistWorkMatch = specialistWork.some((term) => text.includes(term));
+  if (coreServiceMatch) {
     score += 25;
     reasons.push("Matches a core HandyTech service");
   } else {
@@ -69,7 +71,7 @@ export function scoreHomeDepotLead(input: HomeDepotLeadInput) {
     score += 10;
     reasons.push("Customer appears ready to schedule");
   }
-  if (specialistWork.some((term) => text.includes(term))) {
+  if (specialistWorkMatch) {
     score -= 45;
     blockers.push("Possible licensed, hazardous, or specialist work");
   }
@@ -80,6 +82,7 @@ export function scoreHomeDepotLead(input: HomeDepotLeadInput) {
     reasons: [...reasons, ...blockers],
     recommendation: blockers.length === 0 && normalizedScore >= 75 ? "strong_match" : normalizedScore >= 55 ? "review" : "pass",
     blockers,
+    autoClaimEligible: coreServiceMatch && Boolean(input.city && input.zip) && !specialistWorkMatch && normalizedScore >= 75,
   };
 }
 

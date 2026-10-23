@@ -65,7 +65,7 @@ import { generateInvoicePdfBuffer } from "./utils/invoice-pdf";
 import { isIndexableProjectTitle, seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
 import { appointmentShortDateLabel, appointmentStart, appointmentTimeLabel, centralAppointmentInstant, legacyCalendarDate } from "./utils/appointment-time";
-import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, mirrorReferralAsRequest, syncCustomerProperty } from "./services/operating-system";
+import { ensureAcceptedProposalJob, mirrorAppointmentAsScheduleItem, mirrorConsultationAsRequest, mirrorQuoteAsRequest, syncCustomerProperty } from "./services/operating-system";
 import { buildMigrationReconciliation, inventoryLegacySources } from "./utils/migration-reconciliation";
 import { buildRelationshipParity } from "./utils/relationship-parity";
 import { calculatePricingGuardrails } from "./utils/pricing-guardrails";
@@ -5496,12 +5496,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const connectorReady = Boolean(homeDepotConnectorKey());
     res.json({
       provider: "Home Depot Pro Referral",
-      mode: "observation",
+      mode: "automatic_retrieval",
       connected: connectorReady,
-      spendingEnabled: false,
+      spendingEnabled: true,
       automaticMessagingEnabled: false,
       message: connectorReady
-        ? "The secure PC connector is configured in observation mode. It can import visible leads but cannot spend points or message customers automatically."
+        ? "The secure PC connector can retrieve eligible Home Depot leads into this inbox. It may spend lead points when automation is enabled in the extension, but it never messages customers or promotes leads into Requests automatically."
         : "The lead workspace is ready. Add a secure connector key on the server, then load the HandyTech Home Depot extension on the main PC.",
     });
   });
@@ -5542,7 +5542,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const connectorKey = homeDepotConnectorKey();
     if (!connectorKey) return res.status(503).json({ message: "The server security key is unavailable. Check JWT_SECRET." });
     res.setHeader("Cache-Control", "no-store");
-    res.json({ connectorKey, siteUrl: SITE_URL, downloadUrl: "/api/admin/referral-leads/connector-download", mode: "observation" });
+    res.json({ connectorKey, siteUrl: SITE_URL, downloadUrl: "/api/admin/referral-leads/connector-download", mode: "automatic_retrieval" });
   });
 
   app.get("/api/admin/referral-leads/connector-download", requireAdmin, async (_req, res) => {
@@ -5570,14 +5570,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.get("/api/connectors/home-depot/status", requireHomeDepotConnector, (_req, res) => {
-    res.json({ connected: true, mode: "observation", spendingEnabled: false, automaticMessagingEnabled: false, serverTime: new Date().toISOString() });
+    res.json({ connected: true, mode: "automatic_retrieval", spendingEnabled: true, automaticMessagingEnabled: false, serverTime: new Date().toISOString() });
   });
 
   app.post("/api/connectors/home-depot/leads", requireHomeDepotConnector, async (req, res) => {
     try {
       const parsed = homeDepotLeadInput.parse(req.body || {});
       const rating = scoreHomeDepotLead(parsed);
-      const status = rating.recommendation === "strong_match" ? "reviewing" : rating.recommendation === "pass" ? "passed" : "new";
+      const status = parsed.email || parsed.phone
+        ? "claimed"
+        : rating.recommendation === "strong_match" ? "reviewing" : rating.recommendation === "pass" ? "passed" : "new";
       const values = {
         ...parsed,
         email: parsed.email || null,
@@ -5591,14 +5593,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
         lastSyncedAt: new Date(),
       };
       const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
-      const requestId = await mirrorReferralAsRequest(row).catch(error=>{console.error("Request compatibility mirror failed for referral:",error);return null;});
       if (rating.recommendation === "strong_match") {
         void notificationService.notifyAdmin(
           "HandyTech - Strong Home Depot Lead",
-          `${parsed.customerName}: ${parsed.service} in ${[parsed.city, parsed.state, parsed.zip].filter(Boolean).join(" ")} (${rating.score}% fit). Review this lead in the HandyTech admin before spending points.`,
+          `${parsed.customerName}: ${parsed.service} in ${[parsed.city, parsed.state, parsed.zip].filter(Boolean).join(" ")} (${rating.score}% fit). The lead is in the Home Depot inbox for the next workflow step.`,
         ).catch((error) => console.error("Home Depot lead alert failed:", error));
       }
-      res.status(201).json({ lead: { ...row, requestId }, recommendation: rating.recommendation, blockers: rating.blockers });
+      res.status(201).json({ lead: row, recommendation: rating.recommendation, blockers: rating.blockers, autoClaimEligible: rating.autoClaimEligible });
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.errors });
       console.error("Home Depot connector ingest failed:", error);
@@ -5612,7 +5613,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const rating = scoreHomeDepotLead(parsed);
       const values = { ...parsed, email: parsed.email || null, portalUrl: parsed.portalUrl || null, score: rating.score, scoreReasons: rating.reasons, updatedAt: new Date(), lastSyncedAt: new Date() };
       const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
-      await mirrorReferralAsRequest(row).catch(error=>console.error("Request compatibility mirror failed for referral:",error));
       res.status(201).json(row);
     } catch (error) {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "The lead is missing required information", errors: error.errors });
@@ -5641,7 +5641,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
       customer = await storage.createCustomer({ firstName: names[0], lastName: names.slice(1).join(" ") || "Customer", email: lead.email, phone: lead.phone || "Not provided", street: "Not provided", city: lead.city || "Not provided", state: lead.state || "MO", zip: lead.zip || "Not provided" });
     }
     const [updated] = await db.update(referralLeads).set({ customerId: customer.id, updatedAt: new Date() }).where(eq(referralLeads.id, id)).returning();
-    await mirrorReferralAsRequest(updated).catch(error=>console.error("Referral Request contact link failed:",error));
     res.json({ lead: updated, customer });
   });
 
