@@ -122,8 +122,8 @@ export function useCSRF(req: Request, res: Response, next: NextFunction) {
   // a 256-bit, rate-limited token and do not depend on session authority, so
   // requiring a session-bound CSRF token can strand customers in restrictive
   // email/in-app browsers that do not retain the newly issued session cookie.
-  const isSecureQuoteResponse = /^\/api\/quote-proposals\/[a-f0-9]{64}\/respond$/i.test(req.path);
-  if (req.path.startsWith('/api/webhooks/') || req.path.startsWith('/api/connectors/home-depot/') || isSecureQuoteResponse) {
+  const isSecureQuoteAction = /^\/api\/quote-proposals\/[a-f0-9]{64}\/(respond|view)$/i.test(req.path);
+  if (req.path.startsWith('/api/webhooks/') || req.path.startsWith('/api/connectors/home-depot/') || isSecureQuoteAction) {
     return next();
   }
 

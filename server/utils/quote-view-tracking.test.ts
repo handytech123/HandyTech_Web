@@ -4,6 +4,7 @@ import path from "node:path";
 
 const routes = fs.readFileSync(path.join(process.cwd(), "server/routes.ts"), "utf8");
 const page = fs.readFileSync(path.join(process.cwd(), "client/src/pages/quote-proposal.tsx"), "utf8");
+const security = fs.readFileSync(path.join(process.cwd(), "server/security.ts"), "utf8");
 const loadStart = routes.indexOf('app.get("/api/quote-proposals/:token"');
 const viewStart = routes.indexOf('app.post("/api/quote-proposals/:token/view"');
 const pdfStart = routes.indexOf('app.get("/api/quote-proposals/:token/pdf"');
@@ -18,5 +19,6 @@ assert.ok(page.includes("document.visibilityState"), "Customer page must verify 
 assert.ok(page.includes("document.hasFocus()"), "Customer page must verify that the quote has focus");
 assert.ok(page.includes("}, 2500)"), "Customer page must remain visible before recording a view");
 assert.ok(page.includes("/view`"), "Customer page must call the dedicated view endpoint");
+assert.ok(security.includes("(respond|view)"), "Token-authenticated view confirmation must not require a session CSRF token");
 
 console.log("Quote view tracking tests passed");
