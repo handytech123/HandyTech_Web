@@ -5499,9 +5499,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       mode: "automatic_retrieval",
       connected: connectorReady,
       spendingEnabled: true,
-      automaticMessagingEnabled: false,
+      automaticMessagingEnabled: true,
       message: connectorReady
-        ? "The secure PC connector can retrieve eligible Home Depot leads into this inbox. It may spend lead points when automation is enabled in the extension, but it never messages customers or promotes leads into Requests automatically."
+        ? "The secure PC connector can retrieve eligible Home Depot leads into this inbox. Approved first-contact messaging is limited to painting, toilets, drywall, and door locks. It never promotes leads into Requests automatically."
         : "The lead workspace is ready. Add a secure connector key on the server, then load the HandyTech Home Depot extension on the main PC.",
     });
   });
@@ -5570,7 +5570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   };
 
   app.get("/api/connectors/home-depot/status", requireHomeDepotConnector, (_req, res) => {
-    res.json({ connected: true, mode: "automatic_retrieval", spendingEnabled: true, automaticMessagingEnabled: false, serverTime: new Date().toISOString() });
+    res.json({ connected: true, mode: "automatic_retrieval", spendingEnabled: true, automaticMessagingEnabled: true, serverTime: new Date().toISOString() });
   });
 
   app.post("/api/connectors/home-depot/leads", requireHomeDepotConnector, async (req, res) => {
@@ -5604,6 +5604,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.errors });
       console.error("Home Depot connector ingest failed:", error);
       res.status(500).json({ message: "The lead could not be imported into HandyTech." });
+    }
+  });
+
+  app.post("/api/connectors/home-depot/leads/:id/contact-events", requireHomeDepotConnector, async (req, res) => {
+    try {
+      const id = z.coerce.number().int().positive().parse(req.params.id);
+      const event = z.object({ channel: z.literal("home_depot_message"), message: z.string().trim().min(10).max(1200) }).parse(req.body || {});
+      const [lead] = await db.update(referralLeads).set({ status: "contacted", updatedAt: new Date() }).where(eq(referralLeads.id, id)).returning();
+      if (!lead) return res.status(404).json({ message: "The Home Depot lead was not found." });
+      await db.insert(automationLog).values({ automationType: "home_depot_first_contact", entityType: "referral_lead", entityId: id, outcome: "sent", details: `${event.channel}: ${event.message}` });
+      res.status(201).json({ lead });
+    } catch (error) {
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The contact event was incomplete.", errors: error.errors });
+      console.error("Home Depot contact event save failed:", error);
+      res.status(500).json({ message: "The customer message was sent, but its HandyTech activity record could not be saved." });
     }
   });
 

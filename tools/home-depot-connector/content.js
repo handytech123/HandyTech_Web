@@ -11,7 +11,7 @@
     const rect = element?.getBoundingClientRect?.();
     return Boolean(rect && rect.width > 0 && rect.height > 0 && getComputedStyle(element).visibility !== "hidden");
   };
-  const settings = () => new Promise((resolve) => chrome.storage.local.get({ automationEnabled: false, minimumScore: 75, maximumPoints: 10000 }, resolve));
+  const settings = () => new Promise((resolve) => chrome.storage.local.get({ automationEnabled: false, automaticMessagingEnabled: false, minimumScore: 75, maximumPoints: 10000, messagedLeadIds: [] }, resolve));
 
   function extractLead() {
     const text = bodyText();
@@ -50,6 +50,48 @@
     const reply = await chrome.runtime.sendMessage({ type: "handytech-request", path: "/api/connectors/home-depot/leads", method: "POST", body: lead });
     if (!reply?.ok) throw new Error(reply?.error || "The connector could not retrieve this lead.");
     return reply.data;
+  }
+
+  const approvedMessageCategory = (service) => {
+    const value = clean(service).toLowerCase();
+    if (/\b(?:interior|exterior)?\s*paint(?:ing)?\b/.test(value)) return "painting";
+    if (/\btoilet(?:s)?\b/.test(value)) return "toilet";
+    if (/\b(?:drywall|sheetrock)\b/.test(value)) return "drywall";
+    if (/\b(?:door\s+lock|deadbolt|lockset|door\s+hardware)\b/.test(value)) return "door lock";
+    return null;
+  };
+
+  const firstName = (name) => clean(name).split(/\s+/)[0] || "there";
+  const firstContactMessage = (lead, category) => `Hi ${firstName(lead.customerName)}, this is Lou with HandyTech Solutions. I received your Home Depot request for ${category} work in ${lead.city || "your area"}. I would be glad to help. Could you send a few details or photos of the project and let me know what days or times work best for you?`;
+
+  async function sendFirstContact(lead, leadId, saved) {
+    const category = approvedMessageCategory(lead.service);
+    if (!saved.automaticMessagingEnabled || !category || saved.messagedLeadIds.includes(lead.externalJobId)) return false;
+    const openMessage = findAction(/^message(?:\s+.+)?$/i);
+    if (!openMessage) throw new Error(`Contact was retrieved, but Home Depot did not show a Message control for ${lead.customerName}.`);
+    openMessage.click();
+    let editor = null;
+    for (let attempt = 0; attempt < 20 && !editor; attempt += 1) {
+      await wait(300);
+      editor = [...document.querySelectorAll("textarea,[contenteditable=true]")].find((element) => visible(element) && !element.closest("#handytech-hd-connector"));
+    }
+    if (!editor) throw new Error(`Home Depot's message box did not open for ${lead.customerName}.`);
+    const message = firstContactMessage(lead, category);
+    editor.focus();
+    if (editor instanceof HTMLTextAreaElement || editor instanceof HTMLInputElement) editor.value = message;
+    else editor.textContent = message;
+    editor.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: message }));
+    editor.dispatchEvent(new Event("change", { bubbles: true }));
+    await wait(350);
+    const container = editor.closest("form,[role=dialog]") || document;
+    const send = [...container.querySelectorAll("button,[role=button]")].find((element) => visible(element) && /^(?:send|send message)$/i.test(clean(element.textContent)));
+    if (!send || send.disabled) throw new Error(`The message is prepared for ${lead.customerName}, but Home Depot did not enable its Send button.`);
+    send.click();
+    const messagedLeadIds = [...new Set([...saved.messagedLeadIds, lead.externalJobId])].slice(-1000);
+    await chrome.storage.local.set({ messagedLeadIds });
+    const logged = await chrome.runtime.sendMessage({ type: "handytech-request", path: `/api/connectors/home-depot/leads/${leadId}/contact-events`, method: "POST", body: { channel: "home_depot_message", message } });
+    if (!logged?.ok) throw new Error(`Message sent to ${lead.customerName}, but the activity log failed: ${logged?.error || "unknown error"}`);
+    return true;
   }
 
   function findAction(pattern, excluded) {
@@ -110,7 +152,7 @@
   async function refreshMode() {
     const saved = await settings();
     mode.textContent = saved.automationEnabled
-      ? "Automatic retrieval is ON. Eligible leads may use points. No customer messages or Requests are created."
+      ? `Automatic retrieval is ON. Eligible leads may use points.${saved.automaticMessagingEnabled ? " Approved categories receive one first-contact message." : " Customer messaging is off."} No Requests are created.`
       : "Automatic retrieval is OFF. Manual retrieval does not spend points.";
     toggleButton.textContent = saved.automationEnabled ? "Stop bot" : "Start bot";
     toggleButton.style.color = saved.automationEnabled ? "#b91c1c" : "#172033";
@@ -138,9 +180,12 @@
     }
     status.textContent = `Eligible ${result.lead.score}% match. Retrieving contact information for ${lead.leadCostPoints} points…`;
     const revealed = await revealContact(lead);
-    await importLead(revealed);
+    const updated = await importLead(revealed);
+    const messaged = await sendFirstContact(revealed, updated.lead.id, saved);
     rememberProcessed(lead.externalJobId);
-    status.textContent = `Contact retrieved for ${revealed.customerName}. Waiting in the Home Depot inbox.`;
+    status.textContent = messaged
+      ? `Contact retrieved and first message sent to ${revealed.customerName}. Waiting in the Home Depot inbox.`
+      : `Contact retrieved for ${revealed.customerName}. Waiting in the Home Depot inbox.`;
   }
 
   async function automationTick() {
