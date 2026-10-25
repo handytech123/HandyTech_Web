@@ -21,7 +21,7 @@ import type { Service } from "@shared/schema";
 import { apiRequest } from "@/lib/queryClient";
 
 const serviceFormSchema = insertServiceSchema.extend({
-  basePrice: z.coerce.number({ required_error: "Base price is required" }).min(0),
+  basePrice: z.coerce.number({ error: "Base price is required" }).min(0),
   displayOrder: z.coerce.number().default(0),
   quickPickOrder: z.coerce.number().default(0),
 });

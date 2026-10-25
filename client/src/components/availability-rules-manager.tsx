@@ -19,9 +19,9 @@ import { z } from "zod";
 import type { AvailabilityRule } from "@shared/schema";
 
 const availabilityRuleFormSchema = insertAvailabilityRuleSchema.extend({
-  weekday: z.number({ required_error: "Please select a weekday" }).min(0).max(6),
-  startTime: z.string({ required_error: "Please select a start time" }).min(1),
-  endTime: z.string({ required_error: "Please select an end time" }).min(1),
+  weekday: z.number({ error: "Please select a weekday" }).min(0).max(6),
+  startTime: z.string({ error: "Please select a start time" }).min(1),
+  endTime: z.string({ error: "Please select an end time" }).min(1),
 });
 
 type AvailabilityRuleFormData = z.infer<typeof availabilityRuleFormSchema>;

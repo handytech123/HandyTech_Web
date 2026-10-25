@@ -116,9 +116,9 @@ const bookingFormSchema = insertAppointmentSchema.pick({
   notes: true
 }).extend({
   bookingType: z.enum(["consultation", "service"]),
-  appointmentDate: z.date({ required_error: "Please select a date" }),
+  appointmentDate: z.date({ error: "Please select a date" }),
   appointmentTime: z.string().min(1, "Please select a time slot"),
-  serviceId: z.number({ required_error: "Please select a service" }),
+  serviceId: z.number({ error: "Please select a service" }),
   durationHours: z.number().min(1).max(12),
   smsConsent: z.boolean().default(false)
 });

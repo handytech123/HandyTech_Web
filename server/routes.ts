@@ -830,7 +830,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({
           success: false,
           message: "Invalid profile data",
-          errors: error.errors
+          errors: error.issues
         });
       }
       
@@ -868,7 +868,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ 
             success: false, 
             message: "Invalid request data", 
-            errors: validationError.errors 
+            errors: validationError.issues 
           });
         }
         throw validationError;
@@ -1570,7 +1570,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(customer);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+        res.status(400).json({ message: "Invalid customer data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create customer" });
       }
@@ -1612,7 +1612,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       console.error("Update customer error:", error);
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid customer data", errors: error.errors });
+        res.status(400).json({ message: "Invalid customer data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to update customer" });
       }
@@ -1731,7 +1731,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ 
           success: false, 
           message: "Invalid plan data", 
-          errors: error.errors 
+          errors: error.issues 
         });
       } else {
         console.error("Secure maintenance plan creation error:", error);
@@ -1765,7 +1765,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           return res.status(400).json({ 
             success: false, 
             message: "Invalid cancellation data", 
-            errors: validationError.errors 
+            errors: validationError.issues 
           });
         }
         throw validationError;
@@ -1960,7 +1960,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(review);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid review data", errors: error.errors });
+        res.status(400).json({ message: "Invalid review data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create review" });
       }
@@ -2272,7 +2272,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (!delivery.emailSent && !delivery.smsSent) return res.status(502).json({ message: 'Neither the email nor text provider accepted the review request.' });
       res.json({ success: true, customerId: customer.id, ...delivery });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Please check the customer and service details.', errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: 'Please check the customer and service details.', errors: error.issues });
       console.error('Manual review request failed:', error);
       res.status(500).json({ message: 'Failed to send the review request.' });
     }
@@ -2350,7 +2350,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ 
           message: "Invalid review data", 
-          errors: error.errors 
+          errors: error.issues 
         });
       } else {
         console.error("Error creating customer review:", error);
@@ -2457,7 +2457,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await mirrorQuoteAsRequest(quote).catch((error) => console.error("Request compatibility mirror failed for admin quote:", error));
       res.status(201).json(quote);
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Choose a customer and enter the project details", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Choose a customer and enter the project details", errors: error.issues });
       console.error("Admin create quote error:", error);
       res.status(500).json({ message: "The quote could not be created" });
     }
@@ -2516,7 +2516,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(consultation);
     } catch (error) {
       if (processedImages.length) await cleanupUploadedFiles(processedImages);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check your consultation request.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check your consultation request.", errors: error.issues });
       console.error("Consultation request failed:", error);
       res.status(500).json({ message: "Failed to submit consultation request." });
     }
@@ -2599,7 +2599,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (processedImages.length > 0) await cleanupUploadedFiles(processedImages);
       await Promise.all(processedVideoUrls.map((videoUrl) => fs.unlink(path.join(process.cwd(), "server", "public", "uploads", videoUrl.replace(/^\/uploads\//, ""))).catch(() => undefined)));
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid quote data", errors: error.errors });
+        res.status(400).json({ message: "Invalid quote data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create quote" });
       }
@@ -2834,7 +2834,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         res.status(400).json({ 
           message: "Invalid appointment data", 
-          errors: error.errors 
+          errors: error.issues 
         });
       } else {
         console.error("Appointment creation error:", error);
@@ -2916,7 +2916,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         if (validationError instanceof z.ZodError) {
           return res.status(400).json({ 
             message: "Invalid request data", 
-            errors: validationError.errors 
+            errors: validationError.issues 
           });
         }
         throw validationError;
@@ -3095,7 +3095,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(campaign);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid email campaign data", errors: error.errors });
+        res.status(400).json({ message: "Invalid email campaign data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create email campaign" });
       }
@@ -3317,7 +3317,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(analysis);
     } catch (error) {
       console.error("AI intake analysis error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "The request could not be analyzed.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The request could not be analyzed.", errors: error.issues });
       if ((error as any)?.status === 429 && (error as any)?.code === "credit_balance_exhausted") return res.status(503).json({ message: "OpenAI API billing needs credits before intake analysis can run." });
       res.status(500).json({ message: "The intake analysis could not be generated. No quote data was changed." });
     }
@@ -3359,7 +3359,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(draft);
     } catch (error) {
       console.error("AI quote follow-up error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the follow-up details and try again.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the follow-up details and try again.", errors: error.issues });
       res.status(500).json({ message: "The follow-up draft could not be generated. Nothing was sent." });
     }
   });
@@ -3411,7 +3411,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ ...result, message: input.channel === "both" ? "Email and text sent." : input.channel === "email" ? "Email sent." : "Text sent." });
     } catch (error) {
       console.error("Quote follow-up delivery error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the follow-up message and try again.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the follow-up message and try again.", errors: error.issues });
       res.status(500).json({ message: "The follow-up could not be sent. Please try again." });
     }
   });
@@ -3488,7 +3488,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ ...analysis, history: { quoted, accepted, completedPaid, acceptedAverage: row.accepted_average == null ? null : Number(row.accepted_average), confidence, note: completedPaid > 0 ? "Completed paid jobs inform cost confidence; accepted quotes inform customer acceptance separately." : "Public references and your configured costs are being used until completed paid jobs build a stronger local history." } });
     } catch (error) {
       console.error("Pricing guardrail error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the hours, materials, distance, and proposed price.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the hours, materials, distance, and proposed price.", errors: error.issues });
       res.status(500).json({ message: "The pricing guardrails could not be calculated. Your quote was not changed." });
     }
   });
@@ -3632,7 +3632,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(preparedDraft);
     } catch (error) {
       console.error("AI quote draft error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Add a few clear job notes and try again.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Add a few clear job notes and try again.", errors: error.issues });
       if ((error as any)?.status === 429 && (error as any)?.code === "credit_balance_exhausted") {
         return res.status(503).json({ message: "OpenAI API billing needs credits before AI quote drafting can run." });
       }
@@ -3672,7 +3672,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ corrected, changedFields });
     } catch (error) {
       console.error("AI quote correction error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the correction request and quote details.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the correction request and quote details.", errors: error.issues });
       res.status(500).json({ message: "The correction could not be prepared. The quote was not changed." });
     }
   });
@@ -3874,7 +3874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Quote sent", quoteNumber, total });
     } catch (error) {
       console.error("Send prepared quote error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the quote line items and totals", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the quote line items and totals", errors: error.issues });
       res.status(500).json({ message: "The quote could not be emailed. Check email service settings and retry." });
     }
   });
@@ -4074,7 +4074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sequence = `${Date.now().toString().slice(-7)}${crypto.randomInt(10, 99)}`;
       const [invoice] = await db.insert(invoices).values({ ...input, quoteProposalId: input.quoteProposalId || null, invoiceNumber: `INV-${new Date().getFullYear()}-${sequence}`, tokenHash: crypto.randomBytes(32).toString("hex"), ...totals, amountPaid: 0, status: "draft" }).returning();
       res.status(201).json(invoice);
-    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); console.error("Create invoice error:", error); res.status(500).json({ message: "Invoice could not be created" }); }
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.issues }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); console.error("Create invoice error:", error); res.status(500).json({ message: "Invoice could not be created" }); }
   });
 
   app.put("/api/admin/invoices/:id", requireAdmin, async (req, res) => {
@@ -4098,7 +4098,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         await db.execute(sql`UPDATE jobs SET status=CASE WHEN status IN ('closed','cancelled') THEN status WHEN EXISTS (SELECT 1 FROM invoices WHERE job_id=${updated.jobId} AND status<>'void' AND amount_paid<total) THEN 'invoiced' WHEN EXISTS (SELECT 1 FROM invoices WHERE job_id=${updated.jobId} AND status<>'void') THEN 'paid' ELSE status END,updated_at=NOW() WHERE id=${updated.jobId}`);
       }
       res.json(updated);
-    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.errors }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); res.status(500).json({ message: "Invoice could not be updated" }); }
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the invoice details", errors: error.issues }); if (error instanceof Error && error.message === "QUOTE_CUSTOMER_MISMATCH") return res.status(400).json({ message: "That quote does not belong to the selected customer" }); res.status(500).json({ message: "Invoice could not be updated" }); }
   });
 
   app.post("/api/admin/invoices/:id/send", requireAdmin, async (req, res) => {
@@ -4127,7 +4127,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.update(invoices).set({ amountPaid, status: paid ? "paid" : "partial", paidAt: paid ? input.paidAt || new Date() : null, updatedAt: new Date() }).where(eq(invoices.id, id));
       if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS==="true"&&jobId){await db.execute(sql`UPDATE jobs SET invoice_id=COALESCE(invoice_id,${invoice.id}),status=CASE WHEN status IN('closed','cancelled') THEN status WHEN ${paid} THEN 'paid' ELSE 'invoiced' END,updated_at=NOW() WHERE id=${jobId}`);await db.execute(sql`INSERT INTO activity_events(contact_id,job_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata,occurred_at) VALUES (${invoice.customerId},${jobId},'payment',${String(payment.id)},'payment_recorded',${`Payment recorded for ${invoice.invoiceNumber}`},'financial','inbound','shared',${JSON.stringify({amount:input.amount,method:input.method,paidInFull:paid})}::jsonb,${input.paidAt||new Date()})`);}
       res.status(201).json({ ...payment, jobId });
-    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the payment details", errors: error.errors }); res.status(500).json({ message: "Payment could not be recorded" }); }
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the payment details", errors: error.issues }); res.status(500).json({ message: "Payment could not be recorded" }); }
   });
 
   app.post("/api/admin/invoices/:id/void", requireAdmin, async (req, res) => { const id = Number(req.params.id); const [invoice] = await db.select().from(invoices).where(eq(invoices.id, id)); if (!invoice) return res.status(404).json({ message: "Invoice not found" }); if (invoice.amountPaid > 0) return res.status(409).json({ message: "Remove or refund recorded payments before voiding" }); await db.update(invoices).set({ status: "void", updatedAt: new Date() }).where(eq(invoices.id, id)); res.json({ message: "Invoice voided" }); });
@@ -4480,7 +4480,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(project);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid project data", errors: error.errors });
+        res.status(400).json({ message: "Invalid project data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create project" });
       }
@@ -4504,7 +4504,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(blockedTime);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid blocked time data", errors: error.errors });
+        res.status(400).json({ message: "Invalid blocked time data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create blocked time" });
       }
@@ -4569,7 +4569,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(rule);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid availability rule data", errors: error.errors });
+        res.status(400).json({ message: "Invalid availability rule data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create availability rule" });
       }
@@ -4659,7 +4659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(service);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid service data", errors: error.errors });
+        res.status(400).json({ message: "Invalid service data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create service" });
       }
@@ -4679,7 +4679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Service updated successfully" });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid service data", errors: error.errors });
+        res.status(400).json({ message: "Invalid service data", errors: error.issues });
       } else {
         console.error("Service update error:", error);
         res.status(500).json({ message: "Failed to update service" });
@@ -4727,7 +4727,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.status(201).json(addon);
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid addon data", errors: error.errors });
+        res.status(400).json({ message: "Invalid addon data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to create service addon" });
       }
@@ -4742,7 +4742,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Service addon updated successfully" });
     } catch (error) {
       if (error instanceof z.ZodError) {
-        res.status(400).json({ message: "Invalid addon data", errors: error.errors });
+        res.status(400).json({ message: "Invalid addon data", errors: error.issues });
       } else {
         res.status(500).json({ message: "Failed to update service addon" });
       }
@@ -4901,7 +4901,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (error instanceof z.ZodError) {
         return res.status(400).json({ 
           error: "Invalid query parameters", 
-          details: error.errors 
+          details: error.issues 
         });
       }
       
@@ -5059,7 +5059,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           error: 'VALIDATION_ERROR',
           message: 'Invalid input data',
-          details: error.errors
+          details: error.issues
         });
       }
       
@@ -5189,7 +5189,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
           success: false,
           error: 'VALIDATION_ERROR',
           message: 'Invalid update data',
-          details: error.errors
+          details: error.issues
         });
       }
       
@@ -5610,7 +5610,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (event.outcome === "attention") void notificationService.notifyAdmin("HandyTech Home Depot Worker Needs Attention", event.details).catch((error) => console.error("Home Depot worker attention alert failed:", error));
       res.status(201).json(record);
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "The worker event was incomplete.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The worker event was incomplete.", errors: error.issues });
       console.error("Home Depot worker event failed:", error);
       res.status(500).json({ message: "The worker activity could not be recorded." });
     }
@@ -5648,7 +5648,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       res.status(201).json({ lead: row, recommendation: rating.recommendation, blockers: rating.blockers, autoClaimEligible: rating.autoClaimEligible, alreadyContacted: Boolean(existingContact) });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The visible Home Depot lead information is incomplete.", errors: error.issues });
       console.error("Home Depot connector ingest failed:", error);
       res.status(500).json({ message: "The lead could not be imported into HandyTech." });
     }
@@ -5665,7 +5665,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       await db.insert(automationLog).values({ automationType: "home_depot_first_contact", entityType: "referral_lead", entityId: id, outcome: "sent", details: `${event.channel}: ${event.message}` });
       res.status(201).json({ lead });
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "The contact event was incomplete.", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The contact event was incomplete.", errors: error.issues });
       console.error("Home Depot contact event save failed:", error);
       res.status(500).json({ message: "The customer message was sent, but its HandyTech activity record could not be saved." });
     }
@@ -5679,7 +5679,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const [row] = await db.insert(referralLeads).values(values).onConflictDoUpdate({ target: referralLeads.externalJobId, set: values }).returning();
       res.status(201).json(row);
     } catch (error) {
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "The lead is missing required information", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "The lead is missing required information", errors: error.issues });
       console.error("Referral lead save failed:", error);
       res.status(500).json({ message: "The Home Depot lead could not be saved" });
     }
@@ -6042,7 +6042,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const result=await db.transaction(async tx=>{const created=await tx.execute(sql`INSERT INTO request_activities(request_id,activity_type,summary,details,visibility) VALUES (${requestId},${input.kind},${input.kind==="internal_note"?"Internal note added":"Question sent to customer"},${JSON.stringify({body:input.body,subject:input.subject})}::jsonb,${input.kind==="internal_note"?"internal":"shared"}) RETURNING *`);await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},${input.kind},${input.kind==="internal_note"?input.body.slice(0,240):`Question sent: ${(input.subject||input.body).slice(0,220)}`},${input.kind==="internal_note"?"admin":"email"},${input.kind==="internal_note"?null:"outbound"},${input.kind==="internal_note"?"internal":"shared"},${JSON.stringify({body:input.body,subject:input.subject})}::jsonb)`);await tx.execute(sql`UPDATE requests SET status=${input.kind==="customer_question"?"needs_information":request.status},next_action=${input.kind==="customer_question"?"Await customer response":request.next_action},updated_at=NOW() WHERE id=${requestId}`);return (created as any).rows?.[0];});res.status(201).json(result);
   });
 
-  app.post("/api/admin/os/requests/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["customer_intake","site_visit","document","other"]).default("site_visit"),caption:z.string().trim().max(500).optional()}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const requestResult=await db.execute(sql`SELECT contact_id,property_id FROM requests WHERE id=${requestId}`);const request=(requestResult as any).rows?.[0];if(!request)return res.status(404).json({message:"Request not found"});const saved=await db.transaction(async tx=>{const rows=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(contact_id,property_id,request_id,entity_type,entity_id,media_type,stage,url,caption) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null}) RETURNING *`);rows.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},'media_added',${`${processed.length} ${input.stage.replaceAll("_"," ")} photo(s) added`},'admin','internal',${JSON.stringify({count:processed.length,stage:input.stage})}::jsonb)`);return rows;});res.status(201).json(saved);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.errors});throw error;}});
+  app.post("/api/admin/os/requests/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["customer_intake","site_visit","document","other"]).default("site_visit"),caption:z.string().trim().max(500).optional()}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const requestResult=await db.execute(sql`SELECT contact_id,property_id FROM requests WHERE id=${requestId}`);const request=(requestResult as any).rows?.[0];if(!request)return res.status(404).json({message:"Request not found"});const saved=await db.transaction(async tx=>{const rows=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(contact_id,property_id,request_id,entity_type,entity_id,media_type,stage,url,caption) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null}) RETURNING *`);rows.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(contact_id,property_id,request_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${request.contact_id||null},${request.property_id||null},${requestId},'request',${String(requestId)},'media_added',${`${processed.length} ${input.stage.replaceAll("_"," ")} photo(s) added`},'admin','internal',${JSON.stringify({count:processed.length,stage:input.stage})}::jsonb)`);return rows;});res.status(201).json(saved);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.issues});throw error;}});
 
   app.post("/api/admin/os/requests/:id/site-visits",requireAdmin,async(req,res)=>{
     if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const requestId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({date:z.string().regex(/^\d{4}-\d{2}-\d{2}$/),time:z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/),durationMinutes:z.coerce.number().int().min(15).max(480).default(60),overrideAvailability:z.boolean().default(false),notes:z.string().trim().max(2000).optional()}).parse(req.body);const start=fromZonedTime(`${input.date}T${input.time}:00`,"America/Chicago");if(Number.isNaN(start.getTime()))return res.status(400).json({message:"Choose a valid visit date and time"});if(start.getTime()<=Date.now())return res.status(400).json({message:"Schedule the visit in the future"});
@@ -6380,7 +6380,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(201).json({...appointment,jobId,scheduleKind:input.kind,estimatedCrewHours:input.crewHours||input.durationHours});
   });
 
-  app.post("/api/admin/operations/jobs/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["site_visit","before","progress","change_order","completion","document","other"]).default("progress"),caption:z.string().trim().max(500).optional(),publishable:z.coerce.boolean().default(false)}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const result=await db.transaction(async tx=>{const saved=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(job_id,entity_type,entity_id,media_type,stage,url,caption,publishable) VALUES (${jobId},'job',${String(jobId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null},${input.publishable}) RETURNING *`);saved.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'job',${String(jobId)},'media_added',${`${processed.length} ${input.stage} photo(s) added`},'field','internal',${JSON.stringify({stage:input.stage,count:processed.length})}::jsonb)`);return saved;});res.status(201).json(result);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.errors});throw error;}});
+  app.post("/api/admin/operations/jobs/:id/media",requireAdmin,handleOptionalImageUpload("media",10),async(req:Request,res:Response)=>{const processed=((req as any).processedImages||[]) as ProcessedImage[];try{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.id);const input=z.object({stage:z.enum(["site_visit","before","progress","change_order","completion","document","other"]).default("progress"),caption:z.string().trim().max(500).optional(),publishable:z.coerce.boolean().default(false)}).parse(req.body);if(!processed.length)return res.status(400).json({message:"Choose at least one image"});const result=await db.transaction(async tx=>{const saved=[];for(const image of processed){const inserted=await tx.execute(sql`INSERT INTO media_assets(job_id,entity_type,entity_id,media_type,stage,url,caption,publishable) VALUES (${jobId},'job',${String(jobId)},'photo',${input.stage},${image.sizes.large.url},${input.caption||null},${input.publishable}) RETURNING *`);saved.push((inserted as any).rows?.[0]);}await tx.execute(sql`INSERT INTO activity_events(job_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},'job',${String(jobId)},'media_added',${`${processed.length} ${input.stage} photo(s) added`},'field','internal',${JSON.stringify({stage:input.stage,count:processed.length})}::jsonb)`);return saved;});res.status(201).json(result);}catch(error){if(processed.length)await cleanupUploadedFiles(processed);if(error instanceof z.ZodError)return res.status(400).json({message:"Check the media details",errors:error.issues});throw error;}});
 
   app.post("/api/admin/operations/jobs/:jobId/media/:mediaId/publish",requireAdmin,async(req,res)=>{if(process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS!=="true")return res.status(409).json({message:"Operating-system migrations are not activated"});const jobId=z.coerce.number().int().positive().parse(req.params.jobId);const mediaId=z.coerce.number().int().positive().parse(req.params.mediaId);const input=z.object({title:z.string().trim().min(2).max(200),description:z.string().trim().min(2).max(2000),category:z.string().trim().min(2).max(80).default("general"),featured:z.boolean().default(false)}).parse(req.body);const result=await db.execute(sql`SELECT m.*,j.property_id,j.address FROM media_assets m JOIN jobs j ON j.id=m.job_id WHERE m.id=${mediaId} AND m.job_id=${jobId}`);const media=(result as any).rows?.[0];if(!media)return res.status(404).json({message:"Job media not found"});if(media.stage!=="completion")return res.status(409).json({message:"Only completion media can be offered for public Gallery publishing"});const published=await db.transaction(async tx=>{await tx.execute(sql`UPDATE media_assets SET publishable=true WHERE id=${mediaId}`);const inserted=await tx.execute(sql`INSERT INTO project_gallery(title,description,category,image_url,completion_date,location,featured,job_id,property_id,source_media_id) VALUES (${input.title},${input.description},${input.category},${media.url},NOW(),${media.address||null},${input.featured},${jobId},${media.property_id||null},${mediaId}) ON CONFLICT(source_media_id) WHERE source_media_id IS NOT NULL DO UPDATE SET title=EXCLUDED.title,description=EXCLUDED.description,category=EXCLUDED.category,featured=EXCLUDED.featured RETURNING *`);await tx.execute(sql`INSERT INTO activity_events(job_id,property_id,entity_type,entity_id,event_type,summary,channel,visibility,metadata) VALUES (${jobId},${media.property_id||null},'media',${String(mediaId)},'gallery_published','Completion media published to Gallery','website','shared',${JSON.stringify({title:input.title})}::jsonb)`);return (inserted as any).rows?.[0];});res.status(201).json(published);});
 
@@ -6422,7 +6422,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const id = Number((count as any).rows?.[0]?.id);
       const [job] = await db.insert(jobs).values({ id, ...input, jobNumber: `JOB-${new Date().getFullYear()}-${String(id).padStart(5, "0")}` }).returning();
       res.status(201).json(job);
-    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the job details", errors: error.errors }); throw error; }
+    } catch (error) { if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the job details", errors: error.issues }); throw error; }
   });
 
   app.patch("/api/admin/operations/jobs/:id", requireAdmin, async (req, res) => {
@@ -6548,7 +6548,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     } catch (error) {
       if (processedImages.length) await cleanupUploadedFiles(processedImages);
       if (savedPdfPath) await fs.unlink(savedPdfPath).catch(() => undefined);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the expense details", errors: error.errors });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: "Check the expense details", errors: error.issues });
       throw error;
     }
   });

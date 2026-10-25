@@ -1,4 +1,4 @@
-import nodemailer from 'nodemailer';
+import nodemailer, { type Transporter } from 'nodemailer';
 import { ImapFlow } from 'imapflow';
 import type { Appointment } from '../../shared/schema.js';
 import { getServiceById, type Service } from './services.js';
@@ -58,7 +58,7 @@ interface ReviewNotificationEmailData {
 }
 
 export class EmailService {
-  private transporter!: nodemailer.Transporter;
+  private transporter!: Transporter;
   private fromEmail: string;
   private adminEmail: string;
   private businessName: string;

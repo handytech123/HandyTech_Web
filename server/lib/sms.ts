@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 // Email-to-SMS gateway mapping for major US carriers
 const carrierGateways = {
@@ -25,7 +25,7 @@ const from = process.env.FROM_EMAIL || process.env.SMTP_USER;
 const alertPhone = process.env.ALERT_TO_SMS;      // e.g. 3145551234 (no formatting)
 const phoneCarrier = process.env.SMS_CARRIER || 'verizon';  // carrier key from above
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 if (host && user && pass) {
   transporter = nodemailer.createTransport({
     host,

@@ -1,4 +1,4 @@
-import nodemailer from "nodemailer";
+import nodemailer, { type Transporter } from "nodemailer";
 
 const host = process.env.SMTP_HOST;      // e.g. smtp.sendgrid.net
 const port = process.env.SMTP_PORT || 587;
@@ -7,7 +7,7 @@ const pass = process.env.SMTP_PASS;
 const from = process.env.FROM_EMAIL || process.env.SMTP_USER;     // fallback to SMTP_USER if FROM_EMAIL not set
 const to   = process.env.ALERT_TO_EMAIL; // your inbox
 
-let transporter: nodemailer.Transporter | null = null;
+let transporter: Transporter | null = null;
 if (host && user && pass) {
   transporter = nodemailer.createTransport({
     host,

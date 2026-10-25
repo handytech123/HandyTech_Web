@@ -691,14 +691,14 @@ export const insertMaintenancePlanSchema = createInsertSchema(maintenancePlans).
 // All sensitive fields (price, customerId, etc.) are computed server-side
 export const portalCreateMaintenancePlanSchema = z.object({
   planType: z.enum(['basic', 'professional', 'enterprise'], {
-    errorMap: () => ({ message: "Plan type must be 'basic', 'professional', or 'enterprise'" })
+    error: "Plan type must be 'basic', 'professional', or 'enterprise'"
   }),
 });
 
 // Cancellation request schema
 export const cancelMaintenancePlanSchema = z.object({
   cancellationType: z.enum(['immediate', 'end_of_period'], {
-    errorMap: () => ({ message: "Cancellation type must be 'immediate' or 'end_of_period'" })
+    error: "Cancellation type must be 'immediate' or 'end_of_period'"
   }),
   cancellationReason: z.string().min(1, "Please provide a reason for cancellation").max(500, "Reason must be less than 500 characters").optional(),
 });
@@ -765,7 +765,7 @@ export const insertConsultationSchema = createInsertSchema(consultations).omit({
   smsConsent: z.boolean().default(false),
   propertyType: z.enum(["home", "rental", "business", "other"]),
   timeframe: z.enum(["urgent", "two_weeks", "one_month", "flexible"]),
-  isAuthorized: z.literal(true, { errorMap: () => ({ message: "Confirm you are authorized to request this work" }) }),
+  isAuthorized: z.literal(true, { error: "Confirm you are authorized to request this work" }),
   budgetRange: z.string().trim().max(100).optional().nullable(),
   bestContactTime: z.string().trim().max(200).optional().nullable(),
   photoUrls: z.array(z.string()).max(10).optional().default([]),
