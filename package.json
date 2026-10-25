@@ -18,6 +18,7 @@
     "test:pricing": "tsx server/utils/pricing-guardrails.test.ts",
     "test:quote-split": "tsx server/utils/quote-pricing-split.test.ts",
     "test:quote-view": "tsx server/utils/quote-view-tracking.test.ts",
+    "test:quote-email": "tsx server/utils/quote-email-content.test.ts",
     "db:reconcile": "tsx server/utils/migration-reconciliation.ts",
     "db:parity": "tsx server/utils/relationship-parity-report.ts",
     "db:migrate:operating-system": "tsx server/utils/migrate-operating-system.ts",
