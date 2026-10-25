@@ -1,16 +1,11 @@
 import express, { type Express } from "express";
 import fs from "fs";
 import path from "path";
-import { createServer as createViteServer, createLogger } from "vite";
 import { type Server } from "http";
-import viteConfig from "../vite.config";
-import { nanoid } from "nanoid";
 import { storage } from "./storage";
 import { BUSINESS_EMAIL, BUSINESS_ID, BUSINESS_NAME, BUSINESS_PHONE, isIndexableProjectTitle, seoSlug, SITE_URL } from "@shared/seo";
 import { SERVICE_SEO_CONTENT, resolveServiceSlug } from "@shared/service-content";
 import { SERVICE_AREA_BY_SLUG } from "@shared/service-area-content";
-
-const viteLogger = createLogger();
 
 export function log(message: string, source = "express") {
   const formattedTime = new Date().toLocaleTimeString("en-US", {
@@ -24,6 +19,15 @@ export function log(message: string, source = "express") {
 }
 
 export async function setupVite(app: Express, server: Server) {
+  // Keep development-only tooling out of the production module graph. This
+  // allows production installs to use `npm ci --omit=dev` and materially
+  // reduces the packages exposed on the live server.
+  const [{ createServer: createViteServer, createLogger }, { default: viteConfig }, { nanoid }] = await Promise.all([
+    import("vite"),
+    import("../vite.config"),
+    import("nanoid"),
+  ]);
+  const viteLogger = createLogger();
   const serverOptions = {
     middlewareMode: true as const,
     hmr: { server },
