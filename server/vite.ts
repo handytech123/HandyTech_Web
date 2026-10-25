@@ -22,9 +22,10 @@ export async function setupVite(app: Express, server: Server) {
   // Keep development-only tooling out of the production module graph. This
   // allows production installs to use `npm ci --omit=dev` and materially
   // reduces the packages exposed on the live server.
+  const viteConfigPath = "../vite.config";
   const [{ createServer: createViteServer, createLogger }, { default: viteConfig }, { nanoid }] = await Promise.all([
     import("vite"),
-    import("../vite.config"),
+    import(viteConfigPath),
     import("nanoid"),
   ]);
   const viteLogger = createLogger();
