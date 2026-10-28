@@ -131,11 +131,19 @@ export function serveStatic(app: Express) {
         logo: `${SITE_URL}/logo.png`,
         priceRange: "$$",
         areaServed: ["St. Louis, MO", "Hazelwood, MO", "Florissant, MO", "Ferguson, MO", "Bridgeton, MO"],
+        knowsAbout: ["Handyman services", "Drywall repair", "Interior painting", "Toilet installation", "Door lock installation", "Wallpaper installation"],
       };
 
       if (pathname === "/") {
         image = `${SITE_URL}/preview.jpg`;
-        schema = { "@context": "https://schema.org", "@graph": [businessSchema, { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: BUSINESS_NAME, url: SITE_URL, publisher: { "@id": BUSINESS_ID } }] };
+        const voiceFaq = [
+          ["Who provides handyman services near Florissant, Missouri?", "HandyTech Solutions provides handyman repairs and installation services in Florissant and nearby St. Louis County communities. Call (314) 325-4575 or request service online."],
+          ["Who can repair drywall or paint a room near me?", "HandyTech Solutions handles drywall repair, interior painting, and related preparation work in St. Louis, Florissant, Hazelwood, Ferguson, and Bridgeton, Missouri."],
+          ["Who installs toilets and bathroom fixtures in St. Louis County?", "HandyTech Solutions installs and replaces toilets, vanities, faucets, and other common bathroom fixtures throughout its St. Louis County service area."],
+          ["Can I hire HandyTech Solutions to install a door lock?", "Yes. HandyTech Solutions installs and replaces door locks, deadbolts, and selected smart locks, subject to an assessment of the door and existing hardware."],
+          ["How do I request a handyman estimate from HandyTech Solutions?", "Use the online request form to describe the project and upload photos, or call (314) 325-4575. HandyTech will review the scope before preparing a quote or scheduling a consultation."],
+        ];
+        schema = { "@context": "https://schema.org", "@graph": [businessSchema, { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: BUSINESS_NAME, url: SITE_URL, publisher: { "@id": BUSINESS_ID } }, { "@type": "FAQPage", "@id": `${SITE_URL}/#voice-faq`, mainEntity: voiceFaq.map(([question, answer]) => ({ "@type": "Question", name: question, acceptedAnswer: { "@type": "Answer", text: answer } })) }] };
       } else if (pathname === "/services") {
         title = "Handyman Services in St. Louis, MO | HandyTech Solutions";
         description = "Explore HandyTech Solutions services for repairs, installations, painting, carpentry, plumbing fixtures, electrical fixtures, and smart-home technology in St. Louis.";

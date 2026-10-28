@@ -10,6 +10,7 @@ import ContactSection from "@/components/contact-section";
 import Footer from "@/components/footer";
 import ContactBanner from "@/components/contact-banner";
 import BadgesSection from "@/components/badges-section";
+import VoiceSearchFaq, { voiceQuestions } from "@/components/voice-search-faq";
 
 export default function Home() {
   return (
@@ -71,9 +72,21 @@ export default function Home() {
                 }
               ]
             },
+            "knowsAbout": ["Handyman services", "Drywall repair", "Interior painting", "Toilet installation", "Door lock installation", "Wallpaper installation"],
             "sameAs": ["https://proreferral.homedepot.com/public-profile/885948"]
           }
           `}
+        </script>
+        <script type="application/ld+json">
+          {JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "FAQPage",
+            mainEntity: voiceQuestions.map((item) => ({
+              "@type": "Question",
+              name: item.question,
+              acceptedAnswer: { "@type": "Answer", text: item.answer },
+            })),
+          })}
         </script>
       </Helmet>
       
@@ -87,6 +100,7 @@ export default function Home() {
         <MaintenancePlans />
         <GalleryPreview />
         <TestimonialsSection />
+        <VoiceSearchFaq />
         <ContactSection />
       </main>
       <Footer />
