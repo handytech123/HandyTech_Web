@@ -71,6 +71,7 @@
   const approvedMessageCategory = (service) => {
     const value = clean(service).toLowerCase();
     if (/\b(?:interior|exterior)?\s*paint(?:ing)?\b/.test(value)) return "painting";
+    if (/\b(?:wallpaper|wall\s*covering)(?:\s+installation)?\b/.test(value)) return "wallpaper";
     if (/\btoilet(?:s)?\b/.test(value)) return "toilet";
     if (/\b(?:drywall|sheetrock)\b/.test(value)) return "drywall";
     if (/\b(?:door\s+lock|deadbolt|lockset|door\s+hardware)\b/.test(value)) return "door lock";
@@ -176,7 +177,7 @@
       rememberProcessed(lead.externalJobId);
       const reason = lead.leadCostPoints == null ? "point cost was not visible"
         : !withinPointLimit ? `cost is ${lead.leadCostPoints} points`
-        : !category ? "service is outside the four approved automatic categories"
+        : !category ? "service is outside the five approved automatic categories"
         : !recent ? "lead age is over 48 hours or could not be verified"
         : "service or safety checks require review";
       status.textContent = `Saved ${lead.customerName} without claiming: ${reason}.`;

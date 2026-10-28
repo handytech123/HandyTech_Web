@@ -99,6 +99,7 @@ export function renderReferralResponse(template: string, values: { customerName:
 const approvedAlertCategory = (service?: string | null) => {
   const value = clean(service).toLowerCase();
   if (/\b(?:interior|exterior)?\s*paint(?:ing)?\b/.test(value)) return "painting";
+  if (/\b(?:wallpaper|wall\s*covering)(?:\s+installation)?\b/.test(value)) return "wallpaper";
   if (/\btoilet(?:s)?\b/.test(value)) return "toilet";
   if (/\b(?:drywall|sheetrock)\b/.test(value)) return "drywall";
   if (/\b(?:door\s+lock|deadbolt|lockset|door\s+hardware)\b/.test(value)) return "door lock";

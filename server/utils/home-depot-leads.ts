@@ -40,7 +40,7 @@ export function scoreHomeDepotLead(input: HomeDepotLeadInput) {
   const reasons: string[] = [];
   const blockers: string[] = [];
   const text = `${input.service} ${input.customerNotes || ""}`.toLowerCase();
-  const strongFits = ["assembly", "mount", "painting", "drywall", "fixture", "faucet", "toilet", "door", "carpentry", "repair", "installation", "pressure wash", "deck"];
+  const strongFits = ["assembly", "mount", "painting", "wallpaper", "wall covering", "drywall", "fixture", "faucet", "toilet", "door", "carpentry", "repair", "installation", "pressure wash", "deck"];
   const specialistWork = ["roof", "foundation", "major structural", "service panel", "gas line", "sewer main", "asbestos", "mold remediation"];
 
   const coreServiceMatch = strongFits.some((term) => text.includes(term));

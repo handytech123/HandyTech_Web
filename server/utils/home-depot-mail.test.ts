@@ -21,5 +21,6 @@ const paintingLead = { ...lead, service: "Interior Painting", leadCostPoints: 40
 assert.match(buildHomeDepotLeadSms(paintingLead, 85, new Date("2026-09-18T14:00:00Z"), new Date("2026-09-18T15:00:00Z")) || "", /Open and approve: https:\/\/proreferral/);
 assert.equal(buildHomeDepotLeadSms({ ...paintingLead, leadCostPoints: 41 }, 85, mail.receivedAt, new Date("2026-09-18T15:00:00Z")), null);
 assert.equal(buildHomeDepotLeadSms({ ...paintingLead, service: "Appliance Installation" }, 85, mail.receivedAt, new Date("2026-09-18T15:00:00Z")), null);
+assert.match(buildHomeDepotLeadSms({ ...paintingLead, service: "Wallpaper Installation" }, 85, mail.receivedAt, new Date("2026-09-18T15:00:00Z")) || "", /Home Depot wallpaper lead/);
 assert.equal(buildHomeDepotLeadSms(paintingLead, 85, mail.receivedAt, new Date("2026-09-21T15:00:00Z")), null);
 console.log("Home Depot mail automation tests passed");
