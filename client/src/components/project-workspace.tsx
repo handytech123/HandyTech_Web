@@ -5,10 +5,13 @@ import {
   CheckCircle2,
   CircleDollarSign,
   ClipboardList,
+  Copy,
+  ExternalLink,
   FileText,
   Images,
   MapPin,
   MessageSquare,
+  Megaphone,
   Pencil,
   Plus,
   Receipt,
@@ -88,6 +91,18 @@ const date = (value: any) =>
     : "Not yet";
 const status = (value?: string) =>
   String(value || "pending").replaceAll("_", " ");
+const marketingCategory = (value?: string) => {
+  const text = String(value || "").toLowerCase();
+  if (/drywall|sheetrock|wall repair/.test(text)) return "drywall";
+  if (/paint|wallpaper|wall covering/.test(text)) return "painting";
+  if (/bath|toilet|vanity|shower/.test(text)) return "bathroom";
+  if (/door|lock|deadbolt/.test(text)) return "doors";
+  if (/deck|pressure wash|outdoor/.test(text)) return "outdoor";
+  if (/mount|television|tv/.test(text)) return "mounting";
+  if (/assembl/.test(text)) return "assembly";
+  return "general";
+};
+const seoSlug = (value?: string) => String(value || "project").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 
 export default function ProjectWorkspace({
   jobId,
@@ -241,18 +256,21 @@ export default function ProjectWorkspace({
     },
   });
   const publishMedia = useMutation({
-    mutationFn: (media: any) =>
-      apiRequest(
+    mutationFn: (media: any) => {
+      const service = String(data?.project?.title || "Completed handyman project");
+      const city = String(data?.project?.customer?.city || "St. Louis County");
+      const overview = String(data?.quotes?.[0]?.project_overview || media.caption || "").trim();
+      return apiRequest(
         `/api/admin/operations/jobs/${jobId}/media/${media.id}/publish`,
         "POST",
         {
-          title: media.caption || data?.project?.title || "Completed project",
-          description:
-            media.caption || `Completed work for ${data?.project?.job_number}`,
-          category: "general",
+          title: `${service} in ${city}`.slice(0, 200),
+          description: (overview || `HandyTech Solutions completed this ${service.toLowerCase()} project in ${city}, Missouri. The work was documented through the originating customer Job and completion photos.`).slice(0, 2000),
+          category: marketingCategory(service),
           featured: false,
         },
-      ),
+      );
+    },
     onSuccess: () => {
       refresh();
       toast({
@@ -473,6 +491,17 @@ export default function ProjectWorkspace({
       }),
   });
   const customer = data?.project?.customer;
+  const marketingCity = String(customer?.city || "St. Louis County");
+  const marketingService = String(data?.project?.title || "handyman project");
+  const projectUrl = data?.gallery?.[0]?.id
+    ? `https://handytech-solutions.com/projects/${seoSlug(data.gallery[0].title)}`
+    : "https://handytech-solutions.com/gallery";
+  const googlePostDraft = `Recently completed: ${marketingService} in ${marketingCity}, Missouri. HandyTech Solutions documented the work from the original job through completion. View the project and request help with a similar job: ${projectUrl}`;
+  const yelpPostDraft = `New project completed in ${marketingCity}: ${marketingService}. We focus on clear scopes, professional workmanship, and documented results. See more completed work at ${projectUrl}`;
+  const copyMarketingText = async (label: string, value: string) => {
+    await navigator.clipboard.writeText(value);
+    toast({ title: `${label} copied` });
+  };
   return (
     <Dialog open={!!jobId} onOpenChange={(open) => !open && onClose()}>
       <DialogContent className="max-h-[94vh] max-w-6xl overflow-y-auto p-0">
@@ -572,6 +601,7 @@ export default function ProjectWorkspace({
                   <TabsTrigger value="schedule">Schedule</TabsTrigger>
                   <TabsTrigger value="money">Money</TabsTrigger>
                   <TabsTrigger value="files">Files & Photos</TabsTrigger>
+                  <TabsTrigger value="marketing">Marketing Pack</TabsTrigger>
                   <TabsTrigger value="closeout">Closeout</TabsTrigger>
                 </TabsList>
                 <TabsContent
@@ -1215,6 +1245,27 @@ export default function ProjectWorkspace({
                       </div>
                     )}
                   </div>
+                </TabsContent>
+                <TabsContent value="marketing" className="space-y-4">
+                  <section className="rounded-xl border p-4">
+                    <h3 className="flex items-center gap-2 font-semibold"><Megaphone className="h-4 w-4" />Completed-job marketing pack</h3>
+                    <p className="mt-1 text-sm text-muted-foreground">Turn verified Job information into a local project page, review request, and reusable business updates without publishing the customer's full address.</p>
+                    <div className="mt-4 grid gap-3 sm:grid-cols-3">
+                      <div className={`rounded-lg p-3 text-sm ${data.media.some((x) => x.stage === "completion") ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"}`}><strong>Completion photos</strong><p>{data.media.filter((x) => x.stage === "completion").length || "None"} attached</p></div>
+                      <div className={`rounded-lg p-3 text-sm ${data.gallery.length ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"}`}><strong>SEO project page</strong><p>{data.gallery.length ? "Published" : "Not published"}</p></div>
+                      <div className={`rounded-lg p-3 text-sm ${data.reviews.length ? "bg-emerald-50 text-emerald-900" : "bg-amber-50 text-amber-950"}`}><strong>Customer review</strong><p>{data.reviews.length ? "Received" : "Not received yet"}</p></div>
+                    </div>
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      <Button variant="outline" disabled={requestReview.isPending || !data.project.customer?.email} onClick={() => requestReview.mutate()}><Star className="mr-2 h-4 w-4" />Request customer review</Button>
+                      {!data.gallery.length && data.media.filter((x) => x.stage === "completion").slice(0, 1).map((media) => <Button key={media.id} variant="outline" disabled={publishMedia.isPending} onClick={() => publishMedia.mutate(media)}><Images className="mr-2 h-4 w-4" />Publish SEO project page</Button>)}
+                      {data.gallery[0]?.id && <Button variant="outline" asChild><a href={projectUrl} target="_blank" rel="noreferrer">View project page<ExternalLink className="ml-2 h-4 w-4" /></a></Button>}
+                    </div>
+                  </section>
+                  <section className="grid gap-4 lg:grid-cols-2">
+                    <div className="rounded-xl border p-4"><div className="flex items-center justify-between gap-2"><h3 className="font-semibold">Google Business update</h3><Button size="sm" variant="outline" onClick={() => copyMarketingText("Google post", googlePostDraft)}><Copy className="mr-2 h-4 w-4" />Copy</Button></div><p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{googlePostDraft}</p></div>
+                    <div className="rounded-xl border p-4"><div className="flex items-center justify-between gap-2"><h3 className="font-semibold">Yelp business update</h3><Button size="sm" variant="outline" onClick={() => copyMarketingText("Yelp post", yelpPostDraft)}><Copy className="mr-2 h-4 w-4" />Copy</Button></div><p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-700">{yelpPostDraft}</p></div>
+                  </section>
+                  <section className="rounded-xl border border-red-200 bg-red-50 p-4"><h3 className="font-semibold text-red-950">Yelp for Business</h3><p className="mt-1 text-sm text-red-900">Claim the free business listing first. Search before adding a new listing so HandyTech does not end up with duplicates. Claiming is free; paid Yelp advertising is optional.</p><Button className="mt-3" variant="outline" asChild><a href="https://biz.yelp.com/claim" target="_blank" rel="noreferrer">Find or claim HandyTech on Yelp<ExternalLink className="ml-2 h-4 w-4" /></a></Button></section>
                 </TabsContent>
                 <TabsContent value="closeout">
                   <section className="rounded-xl border p-4">
