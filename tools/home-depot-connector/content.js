@@ -13,6 +13,21 @@
   };
   const settings = () => new Promise((resolve) => chrome.storage.local.get({ automationEnabled: false, automaticMessagingEnabled: false, minimumScore: 75, maximumPoints: 10000, messagedLeadIds: [] }, resolve));
 
+  function receivedAgeHours(label) {
+    const value = clean(label).toLowerCase();
+    if (!value) return null;
+    if (value === "today" || value === "just now") return 0;
+    if (value === "yesterday") return 24;
+    const relative = value.match(/(\d+)\s*(minute|min|m|hour|hr|h|day|d)s?\s+ago/);
+    if (relative) {
+      const amount = Number(relative[1]);
+      if (/^(?:minute|min|m)$/.test(relative[2])) return amount / 60;
+      if (/^(?:day|d)$/.test(relative[2])) return amount * 24;
+      return amount;
+    }
+    return null;
+  }
+
   function extractLead() {
     const text = bodyText();
     const headings = [...document.querySelectorAll("h1,h2,h3")].map((node) => clean(node.textContent)).filter(Boolean);
@@ -35,6 +50,7 @@
       .filter((url) => /^https:\/\//i.test(url) && !/logo|icon|avatar|sprite/i.test(url))
       .filter((url, index, urls) => urls.indexOf(url) === index)
       .slice(0, 20);
+    const receivedLabel = match(/Received\s+(.+?)(?:\s+\d+\s+hours?\s+till\s+overdue|\s+Job status|$)/i);
     return {
       externalJobId: match(/Job ID\s*([A-Za-z0-9-]+)/i) || pathId(), customerName, email, phone, service,
       city: city || null, state: state || null, zip: zip || null,
@@ -42,7 +58,7 @@
       customerNotes: provided(match(/Customer notes\s+(.+?)(?:Customer Photos|Lead cost|Request Review|$)/i)) || null,
       photoUrls, leadCostPoints: points,
       responseDueAt: parsedResponseDue && !Number.isNaN(parsedResponseDue.getTime()) ? parsedResponseDue.toISOString() : null,
-      portalUrl: location.href,
+      portalUrl: location.href, receivedLabel,
     };
   }
 
@@ -119,29 +135,10 @@
     const values = readProcessed(); values.add(id);
     sessionStorage.setItem(processedKey, JSON.stringify([...values].slice(-250)));
   };
-  const leadLinks = () => [...document.querySelectorAll('a[href*="/dashboard/new/"]')]
-    .filter(visible).map((anchor) => anchor.href)
-    .filter((href, index, values) => href !== location.href && values.indexOf(href) === index);
-  const leadRows = () => [...document.querySelectorAll("li,[role=listitem],[class*=job],[class*=lead]")].filter((element) => {
-    if (!visible(element) || element.closest("#handytech-hd-connector")) return false;
-    const rect = element.getBoundingClientRect(); const text = clean(element.textContent);
-    return rect.left < Math.min(520, window.innerWidth * 0.45) && rect.width >= 180 && rect.width <= 600 && rect.height >= 45 && rect.height <= 240
-      && /\b(?:MO|IL)\s+\d{5}\b/.test(text) && !/job details|customer timeframe|lead cost/i.test(text);
-  });
-
-  async function moveToNextLead() {
-    const processed = readProcessed();
-    const link = leadLinks().find((href) => !processed.has(href.split("/").filter(Boolean).at(-1)));
-    if (link) { location.href = link; return true; }
-    const row = leadRows().find((element) => !processed.has(clean(element.textContent).slice(0, 160)));
-    if (row) { rememberProcessed(clean(row.textContent).slice(0, 160)); row.click(); return true; }
-    return false;
-  }
-
   const panel = document.createElement("aside");
   panel.id = "handytech-hd-connector";
   panel.style.cssText = "position:fixed;right:18px;bottom:18px;z-index:2147483647;width:320px;background:#fff;border:2px solid #2769be;border-radius:10px;box-shadow:0 8px 30px #0004;padding:14px;font:14px system-ui;color:#172033";
-  panel.innerHTML = '<strong style="display:block;font-size:16px">HandyTech Lead Bot</strong><p data-mode style="margin:7px 0">Checking retrieval mode…</p><div style="display:flex;gap:8px"><button data-import style="flex:1;border:0;border-radius:6px;background:#2769be;color:white;padding:10px;font-weight:700;cursor:pointer">Retrieve visible lead</button><button data-toggle style="border:1px solid #94a3b8;border-radius:6px;background:white;padding:10px;font-weight:700;cursor:pointer">Start bot</button></div><div role="status" style="margin-top:8px;overflow-wrap:anywhere"></div>';
+  panel.innerHTML = '<strong style="display:block;font-size:16px">HandyTech Lead Assistant</strong><p data-mode style="margin:7px 0">Checking retrieval mode…</p><div style="display:flex;gap:8px"><button data-import style="flex:1;border:0;border-radius:6px;background:#2769be;color:white;padding:10px;font-weight:700;cursor:pointer">Retrieve visible lead</button><button data-toggle style="border:1px solid #94a3b8;border-radius:6px;background:white;padding:10px;font-weight:700;cursor:pointer">Enable assist</button></div><div role="status" style="margin-top:8px;overflow-wrap:anywhere"></div>';
   document.body.appendChild(panel);
   const importButton = panel.querySelector("[data-import]");
   const toggleButton = panel.querySelector("[data-toggle]");
@@ -152,9 +149,9 @@
   async function refreshMode() {
     const saved = await settings();
     mode.textContent = saved.automationEnabled
-      ? `Automatic retrieval is ON. Eligible leads may use points.${saved.automaticMessagingEnabled ? " Approved categories receive one first-contact message." : " Customer messaging is off."} No Requests are created.`
+      ? `Assisted retrieval is ON. Open a lead normally and eligible leads may use points.${saved.automaticMessagingEnabled ? " Approved categories receive one first-contact message." : " Customer messaging is off."} The connector never changes pages by itself.`
       : "Automatic retrieval is OFF. Manual retrieval does not spend points.";
-    toggleButton.textContent = saved.automationEnabled ? "Stop bot" : "Start bot";
+    toggleButton.textContent = saved.automationEnabled ? "Disable assist" : "Enable assist";
     toggleButton.style.color = saved.automationEnabled ? "#b91c1c" : "#172033";
     return saved;
   }
@@ -171,10 +168,17 @@
     }
     const saved = await settings();
     const withinPointLimit = lead.leadCostPoints != null && lead.leadCostPoints <= Number(saved.maximumPoints);
-    const eligible = result.autoClaimEligible === true && result.lead.score >= Number(saved.minimumScore);
+    const category = approvedMessageCategory(lead.service);
+    const ageHours = receivedAgeHours(lead.receivedLabel);
+    const recent = ageHours != null && ageHours <= 48;
+    const eligible = Boolean(category) && recent && result.autoClaimEligible === true && result.lead.score >= Number(saved.minimumScore);
     if (!withinPointLimit || !eligible) {
       rememberProcessed(lead.externalJobId);
-      const reason = lead.leadCostPoints == null ? "point cost was not visible" : !withinPointLimit ? `cost is ${lead.leadCostPoints} points` : "service or safety checks require review";
+      const reason = lead.leadCostPoints == null ? "point cost was not visible"
+        : !withinPointLimit ? `cost is ${lead.leadCostPoints} points`
+        : !category ? "service is outside the four approved automatic categories"
+        : !recent ? "lead age is over 48 hours or could not be verified"
+        : "service or safety checks require review";
       status.textContent = `Saved ${lead.customerName} without claiming: ${reason}.`;
       return;
     }
@@ -194,11 +198,13 @@
     busy = true;
     try {
       const lead = extractLead();
+      let checkedNow = false;
       if (lead.externalJobId && lead.customerName && lead.service && !readProcessed().has(lead.externalJobId)) {
         await retrieveVisible({ allowClaim: true });
+        checkedNow = true;
         await wait(1000);
       }
-      if (!(await moveToNextLead())) status.textContent = "No unprocessed visible New leads. The bot will keep checking.";
+      if (!checkedNow) status.textContent = "This visible lead was already checked during this browser session. Open another New lead normally when you are ready.";
     } catch (error) {
       const lead = extractLead();
       if (lead.externalJobId) rememberProcessed(lead.externalJobId);

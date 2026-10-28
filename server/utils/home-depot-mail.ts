@@ -95,3 +95,20 @@ export function evaluateReferralRule(rule: ReferralRule, lead: ParsedHomeDepotMa
 export function renderReferralResponse(template: string, values: { customerName: string; service: string }) {
   return template.replaceAll("{{customer_name}}", values.customerName).replaceAll("{{service}}", values.service).trim();
 }
+
+const approvedAlertCategory = (service?: string | null) => {
+  const value = clean(service).toLowerCase();
+  if (/\b(?:interior|exterior)?\s*paint(?:ing)?\b/.test(value)) return "painting";
+  if (/\btoilet(?:s)?\b/.test(value)) return "toilet";
+  if (/\b(?:drywall|sheetrock)\b/.test(value)) return "drywall";
+  if (/\b(?:door\s+lock|deadbolt|lockset|door\s+hardware)\b/.test(value)) return "door lock";
+  return null;
+};
+
+export function buildHomeDepotLeadSms(lead: ParsedHomeDepotMail, score: number, receivedAt: Date, now = new Date()) {
+  const category = approvedAlertCategory(lead.service);
+  const ageHours = (now.getTime() - receivedAt.getTime()) / 3_600_000;
+  if (!category || score < 75 || lead.leadCostPoints == null || lead.leadCostPoints > 40 || !lead.portalUrl || ageHours < 0 || ageHours > 48) return null;
+  const location = [lead.city, lead.state, lead.zip].filter(Boolean).join(", ") || "Location unavailable";
+  return `Qualified Home Depot ${category} lead\n${lead.customerName || "Customer"} · ${location}\n${score}% fit · ${lead.leadCostPoints} points\nOpen and approve: ${lead.portalUrl}`;
+}

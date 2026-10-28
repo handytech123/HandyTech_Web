@@ -2,9 +2,10 @@ import { ImapFlow } from "imapflow";
 import { sql } from "drizzle-orm";
 import { db } from "./db";
 import { EmailService } from "./utils/mail";
-import { evaluateReferralRule, isHomeDepotReferralMail, parseHomeDepotMail, renderReferralResponse, stableMailId, type HomeDepotMail, type ReferralRule } from "./utils/home-depot-mail";
+import { buildHomeDepotLeadSms, evaluateReferralRule, isHomeDepotReferralMail, parseHomeDepotMail, renderReferralResponse, stableMailId, type HomeDepotMail, type ReferralRule } from "./utils/home-depot-mail";
 import { scoreHomeDepotLead } from "./utils/home-depot-leads";
 import { mirrorReferralAsRequest } from "./services/operating-system";
+import { smsService } from "./utils/sms-service";
 
 const address = (value: any) => { const item = Array.isArray(value) ? value[0] : value; return item?.address ? String(item.address).trim().toLowerCase() : ""; };
 const decodeQuotedPrintable = (value: string) => value.replace(/=\r?\n/g, "").replace(/=([0-9A-F]{2})/gi, (_match, hex) => String.fromCharCode(Number.parseInt(hex, 16)));
@@ -65,6 +66,11 @@ export class ReferralMailScheduler {
       const rating = scoreHomeDepotLead({ ...parsed, externalJobId: parsed.externalJobId, customerName: parsed.customerName, service: parsed.service });
       const leadResult = await db.execute(sql`INSERT INTO referral_leads(provider,external_job_id,customer_name,service,city,state,zip,customer_timeframe,customer_notes,lead_cost_points,portal_url,status,score,score_reasons,last_synced_at,updated_at) VALUES ('home_depot',${parsed.externalJobId},${parsed.customerName},${parsed.service},${parsed.city},${parsed.state},${parsed.zip},${parsed.customerTimeframe},${parsed.customerNotes},${parsed.leadCostPoints},${parsed.portalUrl},${rating.recommendation === "strong_match" ? "reviewing" : rating.recommendation === "pass" ? "passed" : "new"},${rating.score},${rating.reasons},NOW(),NOW()) ON CONFLICT(external_job_id) DO UPDATE SET customer_name=EXCLUDED.customer_name,service=EXCLUDED.service,city=COALESCE(EXCLUDED.city,referral_leads.city),state=COALESCE(EXCLUDED.state,referral_leads.state),zip=COALESCE(EXCLUDED.zip,referral_leads.zip),customer_timeframe=COALESCE(EXCLUDED.customer_timeframe,referral_leads.customer_timeframe),customer_notes=COALESCE(EXCLUDED.customer_notes,referral_leads.customer_notes),lead_cost_points=COALESCE(EXCLUDED.lead_cost_points,referral_leads.lead_cost_points),portal_url=COALESCE(EXCLUDED.portal_url,referral_leads.portal_url),score=EXCLUDED.score,score_reasons=EXCLUDED.score_reasons,last_synced_at=NOW(),updated_at=NOW() RETURNING *`);
       const lead = (leadResult as any).rows[0]; const requestId = await mirrorReferralAsRequest(lead);
+      const sms = buildHomeDepotLeadSms(parsed, rating.score, mail.receivedAt);
+      if (sms) {
+        const sent = await smsService.sendAdminAlert("Home Depot lead ready", sms);
+        if (!sent) console.error(`Home Depot lead SMS was not delivered for ${parsed.externalJobId}`);
+      }
       const rulesResult = await db.execute(sql`SELECT * FROM referral_automation_rules WHERE enabled=true ORDER BY id`); const rules = ((rulesResult as any).rows || []) as any[];
       const matched = rules.find((candidate) => { try { return new RegExp(candidate.service_pattern, "i").test(parsed.service!); } catch { return false; } });
       let actionId: number | null = null; let status = "imported";

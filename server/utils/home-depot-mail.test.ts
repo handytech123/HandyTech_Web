@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { evaluateReferralRule, isHomeDepotReferralMail, parseHomeDepotMail, renderReferralResponse, stableMailId } from "./home-depot-mail.js";
+import { buildHomeDepotLeadSms, evaluateReferralRule, isHomeDepotReferralMail, parseHomeDepotMail, renderReferralResponse, stableMailId } from "./home-depot-mail.js";
 
 const mail = {
   messageId: "<lead-1042@proreferral.com>",
@@ -17,4 +17,9 @@ const decision = evaluateReferralRule({ servicePattern: "assembly", enabled: tru
 assert.equal(decision.approved, true);
 assert.equal(evaluateReferralRule({ servicePattern: "assembly", enabled: true, responseMode: "trusted", responseTemplate: "x", maxLeadCostPoints: 20, minimumScore: 70 }, lead, 85).approved, false);
 assert.equal(renderReferralResponse("Hi {{customer_name}}, we can review your {{service}} project.", { customerName: "Mary", service: "assembly" }), "Hi Mary, we can review your assembly project.");
+const paintingLead = { ...lead, service: "Interior Painting", leadCostPoints: 40 };
+assert.match(buildHomeDepotLeadSms(paintingLead, 85, new Date("2026-09-18T14:00:00Z"), new Date("2026-09-18T15:00:00Z")) || "", /Open and approve: https:\/\/proreferral/);
+assert.equal(buildHomeDepotLeadSms({ ...paintingLead, leadCostPoints: 41 }, 85, mail.receivedAt, new Date("2026-09-18T15:00:00Z")), null);
+assert.equal(buildHomeDepotLeadSms({ ...paintingLead, service: "Appliance Installation" }, 85, mail.receivedAt, new Date("2026-09-18T15:00:00Z")), null);
+assert.equal(buildHomeDepotLeadSms(paintingLead, 85, mail.receivedAt, new Date("2026-09-21T15:00:00Z")), null);
 console.log("Home Depot mail automation tests passed");
