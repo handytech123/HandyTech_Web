@@ -4290,6 +4290,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
         decisionIp: req.ip, decisionUserAgent: req.get("user-agent")?.slice(0, 1000) || null,
       });
       await storage.updateQuoteStatus(quote.id, data.decision === "accepted" ? "converted" : data.decision === "declined" ? "declined" : "contacted");
+      if (quote.requestId && data.decision === "changes_requested") {
+        await db.execute(sql`UPDATE requests SET status='needs_information',next_action='Review customer quote changes',updated_at=NOW() WHERE id=${quote.requestId}`);
+        if (process.env.ENABLE_OPERATING_SYSTEM_MIGRATIONS === "true") {
+          await db.execute(sql`INSERT INTO activity_events(request_id,entity_type,entity_id,event_type,summary,channel,direction,visibility,metadata) VALUES (${quote.requestId},'proposal',${String(proposal.id)},'quote_changes_requested',${`Customer requested changes to ${proposal.quoteNumber}`},'portal','inbound','shared',${JSON.stringify({ quoteNumber: proposal.quoteNumber, message: data.message || null })}::jsonb)`);
+        }
+      }
       const updated = await storage.getQuoteProposalByQuoteId(quote.id);
       if (!updated) throw new Error("Proposal response was not saved");
       if (data.decision === "accepted") {
