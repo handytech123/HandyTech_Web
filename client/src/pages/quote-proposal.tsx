@@ -120,10 +120,13 @@ export default function QuoteProposalPage() {
       // This public action is authenticated by the unguessable token in the
       // URL, not by a login session. Avoid making the customer's response
       // depend on cookies surviving an email app's embedded browser.
+      const responseBody = decision === "accepted"
+        ? { decision, signerName, signatureData, acceptedTerms, message: message.trim() || undefined }
+        : { decision, message: message.trim() || undefined };
       const response = await fetch(`/api/quote-proposals/${token}/respond`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decision, signerName, signatureData, acceptedTerms, message }),
+        body: JSON.stringify(responseBody),
         credentials: "omit",
       });
       const result = await response.json().catch(() => ({ message: "Your response could not be recorded." }));

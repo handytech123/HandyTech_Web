@@ -4247,10 +4247,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/quote-proposals/:token/respond", rlSensitive, async (req, res) => {
     const responseSchema = z.object({
       decision: z.enum(["accepted", "changes_requested", "declined"]),
-      signerName: z.string().trim().max(120).optional(),
-      signatureData: z.string().max(1_500_000).optional(),
-      acceptedTerms: z.boolean().optional(),
-      message: z.string().trim().max(2000).optional(),
+      // Null is accepted for compatibility with quote pages that were opened
+      // before the conditional response payload was deployed.
+      signerName: z.string().trim().max(120).nullish(),
+      signatureData: z.string().max(1_500_000).nullish(),
+      acceptedTerms: z.boolean().nullish(),
+      message: z.string().trim().max(2000).nullish(),
+    }).superRefine((data, context) => {
+      if (data.decision === "changes_requested" && (!data.message || data.message.length < 3)) {
+        context.addIssue({ code: z.ZodIssueCode.custom, path: ["message"], message: "Describe the change you would like us to make." });
+      }
     });
     try {
       const token = proposalTokenSchema.parse(req.params.token);
@@ -4292,13 +4298,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const proposalUrl = `${process.env.BASE_URL || "https://handytech-solutions.com"}/quote/${token}`;
       const pdfBuffer = await generateQuotePdfBuffer(quote, updated);
       Promise.allSettled([
-        getEmailService().sendQuoteResponseNotification({ quoteNumber: updated.quoteNumber, customerName: `${quote.firstName} ${quote.lastName}`, customerEmail: quote.email, status: data.decision, total: updated.total, message: data.message }),
+        getEmailService().sendQuoteResponseNotification({ quoteNumber: updated.quoteNumber, customerName: `${quote.firstName} ${quote.lastName}`, customerEmail: quote.email, status: data.decision, total: updated.total, message: data.message || undefined }),
         getEmailService().sendQuoteDecisionConfirmation({ quoteNumber: updated.quoteNumber, customerName: quote.firstName, customerEmail: quote.email, status: data.decision, proposalUrl, pdfBuffer }),
       ]).catch(() => undefined);
       res.json({ message: "Your response has been recorded.", status: data.decision, scheduleUrl: "/#scheduler" });
     } catch (error) {
       console.error("Proposal response error:", error);
-      if (error instanceof z.ZodError) return res.status(400).json({ message: "Please check your response and try again." });
+      if (error instanceof z.ZodError) return res.status(400).json({ message: error.issues[0]?.message || "Please check your response and try again." });
       res.status(500).json({ message: "Your response could not be recorded. Please try again or call 314-325-4575." });
     }
   });
