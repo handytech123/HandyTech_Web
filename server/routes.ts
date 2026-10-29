@@ -5814,14 +5814,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const status = typeof req.query.status === "string" ? req.query.status : "";
     const result = status
       ? await db.execute(sql`SELECT r.*,c.first_name,c.last_name,c.company,c.email,c.phone,p.street,p.city,p.state,p.zip,
-          (SELECT qp.quote_number FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_number,
-          (SELECT qp.total FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_total,
+          (SELECT qp.quote_number FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id OR (r.legacy_type='quote' AND (q.id::text=r.legacy_id OR q.revision_root_quote_id::text=r.legacy_id)) ORDER BY q.revision_number DESC,qp.updated_at DESC LIMIT 1) quote_number,
+          (SELECT qp.total FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id OR (r.legacy_type='quote' AND (q.id::text=r.legacy_id OR q.revision_root_quote_id::text=r.legacy_id)) ORDER BY q.revision_number DESC,qp.updated_at DESC LIMIT 1) quote_total,
           (SELECT COUNT(*)::int FROM activity_events e WHERE e.request_id=r.id) activity_count
           FROM requests r LEFT JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id
           WHERE r.status=${status} ORDER BY r.received_at DESC`)
       : await db.execute(sql.raw(`SELECT r.*,c.first_name,c.last_name,c.company,c.email,c.phone,p.street,p.city,p.state,p.zip,
-          (SELECT qp.quote_number FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_number,
-          (SELECT qp.total FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id ORDER BY qp.updated_at DESC LIMIT 1) quote_total,
+          (SELECT qp.quote_number FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id OR (r.legacy_type='quote' AND (q.id::text=r.legacy_id OR q.revision_root_quote_id::text=r.legacy_id)) ORDER BY q.revision_number DESC,qp.updated_at DESC LIMIT 1) quote_number,
+          (SELECT qp.total FROM quotes q JOIN quote_proposals qp ON qp.quote_id=q.id WHERE q.request_id=r.id OR (r.legacy_type='quote' AND (q.id::text=r.legacy_id OR q.revision_root_quote_id::text=r.legacy_id)) ORDER BY q.revision_number DESC,qp.updated_at DESC LIMIT 1) quote_total,
           (SELECT COUNT(*)::int FROM activity_events e WHERE e.request_id=r.id) activity_count
           FROM requests r LEFT JOIN customers c ON c.id=r.contact_id LEFT JOIN properties p ON p.id=r.property_id ORDER BY r.received_at DESC`));
     res.json((result as any).rows || result);
@@ -5930,7 +5930,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       db.execute(sql`SELECT e.*,COALESCE((SELECT json_agg(i ORDER BY i.id) FROM estimate_items i WHERE i.estimate_id=e.id),'[]'::json) items FROM estimates e WHERE e.request_id=${id} ORDER BY version DESC`),
       db.execute(sql`SELECT * FROM appointments WHERE request_id=${id} ORDER BY start_timestamptz DESC NULLS LAST`),
       db.execute(sql`SELECT * FROM media_assets WHERE request_id=${id} ORDER BY created_at DESC`),
-      db.execute(sql`SELECT qp.*,q.id quote_id,q.service_needed,r.request_number FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id LEFT JOIN requests r ON r.id=q.request_id WHERE q.request_id=${id} OR q.id=${request.legacy_type === "quote" ? Number(request.legacy_id) || 0 : 0} ORDER BY qp.updated_at DESC`),
+      db.execute(sql`SELECT qp.*,q.id quote_id,q.service_needed,q.revision_number,r.request_number FROM quote_proposals qp JOIN quotes q ON q.id=qp.quote_id LEFT JOIN requests r ON r.id=q.request_id WHERE q.request_id=${id} OR q.id=${request.legacy_type === "quote" ? Number(request.legacy_id) || 0 : 0} OR q.revision_root_quote_id=${request.legacy_type === "quote" ? Number(request.legacy_id) || 0 : 0} ORDER BY q.revision_number DESC,qp.updated_at DESC`),
       db.execute(sql`SELECT * FROM jobs WHERE request_id=${id} ORDER BY created_at DESC`),
       db.execute(sql`SELECT p.*,cp.relationship,cp.is_primary FROM contact_properties cp JOIN properties p ON p.id=cp.property_id WHERE cp.contact_id=${request.contact_id} ORDER BY cp.is_primary DESC,p.street`),
     ]);
