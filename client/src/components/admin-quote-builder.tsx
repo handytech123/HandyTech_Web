@@ -71,6 +71,8 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
   const [correctionMode, setCorrectionMode] = useState(false);
   const [correctionInstruction, setCorrectionInstruction] = useState("");
   const [correctionSummary, setCorrectionSummary] = useState<string[]>([]);
+  const [laborReduction, setLaborReduction] = useState(0);
+  const [materialReduction, setMaterialReduction] = useState(0);
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const { data: savedProposal, isLoading: savedProposalLoading } = useQuery<SavedProposal>({
@@ -270,9 +272,72 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
     if (!savedProposal) return;
     loadSavedProposal(savedProposal);
     setCorrectionMode(true);
+    setLaborReduction(0);
+    setMaterialReduction(0);
     setViewingSaved(false);
     setShowPreview(false);
     setOpen(true);
+  };
+
+  const applyDirectReduction = () => {
+    if (!savedProposal) return;
+    const originalLabor = savedProposal.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0);
+    const originalMaterials = savedProposal.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedMaterialAmount || 0), 0);
+    const revisedLabor = Math.max(0, originalLabor - Math.max(0, laborReduction));
+    const revisedMaterials = Math.max(0, originalMaterials - Math.max(0, materialReduction));
+    const targetSubtotal = revisedLabor + revisedMaterials;
+    if (targetSubtotal <= 0 || laborReduction > originalLabor || materialReduction > originalMaterials) {
+      toast({ title: "Reduction is too large", description: "Labor and material reductions cannot exceed the original amounts.", variant: "destructive" });
+      return;
+    }
+    const weights = items.map((item) => Math.max(0, item.quantity * item.rate));
+    const weightTotal = weights.reduce((sum, value) => sum + value, 0) || items.length;
+    let allocated = 0;
+    const repriced = items.map((item, index) => {
+      const quantity = Math.max(item.quantity, 0.0001);
+      const amount = index === items.length - 1
+        ? Math.max(0, targetSubtotal - allocated)
+        : Math.round((targetSubtotal * (weightTotal ? weights[index] / weightTotal : 1 / items.length)) * 100) / 100;
+      allocated += amount;
+      return {
+        ...item,
+        rate: Math.round((amount / quantity) * 100) / 100,
+        estimatedLaborAmount: index === 0 ? revisedLabor : undefined,
+        estimatedMaterialAmount: index === 0 ? revisedMaterials : undefined,
+      };
+    });
+    const repricedSubtotal = repriced.reduce((sum, item) => sum + item.quantity * item.rate, 0);
+    const roundingDifference = targetSubtotal - repricedSubtotal;
+    if (repriced.length && Math.abs(roundingDifference) > 0.001) {
+      const last = repriced.length - 1;
+      repriced[last] = { ...repriced[last], rate: repriced[last].rate + roundingDifference / Math.max(repriced[last].quantity, 0.0001) };
+    }
+    setItems(repriced);
+    setCorrectionSummary([`labor reduced by $${laborReduction.toFixed(2)}`, `materials reduced by $${materialReduction.toFixed(2)}`, `revised project subtotal $${targetSubtotal.toFixed(2)}`]);
+    toast({ title: "Price reduction applied", description: `Revised total: $${targetSubtotal.toFixed(2)}. Review the remaining scope, then preview the corrected quote.` });
+  };
+
+  const removeQuoteItem = (index: number) => {
+    const removed = items[index];
+    if (!removed || items.length === 1) return;
+    setItems((current) => current.filter((_, itemIndex) => itemIndex !== index));
+    if (!correctionMode) return;
+
+    const ignoredWords = new Set(["and", "the", "for", "with", "from", "work", "phase", "installation", "replacement"]);
+    const keywords = removed.description.toLowerCase().match(/[a-z0-9]+/g)?.filter((word) => word.length > 3 && !ignoredWords.has(word)) || [];
+    if (keywords.length) {
+      setIncludedWork((current) => current.split("\n").filter((line) => {
+        const normalized = line.toLowerCase();
+        const matches = keywords.filter((keyword) => normalized.includes(keyword)).length;
+        return matches < Math.min(2, keywords.length);
+      }).join("\n"));
+    }
+    setExclusions((current) => {
+      const exclusion = `- ${removed.description} is not included in this revised quote.`;
+      return current.toLowerCase().includes(removed.description.toLowerCase()) ? current : [current.trim(), exclusion].filter(Boolean).join("\n");
+    });
+    setCorrectionSummary((current) => [...current.filter((entry) => !entry.startsWith("removed ")), `removed ${removed.description}`]);
+    toast({ title: "Phase removed", description: `${removed.description} was also removed from Included Work and added to Exclusions.` });
   };
 
   return (
@@ -291,7 +356,17 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
         </DialogHeader>
 
         {isRevision && savedProposalLoading ? <div className="flex min-h-48 items-center justify-center gap-3 text-slate-600"><Loader2 className="h-5 w-5 animate-spin" />Loading the complete prior quote…</div> : !showPreview ? <div className="space-y-5">
-          {isRevisionDraft && <div className="space-y-3 rounded-xl border-2 border-blue-300 bg-blue-50 p-4"><div><h3 className="font-semibold text-blue-950">Correction mode — no revision exists until you send</h3><p className="mt-1 text-sm leading-6 text-blue-900">The original quote is loaded below. Edit a field directly, or tell AI exactly what to change. Everything else must remain identical. Closing this screen creates no extra quote. Customer names and addresses come from the Contact record.</p></div><Textarea rows={3} value={correctionInstruction} onChange={(event) => setCorrectionInstruction(event.target.value)} placeholder='Example: Change the estimated duration to 3–4 working days and do not change anything else.' /><Button type="button" variant="outline" className="border-blue-300 bg-white" disabled={correctionInstruction.trim().length < 3 || aiCorrectionMutation.isPending} onClick={() => aiCorrectionMutation.mutate()}>{aiCorrectionMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{aiCorrectionMutation.isPending ? "Applying only that correction..." : "Apply Only These Changes with AI"}</Button>{correctionSummary.length > 0 && <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950"><strong>AI changed:</strong> {correctionSummary.join(", ")}. Review the preview before sending.</div>}</div>}
+          {isRevisionDraft && <div className="space-y-4 rounded-xl border-2 border-blue-300 bg-blue-50 p-4">
+            <div><h3 className="font-semibold text-blue-950">AI-assisted correction — nothing changes until you send</h3><p className="mt-1 text-sm leading-6 text-blue-900">Tell AI what scope should change, then enter any exact labor and material reductions. The system verifies the final math, labor/material split, and deposit before allowing submission.</p></div>
+            <div className="space-y-3 rounded-lg border border-blue-200 bg-white p-4"><div><h4 className="font-semibold text-slate-950">1. Tell AI what to change</h4><p className="text-sm text-slate-600">AI updates the affected scope and keeps the rest of the quote intact. You can review every field before sending.</p></div><Textarea rows={3} value={correctionInstruction} onChange={(event) => setCorrectionInstruction(event.target.value)} placeholder='Example: Remove wooden staircase painting from this quote, remove it from Included Work, and add it to Exclusions. Do not change anything else.' /><Button type="button" variant="outline" disabled={correctionInstruction.trim().length < 3 || aiCorrectionMutation.isPending} onClick={() => aiCorrectionMutation.mutate()}>{aiCorrectionMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{aiCorrectionMutation.isPending ? "Applying the requested change..." : "Apply Requested Change with AI"}</Button></div>
+            {savedProposal && <div className="space-y-3 rounded-lg border border-blue-200 bg-white p-4">
+              <div><h4 className="font-semibold text-slate-950">2. Enter the exact price change</h4><p className="text-sm text-slate-600">This is the pricing guardrail. It keeps the project total, labor/material split, and deposit synchronized automatically instead of trusting AI arithmetic.</p></div>
+              <div className="grid gap-3 sm:grid-cols-2"><div><Label>Reduce labor by ($)</Label><Input type="number" min="0" step="0.01" value={laborReduction || ""} onChange={(event) => setLaborReduction(Math.max(0, Number(event.target.value)))} placeholder="500.00" /></div><div><Label>Reduce materials by ($)</Label><Input type="number" min="0" step="0.01" value={materialReduction || ""} onChange={(event) => setMaterialReduction(Math.max(0, Number(event.target.value)))} placeholder="50.00" /></div></div>
+              <div className="rounded bg-slate-50 p-3 text-sm"><div className="flex justify-between"><span>Original project subtotal</span><strong>${savedProposal.subtotal.toFixed(2)}</strong></div><div className="mt-1 flex justify-between"><span>Revised project subtotal</span><strong>${Math.max(0, savedProposal.subtotal - laborReduction - materialReduction).toFixed(2)}</strong></div><div className="mt-1 flex justify-between text-blue-900"><span>Revised deposit (50% of labor)</span><strong>${Math.max(0, (savedProposal.lineItems.reduce((sum, item) => sum + Math.max(0, item.estimatedLaborAmount || 0), 0) - laborReduction) / 2).toFixed(2)}</strong></div></div>
+              <Button type="button" onClick={applyDirectReduction} disabled={laborReduction + materialReduction <= 0}>Apply Exact Price Reduction</Button>
+            </div>}
+            {correctionSummary.length > 0 && <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-950"><strong>Changes applied:</strong> {correctionSummary.join(", ")}. Review the remaining phases and preview before sending.</div>}
+          </div>}
           {!isRevisionDraft && <>
           <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
             <div className="flex flex-col gap-3 sm:flex-row sm:justify-between"><div className="flex gap-3"><ClipboardList className="mt-0.5 h-5 w-5 text-emerald-700" /><div><h3 className="font-semibold">AI Job Intake Analysis</h3><p className="text-sm text-slate-600">Check whether this request is ready to price or schedule. Internal only; it never contacts the customer.</p></div></div><Button type="button" variant="outline" onClick={() => intakeMutation.mutate()} disabled={intakeMutation.isPending}>{intakeMutation.isPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Sparkles className="mr-2 h-4 w-4" />}{intakeMutation.isPending ? "Analyzing..." : intakeAnalysis ? "Analyze Again" : "Analyze Request"}</Button></div>
@@ -367,7 +442,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
             <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50 p-4"><div className="text-sm text-amber-950"><strong>Whole-project planning split</strong><span className="block">The assistant estimates labor and contractor-supplied materials for the entire job. This is internal planning information; the customer still receives one fixed project price.</span></div><div className="grid gap-3 sm:grid-cols-3"><div><Label>Approx. project labor ($)</Label><Input type="number" min="0" step="0.01" value={projectLaborAmount || ""} onChange={(event) => updateProjectAllocation("estimatedLaborAmount", event.target.value)} placeholder="0.00" /></div><div><Label>Approx. project materials ($)</Label><Input type="number" min="0" step="0.01" value={projectMaterialAmount || ""} onChange={(event) => updateProjectAllocation("estimatedMaterialAmount", event.target.value)} placeholder="0.00" /></div><div><Label>Fixed project subtotal</Label><Input readOnly value={`$${totals.subtotal.toFixed(2)}`} className="bg-white font-semibold" /></div></div>{Math.abs(projectLaborAmount + projectMaterialAmount - totals.subtotal) > 0.01 && <p className="text-xs font-medium text-amber-900">Labor and materials currently total ${(projectLaborAmount + projectMaterialAmount).toFixed(2)}; adjust them to match the ${totals.subtotal.toFixed(2)} project subtotal.</p>}</div>
             {items.map((item, index) => (
               <div className="space-y-3 rounded-lg border p-3" key={index}>
-                <div className="flex gap-2"><Input value={item.description} onChange={(event) => updateItem(index, "description", event.target.value)} placeholder="Project phase title" /><Button type="button" size="icon" variant="ghost" aria-label="Remove line item" disabled={items.length === 1} onClick={() => setItems((current) => current.filter((_, itemIndex) => itemIndex !== index))}><Trash2 className="h-4 w-4" /></Button></div>
+                <div className="flex gap-2"><Input value={item.description} onChange={(event) => updateItem(index, "description", event.target.value)} placeholder="Project phase title" /><Button type="button" size="icon" variant="ghost" aria-label="Remove line item" disabled={items.length === 1} onClick={() => removeQuoteItem(index)}><Trash2 className="h-4 w-4" /></Button></div>
                 <Textarea rows={2} value={item.details || ""} onChange={(event) => updateItem(index, "details", event.target.value)} placeholder="Describe the steps and finished result for this phase." />
                 <div className="grid gap-2 sm:grid-cols-2"><Input value={item.estimatedHours || ""} onChange={(event) => updateItem(index, "estimatedHours", event.target.value)} placeholder="Approx. labor effort, e.g. 6–10 hours" /><Input value={item.materials || ""} onChange={(event) => updateItem(index, "materials", event.target.value)} placeholder="Material categories/allowance included" /></div>
                 <div><Label>Internal phase allocation</Label><Input aria-label="Internal phase allocation" type="number" min="0" step="0.01" value={item.rate} onChange={(event) => updateItem(index, "rate", event.target.value)} /></div>
@@ -423,6 +498,7 @@ export default function AdminQuoteBuilder({ quote, onSchedule, initiallyOpen = f
           <Button className="w-full" disabled={!ready} onClick={() => setShowPreview(true)}>
             <Eye className="mr-2 h-4 w-4" />{isRevisionDraft ? "Preview Corrected Quote" : "Preview Customer Quote"}
           </Button>
+          {!ready && <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-950"><strong>Before you can preview:</strong><ul className="mt-1 list-disc pl-5">{items.some((item) => !item.description.trim() || item.quantity <= 0 || item.rate < 0) && <li>Complete every remaining phase title, quantity, and price.</li>}{totals.total <= 0 && <li>The revised quote total must be greater than zero.</li>}{!pricingSplitComplete && <li>Labor plus estimated materials must equal the ${totals.subtotal.toFixed(2)} project subtotal. Use “Apply Exact Price Reduction” above to synchronize them.</li>}</ul></div>}
         </div> : <div className="space-y-5">
           <div className="overflow-hidden rounded-xl border bg-white shadow-sm">
             <div className="bg-slate-950 px-6 py-5 text-white">
