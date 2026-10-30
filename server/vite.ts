@@ -166,8 +166,8 @@ export function serveStatic(app: Express) {
         title = "Handyman Project Gallery | HandyTech Solutions St. Louis";
         description = "See completed HandyTech repair, renovation, installation, painting, carpentry, and smart-home projects in the St. Louis area.";
       } else if (pathname === "/service-areas") {
-        title = "St. Louis Area Handyman Service Locations | HandyTech";
-        description = "HandyTech Solutions serves St. Louis, Hazelwood, Florissant, Ferguson, and Bridgeton with professional handyman and smart-home services.";
+        title = "Handyman Service Areas in St. Louis County & St. Charles | HandyTech";
+        description = "HandyTech Solutions serves Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles with handyman, painting, drywall, low-voltage, and smart-home services.";
       } else if (pathname.startsWith("/service-areas/")) {
         const slug = pathname.split("/")[2];
         const area = SERVICE_AREA_BY_SLUG[slug];
