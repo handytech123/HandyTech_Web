@@ -10,24 +10,6 @@ export type ServiceAreaContent = {
 
 export const SERVICE_AREA_CONTENT: ServiceAreaContent[] = [
   {
-    slug: "st-louis",
-    city: "St. Louis",
-    title: "Handyman Services in St. Louis, MO",
-    metaDescription: "HandyTech Solutions provides professional repairs, installations, painting, carpentry, fixture work, and smart-home help in St. Louis, Missouri.",
-    introduction: "From a focused repair to a multi-step home improvement, HandyTech Solutions helps St. Louis homeowners and small businesses complete practical projects with clear communication and careful workmanship.",
-    needs: ["Drywall, trim, door, and interior repairs", "Painting and room refresh projects", "Lighting, plumbing-fixture, and appliance installation", "TV mounting, cameras, Wi-Fi, and smart-home upgrades"],
-    serviceSlugs: ["drywall-patch-small", "single-room-painting", "light-fixture-replacement", "smart-home-hub-setup"],
-  },
-  {
-    slug: "hazelwood",
-    city: "Hazelwood",
-    title: "Handyman Services in Hazelwood, MO",
-    metaDescription: "Local handyman help in Hazelwood, MO for repairs, painting, fixtures, carpentry, mounting, and connected-home improvements from HandyTech Solutions.",
-    introduction: "HandyTech Solutions serves Hazelwood with dependable help for routine repairs, installations, maintenance, and technology upgrades. We make it simple to explain the project, request a quote, and plan the work.",
-    needs: ["Home maintenance and punch-list repairs", "Wall repair and interior painting", "Fixture replacement and installation", "Mounting, cabling, security, and smart-home setup"],
-    serviceSlugs: ["other", "drywall-patch-small", "single-room-painting", "tv-wall-mount"],
-  },
-  {
     slug: "florissant",
     city: "Florissant",
     title: "Handyman Services in Florissant, MO",
@@ -37,15 +19,6 @@ export const SERVICE_AREA_CONTENT: ServiceAreaContent[] = [
     serviceSlugs: ["drywall-patch-small", "grab-bar-installation", "small-bathroom-remodel", "security-camera-install-1-2-units"],
   },
   {
-    slug: "ferguson",
-    city: "Ferguson",
-    title: "Handyman Services in Ferguson, MO",
-    metaDescription: "HandyTech Solutions offers repair, upkeep, lighting, painting, fixture, safety, and smart-home services for customers in Ferguson, Missouri.",
-    introduction: "HandyTech Solutions helps Ferguson customers tackle repairs and upgrades that improve how a home looks, works, and feels. Every request starts with the actual scope so the next step is clear.",
-    needs: ["Walls, doors, trim, and general repairs", "Lighting and fixture improvements", "Painting and interior updates", "Home safety and smart-security projects"],
-    serviceSlugs: ["other", "light-fixture-replacement", "single-room-painting", "smart-home-hub-setup"],
-  },
-  {
     slug: "bridgeton",
     city: "Bridgeton",
     title: "Handyman Services in Bridgeton, MO",
@@ -53,6 +26,33 @@ export const SERVICE_AREA_CONTENT: ServiceAreaContent[] = [
     introduction: "Homes and small businesses in Bridgeton can use HandyTech Solutions for hands-on repair work and technology projects through one local service provider.",
     needs: ["Repair and maintenance punch lists", "Shelving, TV, and equipment mounting", "Network cabling and camera installation", "Painting, carpentry, and fixture replacement"],
     serviceSlugs: ["other", "tv-wall-mount", "structured-cabling-low-voltage-runs", "security-camera-install-1-2-units"],
+  },
+  {
+    slug: "maryland-heights",
+    city: "Maryland Heights",
+    title: "Handyman Services in Maryland Heights, MO",
+    metaDescription: "HandyTech Solutions provides handyman repairs, painting, drywall, mounting, low-voltage cabling, smart-home setup, and security-camera installation in Maryland Heights, MO.",
+    introduction: "HandyTech Solutions helps Maryland Heights homeowners and small businesses complete repair, improvement, and technology projects with one clear point of contact.",
+    needs: ["Drywall, trim, door, and interior repairs", "Interior painting and wallpaper projects", "TV mounting and low-voltage cabling", "Smart-home and security-camera installation"],
+    serviceSlugs: ["drywall-patch-small", "single-room-painting", "structured-cabling-low-voltage-runs", "security-camera-install-1-2-units"],
+  },
+  {
+    slug: "creve-coeur",
+    city: "Creve Coeur",
+    title: "Handyman Services in Creve Coeur, MO",
+    metaDescription: "Professional handyman, drywall, painting, fixture, smart-home, low-voltage, and security-camera services in Creve Coeur, Missouri from HandyTech Solutions.",
+    introduction: "HandyTech Solutions serves Creve Coeur with careful home repairs, finish work, installations, and connected-home improvements planned around the actual project scope.",
+    needs: ["Drywall repair and detailed finish work", "Painting and interior refresh projects", "Fixture, lock, and bathroom upgrades", "Wi-Fi, cameras, and smart-home systems"],
+    serviceSlugs: ["drywall-patch-small", "single-room-painting", "smart-lock-install", "smart-home-hub-setup"],
+  },
+  {
+    slug: "st-charles",
+    city: "St. Charles",
+    title: "Handyman Services in St. Charles, MO",
+    metaDescription: "HandyTech Solutions offers handyman repairs, painting, drywall, wallpaper, mounting, low-voltage, smart-home, and security-camera services in St. Charles, MO.",
+    introduction: "HandyTech Solutions helps St. Charles customers handle practical repairs, room improvements, and home-technology installations without coordinating several separate service providers.",
+    needs: ["Painting, wallpaper, and drywall projects", "Doors, locks, trim, and general repairs", "TV and equipment mounting", "Low-voltage wiring, cameras, and smart-home setup"],
+    serviceSlugs: ["single-room-painting", "drywall-patch-small", "tv-wall-mount", "structured-cabling-low-voltage-runs"],
   },
 ];
 

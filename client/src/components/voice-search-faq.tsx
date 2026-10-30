@@ -5,7 +5,7 @@ const voiceQuestions = [
   },
   {
     question: "Who can repair drywall or paint a room near me?",
-    answer: "HandyTech Solutions handles drywall repair, interior painting, and related preparation work in St. Louis, Florissant, Hazelwood, Ferguson, and Bridgeton, Missouri.",
+    answer: "HandyTech Solutions handles drywall repair, interior painting, and related preparation work in Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles, Missouri.",
   },
   {
     question: "Who installs toilets and bathroom fixtures in St. Louis County?",
@@ -14,6 +14,14 @@ const voiceQuestions = [
   {
     question: "Can I hire HandyTech Solutions to install a door lock?",
     answer: "Yes. HandyTech Solutions installs and replaces door locks, deadbolts, and selected smart locks, subject to an assessment of the door and existing hardware.",
+  },
+  {
+    question: "Who installs security cameras and smart-home equipment near me?",
+    answer: "HandyTech Solutions installs security cameras, smart-home equipment, Wi-Fi and selected low-voltage cabling in Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles.",
+  },
+  {
+    question: "Who installs wallpaper near St. Charles or Maryland Heights?",
+    answer: "HandyTech Solutions provides wallpaper installation and related wall preparation in St. Charles, Maryland Heights, and nearby service communities after reviewing the room and wall condition.",
   },
   {
     question: "How do I request a handyman estimate from HandyTech Solutions?",

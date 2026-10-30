@@ -17,7 +17,7 @@ export default function Home() {
     <div className="min-h-screen bg-background">
       <Helmet>
         <title>HandyTech Solutions LLC | Handyman Services in St. Louis, MO</title>
-        <meta name="description" content="Professional handyman services in St. Louis, Florissant, Hazelwood, Ferguson, and Bridgeton for repairs, painting, fixtures, mounting, and smart-home installation." />
+        <meta name="description" content="Professional handyman, painting, drywall, wallpaper, low-voltage, smart-home, and security-camera services in Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles." />
         <link rel="canonical" href="https://handytech-solutions.com/" />
         <meta property="og:title" content="HandyTech Solutions | Professional Handyman Services" />
         <meta property="og:description" content="Expert handyman services in Missouri. Professional home repairs and smart home installations." />
@@ -39,11 +39,11 @@ export default function Home() {
             "priceRange": "$$",
             "email": "contact@handytech-solutions.com",
             "areaServed": [
-              "St. Louis, MO",
-              "Florissant, MO", 
-              "Hazelwood, MO",
-              "Ferguson, MO",
-              "Bridgeton, MO"
+              "Florissant, MO",
+              "Bridgeton, MO",
+              "Maryland Heights, MO",
+              "Creve Coeur, MO",
+              "St. Charles, MO"
             ],
             "hasOfferCatalog": {
               "@type": "OfferCatalog",
@@ -72,8 +72,8 @@ export default function Home() {
                 }
               ]
             },
-            "knowsAbout": ["Handyman services", "Drywall repair", "Interior painting", "Toilet installation", "Door lock installation", "Wallpaper installation"],
-            "sameAs": ["https://proreferral.homedepot.com/public-profile/885948"]
+            "knowsAbout": ["Handyman services", "Drywall repair", "Interior painting", "Wallpaper installation", "Toilet installation", "Door lock installation", "Low-voltage cabling", "Smart-home installation", "Security camera installation"],
+            "sameAs": ["https://www.facebook.com/handytechsolutions", "https://proreferral.homedepot.com/public-profile/885948"]
           }
           `}
         </script>

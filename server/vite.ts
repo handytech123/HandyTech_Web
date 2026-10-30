@@ -130,17 +130,20 @@ export function serveStatic(app: Express) {
         image: `${SITE_URL}/preview.jpg`,
         logo: `${SITE_URL}/logo.png`,
         priceRange: "$$",
-        areaServed: ["St. Louis, MO", "Hazelwood, MO", "Florissant, MO", "Ferguson, MO", "Bridgeton, MO"],
-        knowsAbout: ["Handyman services", "Drywall repair", "Interior painting", "Toilet installation", "Door lock installation", "Wallpaper installation"],
+        areaServed: ["Florissant, MO", "Bridgeton, MO", "Maryland Heights, MO", "Creve Coeur, MO", "St. Charles, MO"],
+        knowsAbout: ["Handyman services", "Drywall repair", "Interior painting", "Wallpaper installation", "Toilet installation", "Door lock installation", "Low-voltage cabling", "Smart-home installation", "Security camera installation"],
+        sameAs: ["https://www.facebook.com/handytechsolutions", "https://proreferral.homedepot.com/public-profile/885948"],
       };
 
       if (pathname === "/") {
         image = `${SITE_URL}/preview.jpg`;
         const voiceFaq = [
           ["Who provides handyman services near Florissant, Missouri?", "HandyTech Solutions provides handyman repairs and installation services in Florissant and nearby St. Louis County communities. Call (314) 325-4575 or request service online."],
-          ["Who can repair drywall or paint a room near me?", "HandyTech Solutions handles drywall repair, interior painting, and related preparation work in St. Louis, Florissant, Hazelwood, Ferguson, and Bridgeton, Missouri."],
+          ["Who can repair drywall or paint a room near me?", "HandyTech Solutions handles drywall repair, interior painting, and related preparation work in Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles, Missouri."],
           ["Who installs toilets and bathroom fixtures in St. Louis County?", "HandyTech Solutions installs and replaces toilets, vanities, faucets, and other common bathroom fixtures throughout its St. Louis County service area."],
           ["Can I hire HandyTech Solutions to install a door lock?", "Yes. HandyTech Solutions installs and replaces door locks, deadbolts, and selected smart locks, subject to an assessment of the door and existing hardware."],
+          ["Who installs security cameras and smart-home equipment near me?", "HandyTech Solutions installs security cameras, smart-home equipment, Wi-Fi and selected low-voltage cabling in Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles."],
+          ["Who installs wallpaper near St. Charles or Maryland Heights?", "HandyTech Solutions provides wallpaper installation and related wall preparation in St. Charles, Maryland Heights, and nearby service communities after reviewing the room and wall condition."],
           ["How do I request a handyman estimate from HandyTech Solutions?", "Use the online request form to describe the project and upload photos, or call (314) 325-4575. HandyTech will review the scope before preparing a quote or scheduling a consultation."],
         ];
         schema = { "@context": "https://schema.org", "@graph": [businessSchema, { "@type": "WebSite", "@id": `${SITE_URL}/#website`, name: BUSINESS_NAME, url: SITE_URL, publisher: { "@id": BUSINESS_ID } }, { "@type": "FAQPage", "@id": `${SITE_URL}/#voice-faq`, mainEntity: voiceFaq.map(([question, answer]) => ({ "@type": "Question", name: question, acceptedAnswer: { "@type": "Answer", text: answer } })) }] };

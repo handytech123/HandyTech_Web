@@ -10,7 +10,7 @@ import { SERVICE_AREA_CONTENT } from "@shared/service-area-content";
 
 export default function ServiceAreasPage() {
   return <div className="min-h-screen bg-slate-50">
-    <Helmet><title>St. Louis Area Handyman Service Locations | HandyTech</title><meta name="description" content="HandyTech Solutions serves St. Louis, Hazelwood, Florissant, Ferguson, and Bridgeton with professional handyman and smart-home services." /><link rel="canonical" href={`${SITE_URL}/service-areas`} /></Helmet>
+    <Helmet><title>Handyman Service Areas in St. Louis County &amp; St. Charles | HandyTech</title><meta name="description" content="HandyTech Solutions serves Florissant, Bridgeton, Maryland Heights, Creve Coeur, and St. Charles with handyman, painting, drywall, low-voltage, and smart-home services." /><link rel="canonical" href={`${SITE_URL}/service-areas`} /></Helmet>
     <Navigation />
     <main className="mx-auto max-w-7xl px-4 pb-20 pt-32 sm:px-6 lg:px-8">
       <header className="mx-auto mb-12 max-w-3xl text-center"><p className="mb-3 text-sm font-bold uppercase tracking-widest text-brand-primary">Local service you can plan online</p><h1 className="text-4xl font-bold text-slate-900 sm:text-5xl">Handyman services across the St. Louis area</h1><p className="mt-5 text-lg text-slate-600">Choose your community to see common project types and connect with the right HandyTech service.</p></header>

@@ -16,7 +16,7 @@ export function seoSlug(value: string): string {
     .slice(0, 90);
 }
 
-export const SERVICE_AREAS = ["St. Louis", "Hazelwood", "Florissant", "Ferguson", "Bridgeton"] as const;
+export const SERVICE_AREAS = ["Florissant", "Bridgeton", "Maryland Heights", "Creve Coeur", "St. Charles"] as const;
 
 export function isIndexableProjectTitle(value?: string | null): value is string {
   const title = value?.trim();
